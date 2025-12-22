@@ -1,0 +1,45 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "fullstack": "npm install && concurrently --prefix-colors cyan,magenta --kill-others -n backend,frontend \"cargo --color=always watch -x run -w backend\" \"npm run start\"",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "dev_original": "vite",
+    "dev": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "vite",
+    "start:backend": "cd ../backend && cargo run --bin backend"
+  },
+  "dependencies": {
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.6",
+    "@mui/material": "^7.3.6",
+    "@mui/styles": "^6.5.0",
+    "@mui/x-date-pickers": "^8.22.1",
+    "@reduxjs/toolkit": "^2.11.0",
+    "@tanstack/react-query": "^5.90.12",
+    "dayjs": "^1.11.19",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.10.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4"
+  }
+}
