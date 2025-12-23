@@ -8,13 +8,13 @@ CREATE TABLE rosters (
 CREATE TABLE rosters_coaches (
     coachid BIGINT NOT NULL REFERENCES users(id),
     rosterid BIGINT NOT NULL REFERENCES rosters(rosterid),
-    CONSTRAINT uk_coachid_rosterid
-        UNIQUE(coachid,rosterid)
+    CONSTRAINT pk_coachid_rosterid
+        PRIMARY KEY (coachid,rosterid)
 );
 
 CREATE TABLE rosters_quizzers (
     quizzerid BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     rosterid BIGINT NOT NULL REFERENCES rosters(rosterid),
-    CONSTRAINT uk_quizzerid_rosterid
-        UNIQUE(quizzerid,rosterid)
+    CONSTRAINT pk_quizzerid_rosterid
+        PRIMARY KEY (quizzerid,rosterid)
 );

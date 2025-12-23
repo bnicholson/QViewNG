@@ -38,13 +38,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    division_games (did, tdrri) {
-        did -> Int8,
-        tdrri -> Int8,
-    }
-}
-
-diesel::table! {
     divisions (did) {
         did -> Int8,
         tid -> Int8,
@@ -108,19 +101,30 @@ diesel::table! {
         gid -> Int8,
         #[max_length = 48]
         org -> Varchar,
-        #[max_length = 48]
-        tournament -> Varchar,
-        #[max_length = 48]
-        division -> Varchar,
-        #[max_length = 48]
-        room -> Varchar,
-        #[max_length = 48]
-        round -> Varchar,
         #[max_length = 64]
         clientkey -> Varchar,
         ignore -> Bool,
         #[max_length = 32]
         ruleset -> Varchar,
+        quizmasterid -> Nullable<Int8>,
+        contentjudgeid -> Nullable<Int8>,
+        tournamentid -> Nullable<Int8>,
+        divisionid -> Nullable<Int8>,
+        roomid -> Nullable<Int8>,
+        roundid -> Nullable<Int8>,
+        leftteamid -> Int8,
+        centerteamid -> Nullable<Int8>,
+        rightteamid -> Int8,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    games_statsgroups (gid, sgid) {
+        gid -> Int8,
+        sgid -> Int8,
+        created_at -> Timestamptz,
     }
 }
 
@@ -162,11 +166,43 @@ diesel::table! {
         name -> Varchar,
         #[max_length = 32]
         building -> Varchar,
-        #[max_length = 64]
-        quizmaster -> Varchar,
-        #[max_length = 64]
-        contentjudge -> Varchar,
         comments -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    rosters (rosterid) {
+        rosterid -> Int8,
+        #[max_length = 64]
+        name -> Varchar,
+        #[max_length = 256]
+        description -> Nullable<Varchar>,
+    }
+}
+
+diesel::table! {
+    rosters_coaches (coachid, rosterid) {
+        coachid -> Int8,
+        rosterid -> Int8,
+    }
+}
+
+diesel::table! {
+    rosters_quizzers (quizzerid, rosterid) {
+        quizzerid -> Int8,
+        rosterid -> Int8,
+    }
+}
+
+diesel::table! {
+    rounds (roundid) {
+        roundid -> Int8,
+        did -> Nullable<Int8>,
+        scheduled_start_time -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -201,6 +237,62 @@ diesel::table! {
 }
 
 diesel::table! {
+    statsgroups (sgid) {
+        sgid -> Int8,
+        #[max_length = 64]
+        name -> Varchar,
+        #[max_length = 256]
+        description -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    teams (teamid) {
+        teamid -> Int8,
+        divisionid -> Int8,
+        coachid -> Int8,
+        #[max_length = 128]
+        name -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    teams_quizzers (teamid, quizzerid) {
+        teamid -> Int8,
+        quizzerid -> Int8,
+        #[max_length = 64]
+        role_description -> Nullable<Varchar>,
+        access_lvl -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    tournamentgroups (tgid) {
+        tgid -> Int8,
+        #[max_length = 64]
+        name -> Varchar,
+        #[max_length = 256]
+        description -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    tournamentgroups_tournaments (tournamentgroupid, tournamentid) {
+        tournamentid -> Int8,
+        tournamentgroupid -> Int8,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     tournaments (tid) {
         tid -> Int8,
         #[max_length = 32]
@@ -227,6 +319,18 @@ diesel::table! {
         #[max_length = 1024]
         shortinfo -> Varchar,
         info -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    tournaments_admins (tournamentid, adminid) {
+        tournamentid -> Int8,
+        adminid -> Int8,
+        #[max_length = 64]
+        role_description -> Nullable<Varchar>,
+        access_lvl -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -267,10 +371,35 @@ diesel::table! {
         activated -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        #[max_length = 64]
+        fname -> Varchar,
+        #[max_length = 64]
+        mname -> Varchar,
+        #[max_length = 64]
+        lname -> Varchar,
     }
 }
 
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
+diesel::joinable!(games -> divisions (divisionid));
+diesel::joinable!(games -> rooms (roomid));
+diesel::joinable!(games -> rounds (roundid));
+diesel::joinable!(games -> tournaments (tournamentid));
+diesel::joinable!(games_statsgroups -> games (gid));
+diesel::joinable!(games_statsgroups -> statsgroups (sgid));
+diesel::joinable!(rosters_coaches -> rosters (rosterid));
+diesel::joinable!(rosters_coaches -> users (coachid));
+diesel::joinable!(rosters_quizzers -> rosters (rosterid));
+diesel::joinable!(rosters_quizzers -> users (quizzerid));
+diesel::joinable!(rounds -> divisions (did));
+diesel::joinable!(teams -> divisions (divisionid));
+diesel::joinable!(teams -> users (coachid));
+diesel::joinable!(teams_quizzers -> teams (teamid));
+diesel::joinable!(teams_quizzers -> users (quizzerid));
+diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
+diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
+diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
+diesel::joinable!(tournaments_admins -> users (adminid));
 diesel::joinable!(user_permissions -> users (user_id));
 diesel::joinable!(user_roles -> users (user_id));
 diesel::joinable!(user_sessions -> users (user_id));
@@ -279,15 +408,25 @@ diesel::allow_tables_to_appear_in_same_query!(
     apicalllog,
     attachment_blobs,
     attachments,
-    division_games,
     divisions,
     eventlogs,
     games,
+    games_statsgroups,
     quizevents,
     role_permissions,
     rooms,
+    rosters,
+    rosters_coaches,
+    rosters_quizzers,
+    rounds,
     schedules,
+    statsgroups,
+    teams,
+    teams_quizzers,
+    tournamentgroups,
+    tournamentgroups_tournaments,
     tournaments,
+    tournaments_admins,
     user_permissions,
     user_roles,
     user_sessions,
