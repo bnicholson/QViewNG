@@ -1,23 +1,33 @@
 # QView
 
-QView is a React RUST web application designed to manage tournaments for
-Quizzing events such as Bible Quizzing, Physics Quizzes, etc.
+[by [QuizStuff](https://www.quizstuff.com)]
+
+QView is a React + Rust web application designed to manage tournaments for Quizzing events 
+such as Bible Quizzing, Physics Quizzes, etc.
+
+This GH repo is intended to replace the [/bnicholson/QView repo](https://github.com/bnicholson/QView) some time in the future.
+
+The vision for the QView project (meaning the most detailed information about QView's future) can be found in this [Wiki pages](https://github.com/bnicholson/QViewNG/wiki) of this GH repo.
 
 Rust provides the backend APIs and microservices.
 The frontend is designed using the React JavaScript framework.
 The UI is designed using the Material UI framework and components.
 
 The backend database is Postgresql.
-Redis/Valkey is used as a cache and as a inter Qview server store if we 
-end up having two application servers.  
+Redis/Valkey is planned to be used as a cache and as a inter QView server store if we 
+end up having two application servers.
 
-Note:  A beta/UAT development environment is up at http://qview.quizstuff.com:3000
+If you'd like to support the project by contributing your development time please don't hesitate to reach out to Collyn Brenner at collynbrenner@gmail.com. We're looking to make this a reality - and there is plenty to do!
 
-# Requirements & How to set up the Development Environment
+Note:  A beta/UAT development environment may be available for viewing at http://qview.quizstuff.com:3000
 
-1) Install Ubuntu desktop on a machine or on a VM/Hypervisor/Virtualbox.
+<br/>
 
-2) Install git in Ubuntu.
+## Setting Up the Dev Environment (*requirements*)
+
+1) Install Ubuntu desktop on a machine or on a VM/Hypervisor/Virtualbox. (It is best if you have a computer with Ubuntu 24.04+ installed on it.)
+
+2) Install 'git' in Ubuntu.
    ```
    sudo apt install git
    ```
@@ -28,94 +38,71 @@ Note:  A beta/UAT development environment is up at http://qview.quizstuff.com:30
    cd qview
    ```
 
-4) `getrustdev`: this script loads all the required linux (debian) programs needed to develop such as Rust, PostgreSQL, etc.
+4) `getrustdev`: this script loads all the required linux (debian) programs needed to develop
+   such as Rust, PostgreSQL, etc.
 	```
    ./getrustdev
    ```
 
-5) Now install the JavaScript libraries needed by the UI frontend.
+5) Now install the JavaScript libraries needed by the UI frontend:
    ```
    cd frontend
-   yarn install
+   yarn install  // or 'npm i'
    cd ..
    ```
 
-6) Now create a development database. QView uses PostgreSQL as the database. Create a standard PostgreSQL database using the following commands as the PostgreSQL user.
+6) Now create a development database. QView uses PostgreSQL as the database. Create a standard
+   PostgreSQL database using the following commands as the PostgreSQL user:
    ```
    sudo bash
    su - postgres
    psql
    CREATE DATABASE qviewdev;
-   CREATE USER sammy;
-   ALTER USER sammy PASSWORD 'somepassword';
-   ALTER USER sammy WITH SUPERUSER;
+   CREATE USER steve;
+   ALTER USER steve PASSWORD 'somepassword';
+   ALTER USER steve WITH SUPERUSER;
    \q
    exit
    exit
    ```
 
-   Note:  There is an example script under setup-db-valkey.sh that does this and other work.
-   This script replaces steps #8, #9, #10.   The script isn't perfect - it has flaws.
+   Note:  There is an example script under setup-db-valkey.sh that does this plus other work.
+   The script is intended to replace steps #8, #9, #10 however the script has flaws so you may
+   want to stick with the manual steps above until those are sorted out.
 
-7) Create an .env file with the following data (update your user & password)
-   ```
-   DATABASE_URL=postgres://sammy:somepassword@localhost/qviewdev
-   ```
+7) Copy and paste the '.env.example' file in the same directory it exists in (the root dir) and
+   manually populate it with the necessary values (specifically for the database conneciton string).
 
-8) Now populate the database with the tables needed for QView.
+8) Run the DB migrations on the datbase you just created to establish in the DB the schema and perhaps some data:
    ```
    diesel migration run
    ```
 
-9) Remove the superuser permissions from QView.
+9) Remove the superuser permissions from the user you created earlier:
    ```
    sudo bash
    su - postgres
    psql
-   ALTER USER sammy with NOSUPERUSER;
+   ALTER USER steve with NOSUPERUSER;
    \q
    exit
    exit
    ```
 
-10) Now you are ready to build the executables and the frontend code.
+10) Now you are ready to run QView's frontend and backend together with one command. From the root:
     ```
-    cargo build
-    ```
-
-11) Create and populate all the appropriate environment variables in the `.env` file.
-    ```
-    SECRET_KEY=some_secret
-    DATABASE_URL=postgres://sammy:somepassword@localhost/qviewdev
-    RUST_BACKTRACE=1
-    S3_HOST=http://localhost:9000
-    S3_REGION=minio
-    S3_BUCKET=bucket
-    S3_ACCESS_KEY_ID=access_key
-    S3_SECRET_ACCESS_KEY=secret_key
-    SCOREEVENT_PSK=secret_quizmachine_client_key
-    SMTP_FROM_ADDRESS=QView@somewhere.com 
-    SMTP_SERVER=mailserver_from_somewhere.com
-    SMTP_USERNAME=userid@somewhere.com
-    SMTP_PASSWORD=secret_mailer_password
-    SEND_MAIL=true
+    cd ./frontend/
+    npm run dev
     ```
 
-12) Restart the terminal to refresh the environment variables.
-
-13) Now run the project using Cargo.
-    ```  
-    cargo fullstack
-    ```
-
-14) It's time to use the application. Start your favorite browser.
+11) It's time to use the application. Start your favorite browser:
     ```
     firefox
     ```
 
-15) Go to localhost 
+12) Go to the address for the frontend that Vite states is running. It is usually:
     ```
-    http://localhost:3000
+    http://localhost:5173
     ```
 
 # How It Works
