@@ -365,7 +365,7 @@ diesel::table! {
 
 diesel::table! {
     users (id) {
-        id -> Int4,
+        id -> Int8,
         email -> Text,
         hash_password -> Text,
         activated -> Bool,
