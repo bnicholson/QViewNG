@@ -1,0 +1,5 @@
+
+ALTER TABLE users
+DROP COLUMN fname,
+DROP COLUMN mname,
+DROP COLUMN lname;
