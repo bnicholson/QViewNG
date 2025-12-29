@@ -167,6 +167,9 @@ export const TournamentProfile = (props: { tab: string }) => {
                 // this would be visible to children entities of the Room entity, namely Games.</li>
             </ul>
           </Box>
+          <Box>
+            Tab val: {props.tab}
+          </Box>
         </Box>
         <div className="Form">
           <Card>

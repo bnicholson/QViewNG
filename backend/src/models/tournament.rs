@@ -48,7 +48,8 @@ pub struct Tournament {
     #[schema(value_type = String, format = DateTime)]
     pub created_at: UTC,
     #[schema(value_type = String, format = DateTime)]
-    pub updated_at: UTC
+    pub updated_at: UTC,
+    pub is_public: bool
 }
 
 // #[tsync::tsync]
