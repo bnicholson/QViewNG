@@ -34,6 +34,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { RoundsInProgress } from './containers/RoundsInProgress';
 import { Swagger } from './containers/Swagger'
 import { TournamentFinder } from './pages/TournamentFinder'
+import { TournamentProfile } from './pages/TournamentProfile';
 
 if (import.meta.env.NODE_ENV === 'development') import('./setupDevelopment')
 
@@ -91,7 +92,7 @@ export default function App() {
               >
                 <MenuIcon />
               </IconButton>
-              <Typography variant="h6" component="div" onClick={() => { navigate("/") }}>QView</Typography>
+              <Typography variant="h6" component="div" onClick={() => { navigate("/") }} style={{ cursor: 'pointer' }}>QView</Typography>
               <Typography variant="h6" component="div" sx={{ flexGrow: 2 }} onClick={() => toggleDrawer()}>
 
               </Typography>
@@ -219,8 +220,9 @@ export default function App() {
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
-            <Route path="/tournament" element={<Tournaments />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/tournament" element={<Tournaments />} />
+            <Route path="/tournament/:tid_str" element={<TournamentProfile tab="divisions" />} />
             <Route path="/division" element={<Divisions />} />
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />

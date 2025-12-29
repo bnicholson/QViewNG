@@ -4,7 +4,7 @@
 .env_beta
 .env_prod
 !.env.example
-node_modules/*
+node_modules
 build-log*.txt
 .DS_Store
 /.idea/

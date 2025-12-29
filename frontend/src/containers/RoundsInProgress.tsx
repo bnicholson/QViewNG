@@ -20,7 +20,7 @@ export const RoomInfoAPI = {
 }
 
 interface Column_rip {
-  id: 'tournament' | 'division' | 'room' | 'round' | 'question' | 'team1' | 'score1' | 'team2' | 'score2' | 'team3' | 'score3' | 'message';
+  id: 'tournament' | 'division' | 'room' | 'round' | 'question' | 'team1' | 'score1' | 'team2' | 'score2' | 'team3' | 'score3';
   label: string;
   minWidth?: number;
   align?: 'right';
@@ -114,55 +114,8 @@ function createData_rip(
   team3: string,
   score3: number,
 ): Data_rip {
-  return { tournament, division, room, round, question, team1, score1, team2, score2, team3, score3};
+  return { tournament, division, room, round, question, team1, score1, team2, score2, team3, score3 };
 }
-
-const rows_rip = [
-  createData_rip('Q2022', 'District Novice', "Jester 102", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 103", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 104", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 105", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 106", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 107", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 108", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 109", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 110", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 111", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-
-  createData_rip('Q2022', 'District Novice', "Jester 112", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 113", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20 ),
-  createData_rip('Q2022', 'District Novice', "Jester 114", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 115", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 116", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 117", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 118", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 119", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 120", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Jester 121", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-
-  createData_rip('Q2022', 'District Novice', "Madison 102", "Wed-07b", 4, "Team #A", 110, "Team #2", 10, "Team #3", 50),
-  createData_rip('Q2022', 'District Novice', "Madison 103", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 104", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 105", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 106", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 107", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 108", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 109", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 110", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 111", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-
-  createData_rip('Q2022', 'District Novice', "Madison 112", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 113", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 114", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 115", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 116", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 117", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 118", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 119", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 120", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-  createData_rip('Q2022', 'District Novice', "Madison 121", "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20),
-
-];
 
 export const RoundsInProgress = () => {
   const navigate = useNavigate();
@@ -189,7 +142,7 @@ export const RoundsInProgress = () => {
     console.log("In useeffect - pulling from room api")
     console.log(rooms)
     const interval=setInterval(()=>{
-      setDisplayDate([])
+      setDisplayDate(new Date())
     },60000)
     return()=>clearInterval(interval)
   }, [displayDate])
@@ -197,6 +150,7 @@ export const RoundsInProgress = () => {
 
   return (
     <div>
+      <br/>
       <Box>
         <Breadcrumbs aria-label="breadcrumb" >
           <Link underline="hover" color="inherit" href="/">
@@ -216,6 +170,7 @@ export const RoundsInProgress = () => {
         </Breadcrumbs>
       </Box>
       <Typography variant="h5">Rounds In Progress</Typography>
+      <br/>
       {RoundsInProgressTable()}
     </div >
   )
@@ -224,6 +179,13 @@ export const RoundsInProgress = () => {
 export const RoundsInProgressTable = () => {
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(40);
+
+  const rows_rip: Data_rip[] = []
+  for (let i=1;i<41;i++) {
+    rows_rip.push(createData_rip(
+      'Q2022', 'District Novice', `Jester ${i}`, "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20
+    ))
+  }
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -262,7 +224,7 @@ export const RoundsInProgressTable = () => {
           <TableBody>
             {rows_rip
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((row) => {
+              .map((row: Data_rip) => {
                 return (
                   <TableRow hover role="checkbox" tabIndex={-1} key={row.room}>
                     {columns_rip.map((column) => {

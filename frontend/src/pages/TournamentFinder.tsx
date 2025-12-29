@@ -35,7 +35,8 @@ export const TournamentFinder = () => {
   const openTournament = (tournament: TournamentTS) => {
     dispatcher(setTournament(tournament.tname));
     dispatcher(setTid(tournament.tid));
-    navigate("/division");
+    // navigate("/division");
+    navigate(`/tournament/${tournament.tid}`);
   }
   const closeTournamentEditor = () => setTournamentEditor({ isOpen: false, tournament: undefined });
   React.useEffect(() => {
