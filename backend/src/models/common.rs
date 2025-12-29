@@ -28,4 +28,7 @@ pub struct SearchDateParams {
     pub to_date: i64,
 }
 
-
+#[derive(serde::Deserialize)]
+pub struct TournamentParam {
+    pub tid: i64,
+}

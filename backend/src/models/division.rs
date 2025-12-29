@@ -69,7 +69,8 @@ pub fn read(db: &mut database::Connection, item_id: BigId) -> QueryResult<Divisi
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Division>> {
     use crate::schema::divisions::dsl::*;
-    let values = divisions
+    
+    divisions
         .order(created_at)
         .filter(tid.eq(pagination.page_size))
         .limit(pagination.page_size)
@@ -77,9 +78,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
             pagination.page
                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
         )
-        .load::<Division>(db);
-        values
-
+        .load::<Division>(db)
 }
 
 pub fn update(db: &mut database::Connection, item_id: BigId, item: &DivisionChangeset) -> QueryResult<Division> {

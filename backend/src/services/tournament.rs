@@ -132,6 +132,20 @@ async fn read_today(
     }
 }
 
+#[get("/{id}/divisions")]
+async fn read_divisions(
+    db: Data<Database>,
+    item_id: Path<BigId>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::tournament::read_divisions(&mut conn, item_id.into_inner(), &params) {
+        Ok(division) => HttpResponse::Ok().json(division),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -216,6 +230,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(get_between_dates)
         .service(read_today)
         .service(read)
+        .service(read_divisions)
         .service(create)
         .service(update)
         .service(destroy);

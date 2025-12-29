@@ -11,6 +11,7 @@ use crate::schema::tournaments::dsl::{
     organization,tname,breadcrumb,fromdate,todate,venue,city,region,
     country,contact,contactemail,hide,shortinfo,info
 };
+use crate::models::division::Division;
 
 // #[tsync::tsync]
 #[derive(
@@ -105,6 +106,24 @@ pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i6
         .filter(fromdate.le(dt_to))
         .load::<Tournament>(db);
     values
+}
+
+pub fn read_divisions(
+    db: &mut database::Connection,
+    item_id: BigId,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Division>> {
+    use crate::schema::divisions::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    divisions
+        .filter(tid.eq(item_id))
+        .order(dname.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Division>(db)
 }
 
 pub fn update(db: &mut database::Connection, item_id: BigId, item: &TournamentChangeset) -> QueryResult<Tournament> {
