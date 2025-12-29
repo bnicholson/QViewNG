@@ -65,13 +65,10 @@ async fn index(
     Query(url_params): Query<PaginationParams>,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
-
-    let result = models::tournament::read_all(&mut db, &url_params);
-
-    if result.is_ok() {
-        HttpResponse::Ok().json(result.unwrap())
-    } else {
-        HttpResponse::InternalServerError().finish()
+    
+    match models::tournament::read_all(&mut db, &url_params) {
+        Ok(tournament) => HttpResponse::Ok().json(tournament),
+        Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
@@ -91,12 +88,9 @@ async fn read(
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
-    let result = models::tournament::read(&mut db, item_id.into_inner());
-
-    if result.is_ok() {
-        HttpResponse::Ok().json(result.unwrap())
-    } else {
-        HttpResponse::NotFound().finish()
+    match models::tournament::read(&mut db, item_id.into_inner()) {
+        Ok(tournament) => HttpResponse::Ok().json(tournament),
+        Err(_) => HttpResponse::NotFound().finish(),
     }
 }
 
@@ -154,7 +148,7 @@ async fn create(
 ) -> Result<HttpResponse, Error> {
     let mut db = db.pool.get().unwrap();
 
-    tracing::debug!("{} Tournement model create {:?}", line!(), item);
+    tracing::debug!("{} Tournament model create {:?}", line!(), item);
     
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
 

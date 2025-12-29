@@ -14,14 +14,14 @@ use crate::schema::tournaments::dsl::{
 
 // #[tsync::tsync]
 #[derive(
-Debug,
-Serialize,
-Deserialize,
-Clone,
-Queryable,
-Insertable,
-Identifiable,
-ToSchema
+    Debug,
+    Serialize,
+    Deserialize,
+    Clone,
+    Queryable,
+    Insertable,
+    Identifiable,
+    ToSchema
 )]
 #[diesel(table_name = crate::schema::tournaments)]
 #[diesel(primary_key(tid))]

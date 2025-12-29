@@ -1,8 +1,10 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{models, models::division::{Division, DivisionChangeset}};
-use crate::models::common::{PaginationParams,BigId};
+use crate::{models, models::division::{Division,NewDivision,DivisionChangeset}};
+use crate::models::{tournament::Tournament,common::{PaginationParams,BigId}};
 use crate::database::Database;
 use utoipa::OpenApi;
+use diesel::{QueryDsl,RunQueryDsl,dsl::{exists,select}};
+use crate::schema::tournaments::dsl::{tournaments as tournaments_table,tid as tournament_tid};
 
 #[derive(OpenApi)]
 #[openapi(paths(index))]
@@ -44,25 +46,40 @@ async fn read(
     db: Data<Database>,
     item_id: Path<BigId>,
 ) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
+    let mut conn = db.pool.get().unwrap();
 
-    let result = models::division::read(&mut db, item_id.into_inner());
-
-    if result.is_ok() {
-        HttpResponse::Ok().json(result.unwrap())
-    } else {
-        HttpResponse::NotFound().finish()
+    match models::division::read(&mut conn, item_id.into_inner()) {
+        Ok(division) => HttpResponse::Ok().json(division),
+        Err(_) => HttpResponse::NotFound().finish(),
     }
 }
 
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<DivisionChangeset>,
+    Json(item): Json<NewDivision>,
 ) -> Result<HttpResponse, Error> {
-    let mut db = db.pool.get().unwrap();
 
-    let result: Division = models::division::create(&mut db, &item).expect("Creation error");
+    let mut conn = db.get_connection();
+
+    let tournament_exists: bool = match tournaments_table
+        .find(item.tid)
+        .get_result::<Tournament>(&mut conn)
+    {
+        Ok(_) => true,
+        Err(_) => false,
+    };
+
+    if !tournament_exists {
+        println!("Could not find Tournament by ID={}", &item.tid);
+        return Ok(HttpResponse::UnprocessableEntity().json(serde_json::json!({
+            "error": format!("Tournament with ID {} does not exist", item.tid)
+        })));
+    }
+
+    // tracing::debug!("{} Division model create {:?}", line!(), item);
+    
+    let result: Division = models::division::create(&mut conn, &item).expect("Creation error");
 
     Ok(HttpResponse::Created().json(result))
 }

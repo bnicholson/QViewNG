@@ -338,7 +338,7 @@ diesel::table! {
 
 diesel::table! {
     user_permissions (user_id, permission) {
-        user_id -> Int4,
+        user_id -> Int8,
         permission -> Text,
         created_at -> Timestamptz,
     }
@@ -346,7 +346,7 @@ diesel::table! {
 
 diesel::table! {
     user_roles (user_id, role) {
-        user_id -> Int4,
+        user_id -> Int8,
         role -> Text,
         created_at -> Timestamptz,
     }
@@ -354,8 +354,8 @@ diesel::table! {
 
 diesel::table! {
     user_sessions (id) {
-        id -> Int4,
-        user_id -> Int4,
+        id -> Int8,
+        user_id -> Int8,
         refresh_token -> Text,
         device -> Nullable<Text>,
         created_at -> Timestamptz,

@@ -36,18 +36,28 @@ pub struct Division {
     pub updated_at: UTC
 }
 
+#[derive(Insertable,Deserialize)]
+#[diesel(table_name = crate::schema::divisions)]
+pub struct NewDivision {
+    pub tid: BigId,
+    pub dname: String,
+    pub breadcrumb: String,
+    pub hide: bool,
+    pub shortinfo: String
+}
+
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::divisions)]
 #[diesel(primary_key(did))]
-pub struct DivisionChangeset {   
+pub struct DivisionChangeset {
     pub dname: String,
     pub breadcrumb: String,
     pub hide: bool,
     pub shortinfo: Option<String>
 }
 
-pub fn create(db: &mut database::Connection, item: &DivisionChangeset) -> QueryResult<Division> {
+pub fn create(db: &mut database::Connection, item: &NewDivision) -> QueryResult<Division> {
     use crate::schema::divisions::dsl::*;
     insert_into(divisions).values(item).get_result::<Division>(db)
 }

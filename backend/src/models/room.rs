@@ -5,8 +5,9 @@ use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
+use utoipa::ToSchema;
 // this import requires this syntax (to appease rustc):
-use crate::schema::rooms::dsl::{roomid,tid,name,building,quizmaster,contentjudge,comments};
+use crate::schema::rooms::dsl::{roomid,tid,name,building,comments};
 
 // #[tsync::tsync]
 #[derive(
@@ -18,6 +19,7 @@ Queryable,
 Insertable,
 Identifiable,
 AsChangeset,
+ToSchema
 )]
 #[diesel(table_name = crate::schema::rooms)]
 #[diesel(primary_key(roomid))]
@@ -26,9 +28,11 @@ pub struct Room {
     pub tid: BigId,                             // id of the associated tournament
     pub name: String,                           // Name of the room (human readable)
     pub building: String,                       // What is the building this room is in
-    pub quizmaster: String,                     // Name of the quizmaster assigned to the room
-    pub contentjudge : String,                  // name of the content judge
-    pub comments: String,                       // Any comments about the room
+    pub comments: String,                       // Any comments about the room,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: UTC,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: UTC
 }
 
 // #[tsync::tsync]
@@ -39,8 +43,6 @@ pub struct RoomChangeset {
     pub tid: BigId,                             // id of the associated tournament    
     pub name: String,                           // Name of the room (human readable)
     pub building: String,                       // What is the building this room is in
-    pub quizmaster: String,                     // Name of the quizmaster assigned to the room
-    pub contentjudge : String,                  // name of the content judge
     pub comments: String,                       // Any comments about the room
 }
 

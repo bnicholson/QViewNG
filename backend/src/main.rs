@@ -8,8 +8,8 @@ use actix_web::middleware::{Compress, Logger, NormalizePath};
 use utoipa_swagger_ui::SwaggerUi;
 use services::tournament::TournamentDoc;
 use services::division::DivisionDoc;
-use services::quizevent::QuizEventDoc;
-use services::roominfo::RoomInfoDoc;
+// use services::quizevent::QuizEventDoc;
+// use services::roominfo::RoomInfoDoc;
 use utoipa::OpenApi;
 use tracing::{info, error, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -71,17 +71,17 @@ async fn main() -> std::io::Result<()> {
                             // When you add a new scoped service, add its docs path here (*some other configuration required):
                             .url("/tournaments/docs",TournamentDoc::openapi())
                             .url("/divisions/docs",DivisionDoc::openapi())
-                            .url("/roominfo/docs",RoomInfoDoc::openapi())
-                            .url("/quizevents/docs",QuizEventDoc::openapi())
+                            // .url("/roominfo/docs",RoomInfoDoc::openapi())
+                            // .url("/quizevents/docs",QuizEventDoc::openapi())
                             // .url("/namelist/docs",NamelistDoc::openapi())
                             // .url("/pingmsg/docs",PingMsgDoc::openapi())
                     )
                     .service(services::division::endpoints(web::scope("/divisions")))
                     // .service(services::file::endpoints(web::scope("/files")))
-                    .service(services::namelist::endpoints(web::scope("/namelist")))
-                    .service(services::pingmsg::endpoints(web::scope("/pingmsg")))
-                    .service(services::roominfo::endpoints(web::scope("/roominfo")))
-                    .service(services::quizevent::endpoints(web::scope("/quizevents")))
+                    // .service(services::namelist::endpoints(web::scope("/namelist")))
+                    // .service(services::pingmsg::endpoints(web::scope("/pingmsg")))
+                    // .service(services::roominfo::endpoints(web::scope("/roominfo")))
+                    // .service(services::quizevent::endpoints(web::scope("/quizevents")))
                     .service(services::tournament::endpoints(web::scope("/tournaments"))),
             )
     })
