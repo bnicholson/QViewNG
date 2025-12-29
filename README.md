@@ -89,21 +89,23 @@ Note:  A beta/UAT development environment may be available for viewing at http:/
    exit
    ```
 
-10) Now you are ready to run QView's frontend and backend together with one command. From the root:
-    ```
-    cd ./frontend/
-    npm run dev
-    ```
+- Now you are ready to run QView's frontend and backend together with one command. (Note: The Vite server usually listend on http://localhost:5173):
+  ```
+  cd {root}/frontend/
+  npm run dev
+  ```
 
-11) It's time to use the application. Start your favorite browser:
-    ```
-    firefox
-    ```
+- If you want to build the backend without the frontend:
+  ```
+  cd {root}/backend/
+  cargo build --bin backend
+  ```
 
-12) Go to the address for the frontend that Vite states is running. It is usually:
-    ```
-    http://localhost:5173
-    ```
+- Or if you want to build and run the backend without the frontend, use 'run' instead of 'build':
+  ```
+  cd {root}/backend/
+  cargo run --bin backend
+  ```
 
 # How It Works
 The backend is written in Rust and the frontend in TypeScript.
