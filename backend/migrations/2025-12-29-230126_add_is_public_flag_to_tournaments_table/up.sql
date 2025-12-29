@@ -1,0 +1,3 @@
+
+ALTER TABLE tournaments
+    ADD COLUMN is_public BOOLEAN DEFAULT FALSE;

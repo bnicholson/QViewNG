@@ -321,6 +321,7 @@ diesel::table! {
         info -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        is_public -> Nullable<Bool>,
     }
 }
 
