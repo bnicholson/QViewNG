@@ -7,7 +7,9 @@ import CardContent from "@mui/material/CardContent"
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import IconButton from '@mui/material/IconButton'
-import { Breadcrumbs, Link } from '@mui/material'
+import { Breadcrumbs } from '@mui/material'
+// import { Breadcrumbs, Link } from '@mui/material'
+import { Link } from 'react-router-dom'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AppBar from '@mui/material/AppBar'
 import Dialog from '@mui/material/Dialog'
@@ -70,7 +72,7 @@ export const TournamentProfile = (props: { tab: string }) => {
   const tid: number = Number(tid_str)  // for use in this page
   const navigate = useNavigate();
 
-  const validTabs = ['divisions', 'rooms', 'teams', 'rounds', 'quizzers', 'games', 'admins', 'statsGroups'];
+  const validTabs = ['divisions', 'rooms', 'teams', 'rounds', 'quizzers', 'games', 'admins', 'stats-groups'];
   if (props.tab === undefined) { props.tab = validTabs[0] }
 
   if (!validTabs.includes(props.tab)) {
@@ -78,24 +80,24 @@ export const TournamentProfile = (props: { tab: string }) => {
   }
 
   // const [expanded, setExpanded] = React.useState(false)
-  const [processing, setProcessing] = React.useState<boolean>(false)
+  // const [processing, setProcessing] = React.useState<boolean>(false)
   const [divisions, setDivisions] = React.useState<Division[]>([])
   const [openDivisionEditor, setDivisionEditorOpen] = React.useState(false);
 
-  let displayDate = useAppSelector((state) => state.breadCrumb.displayDate);
+  // let displayDate = useAppSelector((state) => state.breadCrumb.displayDate);
   const tournament = useAppSelector((state) => state.breadCrumb.tournament);
   // const tid = useAppSelector((state) => state.breadCrumb.tid)
-  const division = useAppSelector((state) => state.breadCrumb.division);
-  const did = useAppSelector((state) => state.breadCrumb.did);
+  // const division = useAppSelector((state) => state.breadCrumb.division);
+  // const did = useAppSelector((state) => state.breadCrumb.did);
   const handleEditorClickOpen = () => {
     setDivisionEditorOpen(true);
   };
 
   useEffect(() => {
-    setProcessing(true)
+    // setProcessing(true)
     DivisionAPI.get(0, tid).then((divisions: Division[]) => {
       setDivisions(divisions)
-      setProcessing(false)
+      // setProcessing(false)
     })
     console.log("In useeffect - pulling from api")
     // make sure we have a valid division and tid
@@ -116,19 +118,17 @@ export const TournamentProfile = (props: { tab: string }) => {
       <MDEditor.Markdown source={valuemd} style={{ whiteSpace: 'pre-wrap' }} /> */}
       </div>
       <div>
-        <Fab color="primary" onClick={() => handleEditorClickOpen()} aria-label="Add Tournament">
-          <AddIcon />
-        </Fab>
+        <br/>
         <Box>
           <Breadcrumbs aria-label="breadcrumb" >
-            <Link underline="hover" color="inherit" href="/">
+            <Link color="inherit" to="/">
               Home
             </Link>
-            {/* <Link underline="hover" color="inherit" href="/t/q2022">
+            {/* <Link color="inherit" to="/t/q2022">
               Q2022
             </Link>
             <Link
-              underline="hover"
+              
               color="inherit"
               href="/t/q2022/district%20novice"
             >
@@ -140,7 +140,7 @@ export const TournamentProfile = (props: { tab: string }) => {
             <Link href="/roundsinprogress">
               <Typography color="text.primary" >Rounds</Typography>
             </Link> */}
-            <Link underline="hover" color="inherit" href={`/tournament/${tid}`}>
+            <Link color="inherit" to={`/tournament/${tid}`}>
               <Typography color="text.primary" >Tournament: {tournament} (ID: {tid})</Typography>
             </Link>
           </Breadcrumbs>
@@ -150,7 +150,7 @@ export const TournamentProfile = (props: { tab: string }) => {
             <div>*Project Planning Note: The breadcrumb path above could alternatively be a list like the following
               (with links to each level for quick access):</div>
             <ul>
-              <li><Link underline="hover" color="inherit" href={`/tournament/${tid}`}>Tournament: {tournament} (ID: {tid})</Link></li>
+              <li><Link color="inherit" to={`/tournament/${tid}`}>Tournament: {tournament} (ID: {tid})</Link></li>
               <li>
                 Division: division_name
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -167,32 +167,157 @@ export const TournamentProfile = (props: { tab: string }) => {
                 // this would be visible to children entities of the Room entity, namely Games.</li>
             </ul>
           </Box>
-          <Box>
-            Tab val: {props.tab}
-          </Box>
         </Box>
         <div className="Form">
           <Card>
-            <CardHeader>
-
-            </CardHeader>
+            {/* <CardHeader></CardHeader> */}
             <Box sx={{ display: 'flex' }}>
               <CardContent>
                 <Typography align="left" variant="h5" color="primary" >
                   <Link
-                    underline="hover"
                     color="inherit"
-                    href="/roundsinprogress"
+                    to={`/tournament/${tid}/divisions`}
                   >
-                    Rounds In Progress&nbsp;&nbsp;&nbsp;&nbsp;
+                    Divisions
                   </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
                   <Link
-                    underline="hover"
                     color="inherit"
-                    href="/tdeditor"
+                    to={`/tournament/${tid}/rooms`}
                   >
-                    Tournament Editor&nbsp;&nbsp;&nbsp;&nbsp;
+                    Rooms
                   </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to={`/tournament/${tid}/teams`}
+                  >
+                    Teams
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to={`/tournament/${tid}/rounds`}
+                  >
+                    Rounds
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to={`/tournament/${tid}/quizzers`}
+                  >
+                    Quizzers
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to={`/tournament/${tid}/games`}
+                  >
+                    Games
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to={`/tournament/${tid}/Admins`}
+                  >
+                    Admins
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to={`/tournament/${tid}/stats-groups`}
+                  >
+                    Stats Groups
+                  </Link>
+                </Typography>
+              </CardContent>
+            </Box>
+          </Card>
+          {/* {divisions.map((division) => */}
+            {/* <Card key={division.dname}> */}
+            <Card>
+              {/* <CardHeader
+                action={
+                  <Tooltip title="Edit this division" arrow>
+                    <IconButton onClick={() => handleEditorClickOpen()} aria-label="settings">
+                      <SettingsIcon />
+                    </IconButton>
+                  </Tooltip>
+                }
+                title={<Typography variant="h5">
+                  <Link
+                    
+                    color="primary"
+                    href="//">{division.dname}</Link>
+                </Typography>}
+                subheader={<Typography variant="h6"> Need to put something here for now nothing. </Typography>}
+              /> */}
+              <Box sx={{ display: 'flex' }}>
+                <CardContent>
+                  {props.tab === 'divisions' && <div>***where the DIVISIONS data grid for each tab's data will go***</div>}
+                  {props.tab === 'rooms' && <div>***where the ROOMS data grid for each tab's data will go***</div>}
+                  {props.tab === 'teams' && <div>***where the TEAMS data grid for each tab's data will go***</div>}
+                  {props.tab === 'rounds' && <div>***where the ROUNDS data grid for each tab's data will go***</div>}
+                  {props.tab === 'quizzers' && <div>***where the QUIZZERS data grid for each tab's data will go***</div>}
+                  {props.tab === 'games' && <div>***where the GAMES data grid for each tab's data will go***</div>}
+                  {props.tab === 'admins' && <div>***where the ADMINS data grid for each tab's data will go***</div>}
+                  {props.tab === 'stats-groups' && <div>***where the STATS GROUPS data grid for each tab's data will go***</div>}
+                  
+                  {/* <Typography align="left" variant="h5" color="primary" >
+                    <Link
+                      
+                      color="inherit"
+                      href="/t/q2022/district%20novice"
+                    >
+                      Team Standings
+                    </Link>&nbsp;&nbsp;
+                    <Link
+                      
+                      color="inherit"
+                      href="/t/q2022/district%20novice"
+                    >
+                      Individual Standings
+                    </Link>
+                  </Typography>
+                  <Typography align="left" variant="body1" color="text.primary" >
+                    Breadcrumb: {division.breadcrumb}
+                  </Typography>
+                  <Typography align="left" variant="body1" color="text.primary" >
+                    ShortInfo: {division.shortinfo}
+                  </Typography>
+                  <Typography align="left" variant="body1" color="text.primary" >
+                    ID: {division.did}                   Hidden: {division.hide}
+                  </Typography>
+                  {/* <Typography align="left" variant="body1" color="text.primary" >
+                  Created: {division.created_at} - Last Update: {division.updated_at}
+                </Typography> */}
+                </CardContent> 
+              </Box>
+            </Card>
+          {/* )} */}
+        </div>
+        <div className="Form">
+          <Card>
+            {/* <CardHeader>
+
+            </CardHeader> */}
+            <Box sx={{ display: 'flex' }}>
+              <CardContent>
+                <Typography align="left" variant="h5" color="primary" >
+                  <Link
+                    color="inherit"
+                    to="/roundsinprogress"
+                  >
+                    Rounds In Progress
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <Link
+                    color="inherit"
+                    to="/tdeditor"
+                  >
+                    Tournament Editor
+                  </Link>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
                   < a href="http://localhost:3000/swagger-ui/">Swagger UI</a>
                 </Typography>
               </CardContent>
@@ -210,26 +335,23 @@ export const TournamentProfile = (props: { tab: string }) => {
                 }
                 title={<Typography variant="h5">
                   <Link
-                    underline="hover"
                     color="primary"
-                    href="//">{division.dname}</Link>
+                    to="//">{division.dname}</Link>
                 </Typography>}
-                subheader={<Typography variant="h6"> Need to put something here for now nothing. </Typography>}
+                subheader={<Typography variant="h6">***the Division's GENERAL INFO goes here***</Typography>}
               />
               <Box sx={{ display: 'flex' }}>
                 <CardContent>
                   <Typography align="left" variant="h5" color="primary" >
                     <Link
-                      underline="hover"
                       color="inherit"
-                      href="/t/q2022/district%20novice"
+                      to="/t/q2022/district%20novice"
                     >
                       Team Standings
                     </Link>&nbsp;&nbsp;
                     <Link
-                      underline="hover"
                       color="inherit"
-                      href="/t/q2022/district%20novice"
+                      to="/t/q2022/district%20novice"
                     >
                       Individual Standings
                     </Link>
@@ -249,10 +371,13 @@ export const TournamentProfile = (props: { tab: string }) => {
                 </CardContent>
               </Box>
             </Card>
-
           )}
           {DivisionEditor(openDivisionEditor, setDivisionEditorOpen)}
         </div>
+        <br/>
+        <Fab color="primary" onClick={() => handleEditorClickOpen()} aria-label="Add Tournament">
+          <AddIcon />
+        </Fab>
       </div >
     </div>
   )

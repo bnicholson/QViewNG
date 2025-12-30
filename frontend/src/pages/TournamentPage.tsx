@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { TournamentAPI } from '../features/TournamentAPI'
 
 
-export function Tournaments() {
+export function TournamentPage() {
   const [text, setText] = useState<string>('')
   const [selectedTournament, editTournament] = useState<Tournament | null>(null)
   const [tournaments, setTournaments] = useState<Tournament[]>([])
@@ -55,10 +55,11 @@ export function Tournaments() {
 
   return (
     <div style={{ display: 'flex', flexFlow: 'column', textAlign: 'left' }}>
-      <h1>Tournaments</h1>
-      {tournaments.map((tournament) =>
+      <br/>
+      <h1 style={{ marginBottom: 0 }}>Tournaments</h1>
+      {tournaments.map((tournament, index) =>
         tournament.tid === selectedTournament?.tid ? (
-          <div className="Form">
+          <div key={index} className="Form">
             <div style={{ display: 'flex' }}>
               <input
                 style={{ flex: 1 }}
@@ -85,14 +86,29 @@ export function Tournaments() {
             </div>
           </div>
         ) : (
-          <div className="Form">
+          <div key={index} className="Form">
             <div style={{ flex: 1 }}>
-              ID: {tournament.tid} Org: {tournament.organization} Tournament: {tournament.tname} 
-              Dates: {tournament.fromdate} - {tournament.todate} 
-              At: {tournament.venue} {tournament.city},{tournament.region},{tournament.country}
-              Contacts: {tournament.contact} {tournament.contactemail} 
-              Hide: {tournament.hide}
-              More Info: {tournament.info}
+              <div>
+                ID: {tournament.tid}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                Org: {tournament.organization}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                Tournament: {tournament.tname} 
+              </div>
+              <div>
+                Dates: {tournament.fromdate.format('YYYY-MM-DD')} - {tournament.todate.format('YYYY-MM-DD')}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                At: {tournament.venue}, {tournament.city}, {tournament.region}, {tournament.country}
+              </div>
+              <div>
+                Contacts: {tournament.contact}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                {tournament.contactemail}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                Hide: {tournament.hide.toString()}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                More Info: {tournament.info}
+              </div>
             </div>
             <div>
               <a href="#" className="App-link" onClick={() => editTournament(tournament)}>

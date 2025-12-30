@@ -1,19 +1,17 @@
-// import { useApolloClient } from '@apollo/client';
-// import { GraphQLPage } from './containers/GraphQLPage';
-import { useAuth, useAuthCheck } from './hooks/useAuth';
+// import { useAuth, useAuthCheck } from './hooks/useAuth';
 import { AccountPage } from './pages/AccountPage';
 import { LoginPage } from './pages/LoginPage';
 import { ActivationPage } from './pages/ActivationPage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import { RecoveryPage } from './pages/RecoveryPage';
 import { ResetPage } from './containers/ResetPage';
-import { Tournaments } from './pages/TournamentPage';
-import { Divisions } from './pages/DivisionPage';
+import { TournamentPage } from './pages/TournamentPage';
+// import { Divisions } from './pages/DivisionPage';
 import { TDEditor } from './containers/TDEditor';
 import React from 'react';
 import './App.css';
 import { Files } from './containers/Files';
-import { Route, useNavigate, Routes } from 'react-router-dom';
+import { Route, useNavigate, Routes, Navigate } from 'react-router-dom';
 import '@mui/material/colors';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -35,6 +33,7 @@ import { RoundsInProgress } from './containers/RoundsInProgress';
 import { Swagger } from './containers/Swagger'
 import { TournamentFinder } from './pages/TournamentFinder'
 import { TournamentProfile } from './pages/TournamentProfile';
+import TournamentRedirect from './pages/TournamentRedirect';
 
 if (import.meta.env.NODE_ENV === 'development') import('./setupDevelopment')
 
@@ -221,9 +220,19 @@ export default function App() {
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/account" element={<AccountPage />} />
-            <Route path="/tournament" element={<Tournaments />} />
-            <Route path="/tournament/:tid_str" element={<TournamentProfile tab="divisions" />} />
-            <Route path="/division" element={<Divisions />} />
+            {/* <Route path="/tournament" element={<Tournaments />} /> */}
+            <Route path="/tournaments" element={<TournamentPage />} />
+            <Route path="/tournament/:tid_str" element={<TournamentRedirect />} />
+            <Route path="/tournament/:tid_str/divisions" element={<TournamentProfile tab="divisions" />} />
+            {/* <Route path="/tournament/:tid_str/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}
+            <Route path="/tournament/:tid_str/rooms" element={<TournamentProfile tab="rooms" />} />
+            <Route path="/tournament/:tid_str/teams" element={<TournamentProfile tab="teams" />} />
+            <Route path="/tournament/:tid_str/rounds" element={<TournamentProfile tab="rounds" />} />
+            <Route path="/tournament/:tid_str/quizzers" element={<TournamentProfile tab="quizzers" />} />
+            <Route path="/tournament/:tid_str/games" element={<TournamentProfile tab="games" />} />
+            <Route path="/tournament/:tid_str/admins" element={<TournamentProfile tab="admins" />} />
+            <Route path="/tournament/:tid_str/stats-groups" element={<TournamentProfile tab="stats-groups" />} />
+            {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
