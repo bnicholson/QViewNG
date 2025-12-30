@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { TournamentAPI } from '../features/TournamentAPI'
 
 
-export function TournamentPage() {
+export function TournamentsPage() {
   const [text, setText] = useState<string>('')
   const [selectedTournament, editTournament] = useState<Tournament | null>(null)
   const [tournaments, setTournaments] = useState<Tournament[]>([])

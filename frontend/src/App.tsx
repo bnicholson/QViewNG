@@ -5,13 +5,12 @@ import { ActivationPage } from './pages/ActivationPage';
 import { RegistrationPage } from './pages/RegistrationPage';
 import { RecoveryPage } from './pages/RecoveryPage';
 import { ResetPage } from './containers/ResetPage';
-import { TournamentPage } from './pages/TournamentPage';
-// import { Divisions } from './pages/DivisionPage';
+import { TournamentsPage } from './pages/TournamentsPage';
 import { TDEditor } from './containers/TDEditor';
 import React from 'react';
 import './App.css';
 import { Files } from './containers/Files';
-import { Route, useNavigate, Routes, Navigate } from 'react-router-dom';
+import { Route, useNavigate, Routes } from 'react-router-dom';
 import '@mui/material/colors';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -27,7 +26,6 @@ import ListItem from '@mui/material/ListItem';
 import styled from '@emotion/styled';
 import { ChevronLeft, Inbox, Mail, AccountCircle } from '@mui/icons-material';
 import { Backdrop, Divider, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
-import { createTheme, ThemeProvider } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { RoundsInProgress } from './containers/RoundsInProgress';
 import { Swagger } from './containers/Swagger'
@@ -38,19 +36,6 @@ import TournamentRedirect from './pages/TournamentRedirect';
 if (import.meta.env.NODE_ENV === 'development') import('./setupDevelopment')
 
 const drawerWidth = 240;
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#008080"
-    }
-  },
-  typography: {
-    button: {
-      textTransform: 'none'
-    }
-  }
-})
 
 export default function App() {
   const navigate = useNavigate()
@@ -76,7 +61,7 @@ export default function App() {
 
   // @ts-ignore
   return (
-    <ThemeProvider theme={theme}>
+    <>
       <div className="App">
         <Box sx={{ flexGrow: 1 }}>
           <AppBar position="static">
@@ -221,7 +206,7 @@ export default function App() {
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/account" element={<AccountPage />} />
             {/* <Route path="/tournament" element={<Tournaments />} /> */}
-            <Route path="/tournaments" element={<TournamentPage />} />
+            <Route path="/tournaments" element={<TournamentsPage />} />
             <Route path="/tournament/:tid_str" element={<TournamentRedirect />} />
             <Route path="/tournament/:tid_str/divisions" element={<TournamentProfile tab="divisions" />} />
             {/* <Route path="/tournament/:tid_str/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}
@@ -271,6 +256,6 @@ export default function App() {
         </Box>
       </div >
       <CssBaseline />
-    </ThemeProvider>
+    </>
   )
 }
