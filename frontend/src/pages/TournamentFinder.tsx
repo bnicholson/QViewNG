@@ -1,9 +1,11 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Button, Card, CardActions, CardContent, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { 
+  Button, Card, CardActions, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
+} from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../app/hooks';
 import { setTid, setTournament } from '../breadcrumb';
@@ -13,30 +15,26 @@ import { states } from '../features/states';
 import { TournamentCardContent } from '../features/TournamentCardContent';
 import { TournamentEditorDialog } from '../features/TournamentEditorDialog';
 
-interface Props {
-
-}
-
 /**
  * This renders a tournament finder and tournament editor and serves as the main component for the
  * home page.
  */
 export const TournamentFinder = () => {
-  const [startDate, setStartDate] = React.useState<Dayjs | null>(dayjs().subtract(1, 'month'))
-  const [stopDate, setStopDate] = React.useState<Dayjs | null>(dayjs().add(1, 'month'))
-  const [selectedCountry, setSelectedCountry] = React.useState<string>("USA")
-  const [selectedRegion, setSelectedRegion] = React.useState<string>("")
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const [tournaments, setTournaments] = React.useState<TournamentTS[]>([])
-  const [tournamentEditor, setTournamentEditor] = React.useState<{ isOpen: boolean, tournament: TournamentTS | undefined }>({ isOpen: false, tournament: undefined });
+  const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(1, 'month'))
+  const [stopDate, setStopDate] = useState<Dayjs | null>(dayjs().add(1, 'month'))
+  const [selectedCountry, setSelectedCountry] = useState<string>("USA")
+  const [selectedRegion, setSelectedRegion] = useState<string>("")
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [tournaments, setTournaments] = useState<TournamentTS[]>([])
+  const [tournamentEditor, setTournamentEditor] = useState<{ isOpen: boolean, tournament: TournamentTS | undefined }>({ isOpen: false, tournament: undefined });
   const isUserAdmin = true;
   const dispatcher = useAppDispatch();
   const navigate = useNavigate();
   const openTournament = (tournament: TournamentTS) => {
     dispatcher(setTournament(tournament.tname));
     dispatcher(setTid(tournament.tid));
-    // navigate("/division");
-    navigate(`/tournament/${tournament.tid}`);
+    // navigate("/division");  <- previously
+    navigate(`/tournament/${tournament.tid}/divisions`);
   }
   const closeTournamentEditor = () => setTournamentEditor({ isOpen: false, tournament: undefined });
   React.useEffect(() => {

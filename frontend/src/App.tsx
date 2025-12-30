@@ -47,7 +47,6 @@ export default function App() {
               </IconButton>
               <Typography variant="h6" component="div" onClick={() => { navigate("/") }} style={{ cursor: 'pointer' }}>QView</Typography>
               <Typography variant="h6" component="div" sx={{ flexGrow: 2 }} onClick={() => toggleDrawer()}>
-
               </Typography>
               {/* <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                 {/* CRA: right-aligned nav buttons *

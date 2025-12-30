@@ -43,6 +43,11 @@ export const TournamentAPI = {
     const result = await response.json();
     return result.map((tournament: Tournament) => dateStringToDayjs(tournament));
   },
+  getById: async (tid: number): Promise<TournamentTS> => {
+    const response = await fetch(`/api/tournaments/${tid}`);
+    const result = await response.json();
+    return result;
+  },
   create: async (tournament: TournamentChangesetTS): Promise<TournamentCreateUpdateResult> => {
     let nquery = JSON.stringify(tournament);
     let response = await fetch('/api/tournaments', {
