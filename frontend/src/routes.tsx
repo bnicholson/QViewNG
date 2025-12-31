@@ -13,6 +13,7 @@ import { TDEditor } from "./containers/TDEditor";
 import { RoundsInProgress } from "./containers/RoundsInProgress";
 import { Files } from "./containers/Files";
 import { Swagger } from "./containers/Swagger";
+import NotFound from "./pages/NotFound";
 
 // NOTE: This component was created for ease-of-access and modularity, not reusability.
 //       ONLY the App.tsx file should use this component. 
@@ -44,6 +45,7 @@ export default function QViewRoutes() {
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
             <Route path="/swagger" element={<Swagger />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
     )
 }
