@@ -41,7 +41,6 @@ export const TournamentFinder = () => {
     setIsLoading(true)
     const startMillis = startDate ? startDate.valueOf() : 0;
     const stopMillis = stopDate ? stopDate.valueOf() : dayjs().add(1, 'month').valueOf();
-    // const cancellable = makeCancellable(TournamentAPI.get(0, 10));  // for temporary testing
     const cancellable = makeCancellable(TournamentAPI.getByDate(startMillis, stopMillis));
     cancellable.promise
       .then((tournaments: TournamentTS[]) => {
@@ -58,6 +57,7 @@ export const TournamentFinder = () => {
       })
     return () => cancellable.cancel();
   }, [selectedCountry, selectedRegion, startDate, stopDate])
+
   return (
     <div style={{ display: "flex", justifyContent: "center" }}>
       <div
@@ -159,7 +159,10 @@ export const TournamentFinder = () => {
         }}>
           {isUserAdmin && (
             <Card onClick={() => setTournamentEditor({ isOpen: true, tournament: undefined })}>
-              <CardContent sx={{ alignItems: "center", display: "flex", flexDirection: "column", height: "100%", justifyContent: "center" }}>
+              <CardContent sx={{ 
+                alignItems: "center", display: "flex", flexDirection: "column", height: "100%", 
+                justifyContent: "center", cursor: "pointer"
+                }}>
                 <div style={{
                   alignItems: "center",
                   background: "#e5e5e5",

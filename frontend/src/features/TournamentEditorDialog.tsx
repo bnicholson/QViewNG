@@ -57,7 +57,7 @@ const tournamentEmptyState: TournamentChangesetTS = {
   contactemail: "@@@",
   country: "",
   fromdate: null,
-  hide: true,
+  is_public: false,
   info: "",
   organization: "Nazarene",
   region: "",
@@ -139,7 +139,7 @@ export const TournamentEditorDialog = (props: Props) => {
       country: tournament.country,
       contact: tournament.contact,
       contactemail: tournament.contactemail,
-      hide: true,
+      is_public: true,
       shortinfo: tournament.shortinfo,
       info: tournament.info
     };
@@ -230,7 +230,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <Select
                   labelId='demo-simple-select-label55'
                   id="select-organization"
-                  label="Organization"
+                  // label="Organization"
                   value={tournament.organization}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, organization: event.target.value as string }));
@@ -244,7 +244,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Tournament Name ( must be unique)</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Tournament Name"
+                  // label="Tournament Name"
+                  placeholder="Tournament Name"
                   value={tournament.tname}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, tname: event.target.value as string }));
@@ -264,7 +265,7 @@ export const TournamentEditorDialog = (props: Props) => {
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DesktopDatePicker
                       enableAccessibleFieldDOMStructure={false}
-                      label="From Date"
+                      label=""
                       format="MM/DD/YYYY"
                       value={tournament.fromdate}
                       onChange={fromdate => setTournament(state => ({ ...state, fromdate }))}
@@ -280,7 +281,7 @@ export const TournamentEditorDialog = (props: Props) => {
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DesktopDatePicker
                       enableAccessibleFieldDOMStructure={false}
-                      label="To Date"
+                      label=""
                       format="MM/DD/YYYY"
                       value={tournament.todate}
                       onChange={todate => setTournament(state => ({ ...state, todate }))}
@@ -298,7 +299,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Venue</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Venue"
+                  // label="Venue"
+                  placeholder="Venue"
                   value={tournament.venue}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, venue: event.target.value as string }));
@@ -306,25 +308,26 @@ export const TournamentEditorDialog = (props: Props) => {
                 />
               </Grid>
               <Grid item xs={4}>
-                <InputLabel>Hide or Show this Tournament</InputLabel>
+                <InputLabel>Visbility</InputLabel>
                 <Select
                   labelId='demo-simple-select-label55'
                   id="select-organization"
-                  label="Hide"
-                  value={tournament.hide ? "True" : "False"}
+                  // label="Hide"
+                  value={tournament.is_public ? "True" : "False"}
                   onChange={(event) => {
-                    setTournament(state => ({ ...state, hide: event.target.value === "True" }));
+                    setTournament(state => ({ ...state, is_public: event.target.value === "True" }));
                   }}
                 >
-                  <MenuItem value={"True"}>Hide</MenuItem>
-                  <MenuItem value={"False"}>Show to public</MenuItem>
+                  <MenuItem value={"True"}>Public</MenuItem>
+                  <MenuItem value={"False"}>Private</MenuItem>
                 </Select>
               </Grid>
               <Grid item xs={4}>
                 <InputLabel>Breadcrumb (short url name)</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Breadcrumb"
+                  // label="Breadcrumb"
+                  placeholder="Breadcrumb"
                   value={tournament.breadcrumb}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, breadcrumb: event.target.value as string }));
@@ -340,7 +343,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>City</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="City"
+                  // label="City"
+                  placeholder="City"
                   value={tournament.city}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, city: event.target.value as string }));
@@ -351,7 +355,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Region/State/Province</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Region/State/Province:"
+                  // label="Region/State/Province:"
+                  placeholder="Region/State/Province:"
                   value={tournament.region}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, region: event.target.value as string }));
@@ -362,7 +367,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Country</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Country"
+                  // label="Country"
+                  placeholder="Country"
                   value={tournament.country}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, country: event.target.value as string }));
@@ -374,7 +380,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Contact </InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Contact"
+                  // label="Contact"
+                  placeholder="Contact"
                   value={tournament.contact}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, contact: event.target.value as string }));
@@ -385,7 +392,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Contact Email</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Contact Email"
+                  // label="Contact Email"
+                  placeholder="Contact Email"
                   value={tournament.contactemail}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, contactemail: event.target.value as string }));
@@ -397,7 +405,8 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>One line of information about the tournament</InputLabel>
                 <TextField
                   variant="outlined"
-                  label="Short Information"
+                  // label="Short Information"
+                  placeholder="Short Information"
                   value={tournament.shortinfo}
                   style={{ width: 900 }}
                   onChange={(event) => {

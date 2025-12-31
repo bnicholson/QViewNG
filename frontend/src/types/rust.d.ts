@@ -225,7 +225,7 @@ interface Tournament {
   country: string;
   contact: string;
   contactemail: string;
-  hide: boolean;
+  is_public: boolean;
   shortinfo: string;
   info: string;
   created_at: UTC;
@@ -244,7 +244,7 @@ interface TournamentChangeset {
   country: string;
   contact: string;
   contactemail: string;
-  hide: boolean;
+  is_public: boolean;
   shortinfo: string;
   info: string;
 }

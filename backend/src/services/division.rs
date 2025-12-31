@@ -1,10 +1,11 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{models, models::division::{Division,NewDivision,DivisionChangeset}};
-use crate::models::{tournament::Tournament,common::{PaginationParams,BigId}};
+use crate::models::{tournament::Tournament,common::PaginationParams};
 use crate::database::Database;
 use utoipa::OpenApi;
 use diesel::{QueryDsl,RunQueryDsl,dsl::{exists,select}};
 use crate::schema::tournaments::dsl::{tournaments as tournaments_table,tid as tournament_tid};
+use uuid::Uuid;
 
 #[derive(OpenApi)]
 #[openapi(paths(index))]
@@ -44,7 +45,7 @@ async fn index(
 #[get("/{id}")]
 async fn read(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
@@ -87,7 +88,7 @@ async fn create(
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
     Json(item): Json<DivisionChangeset>,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
@@ -104,7 +105,7 @@ async fn update(
 #[delete("/{id}")]
 async fn destroy(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 

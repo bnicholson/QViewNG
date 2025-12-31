@@ -7,6 +7,7 @@ use crate::models::common::*;
 use actix_web::{delete, HttpRequest, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path}};
 // this import requires this syntax (to appease rustc):
 use crate::schema::apicalllog::dsl::{created_at,apicallid,method,uri,version,headers};
+use chrono::{Utc,DateTime};
 
 // Okay.  We only write entries to this table.  It's used to emergencies
 // and debugging.   We will eventually start removing items that are older than
@@ -19,7 +20,7 @@ use crate::schema::apicalllog::dsl::{created_at,apicallid,method,uri,version,hea
 #[diesel(table_name = crate::schema::apicalllog)]
 #[diesel(primary_key(apicallid))]
 pub struct ApiCalllog {
-    pub created_at: UTC,                                            // used to ensure we have a unique timestamp to the millisecond    
+    pub created_at: DateTime<Utc>,                                            // used to ensure we have a unique timestamp to the millisecond    
     pub apicallid: BigId,                                           // apicall log identifier (unique) -- also ensure all events are unique
     pub method: String,                                             // What method was called
     pub uri: String,

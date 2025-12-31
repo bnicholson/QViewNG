@@ -44,10 +44,14 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
+const DIVISIONS_PAGE = 0
+const DIVISIONS_PAGE_SIZE = 30
+
 export const TournamentProfile = (props: { tab: string }) => {
 
-  const { tid_str } = useParams();  // for reception from URL path
-  const tid: number = Number(tid_str)  // for use in this page
+  const { tid } = useParams();
+  if (tid === undefined) return (<></>)
+
   const navigate = useNavigate();
 
   const validTabs = ['divisions', 'rooms', 'teams', 'rounds', 'quizzers', 'games', 'admins', 'stats-groups'];
@@ -96,16 +100,15 @@ export const TournamentProfile = (props: { tab: string }) => {
     // return () => cancellable.cancel();
       
     // setIsLoading(true)
-    DivisionAPI.get(0, tid).then((divisions: Division[]) => {
+    DivisionAPI.get(DIVISIONS_PAGE, DIVISIONS_PAGE_SIZE).then((divisions: Division[]) => {
       setDivisions(divisions)
       // setIsLoading(false)
     })
     console.log("In useeffect - pulling from api")
+
     // make sure we have a valid division and tid
-    if ((tid <= 0)) {//|| (divisions.length < 1)) {
-      console.log("Tid = " + tid + " divisions.length = " + divisions.length);
-      navigate("/");
-    }
+    // TODO -> redirect to 404 Not Found page (*to be added soon)
+
     setIsLoading(false)
   }, [tid])
 
@@ -147,7 +150,7 @@ export const TournamentProfile = (props: { tab: string }) => {
                 <Typography color="text.primary" >Rounds</Typography>
               </Link> */}
               <Link color="inherit" to={`/tournament/${tid}`}>
-                <Typography color="text.primary" >Tournament: {tournament?.tname} (ID: {tid})</Typography>
+                <Typography color="text.primary" >{tournament?.tname} (tournament)</Typography>
               </Link>
             </Breadcrumbs>
             {/* <Typography>Tournament ID: {tournament} {tid} </Typography> */}
@@ -156,7 +159,7 @@ export const TournamentProfile = (props: { tab: string }) => {
               <div>*Project Planning Note: The breadcrumb path above could alternatively be a list like the following
                 (with links to each level for quick access):</div>
               <ul>
-                <li><Link color="inherit" to={`/tournament/${tid}`}>Tournament: {tournament?.tname} (ID: {tid})</Link></li>
+                <li><Link color="inherit" to={`/tournament/${tid}`}>Tournament: {tournament?.tname}</Link></li>
                 <li>
                   Division: division_name
                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;

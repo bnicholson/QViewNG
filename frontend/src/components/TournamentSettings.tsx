@@ -103,7 +103,7 @@ export default function TournamentSettings() {
             country: country,
             contact: contact,
             contactemail: contactemail,
-            hide: true,
+            is_public: false,
             shortinfo: shortinfo,
             info: info
         };
@@ -171,7 +171,7 @@ export default function TournamentSettings() {
                                 <Select
                                     labelId='demo-simple-select-label55'
                                     id="select-organization"
-                                    label="Organization"
+                                    // label="Organization"
                                     value={org}
                                     onChange={(event) => {
                                         setOrg(event.target.value as string);
@@ -185,7 +185,8 @@ export default function TournamentSettings() {
                                 <InputLabel>Tournament Name ( must be unique)</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Tournament Name"
+                                    // label="Tournament Name"
+                                    placeholder="Tournament Name"
                                     value={tournament_name}
                                     onChange={(event) => {
                                         setTournamentName(event.target.value as string);
@@ -212,7 +213,7 @@ export default function TournamentSettings() {
                                 <InputLabel>Tournament Start Date</InputLabel>
                                 <Item>
                                     <DatePickerComponent
-                                        label="From Date"
+                                        label=""
                                         setDay={(newValue) => { fromDateRef.current = newValue }}
                                     />
                                 </Item>
@@ -221,7 +222,7 @@ export default function TournamentSettings() {
                                 <InputLabel>Tournament End Date</InputLabel>
                                 <Item >
                                     <DatePickerComponent
-                                        label="To Date"
+                                        label=""
                                         setDay={(newValue) => { toDateRef.current = newValue }}
                                     />
                                 </Item>
@@ -234,7 +235,8 @@ export default function TournamentSettings() {
                                 <InputLabel>Venue</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Venue"
+                                    // label="Venue"
+                                    placeholder="Venue"
                                     value={venue}
                                     onChange={(event) => {
                                         setVenue(event.target.value as string);
@@ -242,25 +244,26 @@ export default function TournamentSettings() {
                                 />
                             </Grid>
                             <Grid item xs={4}>
-                                <InputLabel>Hide or Show this Tournament</InputLabel>
+                                <InputLabel>Visbility</InputLabel>
                                 <Select
                                     labelId='demo-simple-select-label55'
                                     id="select-organization"
-                                    label="Hide"
+                                    // label="Hide"
                                     value={hide}
                                     onChange={(event) => {
                                         setHide(event.target.value as string);
                                     }}
                                 >
-                                    <MenuItem value={"True"}>Hide</MenuItem>
-                                    <MenuItem value={"False"}>Show to public</MenuItem>
+                                    <MenuItem value={"True"}>Public</MenuItem>
+                                    <MenuItem value={"False"}>Private</MenuItem>
                                 </Select>
                             </Grid>
                             <Grid item xs={4}>
                                 <InputLabel>Breadcrumb (short url name)</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Breadcrumb"
+                                    // label="Breadcrumb"
+                                    placeholder="Breadcrumb"
                                     value={breadcrumb}
                                     onChange={(event) => {
                                         setBreadcrumb(event.target.value as string);
@@ -276,7 +279,8 @@ export default function TournamentSettings() {
                                 <InputLabel>City</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="City"
+                                    // label="City"
+                                    placeholder="City"
                                     value={city}
                                     onChange={(event) => {
                                         setCity(event.target.value as string);
@@ -287,7 +291,8 @@ export default function TournamentSettings() {
                                 <InputLabel>Region/State/Province</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Region/State/Province:"
+                                    // label="Region/State/Province:"
+                                    placeholder="Region/State/Province:"
                                     value={region}
                                     onChange={(event) => {
                                         setRegion(event.target.value as string);
@@ -298,7 +303,8 @@ export default function TournamentSettings() {
                                 <InputLabel>Country</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Country"
+                                    // label="Country"
+                                    placeholder="Country"
                                     value={country}
                                     onChange={(event) => {
                                         setCountry(event.target.value as string);
@@ -310,7 +316,8 @@ export default function TournamentSettings() {
                                 <InputLabel>Contact </InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Contact"
+                                    // label="Contact"
+                                    placeholder="Contact"
                                     value={contact}
                                     onChange={(event) => {
                                         setContact(event.target.value as string);
@@ -321,7 +328,8 @@ export default function TournamentSettings() {
                                 <InputLabel>Contact Email</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Contact Email"
+                                    // label="Contact Email"
+                                    placeholder="Contact Email"
                                     value={contactemail}
                                     onChange={(event) => {
                                         setContactEmail(event.target.value as string);
@@ -333,7 +341,8 @@ export default function TournamentSettings() {
                                 <InputLabel>One line of information about the tournament</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    label="Short Information"
+                                    // label="Short Information"
+                                    placeholder="Short Information"
                                     value={shortinfo}
                                     style={{ width: 900 }}
                                     onChange={(event) => {

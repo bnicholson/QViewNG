@@ -39,13 +39,13 @@ diesel::table! {
 
 diesel::table! {
     divisions (did) {
-        did -> Int8,
-        tid -> Int8,
+        did -> Uuid,
+        tid -> Uuid,
         #[max_length = 32]
         dname -> Varchar,
         #[max_length = 32]
         breadcrumb -> Varchar,
-        hide -> Bool,
+        is_public -> Bool,
         #[max_length = 1024]
         shortinfo -> Varchar,
         created_at -> Timestamptz,
@@ -294,7 +294,7 @@ diesel::table! {
 
 diesel::table! {
     tournaments (tid) {
-        tid -> Int8,
+        tid -> Uuid,
         #[max_length = 32]
         organization -> Varchar,
         #[max_length = 32]
@@ -315,7 +315,7 @@ diesel::table! {
         contact -> Varchar,
         #[max_length = 255]
         contactemail -> Varchar,
-        hide -> Bool,
+        is_public -> Bool,
         #[max_length = 1024]
         shortinfo -> Varchar,
         info -> Text,
@@ -381,24 +381,18 @@ diesel::table! {
 }
 
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
-diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
 diesel::joinable!(games -> rounds (roundid));
-diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gid));
 diesel::joinable!(games_statsgroups -> statsgroups (sgid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
-diesel::joinable!(rounds -> divisions (did));
-diesel::joinable!(teams -> divisions (divisionid));
 diesel::joinable!(teams -> users (coachid));
 diesel::joinable!(teams_quizzers -> teams (teamid));
 diesel::joinable!(teams_quizzers -> users (quizzerid));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
-diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
-diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
 diesel::joinable!(user_permissions -> users (user_id));
 diesel::joinable!(user_roles -> users (user_id));

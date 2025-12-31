@@ -29,16 +29,16 @@ export default function QViewRoutes() {
             <Route path="/account" element={<AccountPage />} />
             {/* <Route path="/tournament" element={<Tournaments />} /> */}
             <Route path="/tournaments" element={<TournamentsPage />} />
-            <Route path="/tournament/:tid_str" element={<TournamentRedirect />} />
-            <Route path="/tournament/:tid_str/divisions" element={<TournamentProfile tab="divisions" />} />
-            {/* <Route path="/tournament/:tid_str/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}
-            <Route path="/tournament/:tid_str/rooms" element={<TournamentProfile tab="rooms" />} />
-            <Route path="/tournament/:tid_str/teams" element={<TournamentProfile tab="teams" />} />
-            <Route path="/tournament/:tid_str/rounds" element={<TournamentProfile tab="rounds" />} />
-            <Route path="/tournament/:tid_str/quizzers" element={<TournamentProfile tab="quizzers" />} />
-            <Route path="/tournament/:tid_str/games" element={<TournamentProfile tab="games" />} />
-            <Route path="/tournament/:tid_str/admins" element={<TournamentProfile tab="admins" />} />
-            <Route path="/tournament/:tid_str/stats-groups" element={<TournamentProfile tab="stats-groups" />} />
+            <Route path="/tournament/:tid" element={<TournamentRedirect />} />
+            <Route path="/tournament/:tid/divisions" element={<TournamentProfile tab="divisions" />} />
+            {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}
+            <Route path="/tournament/:tid/rooms" element={<TournamentProfile tab="rooms" />} />
+            <Route path="/tournament/:tid/teams" element={<TournamentProfile tab="teams" />} />
+            <Route path="/tournament/:tid/rounds" element={<TournamentProfile tab="rounds" />} />
+            <Route path="/tournament/:tid/quizzers" element={<TournamentProfile tab="quizzers" />} />
+            <Route path="/tournament/:tid/games" element={<TournamentProfile tab="games" />} />
+            <Route path="/tournament/:tid/admins" element={<TournamentProfile tab="admins" />} />
+            <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile tab="stats-groups" />} />
             {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />

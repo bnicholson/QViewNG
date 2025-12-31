@@ -1,4 +1,5 @@
-use chrono::{Utc,DateTime};
+// use chrono::{Utc,DateTime};
+use uuid::Uuid;
 
 // #[tsync::tsync]
 pub type ID = i32;
@@ -8,7 +9,7 @@ pub type BigId = i64;
 
 // #[tsync::tsync]
 // #[derive(serde::Deserialize)]
-pub type UTC = DateTime<Utc>;
+// pub type UTC = DateTime<Utc>;
 
 // #[tsync::tsync]
 #[derive(serde::Deserialize)]
@@ -30,5 +31,5 @@ pub struct SearchDateParams {
 
 #[derive(serde::Deserialize)]
 pub struct TournamentParam {
-    pub tid: i64,
+    pub tid: Uuid,
 }

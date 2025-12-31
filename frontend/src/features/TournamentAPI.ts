@@ -33,7 +33,7 @@ const dateStringToDayjs = (tournament: Tournament): TournamentTS => {
 };
 
 export const TournamentAPI = {
-  get: async (page: number, size: number) => {
+  get: async (page: number, size: string) => {
     const response = await fetch(`/api/tournaments?page=${page}&page_size=${size}`);
     const result = await response.json();
     return result.map((tournament: Tournament) => dateStringToDayjs(tournament));
@@ -43,7 +43,7 @@ export const TournamentAPI = {
     const result = await response.json();
     return result.map((tournament: Tournament) => dateStringToDayjs(tournament));
   },
-  getById: async (tid: number): Promise<TournamentTS> => {
+  getById: async (tid: string): Promise<TournamentTS> => {
     const response = await fetch(`/api/tournaments/${tid}`);
     const result = await response.json();
     return result;

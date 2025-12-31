@@ -8,6 +8,7 @@ use crate::models::common::*;
 use utoipa::ToSchema;
 // this import requires this syntax (to appease rustc):
 use crate::schema::rooms::dsl::{roomid,tid,name,building,comments};
+use chrono::{Utc,DateTime};
 
 // #[tsync::tsync]
 #[derive(
@@ -29,10 +30,8 @@ pub struct Room {
     pub name: String,                           // Name of the room (human readable)
     pub building: String,                       // What is the building this room is in
     pub comments: String,                       // Any comments about the room,
-    #[schema(value_type = String, format = DateTime)]
-    pub created_at: UTC,
-    #[schema(value_type = String, format = DateTime)]
-    pub updated_at: UTC
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>
 }
 
 // #[tsync::tsync]

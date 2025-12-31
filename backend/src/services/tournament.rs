@@ -1,7 +1,7 @@
 use actix_http::HttpMessage;
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{models, models::tournament::{Tournament, TournamentChangeset}};
-use crate::models::common::{BigId,PaginationParams,SearchDateParams};
+use crate::models::common::{PaginationParams,SearchDateParams};
 use chrono::{ Utc, TimeZone };
 use crate::models::apicalllog::{apicalllog};
 use utoipa::OpenApi;
@@ -9,6 +9,7 @@ use serde::{Serialize, Deserialize, ser::{Serializer} };
 use diesel::{QueryResult};
 use diesel::result::Error as DBError;
 use crate::database::Database;
+use uuid::Uuid;
 
 #[derive(OpenApi)]
 #[openapi(paths(
@@ -84,7 +85,7 @@ async fn index(
 #[get("/{id}")]
 async fn read(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
@@ -135,7 +136,7 @@ async fn read_today(
 #[get("/{id}/divisions")]
 async fn read_divisions(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
@@ -183,7 +184,7 @@ async fn create(
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
     Json(item): Json<TournamentChangeset>,
 ) -> Result<HttpResponse, Error> {
     let mut db = db.pool.get().unwrap();
@@ -209,7 +210,7 @@ async fn update(
 #[delete("/{id}")]
 async fn destroy(
     db: Data<Database>,
-    item_id: Path<BigId>,
+    item_id: Path<Uuid>,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 

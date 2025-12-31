@@ -4,14 +4,15 @@ use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
-use chrono::{ Utc, DateTime, TimeZone, naive };
-use utoipa::{ ToSchema };
+use chrono::{Utc,DateTime,TimeZone,naive};
+use utoipa::{ToSchema};
 // this import requires this syntax (to appease rustc):
 use crate::schema::tournaments::dsl::{
     organization,tname,breadcrumb,fromdate,todate,venue,city,region,
-    country,contact,contactemail,hide,shortinfo,info
+    country,contact,contactemail,is_public,shortinfo,info
 };
 use crate::models::division::Division;
+use uuid::Uuid;
 
 // #[tsync::tsync]
 #[derive(
@@ -22,15 +23,15 @@ use crate::models::division::Division;
     Queryable,
     Insertable,
     Identifiable,
+    Selectable,
     ToSchema
 )]
 #[diesel(table_name = crate::schema::tournaments)]
 #[diesel(primary_key(tid))]
 pub struct Tournament {
-    #[diesel(sql_type = Integer)]
-    pub tid: BigId, 
+    pub tid: Uuid, 
     pub organization: String,
-    pub tname: String,                          // name of this tournament (humans)
+    pub tname: String,             // name of this tournament (humans)
     pub breadcrumb: String,
     #[schema(value_type = String, format = DateTime)]
     pub fromdate: chrono::naive::NaiveDate,
@@ -42,13 +43,11 @@ pub struct Tournament {
     pub country: String,
     pub contact: String,
     pub contactemail: String,
-    pub hide: bool,
+    pub is_public: bool,
     pub shortinfo : String,
     pub info: String,
-    #[schema(value_type = String, format = DateTime)]
-    pub created_at: UTC,
-    #[schema(value_type = String, format = DateTime)]
-    pub updated_at: UTC
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>
 }
 
 // #[tsync::tsync]
@@ -67,7 +66,7 @@ pub struct TournamentChangeset {
     pub country: String,
     pub contact: String,
     pub contactemail: String,
-    pub hide: bool,
+    pub is_public: bool,
     pub shortinfo: String,
     pub info: String
 }
@@ -77,7 +76,7 @@ pub fn create(db: &mut database::Connection, item: &TournamentChangeset) -> Quer
     insert_into(tournaments).values(item).get_result::<Tournament>(db)
 }
 
-pub fn read(db: &mut database::Connection, item_id: BigId) -> QueryResult<Tournament> {
+pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
     tournaments.filter(tid.eq(item_id)).first::<Tournament>(db)
 }
@@ -110,7 +109,7 @@ pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i6
 
 pub fn read_divisions(
     db: &mut database::Connection,
-    item_id: BigId,
+    item_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<Vec<Division>> {
     use crate::schema::divisions::dsl::*;
@@ -126,14 +125,14 @@ pub fn read_divisions(
         .load::<Division>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: BigId, item: &TournamentChangeset) -> QueryResult<Tournament> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentChangeset) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
     diesel::update(tournaments.filter(tid.eq(item_id)))
         .set(item)
         .get_result(db)
 }
 
-pub fn delete(db: &mut database::Connection, item_id: BigId) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::tournaments::dsl::*;
     diesel::delete(tournaments.filter(tid.eq(item_id))).execute(db)
 }
