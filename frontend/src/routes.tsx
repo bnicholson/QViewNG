@@ -45,6 +45,7 @@ export default function QViewRoutes() {
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
             <Route path="/swagger" element={<Swagger />} />
+            <Route path="/404" element={<NotFound />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
     )

@@ -5,7 +5,7 @@ import {
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../app/hooks';
 import { setTid, setTournament } from '../breadcrumb';
@@ -37,7 +37,7 @@ export const TournamentFinder = () => {
     navigate(`/tournament/${tournament.tid}/divisions`);
   }
   const closeTournamentEditor = () => setTournamentEditor({ isOpen: false, tournament: undefined });
-  React.useEffect(() => {
+  useEffect(() => {
     setIsLoading(true)
     const startMillis = startDate ? startDate.valueOf() : 0;
     const stopMillis = stopDate ? stopDate.valueOf() : dayjs().add(1, 'month').valueOf();

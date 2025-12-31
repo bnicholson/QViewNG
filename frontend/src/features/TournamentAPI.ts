@@ -45,6 +45,12 @@ export const TournamentAPI = {
   },
   getById: async (tid: string): Promise<TournamentTS> => {
     const response = await fetch(`/api/tournaments/${tid}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Tournament not found');
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     const result = await response.json();
     return result;
   },
