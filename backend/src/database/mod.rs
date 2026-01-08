@@ -14,9 +14,9 @@ pub struct Database {
 
 impl Database {
     /// create a new [`Database`]
-    pub fn new() -> Database {
+    pub fn new(db_url_env_var_name: &str) -> Database {
         let database_url =
-            std::env::var("DATABASE_URL").expect("DATABASE_URL environment variable expected.");
+            std::env::var(&db_url_env_var_name).expect(&format!("{} environment variable expected.", &db_url_env_var_name));
         let database_pool = Pool::builder()
             .connection_timeout(std::time::Duration::from_secs(5))
             .build(ConnectionManager::<DbCon>::new(database_url))

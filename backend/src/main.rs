@@ -1,19 +1,13 @@
-pub mod database;
-pub mod schema;
-pub mod models;
-pub mod services;
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
 use utoipa_swagger_ui::SwaggerUi;
-use services::tournament::TournamentDoc;
-use services::division::DivisionDoc;
-// use services::quizevent::QuizEventDoc;
-// use services::roominfo::RoomInfoDoc;
 use utoipa::OpenApi;
 use tracing::{info, error, Level};
 use tracing_subscriber::FmtSubscriber;
 use dotenvy::dotenv;
+use backend::routes::configure_routes;
+use backend::database::Database;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -60,30 +54,11 @@ async fn main() -> std::io::Result<()> {
             .wrap(Compress::default())
             .wrap(NormalizePath::trim())
             .wrap(Logger::default())
-            .app_data(actix_web::web::Data::new(database::Database::new()))
+            .app_data(actix_web::web::Data::new(Database::new("DATABASE_URL")))
             // .app_data(Data::new(app_data.mailer.clone()))
             // .app_data(Data::new(schema.clone()))
             // .app_data(Data::new(storage.clone()))
-            .service(
-                web::scope("/api")
-                    .service(
-                        SwaggerUi::new("/swagger-ui/{_:.*}")
-                            // When you add a new scoped service, add its docs path here (*some other configuration required):
-                            .url("/tournaments/docs",TournamentDoc::openapi())
-                            .url("/divisions/docs",DivisionDoc::openapi())
-                            // .url("/roominfo/docs",RoomInfoDoc::openapi())
-                            // .url("/quizevents/docs",QuizEventDoc::openapi())
-                            // .url("/namelist/docs",NamelistDoc::openapi())
-                            // .url("/pingmsg/docs",PingMsgDoc::openapi())
-                    )
-                    .service(services::division::endpoints(web::scope("/divisions")))
-                    // .service(services::file::endpoints(web::scope("/files")))
-                    // .service(services::namelist::endpoints(web::scope("/namelist")))
-                    // .service(services::pingmsg::endpoints(web::scope("/pingmsg")))
-                    // .service(services::roominfo::endpoints(web::scope("/roominfo")))
-                    // .service(services::quizevent::endpoints(web::scope("/quizevents")))
-                    .service(services::tournament::endpoints(web::scope("/tournaments"))),
-            )
+            .configure(configure_routes)
     })
     .bind(host_and_port)?
     .run()
