@@ -34,7 +34,7 @@ Note:  A beta/UAT development environment may be available for viewing at http:/
 
 3) Clone the project in the working directory you desire.
    ```
-   git clone https://github.com/bnicholson/qview.git
+   git clone https://github.com/bnicholson/qviewng.git
    cd qview
    ```
 
@@ -75,6 +75,7 @@ Note:  A beta/UAT development environment may be available for viewing at http:/
 
 8) Run the DB migrations on the datbase you just created to establish in the DB the schema and perhaps some data:
    ```
+   cd {root}/backend
    diesel migration run
    ```
 
