@@ -105,6 +105,10 @@ Note:  A beta/UAT development environment may be available for viewing at http:/
   ```
   cd {root}/backend/
   cargo run --bin backend
+  
+  OR (from {root}:)
+  
+  ./run-backend.sh
   ```
 
 # How It Works
