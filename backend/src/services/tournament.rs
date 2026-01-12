@@ -1,11 +1,10 @@
-use actix_http::HttpMessage;
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{models, models::tournament::{Tournament, TournamentChangeset}};
 use crate::models::common::{PaginationParams,SearchDateParams};
 use chrono::{ Utc, TimeZone };
 use crate::models::apicalllog::{apicalllog};
 use utoipa::OpenApi;
-use serde::{Serialize, Deserialize, ser::{Serializer} };
+use serde::{Serialize, Deserialize };
 use diesel::{QueryResult};
 use diesel::result::Error as DBError;
 use crate::database::Database;

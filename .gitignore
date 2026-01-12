@@ -9,6 +9,7 @@ build-log*.txt
 .DS_Store
 /.idea/
 /target/debug
+/backend/target
 /backend/target/debug
 
 # Temp files in the build

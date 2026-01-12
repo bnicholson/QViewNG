@@ -20,6 +20,7 @@
 // use chrono::naive::{ NaiveDateTime };
 // use dotenv;
 // use redis::Client;
+use std::io::Result;
 
 // // By default, struct field names are deserialized based on the position of
 // // a corresponding field in the CSV data's header record.
@@ -43,7 +44,7 @@
 
 fn main() -> Result<()> {
     //placeholder for rustc:
-    ()
+    Ok(())
 }
 
 // #[tokio::main]
