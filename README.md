@@ -107,9 +107,19 @@ Note:  A beta/UAT development environment may be available for viewing at http:/
   cd {root}/backend/
   cargo run --bin backend
   
-  OR (from {root}:)
+  OR (from {root}/backend:)
   
   ./run-backend.sh
+  ```
+  
+- To run integration tests, use:
+  ```
+  cd {root}/backend/
+  cargo test -- --test-threads=1
+  
+  OR (from {root}/backend:)
+  
+  ./run-tests.sh
   ```
 
 # How It Works
