@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use diesel::prelude::*;
-use backend::routes::configure_routes;
+use backend::{routes::configure_routes, services::common::EntityResponse};
 use backend::models::tournament::Tournament;
 use backend::database::Database;
 use backend::schema::tournaments;
@@ -99,12 +99,10 @@ async fn get_by_id_works() {
 
     // Assert:
     
-    let body: Bytes = test::read_body(resp).await;
-    let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-
-    assert_eq!(body_json["tname"].as_str().unwrap(), "Q2025");
-    assert_eq!(body_json["tid"].as_str().unwrap(), tournaments[0].tid.to_string().as_str());
-    assert_eq!(body_json["organization"].as_str().unwrap(), "Nazarene");
+    let body: Tournament = test::read_body_json(resp).await;
+    assert_eq!(body.tname, "Q2025");
+    assert_eq!(body.tid.to_string().as_str(), tournaments[0].tid.to_string().as_str());
+    assert_eq!(body.organization, "Nazarene");
 }
 
 #[actix_web::test]
@@ -136,12 +134,12 @@ async fn create_works() {
     
     assert_eq!(resp.status(), StatusCode::CREATED);
 
-    let body = test::read_body(resp).await;
-    let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
-    assert_eq!(body_json["code"].as_i64().unwrap(), 201);
-    assert_eq!(body_json["message"].as_str().unwrap(), "");
-    assert_ne!(body_json["data"]["tid"].as_str().unwrap(), "");
-    assert_eq!(body_json["data"]["organization"].as_str().unwrap(), "Nazarene");
-    assert_eq!(body_json["data"]["tname"].as_str().unwrap(), "Test Post");
+    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournament = body.data.unwrap();
+    assert_ne!(tournament.tid.to_string().as_str(), "");
+    assert_eq!(tournament.organization.as_str(), "Nazarene");
+    assert_eq!(tournament.tname.as_str(), "Test Post");
 }
