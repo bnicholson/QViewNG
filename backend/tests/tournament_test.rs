@@ -5,6 +5,7 @@ mod fixtures;
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use diesel::prelude::*;
 use backend::routes::configure_routes;
+use backend::models::tournament::Tournament;
 use backend::database::Database;
 use backend::schema::tournaments;
 
@@ -19,7 +20,7 @@ fn clean_database() {
 }
 
 #[actix_web::test]
-async fn test_index_returns_all_accurate_data() {
+async fn get_all_works() {
 
     // Arrange:
     
@@ -70,7 +71,44 @@ async fn test_index_returns_all_accurate_data() {
 }
 
 #[actix_web::test]
-async fn test_create_inserts_tournament() {
+async fn get_by_id_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournaments = fixtures::tournaments::seed_tournaments(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // Act:
+
+    let uri = format!("/api/tournaments/{}", &tournaments[0].tid);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+    
+    let body: Bytes = test::read_body(resp).await;
+    let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(body_json["tname"].as_str().unwrap(), "Q2025");
+    assert_eq!(body_json["tid"].as_str().unwrap(), tournaments[0].tid.to_string().as_str());
+    assert_eq!(body_json["organization"].as_str().unwrap(), "Nazarene");
+}
+
+#[actix_web::test]
+async fn create_works() {
 
     // Arrange:
 

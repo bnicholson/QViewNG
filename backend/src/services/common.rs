@@ -1,6 +1,5 @@
 
 use std::any::type_name;
-
 use diesel::QueryResult;
 use serde::{Deserialize, Serialize};
 use diesel::result::Error as DBError;
@@ -28,7 +27,7 @@ pub fn process_response<T>(result : QueryResult<T>, http_method: &str) -> Entity
             println!("Create {} (output)-> {:?}", type_name::<T>(), output);
             response.message = "".to_string();
             response.data = Some(output);
-            
+
             match http_method.to_lowercase().as_str() {
                 "post" => { response.code = 201; },
                 _      => { response.code = 200; }
