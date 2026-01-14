@@ -1,12 +1,12 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{models, models::tournament::{Tournament, TournamentChangeset, NewTournament}};
+use crate::models;
+use crate::models::tournament::{NewTournament, Tournament, TournamentChangeset};
 use crate::models::common::{PaginationParams,SearchDateParams};
+use crate::services::common::{EntityResponse, process_response};
 use chrono::{ Utc, TimeZone };
 use crate::models::apicalllog::{apicalllog};
 use utoipa::OpenApi;
-use serde::{Serialize, Deserialize };
 use diesel::{QueryResult};
-use diesel::result::Error as DBError;
 use crate::database::Database;
 use uuid::Uuid;
 
@@ -166,17 +166,13 @@ async fn create(
     
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
 
-    let response_v1: TournamentResponse = process_response(result);
-
-    let response_v2 = TournamentResponse {
-        code: if response_v1.code == 200 { 201 } else { response_v1.code },
-        ..response_v1
-    };
+    let response: EntityResponse<Tournament> = process_response(result, "post");
     
-    match response_v2.code {
-        409 => Ok(HttpResponse::Conflict().json(response_v2)),
-        201 => Ok(HttpResponse::Created().json(response_v2)),
-        _ => Ok(HttpResponse::InternalServerError().json(response_v2))
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
     }
 }
 
@@ -201,7 +197,7 @@ async fn update(
 
     let result = models::tournament::update(&mut db, item_id.into_inner(), &item);
 
-    let response = process_response(result);
+    let response = process_response(result, "put");
 
     Ok(HttpResponse::Ok().json(response))
 }
@@ -243,55 +239,4 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(create)
         .service(update)
         .service(destroy);
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TournamentResponse {
-    code : i32,
-    message: String,
-    data : Option<Tournament>,
-}
-
-pub fn process_response(result : QueryResult<Tournament>) -> TournamentResponse {
-
-    let mut response = TournamentResponse {
-        code : 200,
-        message : "".to_string(),
-        data : None,
-    };
-
-    match result {
-        Ok(output) => {
-            println!("Create/Update Tourney (output)-> {:?}",output);
-            response.code = 200;
-            response.message = "".to_string();
-            response.data = Some(output);
-        },
-        Err(e) => {
-            match e {
-                DBError::DatabaseError(dbek,e) => {
-                    match dbek {
-                        diesel::result::DatabaseErrorKind::UniqueViolation => {
-                            response.code = 409;
-                            response.message = "Duplicate Tournament".to_string();
-                            tracing::info!("{} Tournament create process_response-> {:?}",line!(), e);
-                        },
-                        _ => {
-                            response.code = 409;
-                            response.message = format!("{:?}",e);
-                            tracing::error!("{} Tournament create process_response-> {:?}",line!(), e);
-                        },
-                    }
-                },
-                x => {
-                    response.code = 409;
-                    response.message = format!("{:?}",x);   
-                    tracing::error!("{} Tournament create process_response-> {:?}",line!(), x);     
-                },
-            }            
-        }
-    }    
-
-    // return the result
-    response
 }
