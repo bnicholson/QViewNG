@@ -3,6 +3,7 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
+use chrono::{Duration, Local, Months, NaiveDate};
 use diesel::prelude::*;
 use backend::{routes::configure_routes, services::common::EntityResponse};
 use backend::models::tournament::Tournament;
@@ -103,6 +104,58 @@ async fn get_by_id_works() {
     assert_eq!(body.tname, "Q2025");
     assert_eq!(body.tid.to_string().as_str(), tournaments[0].tid.to_string().as_str());
     assert_eq!(body.organization, "Nazarene");
+}
+
+#[actix_web::test]
+async fn get_today_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    fixtures::tournaments::seed_tournaments_for_get_today(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    // Act:
+
+    let req = test::TestRequest::get()
+        .uri("/api/tournaments/today")
+        .to_request();
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+    
+    let body: Vec<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.iter().count(), 2);
+    
+    let today: NaiveDate = Local::now().date_naive();
+
+    let mut tour_today_exactly: &Tournament = &body[0];
+    let mut tour_20_day_range_including_today: &Tournament = &body[1];
+
+    if &body[1].fromdate == &today {
+        tour_today_exactly = &body[1];
+        tour_20_day_range_including_today = &body[0];
+    }
+
+    assert_eq!(tour_today_exactly.tname, "Today Exactly");
+    assert_eq!(tour_today_exactly.fromdate, today);
+    assert_eq!(tour_today_exactly.todate, today);
+    
+    let tour_min_ten: NaiveDate = today - Duration::days(10);
+    let tour_plus_ten: NaiveDate = today + Duration::days(10);
+    assert_eq!(tour_20_day_range_including_today.tname, "20 Days, Including Today");
+    assert_eq!(tour_20_day_range_including_today.fromdate, tour_min_ten);
+    assert_eq!(tour_20_day_range_including_today.todate, tour_plus_ten);
 }
 
 #[actix_web::test]
