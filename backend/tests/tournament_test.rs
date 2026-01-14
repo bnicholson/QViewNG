@@ -8,8 +8,10 @@ use backend::routes::configure_routes;
 use backend::database::Database;
 use backend::schema::tournaments;
 
+const TEST_DB_URL: &str = "TEST_DATABASE_URL";
+
 fn clean_database() {
-    let db = Database::new("TEST_DATABASE_URL");
+    let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     diesel::delete(tournaments::table)
         .execute(&mut conn)
@@ -22,7 +24,7 @@ async fn test_index_returns_all_accurate_data() {
     // Arrange:
     
     clean_database();
-    let db = Database::new("TEST_DATABASE_URL");
+    let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     fixtures::tournaments::seed_tournaments(&mut conn);
@@ -73,7 +75,7 @@ async fn test_create_inserts_tournament() {
     // Arrange:
 
     clean_database();
-    let db = Database::new("TEST_DATABASE_URL");
+    let db = Database::new(TEST_DB_URL);
 
     let payload = fixtures::tournaments::get_tournament_payload();
 
