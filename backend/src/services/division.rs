@@ -61,7 +61,7 @@ async fn create(
     Json(item): Json<NewDivision>,
 ) -> Result<HttpResponse, Error> {
 
-    let mut conn = db.get_connection();
+    let mut conn = db.get_connection().expect("Failed to get connection");
 
     let tournament_exists: bool = match tournaments_table
         .find(item.tid)

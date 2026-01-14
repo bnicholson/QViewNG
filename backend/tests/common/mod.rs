@@ -1,8 +1,6 @@
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use diesel::r2d2::{self, ConnectionManager};
-use diesel::prelude::*;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
@@ -25,15 +23,17 @@ pub fn clean_database(conn: &mut PgConnection) {
         .expect("Failed to clean database");
 }
 
-// type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+// pub async fn create_test_transaction(pool: &PgPool) -> Transaction<'_, Postgres> {
+//     pool.begin().await.expect("Failed to begin transaction")
+// }
 
-// pub fn create_test_pool() -> DbPool {
-//     let database_url = std::env::var("TEST_DATABASE_URL")
-//         .expect("TEST_DATABASE_URL must be set");
+// pub async fn setup_test_pool() -> PgPool {
+//     let database_url = std::env::var("DATABASE_URL")
+//         .expect("DATABASE_URL must be set for tests");
     
-//     let manager = ConnectionManager::<PgConnection>::new(database_url);
-//     r2d2::Pool::builder()
-//         .max_size(1)
-//         .build(manager)
+//     PgPoolOptions::new()
+//         .max_connections(5)
+//         .connect(&database_url)
+//         .await
 //         .expect("Failed to create pool")
 // }

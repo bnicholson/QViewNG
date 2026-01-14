@@ -21,7 +21,6 @@ use uuid::Uuid;
     Deserialize,
     Clone,
     Queryable,
-    Insertable,
     Identifiable,
     Selectable,
     ToSchema
@@ -50,6 +49,31 @@ pub struct Tournament {
     pub updated_at: DateTime<Utc>
 }
 
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Clone,
+    Insertable,
+    ToSchema
+)]
+#[diesel(table_name = crate::schema::tournaments)]
+pub struct NewTournament {
+    pub organization: String,
+    pub tname: String,             // name of this tournament (humans)
+    pub breadcrumb: String,
+    pub fromdate: chrono::naive::NaiveDate,
+    pub todate: chrono::naive::NaiveDate,
+    pub venue: String,
+    pub city: String,
+    pub region: String,
+    pub country: String,
+    pub contact: String,
+    pub contactemail: String,
+    pub shortinfo : String,
+    pub info: String
+}
+
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::tournaments)]
@@ -71,9 +95,12 @@ pub struct TournamentChangeset {
     pub info: String
 }
 
-pub fn create(db: &mut database::Connection, item: &TournamentChangeset) -> QueryResult<Tournament> {
+pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
-    insert_into(tournaments).values(item).get_result::<Tournament>(db)
+    
+    diesel::insert_into(tournaments)
+        .values(item)
+        .get_result::<Tournament>(db)
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Tournament> {

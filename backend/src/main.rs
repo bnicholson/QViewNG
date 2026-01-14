@@ -1,9 +1,7 @@
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
-use utoipa_swagger_ui::SwaggerUi;
-use utoipa::OpenApi;
-use tracing::{info, error, Level};
+use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use dotenvy::dotenv;
 use backend::routes::configure_routes;

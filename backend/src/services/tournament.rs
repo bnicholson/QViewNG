@@ -1,5 +1,5 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{models, models::tournament::{Tournament, TournamentChangeset}};
+use crate::{models, models::tournament::{Tournament, TournamentChangeset, NewTournament}};
 use crate::models::common::{PaginationParams,SearchDateParams};
 use chrono::{ Utc, TimeZone };
 use crate::models::apicalllog::{apicalllog};
@@ -64,7 +64,7 @@ async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
 ) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
+    let mut db = db.get_connection().expect("Failed to get connection");
     
     match models::tournament::read_all(&mut db, &url_params) {
         Ok(tournament) => HttpResponse::Ok().json(tournament),
@@ -158,17 +158,26 @@ async fn read_divisions(
 async fn create(
     db: Data<Database>,
     req: HttpRequest,
-    Json(item): Json<TournamentChangeset>    
+    Json(item): Json<NewTournament>    
 ) -> Result<HttpResponse, Error> {
-    let mut db = db.pool.get().unwrap();
+    let mut db = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} Tournament model create {:?}", line!(), item);
     
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
 
-    let response = process_response(result);
+    let response_v1: TournamentResponse = process_response(result);
 
-    Ok(HttpResponse::Created().json(response))  // does thi return an ID?
+    let response_v2 = TournamentResponse {
+        code: if response_v1.code == 200 { 201 } else { response_v1.code },
+        ..response_v1
+    };
+    
+    match response_v2.code {
+        409 => Ok(HttpResponse::Conflict().json(response_v2)),
+        201 => Ok(HttpResponse::Created().json(response_v2)),
+        _ => Ok(HttpResponse::InternalServerError().json(response_v2))
+    }
 }
 
 // #[utoipa::path(
@@ -237,15 +246,15 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TournamentResult {
+pub struct TournamentResponse {
     code : i32,
     message: String,
     data : Option<Tournament>,
 }
 
-pub fn process_response(result : QueryResult<Tournament>) -> TournamentResult {
+pub fn process_response(result : QueryResult<Tournament>) -> TournamentResponse {
 
-    let mut response = TournamentResult {
+    let mut response = TournamentResponse {
         code : 200,
         message : "".to_string(),
         data : None,
