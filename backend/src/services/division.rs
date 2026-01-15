@@ -96,28 +96,15 @@ async fn update(
     item_id: Path<Uuid>,
     Json(item): Json<DivisionChangeset>,
 ) -> Result<HttpResponse, Error> {
-    // let mut db = db.pool.get().unwrap();
-
-    // let result = models::division::update(&mut db, item_id.into_inner(), &item);
-
-    // if result.is_ok() {
-    //     HttpResponse::Ok().finish()
-    // } else {
-    //     HttpResponse::InternalServerError().finish()
-    // }
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Division model update {:?} {:?}", line!(), item_id, item); 
 
-    println!("Checkpoint 1");
-
     let result = models::division::update(&mut db, item_id.into_inner(), &item);
 
-    println!("Checkpoint 2");
     let response = process_response(result, "put");
     
-    println!("Checkpoint 3");
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         200 => Ok(HttpResponse::Ok().json(response)),

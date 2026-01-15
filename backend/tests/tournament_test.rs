@@ -53,10 +53,17 @@ async fn get_all_works() {
 
     assert_eq!(body.len(), 3);
 
-    let object_two = &body[1];
+    let mut tour_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].tname == "Tour 2" {
+            tour_or_interest_idx = idx;
+            break;
+        }
+    }
+
+    let object_two = &body[tour_or_interest_idx];
     assert_eq!(object_two.organization,"Nazarene");
     assert_ne!(object_two.tid.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-    assert_eq!(object_two.tname,"Tour 2");
     assert_eq!(object_two.breadcrumb,"/test/bread/crumb");
     assert_eq!(object_two.fromdate, NaiveDate::from_ymd_opt(2025, 5, 23).unwrap());
     assert_eq!(object_two.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());

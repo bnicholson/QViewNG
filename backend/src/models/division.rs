@@ -87,7 +87,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionChangeset) -> QueryResult<Division> {
     use crate::schema::divisions::dsl::*;
-    diesel::update(divisions.filter(tid.eq(item_id)))
+    diesel::update(divisions.filter(did.eq(item_id)))
         .set(item)
         .get_result(db)
 }

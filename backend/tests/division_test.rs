@@ -8,6 +8,7 @@ use backend::database::Database;
 use backend::models::division::Division;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
 #[actix_web::test]
@@ -90,10 +91,17 @@ async fn get_all_works() {
 
     assert_eq!(body.len(), 3);
 
-    let object_two = &body[1];
+    let mut div_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].dname == "Test Div 9078" {
+            div_or_interest_idx = idx;
+            break;
+        }
+    }
+
+    let object_two = &body[div_or_interest_idx];
     assert_eq!(object_two.tid, parent_tournament.tid);
     assert_ne!(object_two.did.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-    assert_eq!(object_two.dname,"Test Div 9078");
     assert_eq!(object_two.breadcrumb,"/test/post/for/division/2");
     assert!(!object_two.is_public);
     assert_eq!(object_two.shortinfo, "Novice");
@@ -137,4 +145,59 @@ async fn get_by_id_works() {
     assert_eq!(division.dname, divisions[division_of_interest_idx].dname);
     assert_eq!(division.shortinfo, divisions[division_of_interest_idx].shortinfo);
     assert_eq!(division.breadcrumb, divisions[division_of_interest_idx].breadcrumb);
+}
+
+#[actix_web::test]
+async fn update_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+
+    let division: Division = fixtures::divisions::seed_division(&mut conn, parent_tournament.tid);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let new_dname = "Test Div NEW".to_string();
+    let new_breadcrumb = "/latest/breadcrumb".to_string();
+    let new_is_public = true;
+
+    let put_payload = json!({
+        "dname": &new_dname,
+        "breadcrumb": new_breadcrumb,
+        "is_public": &new_is_public
+    });
+    
+    let put_uri = format!("/api/divisions/{}", division.did);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
+
+    // Act:
+    
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+    
+    assert_eq!(put_resp.status(), StatusCode::OK);
+
+    let put_resp_body: EntityResponse<Division> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
+
+    let new_division = put_resp_body.data.unwrap();
+    assert_eq!(new_division.tid, parent_tournament.tid);
+    assert_eq!(new_division.did, division.did);
+    assert_eq!(new_division.dname.as_str(), new_dname);
+    assert_eq!(new_division.breadcrumb.as_str(), new_breadcrumb);
+    assert_eq!(new_division.is_public, new_is_public);
 }
