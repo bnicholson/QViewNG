@@ -10,7 +10,7 @@ pub fn new_tournament_one() -> NewTournament {
         breadcrumb: "/test/post".to_string(),
         fromdate: NaiveDate::from_ymd_opt(2025, 5, 23).unwrap(),
         todate: NaiveDate::from_ymd_opt(2025, 5, 27).unwrap(),
-        venue: "Vancouver Universtiy".to_string(),
+        venue: "Vancouver University".to_string(),
         city: "Vancouver".to_string(),
         region: "North America".to_string(),
         country: "Canada".to_string(),

@@ -79,20 +79,20 @@ pub struct NewTournament {
 #[diesel(table_name = crate::schema::tournaments)]
 #[diesel(primary_key(tid))]
 pub struct TournamentChangeset {   
-    pub organization: String,
-    pub tname: String,
-    pub breadcrumb: String,
-    pub fromdate: chrono::naive::NaiveDate,
-    pub todate: chrono::naive::NaiveDate,
-    pub venue: String,
-    pub city: String,
-    pub region: String,
-    pub country: String,
-    pub contact: String,
-    pub contactemail: String,
-    pub is_public: bool,
-    pub shortinfo: String,
-    pub info: String
+    pub organization: Option<String>,
+    pub tname: Option<String>,
+    pub breadcrumb: Option<String>,
+    pub fromdate: Option<chrono::naive::NaiveDate>,
+    pub todate: Option<chrono::naive::NaiveDate>,
+    pub venue: Option<String>,
+    pub city: Option<String>,
+    pub region: Option<String>,
+    pub country: Option<String>,
+    pub contact: Option<String>,
+    pub contactemail: Option<String>,
+    pub is_public: Option<bool>,
+    pub shortinfo: Option<String>,
+    pub info: Option<String>
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {

@@ -9,6 +9,7 @@ use backend::{routes::configure_routes, services::common::EntityResponse};
 use backend::models::tournament::Tournament;
 use backend::database::Database;
 use backend::schema::tournaments;
+use serde_json::json;
 
 const TEST_DB_URL: &str = "TEST_DATABASE_URL";
 
@@ -264,4 +265,79 @@ async fn create_works() {
     assert_ne!(tournament.tid.to_string().as_str(), "");
     assert_eq!(tournament.organization.as_str(), "Nazarene");
     assert_eq!(tournament.tname.as_str(), "Test Post");
+}
+
+
+#[actix_web::test]
+async fn update_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+
+    let post_payload = fixtures::tournaments::get_tournament_payload();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let post_req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .set_json(&post_payload)
+        .to_request();
+
+    let resp = test::call_service(&app, post_req).await;
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournament = body.data.unwrap();
+    assert_ne!(tournament.tid.to_string().as_str(), "");
+    assert_eq!(tournament.organization.as_str(), "Nazarene");
+    assert_eq!(tournament.tname.as_str(), "Test Post");
+    assert_eq!(tournament.venue.as_str(), "Vancouver University");
+    assert_eq!(tournament.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
+    assert_eq!(tournament.info.as_str(), "Shawn White did excellent in the halfpipe.");
+
+    // Act:
+
+    let new_venue = "Albatross Academy".to_string();
+    let new_todate = NaiveDate::from_ymd_opt(2025, 5, 30).unwrap();
+    let new_info = "Sadly, Shawn White is retired from pro snowboarding now.".to_string();
+
+    let put_payload = json!({
+        "venue": &new_venue,
+        "todate": new_todate,
+        "info": &new_info
+    });
+    
+    let put_uri = format!("/api/tournaments/{}", tournament.tid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
+    
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+    
+    assert_eq!(put_resp.status(), StatusCode::OK);
+
+    let put_resp_body: EntityResponse<Tournament> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
+
+    let new_tournament = put_resp_body.data.unwrap();
+    assert_eq!(new_tournament.tid, tournament.tid);
+    assert_eq!(new_tournament.organization.as_str(), "Nazarene");
+    assert_eq!(new_tournament.tname.as_str(), "Test Post");
+    assert_eq!(new_tournament.venue.as_str(), new_venue);
+    assert_eq!(new_tournament.todate, new_todate);
+    assert_eq!(new_tournament.info.as_str(), new_info);
 }
