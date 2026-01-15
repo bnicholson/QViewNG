@@ -99,12 +99,12 @@ async fn get_all_works() {
         }
     }
 
-    let object_two = &body[div_or_interest_idx];
-    assert_eq!(object_two.tid, parent_tournament.tid);
-    assert_ne!(object_two.did.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-    assert_eq!(object_two.breadcrumb,"/test/post/for/division/2");
-    assert!(!object_two.is_public);
-    assert_eq!(object_two.shortinfo, "Novice");
+    let div_of_interest = &body[div_or_interest_idx];
+    assert_eq!(div_of_interest.tid, parent_tournament.tid);
+    assert_ne!(div_of_interest.did.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
+    assert_eq!(div_of_interest.breadcrumb,"/test/post/for/division/2");
+    assert!(!div_of_interest.is_public);
+    assert_eq!(div_of_interest.shortinfo, "Novice");
 }
 
 
@@ -200,4 +200,51 @@ async fn update_works() {
     assert_eq!(new_division.dname.as_str(), new_dname);
     assert_eq!(new_division.breadcrumb.as_str(), new_breadcrumb);
     assert_eq!(new_division.is_public, new_is_public);
+}
+
+#[actix_web::test]
+async fn delete_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+
+    let division: Division = fixtures::divisions::seed_division(&mut conn, parent_tournament.tid);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let delete_uri = format!("/api/divisions/{}", division.did);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
+
+    // Act:
+    
+    let delete_resp = test::call_service(&app, delete_req).await;
+
+    // Assert:
+    
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
+
+
+    let get_by_id_uri = format!("/api/divisions/{}", division.did);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
+
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
 }

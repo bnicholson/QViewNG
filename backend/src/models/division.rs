@@ -94,5 +94,5 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionChang
 
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::divisions::dsl::*;
-    diesel::delete(divisions.filter(tid.eq(item_id))).execute(db)
+    diesel::delete(divisions.filter(did.eq(item_id))).execute(db)
 }

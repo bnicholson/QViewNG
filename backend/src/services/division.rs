@@ -119,6 +119,8 @@ async fn destroy(
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
+    tracing::debug!("{} Division model delete {:?}", line!(), item_id);
+
     let result = models::division::delete(&mut db, item_id.into_inner());
 
     if result.is_ok() {

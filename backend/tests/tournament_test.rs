@@ -61,21 +61,21 @@ async fn get_all_works() {
         }
     }
 
-    let object_two = &body[tour_or_interest_idx];
-    assert_eq!(object_two.organization,"Nazarene");
-    assert_ne!(object_two.tid.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-    assert_eq!(object_two.breadcrumb,"/test/bread/crumb");
-    assert_eq!(object_two.fromdate, NaiveDate::from_ymd_opt(2025, 5, 23).unwrap());
-    assert_eq!(object_two.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
-    assert_eq!(object_two.venue,"Olivet Nazarene University");
-    assert_eq!(object_two.city,"Bourbonnais");
-    assert_eq!(object_two.region,"Central USA");
-    assert_eq!(object_two.country,"USA");
-    assert_eq!(object_two.contact,"Jason Morton");
-    assert_eq!(object_two.contactemail,"jasonmorton@fakeemail.com");
-    assert_eq!(object_two.is_public,false);
-    assert_eq!(object_two.shortinfo,"NYI International quiz meet of 2025.");
-    assert_eq!(object_two.info,"If I wanted a longer description I would have provided it here.");
+    let tour_of_interest = &body[tour_or_interest_idx];
+    assert_eq!(tour_of_interest.organization,"Nazarene");
+    assert_ne!(tour_of_interest.tid.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
+    assert_eq!(tour_of_interest.breadcrumb,"/test/bread/crumb");
+    assert_eq!(tour_of_interest.fromdate, NaiveDate::from_ymd_opt(2025, 5, 23).unwrap());
+    assert_eq!(tour_of_interest.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
+    assert_eq!(tour_of_interest.venue,"Olivet Nazarene University");
+    assert_eq!(tour_of_interest.city,"Bourbonnais");
+    assert_eq!(tour_of_interest.region,"Central USA");
+    assert_eq!(tour_of_interest.country,"USA");
+    assert_eq!(tour_of_interest.contact,"Jason Morton");
+    assert_eq!(tour_of_interest.contactemail,"jasonmorton@fakeemail.com");
+    assert_eq!(tour_of_interest.is_public,false);
+    assert_eq!(tour_of_interest.shortinfo,"NYI International quiz meet of 2025.");
+    assert_eq!(tour_of_interest.info,"If I wanted a longer description I would have provided it here.");
 }
 
 #[actix_web::test]
