@@ -87,13 +87,13 @@ async fn get_by_id_works() {
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
+    
+        let uri = format!("/api/tournaments/{}", &tournaments[0].tid);
+        let req = test::TestRequest::get()
+            .uri(uri.as_str())
+            .to_request();
 
     // Act:
-
-    let uri = format!("/api/tournaments/{}", &tournaments[0].tid);
-    let req = test::TestRequest::get()
-        .uri(uri.as_str())
-        .to_request();
     
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);

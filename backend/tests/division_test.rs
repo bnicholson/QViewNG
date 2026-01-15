@@ -98,3 +98,43 @@ async fn get_all_works() {
     assert!(!object_two.is_public);
     assert_eq!(object_two.shortinfo, "Novice");
 }
+
+
+#[actix_web::test]
+async fn get_by_id_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+
+    let divisions: Vec<Division> = fixtures::divisions::seed_divisions(&mut conn, parent_tournament.tid);
+    let division_of_interest_idx = 0;
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/divisions/{}", &divisions[division_of_interest_idx].did);
+    println!("Divisions Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+    
+    let division: Division = test::read_body_json(resp).await;
+    assert_eq!(division.dname, divisions[division_of_interest_idx].dname);
+    assert_eq!(division.shortinfo, divisions[division_of_interest_idx].shortinfo);
+    assert_eq!(division.breadcrumb, divisions[division_of_interest_idx].breadcrumb);
+}

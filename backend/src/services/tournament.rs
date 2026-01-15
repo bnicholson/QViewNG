@@ -193,8 +193,12 @@ async fn update(
     let result = models::tournament::update(&mut db, item_id.into_inner(), &item);
 
     let response = process_response(result, "put");
-
-    Ok(HttpResponse::Ok().json(response))
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
 }
 
 #[utoipa::path(

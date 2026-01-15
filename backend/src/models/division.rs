@@ -69,7 +69,7 @@ pub fn create(db: &mut database::Connection, item: &NewDivision) -> QueryResult<
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Division> {
     use crate::schema::divisions::dsl::*;
-    divisions.filter(tid.eq(item_id)).first::<Division>(db)
+    divisions.filter(did.eq(item_id)).first::<Division>(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Division>> {
