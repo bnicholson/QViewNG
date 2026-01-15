@@ -267,7 +267,6 @@ async fn create_works() {
     assert_eq!(tournament.tname.as_str(), "Test Post");
 }
 
-
 #[actix_web::test]
 async fn update_works() {
 
@@ -340,4 +339,67 @@ async fn update_works() {
     assert_eq!(new_tournament.venue.as_str(), new_venue);
     assert_eq!(new_tournament.todate, new_todate);
     assert_eq!(new_tournament.info.as_str(), new_info);
+}
+
+#[actix_web::test]
+async fn delete_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+
+    let post_payload = fixtures::tournaments::get_tournament_payload();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let post_req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .set_json(&post_payload)
+        .to_request();
+
+    let resp = test::call_service(&app, post_req).await;
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournament = body.data.unwrap();
+    assert_ne!(tournament.tid.to_string().as_str(), "");
+    assert_eq!(tournament.organization.as_str(), "Nazarene");
+    assert_eq!(tournament.tname.as_str(), "Test Post");
+
+    // Act:
+    
+    let delete_uri = format!("/api/tournaments/{}", tournament.tid);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
+    
+    let delete_resp = test::call_service(&app, delete_req).await;
+
+    // Assert:
+    
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
+
+
+    let get_by_id_uri = format!("/api/tournaments/{}", tournament.tid);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .set_json(&post_payload)
+        .to_request();
+
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
 }
