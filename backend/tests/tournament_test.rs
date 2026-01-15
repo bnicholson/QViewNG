@@ -3,15 +3,14 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
-use chrono::{Duration, Local, Months, NaiveDate};
+use chrono::{Duration, Local, NaiveDate};
 use diesel::prelude::*;
 use backend::{routes::configure_routes, services::common::EntityResponse};
 use backend::models::tournament::Tournament;
 use backend::database::Database;
 use backend::schema::tournaments;
 use serde_json::json;
-
-const TEST_DB_URL: &str = "TEST_DATABASE_URL";
+use crate::common::TEST_DB_URL;
 
 fn clean_database() {
     let db = Database::new(TEST_DB_URL);
@@ -244,12 +243,12 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
     
+        let req = test::TestRequest::post()
+            .uri("/api/tournaments")
+            .set_json(&payload)
+            .to_request();
+    
     // Act:
-
-    let req = test::TestRequest::post()
-        .uri("/api/tournaments")
-        .set_json(&payload)
-        .to_request();
 
     let resp = test::call_service(&app, req).await;
     
@@ -274,37 +273,15 @@ async fn update_works() {
 
     clean_database();
     let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let post_payload = fixtures::tournaments::get_tournament_payload();
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
-    let post_req = test::TestRequest::post()
-        .uri("/api/tournaments")
-        .set_json(&post_payload)
-        .to_request();
-
-    let resp = test::call_service(&app, post_req).await;
-    
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
-    assert_eq!(body.code, 201);
-    assert_eq!(body.message, "");
-
-    let tournament = body.data.unwrap();
-    assert_ne!(tournament.tid.to_string().as_str(), "");
-    assert_eq!(tournament.organization.as_str(), "Nazarene");
-    assert_eq!(tournament.tname.as_str(), "Test Post");
-    assert_eq!(tournament.venue.as_str(), "Vancouver University");
-    assert_eq!(tournament.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
-    assert_eq!(tournament.info.as_str(), "Shawn White did excellent in the halfpipe.");
-
-    // Act:
 
     let new_venue = "Albatross Academy".to_string();
     let new_todate = NaiveDate::from_ymd_opt(2025, 5, 30).unwrap();
@@ -321,6 +298,8 @@ async fn update_works() {
         .uri(&put_uri)
         .set_json(&put_payload)
         .to_request();
+
+    // Act:
     
     let put_resp = test::call_service(&app, put_req).await;
 
@@ -348,8 +327,9 @@ async fn delete_works() {
 
     clean_database();
     let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let post_payload = fixtures::tournaments::get_tournament_payload();
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
 
     let app = test::init_service(
         App::new()
@@ -357,30 +337,12 @@ async fn delete_works() {
             .configure(configure_routes)
     ).await;
     
-    let post_req = test::TestRequest::post()
-        .uri("/api/tournaments")
-        .set_json(&post_payload)
-        .to_request();
-
-    let resp = test::call_service(&app, post_req).await;
-    
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
-    assert_eq!(body.code, 201);
-    assert_eq!(body.message, "");
-
-    let tournament = body.data.unwrap();
-    assert_ne!(tournament.tid.to_string().as_str(), "");
-    assert_eq!(tournament.organization.as_str(), "Nazarene");
-    assert_eq!(tournament.tname.as_str(), "Test Post");
-
-    // Act:
-    
     let delete_uri = format!("/api/tournaments/{}", tournament.tid);
     let delete_req = test::TestRequest::delete()
         .uri(&delete_uri)
         .to_request();
+
+    // Act:
     
     let delete_resp = test::call_service(&app, delete_req).await;
 
@@ -396,7 +358,6 @@ async fn delete_works() {
     let get_by_id_uri = format!("/api/tournaments/{}", tournament.tid);
     let get_by_id_req = test::TestRequest::get()
         .uri(&get_by_id_uri)
-        .set_json(&post_payload)
         .to_request();
 
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;

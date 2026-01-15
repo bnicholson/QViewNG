@@ -25,6 +25,10 @@ pub fn get_tournament_payload() -> NewTournament {
     new_tournament_one()
 }
 
+pub fn seed_tournament(conn: &mut PgConnection) -> Tournament {
+    create_and_insert_tournament(conn, new_tournament_one())
+}
+
 fn new_tournament_two(name: &str) -> NewTournament {
     NewTournament {
         organization: "Nazarene".to_string(),
@@ -43,17 +47,17 @@ fn new_tournament_two(name: &str) -> NewTournament {
     }
 }
 
-fn create_and_insert_tournament(conn: &mut PgConnection, tournament: NewTournament) -> tournament::Tournament {
+fn create_and_insert_tournament(conn: &mut PgConnection, tournament: NewTournament) -> Tournament {
     use backend::schema::tournaments;
     
     diesel::insert_into(tournaments::table)
         .values(tournament)
-        .returning(tournament::Tournament::as_returning())
-        .get_result::<tournament::Tournament>(conn)
+        .returning(Tournament::as_returning())
+        .get_result::<Tournament>(conn)
         .expect("Failed to create tournament")
 }
 
-pub fn seed_tournaments(conn: &mut PgConnection) -> Vec<tournament::Tournament> {
+pub fn seed_tournaments(conn: &mut PgConnection) -> Vec<Tournament> {
     vec![
         create_and_insert_tournament(conn, new_tournament_two("Q2025")),
         create_and_insert_tournament(conn, new_tournament_two("Tour 2")),
@@ -61,7 +65,7 @@ pub fn seed_tournaments(conn: &mut PgConnection) -> Vec<tournament::Tournament> 
     ]
 }
 
-pub fn seed_tournaments_for_get_today(conn: &mut PgConnection) -> Vec<tournament::Tournament> {
+pub fn seed_tournaments_for_get_today(conn: &mut PgConnection) -> Vec<Tournament> {
     let today = Local::now().date_naive();
     let two_months_from_today: NaiveDate = today.checked_add_months(Months::new(2)).unwrap();
     let days_10_past: NaiveDate = today - Duration::days(10);
@@ -76,7 +80,7 @@ pub fn seed_tournaments_for_get_today(conn: &mut PgConnection) -> Vec<tournament
     ]
 }
 
-pub fn seed_tournaments_for_get_all_in_date_range(conn: &mut PgConnection) -> Vec<tournament::Tournament> {
+pub fn seed_tournaments_for_get_all_in_date_range(conn: &mut PgConnection) -> Vec<Tournament> {
     let today = Local::now().date_naive();
     let days_8_past: NaiveDate = today - Duration::days(8);
     let days_8_future: NaiveDate = today + Duration::days(8);

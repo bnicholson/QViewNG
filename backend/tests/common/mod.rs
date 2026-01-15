@@ -1,8 +1,11 @@
+use backend::{database::Database, schema::tournaments};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
+
+pub const TEST_DB_URL: &str = "TEST_DATABASE_URL";
 
 pub fn establish_test_connection() -> PgConnection {
     let database_url = std::env::var("TEST_DATABASE_URL")
@@ -17,10 +20,20 @@ pub fn establish_test_connection() -> PgConnection {
     conn
 }
 
-pub fn clean_database(conn: &mut PgConnection) {
-    diesel::sql_query("TRUNCATE TABLE your_tables CASCADE")
-        .execute(conn)
-        .expect("Failed to clean database");
+// pub fn clean_database(conn: &mut PgConnection) {
+//     diesel::sql_query("TRUNCATE TABLE your_tables CASCADE")
+//         .execute(conn)
+//         .expect("Failed to clean database");
+// }
+
+pub fn clean_database() {
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // *includes all cascading deletes
+    diesel::delete(tournaments::table)
+        .execute(&mut conn)
+        .expect("Failed to clean tournaments");
 }
 
 // pub async fn create_test_transaction(pool: &PgPool) -> Transaction<'_, Postgres> {

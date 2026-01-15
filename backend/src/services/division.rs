@@ -1,9 +1,10 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{models, models::division::{Division,NewDivision,DivisionChangeset}};
+use serde_json::json;
+use crate::{models::{self, division::{Division, DivisionChangeset, NewDivision}}, services::common::{EntityResponse, process_response}};
 use crate::models::{tournament::Tournament,common::PaginationParams};
 use crate::database::Database;
 use utoipa::OpenApi;
-use diesel::{QueryDsl,RunQueryDsl,dsl::{exists,select}};
+use diesel::{QueryDsl, QueryResult, RunQueryDsl, dsl::{exists,select}};
 use crate::schema::tournaments::dsl::{tournaments as tournaments_table,tid as tournament_tid};
 use uuid::Uuid;
 
@@ -63,26 +64,30 @@ async fn create(
 
     let mut conn = db.get_connection().expect("Failed to get connection");
 
-    let tournament_exists: bool = match tournaments_table
+    let tournament_exists: bool = tournaments_table
         .find(item.tid)
         .get_result::<Tournament>(&mut conn)
-    {
-        Ok(_) => true,
-        Err(_) => false,
-    };
-
+        .is_ok();
+    
     if !tournament_exists {
         println!("Could not find Tournament by ID={}", &item.tid);
-        return Ok(HttpResponse::UnprocessableEntity().json(serde_json::json!({
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": format!("Tournament with ID {} does not exist", item.tid)
         })));
     }
 
-    // tracing::debug!("{} Division model create {:?}", line!(), item);
+    tracing::debug!("{} Division model create {:?}", line!(), item);
     
-    let result: Division = models::division::create(&mut conn, &item).expect("Creation error");
+    let result: QueryResult<Division> = models::division::create(&mut conn, &item);
 
-    Ok(HttpResponse::Created().json(result))
+    let response: EntityResponse<Division> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
 }
 
 #[put("/{id}")]

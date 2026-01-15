@@ -36,7 +36,12 @@ pub struct Division {
     pub updated_at: DateTime<Utc>
 }
 
-#[derive(Insertable,Deserialize)]
+#[derive(
+    Insertable,
+    Serialize,
+    Deserialize,
+    Debug
+)]
 #[diesel(table_name = crate::schema::divisions)]
 pub struct NewDivision {
     pub tid: Uuid,
@@ -51,9 +56,9 @@ pub struct NewDivision {
 #[diesel(table_name = crate::schema::divisions)]
 #[diesel(primary_key(did))]
 pub struct DivisionChangeset {
-    pub dname: String,
-    pub breadcrumb: String,
-    pub is_public: bool,
+    pub dname: Option<String>,
+    pub breadcrumb: Option<String>,
+    pub is_public: Option<bool>,
     pub shortinfo: Option<String>
 }
 
