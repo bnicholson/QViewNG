@@ -62,118 +62,44 @@ pub fn seed_tournaments(conn: &mut PgConnection) -> Vec<tournament::Tournament> 
 }
 
 pub fn seed_tournaments_for_get_today(conn: &mut PgConnection) -> Vec<tournament::Tournament> {
+    let today = Local::now().date_naive();
+    let two_months_from_today: NaiveDate = today.checked_add_months(Months::new(2)).unwrap();
+    let days_10_past: NaiveDate = today - Duration::days(10);
+    let days_10_future: NaiveDate = today + Duration::days(10);
+    let one_month_before_today: NaiveDate = today.checked_sub_months(Months::new(1)).unwrap();
+
     vec![
-        create_and_insert_tournament(conn, new_tournament_three_2_months_in_the_future("Future 2 months")),
-        create_and_insert_tournament(conn, new_tournament_seven_date_range_includes_today("20 Days, Including Today")),
-        create_and_insert_tournament(conn, new_tournament_six_today_exactly("Today Exactly")),
-        create_and_insert_tournament(conn, new_tournament_five_1_month_in_the_past("Past 1 month")),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("2 months in the future exactly", two_months_from_today, two_months_from_today)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("20 Days, Including Today", days_10_past, days_10_future)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("Today Exactly", today, today)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("1 month ago exactly", one_month_before_today, one_month_before_today)),
     ]
 }
 
-fn new_tournament_three_2_months_in_the_future(name: &str) -> NewTournament {
-    // This is intended to be used by the "get today" endpoint.
-
+pub fn seed_tournaments_for_get_all_in_date_range(conn: &mut PgConnection) -> Vec<tournament::Tournament> {
     let today = Local::now().date_naive();
+    let days_8_past: NaiveDate = today - Duration::days(8);
+    let days_8_future: NaiveDate = today + Duration::days(8);
+    let days_12_future: NaiveDate = today + Duration::days(12);
     let two_months_from_today: NaiveDate = today.checked_add_months(Months::new(2)).unwrap();
-
-    NewTournament {
-        organization: "Nazarene".to_string(),
-        tname: name.to_string(),
-        breadcrumb: "/test/bread/crumb".to_string(),
-        fromdate: two_months_from_today,
-        todate: two_months_from_today,
-        venue: "Olivet Nazarene University".to_string(),
-        city: "Bourbonnais".to_string(),
-        region: "Central USA".to_string(),
-        country: "USA".to_string(),
-        contact: "Jason Morton".to_string(),
-        contactemail: "jasonmorton@fakeemail.com".to_string(),
-        shortinfo: "NYI International quiz meet of 2025.".to_string(),
-        info: "If I wanted a longer description I would have provided it here.".to_string()
-    }
-}
-
-fn new_tournament_four_27_days_in_the_future(name: &str) -> NewTournament {
-
-    let today = Local::now().date_naive();
-    // let one_month_from_today: NaiveDate = today.checked_add_months(Months::new(1)).unwrap();
-    let eq_27_days_in_the_future: NaiveDate = today + Duration::days(27);
-
-    NewTournament {
-        organization: "Nazarene".to_string(),
-        tname: name.to_string(),
-        breadcrumb: "/test/bread/crumb".to_string(),
-        fromdate: eq_27_days_in_the_future,
-        todate: eq_27_days_in_the_future,
-        venue: "Olivet Nazarene University".to_string(),
-        city: "Bourbonnais".to_string(),
-        region: "Central USA".to_string(),
-        country: "USA".to_string(),
-        contact: "Jason Morton".to_string(),
-        contactemail: "jasonmorton@fakeemail.com".to_string(),
-        shortinfo: "NYI International quiz meet of 2025.".to_string(),
-        info: "If I wanted a longer description I would have provided it here.".to_string()
-    }
-}
-
-fn new_tournament_five_1_month_in_the_past(name: &str) -> NewTournament {
-    // This is intended to be used by the "get today" endpoint.
-
-    let today = Local::now().date_naive();
     let one_month_before_today: NaiveDate = today.checked_sub_months(Months::new(1)).unwrap();
-    
-    NewTournament {
-        organization: "Nazarene".to_string(),
-        tname: name.to_string(),
-        breadcrumb: "/test/bread/crumb".to_string(),
-        fromdate: one_month_before_today,
-        todate: one_month_before_today,
-        venue: "Olivet Nazarene University".to_string(),
-        city: "Bourbonnais".to_string(),
-        region: "Central USA".to_string(),
-        country: "USA".to_string(),
-        contact: "Jason Morton".to_string(),
-        contactemail: "jasonmorton@fakeemail.com".to_string(),
-        shortinfo: "NYI International quiz meet of 2025.".to_string(),
-        info: "If I wanted a longer description I would have provided it here.".to_string()
-    }
+
+    vec![
+        create_and_insert_tournament(conn, new_tournament_specify_dates("2 months in the future exactly", two_months_from_today, two_months_from_today)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("eight days past exactly", days_8_past, days_8_past)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("eight to twelve days future", days_8_future, days_12_future)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("Today Exactly", today, today)),
+        create_and_insert_tournament(conn, new_tournament_specify_dates("1 month ago exactly", one_month_before_today, one_month_before_today)),
+    ]
 }
 
-fn new_tournament_six_today_exactly(name: &str) -> NewTournament {
-    // This is intended to be used by the "get today" endpoint.
-
-    let today = Local::now().date_naive();
-    
+fn new_tournament_specify_dates(name: &str, from_date: NaiveDate, to_date: NaiveDate) -> NewTournament {
     NewTournament {
         organization: "Nazarene".to_string(),
         tname: name.to_string(),
         breadcrumb: "/test/bread/crumb".to_string(),
-        fromdate: today,
-        todate: today,
-        venue: "Olivet Nazarene University".to_string(),
-        city: "Bourbonnais".to_string(),
-        region: "Central USA".to_string(),
-        country: "USA".to_string(),
-        contact: "Jason Morton".to_string(),
-        contactemail: "jasonmorton@fakeemail.com".to_string(),
-        shortinfo: "NYI International quiz meet of 2025.".to_string(),
-        info: "If I wanted a longer description I would have provided it here.".to_string()
-    }
-}
-
-fn new_tournament_seven_date_range_includes_today(name: &str) -> NewTournament {
-    // This is intended to be used by the "get today" endpoint.
-
-    let today = Local::now().date_naive();
-    let days_10_past: NaiveDate = today - Duration::days(10);
-    let days_10_future: NaiveDate = today + Duration::days(10);
-    
-    NewTournament {
-        organization: "Nazarene".to_string(),
-        tname: name.to_string(),
-        breadcrumb: "/test/bread/crumb".to_string(),
-        fromdate: days_10_past,
-        todate: days_10_future,
+        fromdate: from_date,
+        todate: to_date,
         venue: "Olivet Nazarene University".to_string(),
         city: "Bourbonnais".to_string(),
         region: "Central USA".to_string(),

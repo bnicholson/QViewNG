@@ -32,11 +32,6 @@ async fn get_between_dates(
     // log this api call
     apicalllog(&req);
 
-    // convert the query from the api call from timestamps in millis since 1970
-    // to an actual 
-    let from_dt = Utc.timestamp_millis(dinfo.from_date );
-    let to_dt = Utc.timestamp_millis(dinfo.to_date);
-
     let result = models::tournament::read_between_dates(&mut db, dinfo.from_date, dinfo.to_date);
 
     if result.is_ok() {

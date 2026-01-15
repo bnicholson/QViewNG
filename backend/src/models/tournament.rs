@@ -123,8 +123,8 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 
 pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i64) -> QueryResult<Vec<Tournament>> {
     use crate::schema::tournaments::dsl::*;
-    let dt_from = Utc.timestamp_millis(from_dt ).naive_utc().date();
-    let dt_to = Utc.timestamp_millis(to_dt).naive_utc().date();
+    let dt_from = Utc.timestamp_millis_opt(from_dt ).unwrap().naive_utc().date();
+    let dt_to = Utc.timestamp_millis_opt(to_dt).unwrap().naive_utc().date();
 
     let values = tournaments
         .order(todate)

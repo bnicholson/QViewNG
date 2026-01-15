@@ -159,6 +159,75 @@ async fn get_today_works() {
 }
 
 #[actix_web::test]
+async fn get_all_in_date_range_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    fixtures::tournaments::seed_tournaments_for_get_all_in_date_range(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    // Act:
+    let today: NaiveDate = Local::now().date_naive();
+    let sub_ten_days: NaiveDate = today - Duration::days(10);
+    let add_ten_days: NaiveDate = today + Duration::days(10);
+    let sub_ten_days_millis: i64 = sub_ten_days.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis();
+    let add_ten_days_millis: i64 = add_ten_days.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis();
+    let uri = format!("/api/tournaments/filter?from_date={}&to_date={}", sub_ten_days_millis, add_ten_days_millis);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.iter().count(), 3);
+
+    let sub_8_days_from_today: NaiveDate = today - Duration::days(8);
+    let add_8_days_to_today: NaiveDate = today + Duration::days(8);
+    let add_12_days_to_today: NaiveDate = today + Duration::days(12);  // outside of range
+
+    let mut today_tour_idx = 10;
+    let mut sub_8_tour_idx = 10;
+    let mut add_8_tour_idx = 10;
+    for idx in 0..3 {
+        if body[idx].fromdate == today {
+            today_tour_idx = idx;
+        }
+        else if body[idx].fromdate == sub_8_days_from_today {
+            sub_8_tour_idx = idx;
+        }
+        else {
+            add_8_tour_idx = idx;
+        }
+    }
+
+    assert_eq!(body[today_tour_idx].tname, "Today Exactly");
+    assert_eq!(body[today_tour_idx].fromdate, today);
+    assert_eq!(body[today_tour_idx].todate, today);
+    
+    assert_eq!(body[sub_8_tour_idx].tname, "eight days past exactly");
+    assert_eq!(body[sub_8_tour_idx].fromdate, sub_8_days_from_today);
+    assert_eq!(body[sub_8_tour_idx].todate, sub_8_days_from_today);
+    
+    assert_eq!(body[add_8_tour_idx].tname, "eight to twelve days future");
+    assert_eq!(body[add_8_tour_idx].fromdate, add_8_days_to_today);
+    assert_eq!(body[add_8_tour_idx].todate, add_12_days_to_today);
+}
+
+#[actix_web::test]
 async fn create_works() {
 
     // Arrange:
