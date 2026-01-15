@@ -10,7 +10,7 @@ use backend::models::tournament::Tournament;
 use backend::database::Database;
 use backend::schema::tournaments;
 use serde_json::json;
-use crate::common::TEST_DB_URL;
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL};
 
 fn clean_database() {
     let db = Database::new(TEST_DB_URL);
@@ -37,38 +37,38 @@ async fn get_all_works() {
             .configure(configure_routes)
     ).await;
     
-    // Act:
-
+    let uri = format!("/api/tournaments?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
     let req = test::TestRequest::get()
-        .uri("/api/tournaments?page=0&page_size=10")
+        .uri(&uri)
         .to_request();
+    
+    // Act:
     
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
     // Assert:
-    
-    let body: Bytes = test::read_body(resp).await;
-    let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(body_json.as_array().unwrap().len(), 3);
+    let body: Vec<Tournament> = test::read_body_json(resp).await;
 
-    let object_two = &body_json[1];
-    assert_eq!(object_two["organization"],"Nazarene");
-    assert_ne!(object_two["tid"],"");  // "ne" in "assert_ne!" means Not Equal
-    assert_eq!(object_two["tname"],"Tour 2");
-    assert_eq!(object_two["breadcrumb"],"/test/bread/crumb");
-    assert_eq!(object_two["fromdate"],"2025-05-23");
-    assert_eq!(object_two["todate"],"2025-05-27");
-    assert_eq!(object_two["venue"],"Olivet Nazarene University");
-    assert_eq!(object_two["city"],"Bourbonnais");
-    assert_eq!(object_two["region"],"Central USA");
-    assert_eq!(object_two["country"],"USA");
-    assert_eq!(object_two["contact"],"Jason Morton");
-    assert_eq!(object_two["contactemail"],"jasonmorton@fakeemail.com");
-    assert_eq!(object_two["is_public"],false);
-    assert_eq!(object_two["shortinfo"],"NYI International quiz meet of 2025.");
-    assert_eq!(object_two["info"],"If I wanted a longer description I would have provided it here.");
+    assert_eq!(body.len(), 3);
+
+    let object_two = &body[1];
+    assert_eq!(object_two.organization,"Nazarene");
+    assert_ne!(object_two.tid.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
+    assert_eq!(object_two.tname,"Tour 2");
+    assert_eq!(object_two.breadcrumb,"/test/bread/crumb");
+    assert_eq!(object_two.fromdate, NaiveDate::from_ymd_opt(2025, 5, 23).unwrap());
+    assert_eq!(object_two.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
+    assert_eq!(object_two.venue,"Olivet Nazarene University");
+    assert_eq!(object_two.city,"Bourbonnais");
+    assert_eq!(object_two.region,"Central USA");
+    assert_eq!(object_two.country,"USA");
+    assert_eq!(object_two.contact,"Jason Morton");
+    assert_eq!(object_two.contactemail,"jasonmorton@fakeemail.com");
+    assert_eq!(object_two.is_public,false);
+    assert_eq!(object_two.shortinfo,"NYI International quiz meet of 2025.");
+    assert_eq!(object_two.info,"If I wanted a longer description I would have provided it here.");
 }
 
 #[actix_web::test]
