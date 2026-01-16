@@ -261,18 +261,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    teams_quizzers (teamid, quizzerid) {
-        teamid -> Int8,
-        quizzerid -> Int8,
-        #[max_length = 64]
-        role_description -> Nullable<Varchar>,
-        access_lvl -> Int4,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     tournamentgroups (tgid) {
         tgid -> Int8,
         #[max_length = 64]
@@ -390,8 +378,6 @@ diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
 diesel::joinable!(teams -> users (coachid));
-diesel::joinable!(teams_quizzers -> teams (teamid));
-diesel::joinable!(teams_quizzers -> users (quizzerid));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournaments_admins -> users (adminid));
 diesel::joinable!(user_permissions -> users (user_id));
@@ -416,7 +402,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     schedules,
     statsgroups,
     teams,
-    teams_quizzers,
     tournamentgroups,
     tournamentgroups_tournaments,
     tournaments,
