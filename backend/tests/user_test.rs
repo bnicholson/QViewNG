@@ -104,44 +104,41 @@ async fn get_all_works() {
 }
 
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let users: Vec<User> = fixtures::users::seed_users(&mut conn);
+    let user_of_interest_idx = 0;
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/users/{}", &users[user_of_interest_idx].id);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    // Act:
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let divisions: Vec<Division> = fixtures::divisions::seed_divisions(&mut conn, parent_tournament.tid);
-//     let division_of_interest_idx = 0;
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-
-//     let uri = format!("/api/divisions/{}", &divisions[division_of_interest_idx].did);
-//     println!("Divisions Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
-
-//     // Act:
+    // Assert:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
-
-//     // Assert:
-    
-//     let division: Division = test::read_body_json(resp).await;
-//     assert_eq!(division.dname, divisions[division_of_interest_idx].dname);
-//     assert_eq!(division.shortinfo, divisions[division_of_interest_idx].shortinfo);
-//     assert_eq!(division.breadcrumb, divisions[division_of_interest_idx].breadcrumb);
-// }
+    let user: User = test::read_body_json(resp).await;
+    assert_eq!(user.fname, users[user_of_interest_idx].fname);
+    assert_eq!(user.username, users[user_of_interest_idx].username);
+    assert_eq!(user.lname, users[user_of_interest_idx].lname);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
