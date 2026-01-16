@@ -110,13 +110,13 @@ diesel::table! {
         divisionid -> Nullable<Int8>,
         roomid -> Nullable<Int8>,
         roundid -> Nullable<Int8>,
-        leftteamid -> Int8,
-        centerteamid -> Nullable<Int8>,
-        rightteamid -> Int8,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         quizmasterid -> Uuid,
         contentjudgeid -> Uuid,
+        leftteamid -> Uuid,
+        centerteamid -> Uuid,
+        rightteamid -> Uuid,
     }
 }
 
@@ -250,13 +250,19 @@ diesel::table! {
 
 diesel::table! {
     teams (teamid) {
-        teamid -> Int8,
-        divisionid -> Int8,
+        teamid -> Uuid,
+        did -> Uuid,
+        coachid -> Uuid,
         #[max_length = 128]
         name -> Varchar,
+        quizzer_one -> Nullable<Uuid>,
+        quizzer_two -> Nullable<Uuid>,
+        quizzer_three -> Nullable<Uuid>,
+        quizzer_four -> Nullable<Uuid>,
+        quizzer_five -> Nullable<Uuid>,
+        quizzer_six -> Nullable<Uuid>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        coachid -> Uuid,
     }
 }
 
@@ -377,7 +383,7 @@ diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
-diesel::joinable!(teams -> users (coachid));
+diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
