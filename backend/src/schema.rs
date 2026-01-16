@@ -106,8 +106,6 @@ diesel::table! {
         ignore -> Bool,
         #[max_length = 32]
         ruleset -> Varchar,
-        quizmasterid -> Nullable<Int8>,
-        contentjudgeid -> Nullable<Int8>,
         tournamentid -> Nullable<Int8>,
         divisionid -> Nullable<Int8>,
         roomid -> Nullable<Int8>,
@@ -117,6 +115,8 @@ diesel::table! {
         rightteamid -> Int8,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        quizmasterid -> Uuid,
+        contentjudgeid -> Uuid,
     }
 }
 
@@ -184,14 +184,14 @@ diesel::table! {
 
 diesel::table! {
     rosters_coaches (coachid, rosterid) {
-        coachid -> Int8,
+        coachid -> Uuid,
         rosterid -> Int8,
     }
 }
 
 diesel::table! {
     rosters_quizzers (quizzerid, rosterid) {
-        quizzerid -> Int8,
+        quizzerid -> Uuid,
         rosterid -> Int8,
     }
 }
@@ -252,11 +252,11 @@ diesel::table! {
     teams (teamid) {
         teamid -> Int8,
         divisionid -> Int8,
-        coachid -> Int8,
         #[max_length = 128]
         name -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        coachid -> Uuid,
     }
 }
 
@@ -314,8 +314,8 @@ diesel::table! {
 
 diesel::table! {
     tournaments_admins (tournamentid, adminid) {
-        tournamentid -> Int8,
-        adminid -> Int8,
+        tournamentid -> Uuid,
+        adminid -> Uuid,
         #[max_length = 64]
         role_description -> Nullable<Varchar>,
         access_lvl -> Int4,
@@ -326,34 +326,33 @@ diesel::table! {
 
 diesel::table! {
     user_permissions (user_id, permission) {
-        user_id -> Int8,
         permission -> Text,
         created_at -> Timestamptz,
+        user_id -> Uuid,
     }
 }
 
 diesel::table! {
     user_roles (user_id, role) {
-        user_id -> Int8,
         role -> Text,
         created_at -> Timestamptz,
+        user_id -> Uuid,
     }
 }
 
 diesel::table! {
     user_sessions (id) {
         id -> Int8,
-        user_id -> Int8,
         refresh_token -> Text,
         device -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        user_id -> Uuid,
     }
 }
 
 diesel::table! {
     users (id) {
-        id -> Int8,
         email -> Text,
         hash_password -> Text,
         activated -> Bool,
@@ -365,6 +364,7 @@ diesel::table! {
         mname -> Varchar,
         #[max_length = 64]
         lname -> Varchar,
+        id -> Uuid,
     }
 }
 
@@ -379,6 +379,7 @@ diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
 diesel::joinable!(teams -> users (coachid));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
+diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
 diesel::joinable!(user_permissions -> users (user_id));
 diesel::joinable!(user_roles -> users (user_id));
