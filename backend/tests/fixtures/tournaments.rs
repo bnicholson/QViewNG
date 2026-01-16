@@ -1,7 +1,8 @@
 // In tests/common/mod.rs or tests/fixtures.rs
 use diesel::prelude::*;
-use backend::models::tournament::{self,Tournament,NewTournament};
+use backend::models::tournament::{NewTournament, Tournament};
 use chrono::{Duration, Local, Months, NaiveDate};
+use crate::fixtures::divisions::seed_divisions_with_names;
 
 pub fn new_tournament_one() -> NewTournament {
     NewTournament {
@@ -57,12 +58,16 @@ fn create_and_insert_tournament(conn: &mut PgConnection, tournament: NewTourname
         .expect("Failed to create tournament")
 }
 
-pub fn seed_tournaments(conn: &mut PgConnection) -> Vec<Tournament> {
+pub fn seed_tournaments_with_names(conn: &mut PgConnection, tname_1: &str, tname_2: &str, tname_3: &str) -> Vec<Tournament> {
     vec![
-        create_and_insert_tournament(conn, new_tournament_two("Q2025")),
-        create_and_insert_tournament(conn, new_tournament_two("Tour 2")),
-        create_and_insert_tournament(conn, new_tournament_two("Tour 3")),
+        create_and_insert_tournament(conn, new_tournament_two(tname_1)),
+        create_and_insert_tournament(conn, new_tournament_two(tname_2)),
+        create_and_insert_tournament(conn, new_tournament_two(tname_3)),
     ]
+}
+
+pub fn seed_tournaments(conn: &mut PgConnection) -> Vec<Tournament> {
+    seed_tournaments_with_names(conn, "Q2025", "Tour 2", "Tour 3")
 }
 
 pub fn seed_tournaments_for_get_today(conn: &mut PgConnection) -> Vec<Tournament> {
@@ -113,4 +118,23 @@ fn new_tournament_specify_dates(name: &str, from_date: NaiveDate, to_date: Naive
         shortinfo: "NYI International quiz meet of 2025.".to_string(),
         info: "If I wanted a longer description I would have provided it here.".to_string()
     }
+}
+
+pub fn seed_get_divisions_by_tournament(conn: &mut PgConnection) -> Tournament {
+    let tournaments = seed_tournaments_with_names(conn, "T1", "T2", "T3");  // unique names not really needed (realizing after the fact)
+
+    let tour_1 = &tournaments[0];
+    let tour_1_divisions = seed_divisions_with_names(conn, tour_1.tid, "Test Div 3276", "Test Div 9078", "Test Div 4611");
+
+    let tour_2 = &tournaments[1];
+    let tour_2_divisions = seed_divisions_with_names(conn, tour_2.tid, "Test Div 23", "Test Div 43", "Test Div 10");
+
+    let tour_3 = &tournaments[2];
+    let tour_3_divisions = seed_divisions_with_names(conn, tour_3.tid, "Test Div 9", "Test Div 2", "Test Div 7");
+
+    let mut return_vec = tour_1_divisions;
+    return_vec.extend(tour_2_divisions);
+    return_vec.extend(tour_3_divisions);
+
+    tour_3.clone()
 }

@@ -6,7 +6,7 @@ use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate};
 use diesel::prelude::*;
 use backend::{routes::configure_routes, services::common::EntityResponse};
-use backend::models::tournament::Tournament;
+use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use backend::schema::tournaments;
 use serde_json::json;
@@ -370,4 +370,62 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn get_all_divisions_of_tournament_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+
+    let tournament = fixtures::tournaments::seed_get_divisions_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/divisions?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Division> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 3);
+
+    let mut div_1_idx = 10;
+    let mut div_2_idx = 10;
+    let mut div_3_idx = 10;
+    for idx in 0..3 {
+        if body[idx].dname == "Test Div 9" {
+            div_1_idx = idx;
+        }
+        if body[idx].dname == "Test Div 2" {
+            div_2_idx = idx;
+        }
+        if body[idx].dname == "Test Div 7" {
+            div_3_idx = idx;
+        }
+    }
+    assert_ne!(div_1_idx, 10);
+    assert_ne!(div_2_idx, 10);
+    assert_ne!(div_3_idx, 10);
+    // overkill, but thorough:
+    assert_eq!(body[div_1_idx].dname, "Test Div 9");
+    assert_eq!(body[div_2_idx].dname, "Test Div 2");
+    assert_eq!(body[div_3_idx].dname, "Test Div 7");
 }
