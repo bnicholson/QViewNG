@@ -7,23 +7,23 @@ use diesel::{QueryDsl, QueryResult, RunQueryDsl};
 use crate::schema::tournaments::dsl::{tournaments as tournaments_table};
 use uuid::Uuid;
 
-// #[get("")]
-// async fn index(
-//     db: Data<Database>,
-//     Query(info): Query<PaginationParams>,
-// ) -> HttpResponse {
-//     let mut db = db.pool.get().unwrap();
+#[get("")]
+async fn index(
+    db: Data<Database>,
+    Query(info): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
 
-//     let result = models::user::read_all(&mut db, &info);
+    let result = models::user::read_all(&mut db, &info);
    
-//     println!("Users: {:?}",result);
+    println!("Users: {:?}",result);
     
-//     if result.is_ok() {
-//         HttpResponse::Ok().json(result.unwrap())
-//     } else {
-//         HttpResponse::InternalServerError().finish()
-//     }
-// }
+    if result.is_ok() {
+        HttpResponse::Ok().json(result.unwrap())
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
 
 // #[get("/{id}")]
 // async fn read(
@@ -102,7 +102,7 @@ async fn create(
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        // .service(index)
+        .service(index)
         // .service(read)
         .service(create);
         // .service(update)

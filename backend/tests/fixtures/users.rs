@@ -3,58 +3,80 @@ use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::users;
 
-pub fn new_user_one(fname: &str) -> NewUser {
+pub fn new_user_one(fname: &str, unhashed_pwd: &str) -> NewUser {
     NewUser {
         email: "obviously@fakeemail.com".to_string(),
-        hash_password: "FamouslySecure!23".to_string(),
+        hash_password: unhashed_pwd.to_string(),
         activated: true,
         fname: fname.to_string(),
         mname: "Maurice".to_string(),
         lname: "Den".to_string(),
-        username: "Experienced (but still young).".to_string()
+        username: "1denmanforthejob1".to_string()
     }
 }
 
-pub fn get_user_payload() -> NewUser {
-    new_user_one("Test User 3276")
+pub fn new_user_two(fname: &str, unhashed_pwd: &str) -> NewUser {
+    NewUser {
+        email: "edbashful@fakeemail.com".to_string(),
+        hash_password: unhashed_pwd.to_string(),
+        activated: true,
+        fname: fname.to_string(),
+        mname: "Eugene".to_string(),
+        lname: "Davidson".to_string(),
+        username: "edbashful".to_string()
+    }
 }
 
-// fn create_and_insert_division(conn: &mut PgConnection, new_division: NewUser) -> User {
-//     diesel::insert_into(divisions::table)
-//         .values(new_division)
-//         .returning(Division::as_returning())
-//         .get_result::<Division>(conn)
-//         .expect("Failed to create division")
+pub fn new_user_three(fname: &str, unhashed_pwd: &str) -> NewUser {
+    NewUser {
+        email: "chbringit@fakeemail.com".to_string(),
+        hash_password: unhashed_pwd.to_string(),
+        activated: true,
+        fname: fname.to_string(),
+        mname: "Clarence".to_string(),
+        lname: "Kennedy".to_string(),
+        username: "ckbringit".to_string()
+    }
+}
+
+pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
+    new_user_one("Test User 3276", &unhashed_pwd)
+}
+
+fn create_and_insert_user(conn: &mut PgConnection, new_user: NewUser) -> User {
+    diesel::insert_into(users::table)
+        .values(new_user)
+        .returning(User::as_returning())
+        .get_result::<User>(conn)
+        .expect("Failed to create user")
+}
+
+// pub fn user(conn: &mut PgConnection, tid: Uuid) -> User {
+//     let new_user = new_user_one(tid, "Test Div 3276");
+//     create_and_insert_user(conn, new_user)
 // }
 
-// pub fn seed_division(conn: &mut PgConnection, tid: Uuid) -> User {
-//     let new_division = new_division_one(tid, "Test Div 3276");
-//     create_and_insert_division(conn, new_division)
-// }
+pub fn seed_users(conn: &mut PgConnection) -> Vec<User> {
+    seed_users_with_fnames(
+        conn, 
+        "Test User 3276", 
+        "Test User 9078", 
+        "Test User 4611")
+}
 
-// pub fn seed_divisions(conn: &mut PgConnection, tid: Uuid) -> Vec<Division> {
-//     seed_divisions_with_names(
-//         conn, 
-//         tid, 
-//         "Test Div 3276", 
-//         "Test Div 9078", 
-//         "Test Div 4611")
-// }
+pub fn seed_users_with_fnames(
+    conn: &mut PgConnection, 
+    user_1_name: &str,
+    user_2_name: &str,
+    user_3_name: &str,
+) -> Vec<User> {
+    let new_user_1 = new_user_one(user_1_name, "Some pwd&7");
+    let new_user_2 = new_user_two(user_2_name, "Grace_abundantly90");
+    let new_user_3 = new_user_three(user_3_name, "Manypwdsfailthetest");
 
-// pub fn seed_divisions_with_names(
-//     conn: &mut PgConnection, 
-//     tid: Uuid, 
-//     div_1_name: &str,
-//     div_2_name: &str,
-//     div_3_name: &str,
-// ) -> Vec<Division> {
-//     let new_division_1 = new_division_one(tid, div_1_name);
-//     let new_division_2 = new_division_two(tid, div_2_name);
-//     let new_division_3 = new_division_three(tid, div_3_name);
-
-//     vec![
-//         create_and_insert_division(conn, new_division_1),
-//         create_and_insert_division(conn, new_division_2),
-//         create_and_insert_division(conn, new_division_3),
-//     ]
-// }
+    vec![
+        create_and_insert_user(conn, new_user_1),
+        create_and_insert_user(conn, new_user_2),
+        create_and_insert_user(conn, new_user_3),
+    ]
+}

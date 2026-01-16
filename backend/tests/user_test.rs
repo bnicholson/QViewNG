@@ -7,6 +7,7 @@ use actix_web::{App, test, web::{self,Bytes}};
 use backend::{database::Database, models::user::User};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use bcrypt::verify;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -18,7 +19,8 @@ async fn create_works() {
     clean_database();
     let db = Database::new(TEST_DB_URL);
 
-    let payload = fixtures::users::get_user_payload();
+    let unhashed_pwd = "FamouslySecure!23";
+    let payload = fixtures::users::get_user_payload(unhashed_pwd);
 
     let app = test::init_service(
         App::new()
@@ -43,64 +45,63 @@ async fn create_works() {
     assert_eq!(body.code, 201);
     assert_eq!(body.message, "");
 
+    
     let user = body.data.unwrap();
     assert_ne!(user.id.to_string().as_str(), "");
     assert_eq!(user.fname.as_str(), "Test User 3276");
     assert_eq!(user.mname.as_str(), "Maurice");
     assert!(user.activated);
-    assert_ne!(user.hash_password, "");
+
+    let pwd_is_valid = verify(unhashed_pwd, &user.hash_password).expect("Password verification failed");
+    assert!(pwd_is_valid);
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    fixtures::users::seed_users(&mut conn);
 
-//     fixtures::divisions::seed_divisions(&mut conn, parent_tournament.tid);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/divisions?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/users?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
 
-//     let body: Vec<Division> = test::read_body_json(resp).await;
+    let body: Vec<User> = test::read_body_json(resp).await;
 
-//     assert_eq!(body.len(), 3);
+    assert_eq!(body.len(), 3);
 
-//     let mut div_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].dname == "Test Div 9078" {
-//             div_or_interest_idx = idx;
-//             break;
-//         }
-//     }
+    let mut user_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].fname == "Test User 9078" {
+            user_or_interest_idx = idx;
+            break;
+        }
+    }
 
-//     let div_of_interest = &body[div_or_interest_idx];
-//     assert_eq!(div_of_interest.tid, parent_tournament.tid);
-//     assert_ne!(div_of_interest.did.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-//     assert_eq!(div_of_interest.breadcrumb,"/test/post/for/division/2");
-//     assert!(!div_of_interest.is_public);
-//     assert_eq!(div_of_interest.shortinfo, "Novice");
-// }
+    let user_or_interest = &body[user_or_interest_idx];
+    assert_ne!(user_or_interest.id.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
+    assert_eq!(user_or_interest.mname, "Eugene");
+    assert_eq!(user_or_interest.username, "edbashful");
+}
 
 
 // #[actix_web::test]
