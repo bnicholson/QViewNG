@@ -371,6 +371,8 @@ diesel::table! {
         #[max_length = 64]
         lname -> Varchar,
         id -> Uuid,
+        #[max_length = 32]
+        username -> Varchar,
     }
 }
 
