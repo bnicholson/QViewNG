@@ -60,27 +60,27 @@ async fn create(
     }
 }
 
-// #[put("/{id}")]
-// async fn update(
-//     db: Data<Database>,
-//     item_id: Path<Uuid>,
-//     Json(item): Json<UserChangeset>,
-// ) -> Result<HttpResponse, Error> {
+#[put("/{id}")]
+async fn update(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Json(item): Json<UserChangeset>,
+) -> Result<HttpResponse, Error> {
 
-//     let mut db = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} User model update {:?} {:?}", line!(), item_id, item); 
+    tracing::debug!("{} User model update {:?} {:?}", line!(), item_id, item); 
 
-//     let result = models::user::update(&mut db, item_id.into_inner(), &item);
+    let result = models::user::update(&mut db, item_id.into_inner(), &item);
 
-//     let response = process_response(result, "put");
+    let response = process_response(result, "put");
     
-//     match response.code {
-//         409 => Ok(HttpResponse::Conflict().json(response)),
-//         200 => Ok(HttpResponse::Ok().json(response)),
-//         _ => Ok(HttpResponse::InternalServerError().json(response))
-//     }
-// }
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
 
 // #[delete("/{id}")]
 // async fn destroy(
@@ -104,7 +104,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
-        .service(create);
-        // .service(update)
+        .service(create)
+        .service(update);
         // .service(destroy);
 }

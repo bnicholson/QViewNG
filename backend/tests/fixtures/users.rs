@@ -51,10 +51,10 @@ fn create_and_insert_user(conn: &mut PgConnection, new_user: NewUser) -> User {
         .expect("Failed to create user")
 }
 
-// pub fn user(conn: &mut PgConnection, tid: Uuid) -> User {
-//     let new_user = new_user_one(tid, "Test Div 3276");
-//     create_and_insert_user(conn, new_user)
-// }
+pub fn seed_user(conn: &mut PgConnection) -> User {
+    let new_user = new_user_one("Test User 3276", "phunkeypazwurd");
+    create_and_insert_user(conn, new_user)
+}
 
 pub fn seed_users(conn: &mut PgConnection) -> Vec<User> {
     seed_users_with_fnames(

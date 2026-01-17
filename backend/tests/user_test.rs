@@ -140,60 +140,57 @@ async fn get_by_id_works() {
     assert_eq!(user.lname, users[user_of_interest_idx].lname);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let user: User = fixtures::users::seed_user(&mut conn);
 
-//     let division: Division = fixtures::divisions::seed_division(&mut conn, parent_tournament.tid);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let new_fname = "Test User NEW".to_string();
+    let new_mname = "Flemming".to_string();
+    let new_activated = false;
 
-//     let new_dname = "Test Div NEW".to_string();
-//     let new_breadcrumb = "/latest/breadcrumb".to_string();
-//     let new_is_public = true;
-
-//     let put_payload = json!({
-//         "dname": &new_dname,
-//         "breadcrumb": new_breadcrumb,
-//         "is_public": &new_is_public
-//     });
+    let put_payload = json!({
+        "fname": new_fname,
+        "mname": new_mname,
+        "activated": new_activated
+    });
     
-//     let put_uri = format!("/api/divisions/{}", division.did);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/users/{}", user.id);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<Division> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<User> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_division = put_resp_body.data.unwrap();
-//     assert_eq!(new_division.tid, parent_tournament.tid);
-//     assert_eq!(new_division.did, division.did);
-//     assert_eq!(new_division.dname.as_str(), new_dname);
-//     assert_eq!(new_division.breadcrumb.as_str(), new_breadcrumb);
-//     assert_eq!(new_division.is_public, new_is_public);
-// }
+    let new_user = put_resp_body.data.unwrap();
+    assert_eq!(new_user.id, user.id);
+    assert_eq!(new_user.fname.as_str(), new_fname);
+    assert_eq!(new_user.mname.as_str(), new_mname);
+    assert_eq!(new_user.activated, new_activated);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
