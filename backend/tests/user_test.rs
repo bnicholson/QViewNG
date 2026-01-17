@@ -192,49 +192,47 @@ async fn update_works() {
     assert_eq!(new_user.activated, new_activated);
 }
 
-// #[actix_web::test]
-// async fn delete_works() {
+#[actix_web::test]
+async fn delete_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let user: User = fixtures::users::seed_user(&mut conn);
 
-//     let division: Division = fixtures::divisions::seed_division(&mut conn, parent_tournament.tid);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let delete_uri = format!("/api/divisions/{}", division.did);
-//     let delete_req = test::TestRequest::delete()
-//         .uri(&delete_uri)
-//         .to_request();
+    let delete_uri = format!("/api/users/{}", user.id);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let delete_resp = test::call_service(&app, delete_req).await;
+    let delete_resp = test::call_service(&app, delete_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(delete_resp.status(), StatusCode::OK);
+    assert_eq!(delete_resp.status(), StatusCode::OK);
 
-//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-//     assert_eq!(&delete_resp_body_string, "");
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/divisions/{}", division.did);
-//     let get_by_id_req = test::TestRequest::get()
-//         .uri(&get_by_id_uri)
-//         .to_request();
+    let get_by_id_uri = format!("/api/users/{}", user.id);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
 
-//     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
-//     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-// }
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}

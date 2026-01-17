@@ -82,29 +82,29 @@ async fn update(
     }
 }
 
-// #[delete("/{id}")]
-// async fn destroy(
-//     db: Data<Database>,
-//     item_id: Path<Uuid>,
-// ) -> HttpResponse {
-//     let mut db = db.pool.get().unwrap();
+#[delete("/{id}")]
+async fn destroy(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} User model delete {:?}", line!(), item_id);
+    tracing::debug!("{} User model delete {:?}", line!(), item_id);
 
-//     let result = models::user::delete(&mut db, item_id.into_inner());
+    let result = models::user::delete(&mut db, item_id.into_inner());
 
-//     if result.is_ok() {
-//         HttpResponse::Ok().finish()
-//     } else {
-//         HttpResponse::InternalServerError().finish()
-//     }
-// }
+    if result.is_ok() {
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
         .service(create)
-        .service(update);
-        // .service(destroy);
+        .service(update)
+        .service(destroy);
 }
