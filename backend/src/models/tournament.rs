@@ -4,7 +4,7 @@ use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
-use chrono::{Utc,DateTime,TimeZone,naive};
+use chrono::{Utc,DateTime,TimeZone};
 use utoipa::{ToSchema};
 // this import requires this syntax (to appease rustc):
 use crate::schema::tournaments::dsl::{

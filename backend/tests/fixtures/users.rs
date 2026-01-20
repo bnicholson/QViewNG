@@ -1,6 +1,5 @@
 use backend::models::user::{User,NewUser};
 use diesel::prelude::*;
-use uuid::Uuid;
 use backend::schema::users;
 
 pub fn new_user_one(fname: &str, unhashed_pwd: &str) -> NewUser {

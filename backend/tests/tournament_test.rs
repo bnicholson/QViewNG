@@ -5,7 +5,7 @@ mod fixtures;
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate};
 use diesel::prelude::*;
-use backend::{routes::configure_routes, services::common::EntityResponse};
+use backend::{models::tournament_admin::TournamentAdmin, routes::configure_routes, schema::user_permissions::user_id, services::common::EntityResponse};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use backend::schema::tournaments;
@@ -114,7 +114,7 @@ async fn get_by_id_works() {
 }
 
 #[actix_web::test]
-async fn get_today_works() {
+async fn get_todays_works() {
 
     // Arrange:
     
@@ -381,7 +381,7 @@ async fn get_all_divisions_of_tournament_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    fixtures::tournaments::seed_tournament(&mut conn);
 
     let tournament = fixtures::tournaments::seed_get_divisions_by_tournament(&mut conn);
 
@@ -428,4 +428,48 @@ async fn get_all_divisions_of_tournament_works() {
     assert_eq!(body[div_1_idx].dname, "Test Div 9");
     assert_eq!(body[div_2_idx].dname, "Test Div 2");
     assert_eq!(body[div_3_idx].dname, "Test Div 7");
+}
+
+#[actix_web::test]
+async fn add_admin_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let user_to_become_admin = fixtures::users::seed_user(&mut conn);
+
+    let payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user_to_become_admin.id);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user_to_become_admin.id);
+    let req = test::TestRequest::post()
+        .uri(&uri)
+        .set_json(payload)
+        .to_request();
+    
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<TournamentAdmin> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournament_admin = body.data.unwrap();
+    assert_eq!(tournament_admin.tournamentid, tournament.tid);
+    assert_eq!(tournament_admin.adminid, user_to_become_admin.id);
+    assert_eq!(tournament_admin.role_description.unwrap().as_str(), "default role (test id 334)");
 }

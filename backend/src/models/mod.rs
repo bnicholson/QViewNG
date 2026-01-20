@@ -1,4 +1,5 @@
 pub mod tournament;
+pub mod tournament_admin;
 pub mod common;
 pub mod division;
 pub mod apicalllog;

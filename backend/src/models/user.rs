@@ -15,9 +15,7 @@ use uuid::Uuid;
     Deserialize,
     Clone,
     Queryable,
-    Insertable,
     Identifiable,
-    AsChangeset,
     Selectable,
     ToSchema
 )]

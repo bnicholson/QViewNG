@@ -1,5 +1,5 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::models;
+use crate::models::{self, tournament_admin::{NewTournamentAdmin, TournamentAdmin}};
 use crate::models::tournament::{NewTournament, Tournament, TournamentChangeset};
 use crate::models::common::{PaginationParams,SearchDateParams};
 use crate::services::common::{EntityResponse, process_response};
@@ -141,6 +141,34 @@ async fn read_divisions(
     }
 }
 
+#[post("/{tour_id}/admins/{user_id}")]
+async fn add_admin(
+    db: Data<Database>,
+    path_ids: Path<(Uuid,Uuid)>,
+    Json(item): Json<NewTournamentAdmin>    
+) -> Result<HttpResponse, Error> {
+    let mut db = db.get_connection().expect("Failed to get connection");
+
+    tracing::debug!("{} Tournament model create {:?}", line!(), item);
+
+    let item_to_be_created = NewTournamentAdmin {
+        tournamentid: path_ids.0,
+        adminid: path_ids.1,
+        ..item
+    };
+    
+    let result : QueryResult<TournamentAdmin> = models::tournament_admin::create(&mut db, &item_to_be_created);
+
+    let response: EntityResponse<TournamentAdmin> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -152,7 +180,6 @@ async fn read_divisions(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    req: HttpRequest,
     Json(item): Json<NewTournament>    
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
@@ -235,6 +262,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_today)
         .service(read)
         .service(read_divisions)
+        .service(add_admin)
         .service(create)
         .service(update)
         .service(destroy);
