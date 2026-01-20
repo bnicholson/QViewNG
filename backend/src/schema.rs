@@ -106,9 +106,6 @@ diesel::table! {
         ignore -> Bool,
         #[max_length = 32]
         ruleset -> Varchar,
-        tournamentid -> Nullable<Int8>,
-        divisionid -> Nullable<Int8>,
-        roomid -> Nullable<Int8>,
         roundid -> Nullable<Int8>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
@@ -117,6 +114,9 @@ diesel::table! {
         leftteamid -> Uuid,
         centerteamid -> Uuid,
         rightteamid -> Uuid,
+        tournamentid -> Nullable<Uuid>,
+        divisionid -> Nullable<Uuid>,
+        roomid -> Nullable<Uuid>,
     }
 }
 
@@ -160,15 +160,13 @@ diesel::table! {
 
 diesel::table! {
     rooms (roomid) {
-        roomid -> Int8,
-        tid -> Int8,
+        roomid -> Uuid,
+        tid -> Uuid,
         #[max_length = 32]
         name -> Varchar,
         #[max_length = 32]
         building -> Varchar,
         comments -> Text,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
     }
 }
 
@@ -377,8 +375,10 @@ diesel::table! {
 }
 
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
+diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
 diesel::joinable!(games -> rounds (roundid));
+diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gid));
 diesel::joinable!(games_statsgroups -> statsgroups (sgid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
