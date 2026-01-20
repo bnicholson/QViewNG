@@ -269,6 +269,26 @@ async fn destroy(
     }
 }
 
+#[delete("/{tour_id}/admins/{user_id}")]
+async fn remove_admin(
+    db: Data<Database>,
+    path_ids: Path<(Uuid,Uuid)>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    let tour_id = path_ids.0;
+    let admin_id = path_ids.1;
+    tracing::debug!("{} Tournament model delete, tour_id = {:?}, admin_id = {}", line!(), tour_id, admin_id);
+    
+    let result = models::tournament_admin::delete(&mut db, tour_id, admin_id);
+
+    if result.is_ok() {
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
@@ -280,5 +300,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(add_admin)
         .service(create)
         .service(update)
-        .service(destroy);
+        .service(destroy)
+        .service(remove_admin);
 }

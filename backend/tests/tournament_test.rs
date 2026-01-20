@@ -536,3 +536,64 @@ async fn get_all_admins_of_tournament_works() {
     assert_eq!(body[admin_1_idx].fname, "Test User 9");
     assert_eq!(body[admin_2_idx].fname, "Test User 3");
 }
+
+#[actix_web::test]
+async fn delete_admin_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let user = fixtures::users::seed_user(&mut conn);
+
+    let payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user.id);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let post_uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
+    let post_req = test::TestRequest::post()
+        .uri(&post_uri)
+        .set_json(payload)
+        .to_request();
+    
+    let resp = test::call_service(&app, post_req).await;
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    
+    let delete_uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
+
+    // Act:
+    
+    let delete_resp = test::call_service(&app, delete_req).await;
+
+    // Assert:
+    
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
+
+
+    let get_admins_uri = format!("/api/tournaments/{}/admins?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let get_admins_req = test::TestRequest::get()
+        .uri(&get_admins_uri)
+        .to_request();
+
+    let get_admins_resp = test::call_service(&app, get_admins_req).await;
+
+    assert_eq!(get_admins_resp.status(), StatusCode::OK);
+
+    let body: Vec<User> = test::read_body_json(get_admins_resp).await;
+    assert_eq!(body.len(), 0);
+}
