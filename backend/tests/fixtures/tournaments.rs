@@ -2,7 +2,7 @@
 use diesel::prelude::*;
 use backend::models::tournament::{NewTournament, Tournament};
 use chrono::{Duration, Local, Months, NaiveDate};
-use crate::fixtures::divisions::seed_divisions_with_names;
+use crate::fixtures::{divisions::seed_divisions_with_names, users::seed_users_with_fnames};
 
 pub fn new_tournament_one() -> NewTournament {
     NewTournament {

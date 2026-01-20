@@ -5,7 +5,7 @@ mod fixtures;
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate};
 use diesel::prelude::*;
-use backend::{models::tournament_admin::TournamentAdmin, routes::configure_routes, schema::user_permissions::user_id, services::common::EntityResponse};
+use backend::{models::{tournament_admin::TournamentAdmin, user::User}, routes::configure_routes, services::common::EntityResponse};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use backend::schema::tournaments;
@@ -472,4 +472,67 @@ async fn add_admin_works() {
     assert_eq!(tournament_admin.tournamentid, tournament.tid);
     assert_eq!(tournament_admin.adminid, user_to_become_admin.id);
     assert_eq!(tournament_admin.role_description.unwrap().as_str(), "default role (test id 334)");
+}
+
+#[actix_web::test]
+async fn get_all_admins_of_tournament_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let users = fixtures::users::seed_users_for_get_all_admins_of_tour(&mut conn);
+    
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    for user in users {
+        let uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
+        let payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user.id);
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .set_json(&payload)
+            .to_request();
+        
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+    
+    let uri = format!("/api/tournaments/{}/admins?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<User> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 2);
+
+    let mut admin_1_idx = 10;
+    let mut admin_2_idx = 10;
+    for idx in 0..2 {
+        if body[idx].fname == "Test User 9" {
+            admin_1_idx = idx;
+        }
+        if body[idx].fname == "Test User 3" {
+            admin_2_idx = idx;
+        }
+    }
+    assert_ne!(admin_1_idx, 10);
+    assert_ne!(admin_2_idx, 10);
+    // overkill, but thorough:
+    assert_eq!(body[admin_1_idx].fname, "Test User 9");
+    assert_eq!(body[admin_2_idx].fname, "Test User 3");
 }

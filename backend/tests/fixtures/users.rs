@@ -63,6 +63,13 @@ pub fn seed_users(conn: &mut PgConnection) -> Vec<User> {
         "Test User 4611")
 }
 
+pub fn seed_users_for_get_all_admins_of_tour(conn: &mut PgConnection) -> Vec<User> {
+    seed_users_with_fnames_for_get_all_admins_of_tour(
+        conn, 
+        "Test User 3", 
+        "Test User 9")
+}
+
 pub fn seed_users_with_fnames(
     conn: &mut PgConnection, 
     user_1_name: &str,
@@ -77,5 +84,19 @@ pub fn seed_users_with_fnames(
         create_and_insert_user(conn, new_user_1),
         create_and_insert_user(conn, new_user_2),
         create_and_insert_user(conn, new_user_3),
+    ]
+}
+
+pub fn seed_users_with_fnames_for_get_all_admins_of_tour(
+    conn: &mut PgConnection, 
+    user_1_name: &str,
+    user_2_name: &str,
+) -> Vec<User> {
+    let new_user_1 = new_user_one(user_1_name, "Some pwd&7");
+    let new_user_2 = new_user_two(user_2_name, "Grace_abundantly90");
+
+    vec![
+        create_and_insert_user(conn, new_user_1),
+        create_and_insert_user(conn, new_user_2),
     ]
 }

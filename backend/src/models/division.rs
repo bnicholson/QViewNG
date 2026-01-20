@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::models::common::*;
 use utoipa::ToSchema;
 use chrono::{DateTime,Utc};
-// this import requires this syntax (to appease rustc):
-use crate::schema::divisions::dsl::{did,tid,dname,breadcrumb,is_public,shortinfo,created_at,updated_at};
 use uuid::Uuid;
 
 // #[tsync::tsync]

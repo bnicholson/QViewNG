@@ -1,16 +1,13 @@
 
 use crate::database;
+use crate::models::user::User;
+use crate::models::tournament_admin::TournamentAdmin;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
 use chrono::{Utc,DateTime,TimeZone};
 use utoipa::{ToSchema};
-// this import requires this syntax (to appease rustc):
-use crate::schema::tournaments::dsl::{
-    organization,tname,breadcrumb,fromdate,todate,venue,city,region,
-    country,contact,contactemail,is_public,shortinfo,info
-};
 use crate::models::division::Division;
 use uuid::Uuid;
 
@@ -150,6 +147,37 @@ pub fn read_divisions(
         .limit(page_size)
         .offset(offset_val)
         .load::<Division>(db)
+}
+
+pub fn read_users(
+    db: &mut database::Connection,
+    tour_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<User>> {
+    use crate::schema::users::dsl::*;
+    use crate::schema::tournaments_admins::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let admin_ids: Vec<Uuid> = 
+        tournaments_admins
+            .filter(tournamentid.eq(tour_id))
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<TournamentAdmin>(db)
+            .unwrap()
+            .iter()
+            .map(|admin| admin.adminid)
+            .collect();
+
+    users
+        .filter(id.eq_any(admin_ids))
+        .order(fname.asc())
+        .order(lname.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<User>(db)
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentChangeset) -> QueryResult<Tournament> {

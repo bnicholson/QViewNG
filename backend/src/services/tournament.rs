@@ -141,6 +141,20 @@ async fn read_divisions(
     }
 }
 
+#[get("/{id}/admins")]
+async fn read_admins(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::tournament::read_users(&mut conn, item_id.into_inner(), &params) {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("/{tour_id}/admins/{user_id}")]
 async fn add_admin(
     db: Data<Database>,
@@ -262,6 +276,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_today)
         .service(read)
         .service(read_divisions)
+        .service(read_admins)
         .service(add_admin)
         .service(create)
         .service(update)
