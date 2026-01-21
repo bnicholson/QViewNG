@@ -4,10 +4,11 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::database::Database;
+use backend::{database::Database, models::round::Round};
 use backend::models::division::Division;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use chrono::{TimeZone, Utc};
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -247,4 +248,56 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn get_all_rounds_of_division_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let division = fixtures::divisions::seed_get_rounds_by_division(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/divisions/{}/rounds?page={}&page_size={}", division.did, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Round> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 3);
+
+    let mut round_1_idx = 10;
+    let mut round_2_idx = 10;
+    let mut round_3_idx = 10;
+    for idx in 0..3 {
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2061, 5, 23, 00, 00, 0).unwrap() {
+            round_1_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2062, 5, 23, 00, 00, 0).unwrap() {
+            round_2_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2063, 5, 23, 00, 00, 0).unwrap() {
+            round_3_idx = idx;
+        }
+    }
+    assert_ne!(round_1_idx, 10);
+    assert_ne!(round_2_idx, 10);
+    assert_ne!(round_3_idx, 10);
 }

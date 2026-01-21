@@ -56,6 +56,20 @@ async fn read(
     }
 }
 
+#[get("/{id}/rounds")]
+async fn read_rounds(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::division::read_rounds(&mut conn, item_id.into_inner(), &params) {
+        Ok(division) => HttpResponse::Ok().json(division),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -134,6 +148,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_rounds)
         .service(create)
         .service(update)
         .service(destroy);
