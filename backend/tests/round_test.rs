@@ -54,55 +54,52 @@ async fn create_works() {
     assert_eq!(round.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap());
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-//     fixtures::rounds::seed_rounds(&mut conn, parent_tournament.tid);
+    fixtures::rounds::seed_rounds(&mut conn, division.did);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/rounds?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/rounds?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<Round> = test::read_body_json(resp).await;
+    let body: Vec<Round> = test::read_body_json(resp).await;
 
-//     assert_eq!(body.len(), 3);
+    assert_eq!(body.len(), 3);
 
-//     let mut round_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].name == "Test Round 9078" {
-//             round_or_interest_idx = idx;
-//             break;
-//         }
-//     }
-
-//     let round_of_interest = &body[round_or_interest_idx];
-//     assert_eq!(round_of_interest.tid, parent_tournament.tid);
-//     assert_eq!(round_of_interest.building.as_str(), "Bldng 2");
-//     assert_eq!(round_of_interest.comments.as_str(), "I thought I recognized this place.");
-// }
+    let mut round_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2045, 5, 23, 00, 00, 0).unwrap() {
+            round_or_interest_idx = idx;
+            break;
+        }
+    }
+    assert_ne!(round_or_interest_idx, 10);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
