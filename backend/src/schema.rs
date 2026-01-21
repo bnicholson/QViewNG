@@ -106,7 +106,6 @@ diesel::table! {
         ignore -> Bool,
         #[max_length = 32]
         ruleset -> Varchar,
-        roundid -> Nullable<Int8>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         quizmasterid -> Uuid,
@@ -117,6 +116,7 @@ diesel::table! {
         tournamentid -> Nullable<Uuid>,
         divisionid -> Nullable<Uuid>,
         roomid -> Nullable<Uuid>,
+        roundid -> Nullable<Uuid>,
     }
 }
 
@@ -198,8 +198,8 @@ diesel::table! {
 
 diesel::table! {
     rounds (roundid) {
-        roundid -> Int8,
-        did -> Nullable<Int8>,
+        roundid -> Uuid,
+        did -> Uuid,
         scheduled_start_time -> Nullable<Timestamptz>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
@@ -387,6 +387,7 @@ diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
+diesel::joinable!(rounds -> divisions (did));
 diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
