@@ -161,7 +161,6 @@ diesel::table! {
 diesel::table! {
     rooms (roomid) {
         roomid -> Uuid,
-        tid -> Uuid,
         #[max_length = 32]
         name -> Varchar,
         #[max_length = 32]
@@ -169,6 +168,7 @@ diesel::table! {
         comments -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        tid -> Uuid,
     }
 }
 
@@ -383,6 +383,7 @@ diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gid));
 diesel::joinable!(games_statsgroups -> statsgroups (sgid));
+diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));

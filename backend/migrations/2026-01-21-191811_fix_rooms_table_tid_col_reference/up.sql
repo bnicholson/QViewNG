@@ -1,0 +1,3 @@
+
+ALTER TABLE rooms DROP COLUMN tid;
+ALTER TABLE rooms ADD COLUMN tid UUID NOT NULL REFERENCES tournaments(tid);
