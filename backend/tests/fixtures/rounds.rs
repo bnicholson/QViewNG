@@ -37,10 +37,10 @@ fn create_and_insert_round(conn: &mut PgConnection, new_round: NewRound) -> Roun
         .expect("Failed to create round")
 }
 
-// pub fn seed_round(conn: &mut PgConnection, did: Uuid) -> Round {
-//     let new_round = new_round_one(did, "Test Round 3276");
-//     create_and_insert_round(conn, new_round)
-// }
+pub fn seed_round(conn: &mut PgConnection, did: Uuid) -> Round {
+    let new_round = new_round_one(did);
+    create_and_insert_round(conn, new_round)
+}
 
 pub fn seed_rounds(conn: &mut PgConnection, did: Uuid) -> Vec<Round> {
     seed_rounds_with_names(
