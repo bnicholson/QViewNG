@@ -101,44 +101,44 @@ async fn get_all_works() {
     assert_ne!(round_or_interest_idx, 10);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-//     let rounds: Vec<Round> = fixtures::rounds::seed_rounds(&mut conn, parent_tournament.tid);
-//     let round_of_interest_idx = 0;
+    let rounds: Vec<Round> = fixtures::rounds::seed_rounds(&mut conn, division.did);
+    let round_of_interest_idx = 0;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let uri = format!("/api/rounds/{}", &rounds[round_of_interest_idx].roundid);
-//     println!("Rounds Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
+    let uri = format!("/api/rounds/{}", &rounds[round_of_interest_idx].roundid);
+    println!("Rounds Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let round: Round = test::read_body_json(resp).await;
-//     assert_eq!(round.name, rounds[round_of_interest_idx].name);
-//     assert_eq!(round.building, rounds[round_of_interest_idx].building);
-//     assert_eq!(round.comments, rounds[round_of_interest_idx].comments);
-// }
+    let round: Round = test::read_body_json(resp).await;
+    assert_eq!(round.did, division.did);
+    assert_eq!(round.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap());
+}
 
 // #[actix_web::test]
 // async fn update_works() {
