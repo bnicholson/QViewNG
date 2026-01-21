@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::room::Room;
+use crate::models::round::Round;
 use crate::models::user::User;
 use crate::models::tournament_admin::TournamentAdmin;
 use diesel::*;
@@ -168,6 +169,34 @@ pub fn read_rooms(
         .load::<Room>(db)
 }
 
+pub fn read_rounds(
+    db: &mut database::Connection,
+    tour_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Round>> {
+    use crate::schema::divisions::dsl::*;
+    use crate::schema::rounds::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let division_ids: Vec<Uuid> = divisions
+        .filter(tid.eq(tour_id))
+        .order(dname.asc())
+        .load::<Division>(db)
+        .unwrap()
+        .iter()
+        .map(|div| div.did)
+        .collect();
+
+    rounds
+        .filter(crate::schema::rounds::dsl::did.eq_any(division_ids))
+        .order(scheduled_start_time.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Round>(db)
+}
+
 pub fn read_users(
     db: &mut database::Connection,
     tour_id: Uuid,
@@ -182,8 +211,6 @@ pub fn read_users(
     let admin_ids: Vec<Uuid> = 
         tournaments_admins
             .filter(tournamentid.eq(tour_id))
-            .limit(page_size)
-            .offset(offset_val)
             .load::<TournamentAdmin>(db)
             .unwrap()
             .iter()

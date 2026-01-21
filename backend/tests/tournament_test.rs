@@ -3,22 +3,12 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
-use chrono::{Duration, Local, NaiveDate};
-use diesel::prelude::*;
-use backend::{models::{room::Room, tournament_admin::TournamentAdmin, user::User}, routes::configure_routes, services::common::EntityResponse};
+use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
+use backend::{models::{room::Room, round::Round, tournament_admin::TournamentAdmin, user::User}, routes::configure_routes, services::common::EntityResponse};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
-use backend::schema::tournaments;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL};
-
-fn clean_database() {
-    let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-    diesel::delete(tournaments::table)
-        .execute(&mut conn)
-        .expect("Failed to clean tournaments");
-}
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
 #[actix_web::test]
 async fn get_all_works() {
@@ -644,4 +634,75 @@ async fn get_all_rooms_of_tournament_works() {
     assert_eq!(room_of_interest.tid, tournament.tid);
     assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
     assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");
+}
+
+#[actix_web::test]
+async fn get_all_rounds_of_tournament_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournament = fixtures::tournaments::seed_get_rounds_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/rounds?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Round> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 6);
+
+    let mut round_1_idx = 10;
+    let mut round_2_idx = 10;
+    let mut round_3_idx = 10;
+    let mut round_4_idx = 10;
+    let mut round_5_idx = 10;
+    let mut round_6_idx = 10;
+    for idx in 0..6 {
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2058, 5, 23, 00, 00, 0).unwrap() {
+            round_1_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2059, 5, 23, 00, 00, 0).unwrap() {
+            round_2_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2060, 5, 23, 00, 00, 0).unwrap() {
+            round_3_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2061, 5, 23, 00, 00, 0).unwrap() {
+            round_4_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2062, 5, 23, 00, 00, 0).unwrap() {
+            round_5_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2063, 5, 23, 00, 00, 0).unwrap() {
+            round_6_idx = idx;
+        }
+    }
+
+    // Tour 2 Div 1 Rounds:
+    assert_ne!(round_1_idx, 10);
+    assert_ne!(round_2_idx, 10);
+    assert_ne!(round_3_idx, 10);
+
+    // Tour 2 Div 2 Rounds:
+    assert_ne!(round_4_idx, 10);
+    assert_ne!(round_5_idx, 10);
+    assert_ne!(round_6_idx, 10);
 }

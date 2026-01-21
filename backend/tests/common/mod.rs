@@ -34,7 +34,7 @@ pub fn clean_database() {
 
     diesel::delete(rooms::table)
         .execute(&mut conn)
-        .expect("Failed to clean admins of tournaments");
+        .expect("Failed to clean rooms");
 
     diesel::delete(tournaments_admins::table)
         .execute(&mut conn)

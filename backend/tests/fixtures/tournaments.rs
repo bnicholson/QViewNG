@@ -1,8 +1,8 @@
 // In tests/common/mod.rs or tests/fixtures.rs
 use diesel::prelude::*;
 use backend::models::tournament::{NewTournament, Tournament};
-use chrono::{Duration, Local, Months, NaiveDate};
-use crate::fixtures::{divisions::seed_divisions_with_names, rooms::seed_rooms_with_names, users::seed_users_with_fnames};
+use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
+use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times, users::seed_users_with_fnames};
 
 pub fn new_tournament_one() -> NewTournament {
     NewTournament {
@@ -156,4 +156,29 @@ pub fn seed_get_rooms_by_tournament(conn: &mut PgConnection) -> Tournament {
     return_vec.extend(tour_3_rooms);
 
     tour_3.clone()
+}
+
+pub fn seed_get_rounds_by_tournament(conn: &mut PgConnection) -> Tournament {
+    let tournaments = seed_tournaments_with_names(conn, "T1", "T2", "T3");
+    let tour_1 = &tournaments[0];
+    let tour_1_div = seed_division_with_name(conn, tour_1.tid, "Test Div 3276");
+    let start_time_1 = Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap();
+    let start_time_2 = Utc.with_ymd_and_hms(2056, 5, 23, 00, 00, 0).unwrap();
+    let start_time_3 = Utc.with_ymd_and_hms(2057, 5, 23, 00, 00, 0).unwrap();
+    seed_rounds_with_sched_start_times(conn, tour_1_div.did, start_time_1, start_time_2, start_time_3);
+
+    let tour_2 = &tournaments[1];
+    let tour_2_div_1 = seed_division_with_name(conn, tour_2.tid, "Test Div 9078");
+    let start_time_4 = Utc.with_ymd_and_hms(2058, 5, 23, 00, 00, 0).unwrap();
+    let start_time_5 = Utc.with_ymd_and_hms(2059, 5, 23, 00, 00, 0).unwrap();
+    let start_time_6 = Utc.with_ymd_and_hms(2060, 5, 23, 00, 00, 0).unwrap();
+    seed_rounds_with_sched_start_times(conn, tour_2_div_1.did, start_time_4, start_time_5, start_time_6);
+
+    let tour_2_div_2 = seed_division_with_name(conn, tour_2.tid, "Test Div 9079");
+    let start_time_7 = Utc.with_ymd_and_hms(2061, 5, 23, 00, 00, 0).unwrap();
+    let start_time_8 = Utc.with_ymd_and_hms(2062, 5, 23, 00, 00, 0).unwrap();
+    let start_time_9 = Utc.with_ymd_and_hms(2063, 5, 23, 00, 00, 0).unwrap();
+    seed_rounds_with_sched_start_times(conn, tour_2_div_2.did, start_time_7, start_time_8, start_time_9);
+
+    tour_2.clone()
 }
