@@ -54,56 +54,55 @@ async fn create_works() {
     assert_eq!(room.comments.as_str(), "None at this time.");
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
 
-//     fixtures::rooms::seed_rooms(&mut conn, parent_tournament.tid);
+    fixtures::rooms::seed_rooms(&mut conn, parent_tournament.tid);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/rooms?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/rooms?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    let body: Vec<Room> = test::read_body_json(resp).await;
 
-//     let body: Vec<Room> = test::read_body_json(resp).await;
+    assert_eq!(body.len(), 3);
 
-//     assert_eq!(body.len(), 3);
+    let mut room_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].name == "Test Room 9078" {
+            room_or_interest_idx = idx;
+            break;
+        }
+    }
 
-//     let mut div_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].dname == "Test Div 9078" {
-//             div_or_interest_idx = idx;
-//             break;
-//         }
-//     }
-
-//     let div_of_interest = &body[div_or_interest_idx];
-//     assert_eq!(div_of_interest.tid, parent_tournament.tid);
-//     assert_ne!(div_of_interest.did.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-//     assert_eq!(div_of_interest.breadcrumb,"/test/post/for/room/2");
-//     assert!(!div_of_interest.is_public);
-//     assert_eq!(div_of_interest.shortinfo, "Novice");
-// }
+    let room_of_interest = &body[room_or_interest_idx];
+    assert_eq!(room_of_interest.tid, parent_tournament.tid);
+    assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
+    assert_eq!(room_of_interest.comments.as_str(), "I tohught I recognized this place.");
+}
 
 
 // #[actix_web::test]
@@ -164,7 +163,7 @@ async fn create_works() {
 //             .configure(configure_routes)
 //     ).await;
 
-//     let new_dname = "Test Div NEW".to_string();
+//     let new_dname = "Test Room NEW".to_string();
 //     let new_breadcrumb = "/latest/breadcrumb".to_string();
 //     let new_is_public = true;
 
