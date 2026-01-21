@@ -76,13 +76,6 @@ async fn create(
     
     let result: QueryResult<Room> = models::room::create(&mut conn, &item);
 
-    if result.is_err() {
-        println!("Is err yo.");
-    }
-    else {
-        println!("No err yo.");
-    }
-
     let response: EntityResponse<Room> = process_response(result, "post");
     
     match response.code {

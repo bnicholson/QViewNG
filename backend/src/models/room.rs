@@ -23,13 +23,13 @@ use chrono::{Utc,DateTime};
 #[diesel(table_name = crate::schema::rooms)]
 #[diesel(primary_key(roomid))]
 pub struct Room {
-    pub roomid: Uuid,                          // identifies the room uniquely
-    pub tid: Uuid,                             // id of the associated tournament
+    pub roomid: Uuid,                           // identifies the room uniquely
     pub name: String,                           // Name of the room (human readable)
     pub building: String,                       // What is the building this room is in
     pub comments: String,                       // Any comments about the room,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>
+    pub updated_at: DateTime<Utc>,
+    pub tid: Uuid                               // id of the associated tournament
 }
 
 #[derive(
@@ -40,10 +40,10 @@ pub struct Room {
 )]
 #[diesel(table_name = crate::schema::rooms)]
 pub struct NewRoom {
-    pub tid: Uuid,                              // id of the associated tournament
     pub name: String,                           // Name of the room (human readable)
     pub building: String,                       // What is the building this room is in
-    pub comments: String                        // Any comments about the room,
+    pub comments: String,                       // Any comments about the room,
+    pub tid: Uuid                               // id of the associated tournament
 }
 
 // #[tsync::tsync]
