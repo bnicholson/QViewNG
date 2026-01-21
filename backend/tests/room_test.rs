@@ -104,45 +104,44 @@ async fn get_all_works() {
     assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");
 }
 
+#[actix_web::test]
+async fn get_by_id_works() {
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
-
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
 
-//     let rooms: Vec<Room> = fixtures::rooms::seed_rooms(&mut conn, parent_tournament.tid);
-//     let room_of_interest_idx = 0;
+    let rooms: Vec<Room> = fixtures::rooms::seed_rooms(&mut conn, parent_tournament.tid);
+    let room_of_interest_idx = 0;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let uri = format!("/api/rooms/{}", &rooms[room_of_interest_idx].did);
-//     println!("Rooms Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
+    let uri = format!("/api/rooms/{}", &rooms[room_of_interest_idx].roomid);
+    println!("Rooms Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let room: Room = test::read_body_json(resp).await;
-//     assert_eq!(room.dname, rooms[room_of_interest_idx].dname);
-//     assert_eq!(room.shortinfo, rooms[room_of_interest_idx].shortinfo);
-//     assert_eq!(room.breadcrumb, rooms[room_of_interest_idx].breadcrumb);
-// }
+    let room: Room = test::read_body_json(resp).await;
+    assert_eq!(room.name, rooms[room_of_interest_idx].name);
+    assert_eq!(room.building, rooms[room_of_interest_idx].building);
+    assert_eq!(room.comments, rooms[room_of_interest_idx].comments);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
