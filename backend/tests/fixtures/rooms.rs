@@ -42,10 +42,10 @@ fn create_and_insert_room(conn: &mut PgConnection, new_room: NewRoom) -> Room {
         .expect("Failed to create room")
 }
 
-// pub fn seed_room(conn: &mut PgConnection, tid: Uuid) -> Room {
-//     let new_room = new_room_one(tid, "Test Room 3276");
-//     create_and_insert_room(conn, new_room)
-// }
+pub fn seed_room(conn: &mut PgConnection, tid: Uuid) -> Room {
+    let new_room = new_room_one(tid, "Test Room 3276");
+    create_and_insert_room(conn, new_room)
+}
 
 pub fn seed_rooms(conn: &mut PgConnection, tid: Uuid) -> Vec<Room> {
     seed_rooms_with_names(
