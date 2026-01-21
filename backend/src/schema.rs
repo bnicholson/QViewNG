@@ -167,6 +167,8 @@ diesel::table! {
         #[max_length = 32]
         building -> Varchar,
         comments -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
