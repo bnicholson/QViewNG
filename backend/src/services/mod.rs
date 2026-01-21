@@ -2,6 +2,7 @@ pub mod tournament;
 pub mod division;
 pub mod user;
 pub mod common;
+pub mod room;
 // pub mod file;
 // pub mod quizevent;
 // pub mod pingmsg;

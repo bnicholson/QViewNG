@@ -155,34 +155,6 @@ async fn read_admins(
     }
 }
 
-#[post("/{tour_id}/admins/{user_id}")]
-async fn add_admin(
-    db: Data<Database>,
-    path_ids: Path<(Uuid,Uuid)>,
-    Json(item): Json<NewTournamentAdmin>    
-) -> Result<HttpResponse, Error> {
-    let mut db = db.get_connection().expect("Failed to get connection");
-
-    tracing::debug!("{} Tournament model create {:?}", line!(), item);
-
-    let item_to_be_created = NewTournamentAdmin {
-        tournamentid: path_ids.0,
-        adminid: path_ids.1,
-        ..item
-    };
-    
-    let result : QueryResult<TournamentAdmin> = models::tournament_admin::create(&mut db, &item_to_be_created);
-
-    let response: EntityResponse<TournamentAdmin> = process_response(result, "post");
-    
-    match response.code {
-        409 => Ok(HttpResponse::Conflict().json(response)),
-        201 => Ok(HttpResponse::Created().json(response)),
-        200 => Ok(HttpResponse::Ok().json(response)),
-        _ => Ok(HttpResponse::InternalServerError().json(response))
-    }
-}
-
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -203,6 +175,34 @@ async fn create(
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
 
     let response: EntityResponse<Tournament> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
+#[post("/{tour_id}/admins/{user_id}")]
+async fn add_admin(
+    db: Data<Database>,
+    path_ids: Path<(Uuid,Uuid)>,
+    Json(item): Json<NewTournamentAdmin>    
+) -> Result<HttpResponse, Error> {
+    let mut db = db.get_connection().expect("Failed to get connection");
+
+    tracing::debug!("{} Tournament model create {:?}", line!(), item);
+
+    let item_to_be_created = NewTournamentAdmin {
+        tournamentid: path_ids.0,
+        adminid: path_ids.1,
+        ..item
+    };
+    
+    let result : QueryResult<TournamentAdmin> = models::tournament_admin::create(&mut db, &item_to_be_created);
+
+    let response: EntityResponse<TournamentAdmin> = process_response(result, "post");
     
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
