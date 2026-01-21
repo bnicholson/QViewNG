@@ -2,7 +2,7 @@
 use diesel::prelude::*;
 use backend::models::tournament::{NewTournament, Tournament};
 use chrono::{Duration, Local, Months, NaiveDate};
-use crate::fixtures::{divisions::seed_divisions_with_names, users::seed_users_with_fnames};
+use crate::fixtures::{divisions::seed_divisions_with_names, rooms::seed_rooms_with_names, users::seed_users_with_fnames};
 
 pub fn new_tournament_one() -> NewTournament {
     NewTournament {
@@ -135,6 +135,25 @@ pub fn seed_get_divisions_by_tournament(conn: &mut PgConnection) -> Tournament {
     let mut return_vec = tour_1_divisions;
     return_vec.extend(tour_2_divisions);
     return_vec.extend(tour_3_divisions);
+
+    tour_3.clone()
+}
+
+pub fn seed_get_rooms_by_tournament(conn: &mut PgConnection) -> Tournament {
+    let tournaments = seed_tournaments_with_names(conn, "T1", "T2", "T3");  // unique names not really needed (realizing after the fact)
+
+    let tour_1 = &tournaments[0];
+    let tour_1_rooms = seed_rooms_with_names(conn, tour_1.tid, "Test Room 3276", "Test Room 9078", "Test Room 4611");
+
+    let tour_2 = &tournaments[1];
+    let tour_2_rooms = seed_rooms_with_names(conn, tour_2.tid, "Test Room 23", "Test Room 43", "Test Room 10");
+
+    let tour_3 = &tournaments[2];
+    let tour_3_rooms = seed_rooms_with_names(conn, tour_3.tid, "Test Room 9", "Test Room 2", "Test Room 7");
+
+    let mut return_vec = tour_1_rooms;
+    return_vec.extend(tour_2_rooms);
+    return_vec.extend(tour_3_rooms);
 
     tour_3.clone()
 }

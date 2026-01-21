@@ -101,7 +101,7 @@ async fn get_all_works() {
     let room_of_interest = &body[room_or_interest_idx];
     assert_eq!(room_of_interest.tid, parent_tournament.tid);
     assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
-    assert_eq!(room_of_interest.comments.as_str(), "I tohught I recognized this place.");
+    assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");
 }
 
 

@@ -17,7 +17,7 @@ pub fn new_room_two(tid: Uuid, room_name: &str) -> NewRoom {
         tid: tid,
         name: room_name.to_string(),
         building: "Bldng 2".to_string(),
-        comments: "I tohught I recognized this place.".to_string()
+        comments: "I thought I recognized this place.".to_string()
     }
 }
 

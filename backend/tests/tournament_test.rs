@@ -5,7 +5,7 @@ mod fixtures;
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate};
 use diesel::prelude::*;
-use backend::{models::{tournament_admin::TournamentAdmin, user::User}, routes::configure_routes, services::common::EntityResponse};
+use backend::{models::{room::Room, tournament_admin::TournamentAdmin, user::User}, routes::configure_routes, services::common::EntityResponse};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use backend::schema::tournaments;
@@ -596,4 +596,52 @@ async fn delete_admin_works() {
 
     let body: Vec<User> = test::read_body_json(get_admins_resp).await;
     assert_eq!(body.len(), 0);
+}
+
+#[actix_web::test]
+async fn get_all_rooms_of_tournament_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournament = fixtures::tournaments::seed_get_rooms_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/rooms?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<Room> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 3);
+
+    let mut room_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].name == "Test Room 2" {
+            room_or_interest_idx = idx;
+            break;
+        }
+    }
+
+    let room_of_interest = &body[room_or_interest_idx];
+    assert_eq!(room_of_interest.tid, tournament.tid);
+    assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
+    assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");
 }

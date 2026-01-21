@@ -1,5 +1,6 @@
 
 use crate::database;
+use crate::models::room::Room;
 use crate::models::user::User;
 use crate::models::tournament_admin::TournamentAdmin;
 use diesel::*;
@@ -147,6 +148,24 @@ pub fn read_divisions(
         .limit(page_size)
         .offset(offset_val)
         .load::<Division>(db)
+}
+
+pub fn read_rooms(
+    db: &mut database::Connection,
+    item_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Room>> {
+    use crate::schema::rooms::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    rooms
+        .filter(tid.eq(item_id))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Room>(db)
 }
 
 pub fn read_users(

@@ -155,6 +155,20 @@ async fn read_admins(
     }
 }
 
+#[get("/{id}/rooms")]
+async fn read_rooms(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::tournament::read_rooms(&mut conn, item_id.into_inner(), &params) {
+        Ok(division) => HttpResponse::Ok().json(division),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -295,6 +309,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(get_between_dates)
         .service(read_today)
         .service(read)
+        .service(read_rooms)
         .service(read_divisions)
         .service(read_admins)
         .service(add_admin)
