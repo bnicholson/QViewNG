@@ -135,7 +135,7 @@ async fn read_divisions(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
-    match models::tournament::read_divisions(&mut conn, item_id.into_inner(), &params) {
+    match models::division::read_all_divisions_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -149,7 +149,7 @@ async fn read_admins(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
-    match models::tournament::read_users(&mut conn, item_id.into_inner(), &params) {
+    match models::user::read_all_users_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -163,7 +163,7 @@ async fn read_rooms(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
-    match models::tournament::read_rooms(&mut conn, item_id.into_inner(), &params) {
+    match models::room::read_all_rooms_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -177,7 +177,7 @@ async fn read_rounds(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
-    match models::tournament::read_rounds(&mut conn, tour_id.into_inner(), &params) {
+    match models::round::read_all_rounds_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }

@@ -1,5 +1,6 @@
 
 use crate::database;
+use crate::models::tournament_admin::TournamentAdmin;
 use bcrypt::{DEFAULT_COST, hash};
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable};
@@ -96,6 +97,35 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
             pagination.page
                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
         )
+        .load::<User>(db)
+}
+
+pub fn read_all_users_of_tournament(
+    db: &mut database::Connection,
+    tour_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<User>> {
+    use crate::schema::users::dsl::*;
+    use crate::schema::tournaments_admins::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let admin_ids: Vec<Uuid> = 
+        tournaments_admins
+            .filter(tournamentid.eq(tour_id))
+            .load::<TournamentAdmin>(db)
+            .unwrap()
+            .iter()
+            .map(|admin| admin.adminid)
+            .collect();
+
+    users
+        .filter(id.eq_any(admin_ids))
+        .order(fname.asc())
+        .order(lname.asc())
+        .limit(page_size)
+        .offset(offset_val)
         .load::<User>(db)
 }
 

@@ -69,24 +69,6 @@ pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Divisio
     divisions.filter(did.eq(item_id)).first::<Division>(db)
 }
 
-pub fn read_rounds(
-    db: &mut database::Connection,
-    division_id: Uuid,
-    pagination: &PaginationParams,
-) -> QueryResult<Vec<Round>> {
-    use crate::schema::rounds::dsl::*;
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-
-    rounds
-        .filter(did.eq(division_id))
-        .order(scheduled_start_time.asc())
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Round>(db)
-}
-
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Division>> {
     use crate::schema::divisions::dsl::*;
     
@@ -97,6 +79,24 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
             pagination.page
                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
         )
+        .load::<Division>(db)
+}
+
+pub fn read_all_divisions_of_tournament(
+    db: &mut database::Connection,
+    item_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Division>> {
+    use crate::schema::divisions::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    divisions
+        .filter(tid.eq(item_id))
+        .order(dname.asc())
+        .limit(page_size)
+        .offset(offset_val)
         .load::<Division>(db)
 }
 

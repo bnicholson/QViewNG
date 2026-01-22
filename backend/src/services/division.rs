@@ -64,7 +64,7 @@ async fn read_rounds(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
-    match models::division::read_rounds(&mut conn, item_id.into_inner(), &params) {
+    match models::round::read_all_rounds_of_division(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
         Err(_) => HttpResponse::NotFound().finish(),
     }

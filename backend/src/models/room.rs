@@ -78,6 +78,24 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<Room>(db)
 }
 
+pub fn read_all_rooms_of_tournament(
+    db: &mut database::Connection,
+    item_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Room>> {
+    use crate::schema::rooms::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    rooms
+        .filter(tid.eq(item_id))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Room>(db)
+}
+
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoomChangeset) -> QueryResult<Room> {
     use crate::schema::rooms::dsl::*;
     diesel::update(rooms.filter(roomid.eq(item_id)))

@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::common::PaginationParams;
+use crate::models::division::Division;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -69,6 +70,52 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
             pagination.page
                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
         )
+        .load::<Round>(db)
+}
+
+pub fn read_all_rounds_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Round>> {
+    use crate::schema::rounds::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    rounds
+        .filter(did.eq(division_id))
+        .order(scheduled_start_time.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Round>(db)
+}
+
+pub fn read_all_rounds_of_tournament(
+    db: &mut database::Connection,
+    tour_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Round>> {
+    use crate::schema::divisions::dsl::*;
+    use crate::schema::rounds::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let division_ids: Vec<Uuid> = divisions
+        .filter(tid.eq(tour_id))
+        .order(dname.asc())
+        .load::<Division>(db)
+        .unwrap()
+        .iter()
+        .map(|div| div.did)
+        .collect();
+
+    rounds
+        .filter(crate::schema::rounds::dsl::did.eq_any(division_ids))
+        .order(scheduled_start_time.asc())
+        .limit(page_size)
+        .offset(offset_val)
         .load::<Round>(db)
 }
 
