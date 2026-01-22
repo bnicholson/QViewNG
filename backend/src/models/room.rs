@@ -99,7 +99,10 @@ pub fn read_all_rooms_of_tournament(
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoomChangeset) -> QueryResult<Room> {
     use crate::schema::rooms::dsl::*;
     diesel::update(rooms.filter(roomid.eq(item_id)))
-        .set(item)
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
         .get_result(db)
 }
 

@@ -136,7 +136,10 @@ pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i6
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentChangeset) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
     diesel::update(tournaments.filter(tid.eq(item_id)))
-        .set(item)
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
         .get_result(db)
 }
 

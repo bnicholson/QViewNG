@@ -188,6 +188,7 @@ async fn update_works() {
     assert_eq!(new_round.did, division.did);
     assert_eq!(new_round.roundid, round.roundid);
     assert_eq!(new_round.scheduled_start_time.unwrap(), new_scheduled_start_time);
+    assert_ne!(new_round.created_at, new_round.updated_at);
 }
 
 #[actix_web::test]

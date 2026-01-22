@@ -122,7 +122,10 @@ pub fn read_all_rounds_of_tournament(
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangeset) -> QueryResult<Round> {
     use crate::schema::rounds::dsl::*;
     diesel::update(rounds.filter(roundid.eq(item_id)))
-        .set(item)
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
         .get_result(db)
 }
 

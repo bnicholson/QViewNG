@@ -132,7 +132,10 @@ pub fn read_all_users_of_tournament(
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &UserChangeset) -> QueryResult<User> {
     use crate::schema::users::dsl::*;
     diesel::update(users.filter(id.eq(item_id)))
-        .set(item)
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
         .get_result(db)
 }
 

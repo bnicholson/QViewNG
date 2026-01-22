@@ -201,6 +201,7 @@ async fn update_works() {
     assert_eq!(new_division.dname.as_str(), new_dname);
     assert_eq!(new_division.breadcrumb.as_str(), new_breadcrumb);
     assert_eq!(new_division.is_public, new_is_public);
+    assert_ne!(new_division.created_at, new_division.updated_at);
 }
 
 #[actix_web::test]

@@ -315,6 +315,7 @@ async fn update_works() {
     assert_eq!(new_tournament.venue.as_str(), new_venue);
     assert_eq!(new_tournament.todate, new_todate);
     assert_eq!(new_tournament.info.as_str(), new_info);
+    assert_ne!(new_tournament.created_at, new_tournament.updated_at);
 }
 
 #[actix_web::test]

@@ -82,7 +82,10 @@ pub fn create(db: &mut database::Connection, item: &NewTournamentAdmin) -> Query
 //     diesel::update(tournaments_admins
 //         .filter(tournamentid.eq(tour_id))
 //         .filter(adminid.eq(user_id)))
-//         .set(item)
+//         .set((
+//             item,
+//             updated_at.eq(diesel::dsl::now),
+//         ))
 //         .get_result(db)
 // }
 

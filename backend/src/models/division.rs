@@ -103,7 +103,10 @@ pub fn read_all_divisions_of_tournament(
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionChangeset) -> QueryResult<Division> {
     use crate::schema::divisions::dsl::*;
     diesel::update(divisions.filter(did.eq(item_id)))
-        .set(item)
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
         .get_result(db)
 }
 

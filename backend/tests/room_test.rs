@@ -196,6 +196,7 @@ async fn update_works() {
     assert_eq!(new_room.name.as_str(), new_name);
     assert_eq!(new_room.building.as_str(), new_building);
     assert_eq!(new_room.comments.as_str(), new_comments);
+    assert_ne!(new_room.created_at, new_room.updated_at);
 }
 
 #[actix_web::test]

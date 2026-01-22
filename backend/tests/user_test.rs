@@ -190,6 +190,7 @@ async fn update_works() {
     assert_eq!(new_user.fname.as_str(), new_fname);
     assert_eq!(new_user.mname.as_str(), new_mname);
     assert_eq!(new_user.activated, new_activated);
+    assert_ne!(new_user.created_at, new_user.updated_at);
 }
 
 #[actix_web::test]
