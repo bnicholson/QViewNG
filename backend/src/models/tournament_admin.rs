@@ -46,7 +46,7 @@ pub struct NewTournamentAdmin {
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::tournaments_admins)]
 #[diesel(primary_key(tournamentid,adminid))]
-pub struct TournamentAdminChangeSet {
+pub struct TournamentAdminChangeset {
     pub role_description: String,            
     pub access_lvl: i32
 }
@@ -77,17 +77,17 @@ pub fn create(db: &mut database::Connection, item: &NewTournamentAdmin) -> Query
 //         .load::<TournamentAdmin>(db)
 // }
 
-// pub fn update(db: &mut database::Connection, tour_id: Uuid, user_id: Uuid, item: &TournamentAdminChangeSet) -> QueryResult<TournamentAdmin> {
-//     use crate::schema::tournaments_admins::dsl::*;
-//     diesel::update(tournaments_admins
-//         .filter(tournamentid.eq(tour_id))
-//         .filter(adminid.eq(user_id)))
-//         .set((
-//             item,
-//             updated_at.eq(diesel::dsl::now),
-//         ))
-//         .get_result(db)
-// }
+pub fn update(db: &mut database::Connection, tour_id: Uuid, user_id: Uuid, item: &TournamentAdminChangeset) -> QueryResult<TournamentAdmin> {
+    use crate::schema::tournaments_admins::dsl::*;
+    diesel::update(tournaments_admins
+        .filter(tournamentid.eq(tour_id))
+        .filter(adminid.eq(user_id)))
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
+        .get_result(db)
+}
 
 pub fn delete(db: &mut database::Connection, tour_id: Uuid, user_id: Uuid) -> QueryResult<usize> {
     use crate::schema::tournaments_admins::dsl::*;

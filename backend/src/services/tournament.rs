@@ -1,9 +1,10 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::models::{self, tournament_admin::{NewTournamentAdmin, TournamentAdmin}};
 use crate::models::tournament::{NewTournament, Tournament, TournamentChangeset};
+use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
 use crate::services::common::{EntityResponse, process_response};
-use chrono::{ Utc, TimeZone };
+use chrono::Utc;
 use crate::models::apicalllog::{apicalllog};
 use utoipa::OpenApi;
 use diesel::{QueryResult};
@@ -149,7 +150,7 @@ async fn read_admins(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
 
-    match models::user::read_all_users_of_tournament(&mut conn, item_id.into_inner(), &params) {
+    match models::user::read_all_admins_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -270,6 +271,29 @@ async fn update(
     }
 }
 
+#[put("/{tour_id}/admins/{user_id}")]
+async fn update_admin(
+    db: Data<Database>,
+    item_id: Path<(Uuid,Uuid)>,
+    Json(item): Json<TournamentAdminChangeset>,
+) -> Result<HttpResponse, Error> {
+    let mut db = db.pool.get().unwrap();
+
+    tracing::debug!("{} Tournement model update {:?} {:?}", line!(), item_id, item); 
+
+    let tour_id = item_id.0;
+    let admin_id = item_id.1;
+    let result = models::tournament_admin::update(&mut db, tour_id, admin_id, &item);
+
+    let response = process_response(result, "put");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
 #[utoipa::path(
         delete,
         path = "/tournaments/{id}",
@@ -330,6 +354,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(add_admin)
         .service(create)
         .service(update)
+        .service(update_admin)
         .service(destroy)
         .service(remove_admin);
 }

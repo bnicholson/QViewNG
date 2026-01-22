@@ -1,16 +1,11 @@
 
 use crate::database;
-use crate::models::room::Room;
-use crate::models::round::Round;
-use crate::models::user::User;
-use crate::models::tournament_admin::TournamentAdmin;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
 use chrono::{Utc,DateTime,TimeZone};
 use utoipa::{ToSchema};
-use crate::models::division::Division;
 use uuid::Uuid;
 
 // #[tsync::tsync]

@@ -100,7 +100,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<User>(db)
 }
 
-pub fn read_all_users_of_tournament(
+pub fn read_all_admins_of_tournament(
     db: &mut database::Connection,
     tour_id: Uuid,
     pagination: &PaginationParams,

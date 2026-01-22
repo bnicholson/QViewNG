@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
-use backend::{models::{room::Room, round::Round, tournament_admin::TournamentAdmin, user::User}, routes::configure_routes, services::common::EntityResponse};
+use backend::{models::{room::Room, round::Round, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, user::User}, routes::configure_routes, services::common::EntityResponse};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use serde_json::json;
@@ -526,6 +526,68 @@ async fn get_all_admins_of_tournament_works() {
     // overkill, but thorough:
     assert_eq!(body[admin_1_idx].fname, "Test User 9");
     assert_eq!(body[admin_2_idx].fname, "Test User 3");
+}
+
+#[actix_web::test]
+async fn update_admin_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let user = fixtures::users::seed_user(&mut conn);
+
+    let post_payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user.id);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let post_uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
+    let post_req = test::TestRequest::post()
+        .uri(&post_uri)
+        .set_json(&post_payload)
+        .to_request();
+    
+    let post_resp = test::call_service(&app, post_req).await;
+    assert_eq!(post_resp.status(), StatusCode::CREATED);
+
+    let new_role_desc = "diffrnt role";
+    let new_access_lvl = 1;
+    let put_payload = NewTournamentAdmin {
+        role_description: new_role_desc.to_string(),            
+        access_lvl: new_access_lvl,
+        ..post_payload
+    };
+    
+    let put_uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
+
+    // Act:
+    
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+    
+    assert_eq!(put_resp.status(), StatusCode::OK);
+
+    let put_resp_body: EntityResponse<TournamentAdmin> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
+
+    let updated_admin = put_resp_body.data.unwrap();
+    assert_eq!(updated_admin.adminid, user.id);
+    assert_eq!(updated_admin.role_description.unwrap(), new_role_desc);
+    assert_eq!(updated_admin.access_lvl, new_access_lvl);
+    assert_ne!(updated_admin.created_at, updated_admin.updated_at);
 }
 
 #[actix_web::test]
