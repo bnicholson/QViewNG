@@ -54,6 +54,16 @@ diesel::table! {
 }
 
 diesel::table! {
+    equipmentsets (id) {
+        id -> Int8,
+        equipmentownerid -> Uuid,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     eventlogs (evid) {
         evid -> Int8,
         created_at -> Timestamptz,
@@ -377,6 +387,7 @@ diesel::table! {
 }
 
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
+diesel::joinable!(equipmentsets -> users (equipmentownerid));
 diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
 diesel::joinable!(games -> rounds (roundid));
@@ -402,6 +413,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     attachment_blobs,
     attachments,
     divisions,
+    equipmentsets,
     eventlogs,
     games,
     games_statsgroups,
