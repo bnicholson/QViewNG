@@ -132,6 +132,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    extensioncords (id) {
+        id -> Int8,
+        #[max_length = 64]
+        color -> Varchar,
+        #[max_length = 64]
+        length -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     games (gid) {
         gid -> Int8,
         #[max_length = 48]
@@ -520,6 +532,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     divisions,
     equipmentsets,
     eventlogs,
+    extensioncords,
     games,
     games_statsgroups,
     interfaceboxes,
