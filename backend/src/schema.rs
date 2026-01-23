@@ -187,6 +187,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    microphonerecorders (id) {
+        id -> Int8,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     monitors (id) {
         id -> Int8,
         #[max_length = 64]
@@ -197,7 +208,6 @@ diesel::table! {
         has_dvi_out_port -> Bool,
         has_hdmi_out_port -> Bool,
         has_display_port_out -> Bool,
-        misc_notes -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -485,6 +495,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     games_statsgroups,
     interfaceboxes,
     jumppads,
+    microphonerecorders,
     monitors,
     quizevents,
     role_permissions,
