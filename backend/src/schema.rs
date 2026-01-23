@@ -92,6 +92,20 @@ diesel::table! {
         misc_note -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        equipmentsetid -> Int8,
+    }
+}
+
+diesel::table! {
+    equipmentregistrations (id) {
+        id -> Int8,
+        equipmentid -> Int8,
+        tournamentid -> Uuid,
+        roomid -> Nullable<Uuid>,
+        #[max_length = 64]
+        status -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -521,6 +535,7 @@ diesel::table! {
 
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
 diesel::joinable!(equipment -> computers (computerid));
+diesel::joinable!(equipment -> equipmentsets (equipmentsetid));
 diesel::joinable!(equipment -> extensioncords (extensioncordid));
 diesel::joinable!(equipment -> interfaceboxes (interfaceboxid));
 diesel::joinable!(equipment -> jumppads (jumppadid));
@@ -528,6 +543,9 @@ diesel::joinable!(equipment -> microphonerecorders (microphonerecorderid));
 diesel::joinable!(equipment -> monitors (monitorid));
 diesel::joinable!(equipment -> powerstrips (powerstripid));
 diesel::joinable!(equipment -> projectors (projectorid));
+diesel::joinable!(equipmentregistrations -> equipment (equipmentid));
+diesel::joinable!(equipmentregistrations -> rooms (roomid));
+diesel::joinable!(equipmentregistrations -> tournaments (tournamentid));
 diesel::joinable!(equipmentsets -> users (equipmentownerid));
 diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
@@ -556,6 +574,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     computers,
     divisions,
     equipment,
+    equipmentregistrations,
     equipmentsets,
     eventlogs,
     extensioncords,
