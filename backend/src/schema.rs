@@ -214,6 +214,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    projectors (id) {
+        id -> Int8,
+        #[max_length = 64]
+        brand -> Varchar,
+        has_vga_out_port -> Bool,
+        has_dvi_out_port -> Bool,
+        has_hdmi_out_port -> Bool,
+        has_display_port_out -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     quizevents (gid, question, eventnum) {
         gid -> Int8,
         question -> Int4,
@@ -497,6 +511,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     jumppads,
     microphonerecorders,
     monitors,
+    projectors,
     quizevents,
     role_permissions,
     rooms,
