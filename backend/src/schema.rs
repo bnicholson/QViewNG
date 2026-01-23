@@ -286,6 +286,27 @@ diesel::table! {
 }
 
 diesel::table! {
+    questionsandanswers (id) {
+        id -> Uuid,
+        competition_lvl -> Int4,
+        quiz_season -> Int4,
+        #[sql_name = "type"]
+        #[max_length = 32]
+        type_ -> Varchar,
+        question -> Text,
+        answer -> Text,
+        #[max_length = 32]
+        book -> Varchar,
+        chapter -> Int4,
+        #[max_length = 32]
+        verses -> Varchar,
+        beginning_verse -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     quizevents (gid, question, eventnum) {
         gid -> Int8,
         question -> Int4,
@@ -360,6 +381,26 @@ diesel::table! {
         scheduled_start_time -> Nullable<Timestamptz>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        scheduled_question_one_id -> Nullable<Uuid>,
+        scheduled_question_two_id -> Nullable<Uuid>,
+        scheduled_question_three_id -> Nullable<Uuid>,
+        scheduled_question_four_id -> Nullable<Uuid>,
+        scheduled_question_five_id -> Nullable<Uuid>,
+        scheduled_question_six_id -> Nullable<Uuid>,
+        scheduled_question_seven_id -> Nullable<Uuid>,
+        scheduled_question_eight_id -> Nullable<Uuid>,
+        scheduled_question_nine_id -> Nullable<Uuid>,
+        scheduled_question_ten_id -> Nullable<Uuid>,
+        scheduled_question_eleven_id -> Nullable<Uuid>,
+        scheduled_question_twelve_id -> Nullable<Uuid>,
+        scheduled_question_thirteen_id -> Nullable<Uuid>,
+        scheduled_question_fourteen_id -> Nullable<Uuid>,
+        scheduled_question_fifteen_id -> Nullable<Uuid>,
+        scheduled_question_sixteen_id -> Nullable<Uuid>,
+        scheduled_question_seventeen_id -> Nullable<Uuid>,
+        scheduled_question_eighteen_id -> Nullable<Uuid>,
+        scheduled_question_nineteen_id -> Nullable<Uuid>,
+        scheduled_question_twenty_id -> Nullable<Uuid>,
     }
 }
 
@@ -586,6 +627,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     monitors,
     powerstrips,
     projectors,
+    questionsandanswers,
     quizevents,
     role_permissions,
     rooms,
