@@ -214,6 +214,21 @@ diesel::table! {
 }
 
 diesel::table! {
+    powerstrips (id) {
+        id -> Int8,
+        #[max_length = 64]
+        make -> Varchar,
+        #[max_length = 64]
+        model -> Varchar,
+        #[max_length = 64]
+        color -> Varchar,
+        num_of_plugs -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     projectors (id) {
         id -> Int8,
         #[max_length = 64]
@@ -511,6 +526,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     jumppads,
     microphonerecorders,
     monitors,
+    powerstrips,
     projectors,
     quizevents,
     role_permissions,
