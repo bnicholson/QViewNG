@@ -117,6 +117,9 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         is_default -> Nullable<Bool>,
+        #[max_length = 64]
+        name -> Varchar,
+        description -> Nullable<Text>,
     }
 }
 

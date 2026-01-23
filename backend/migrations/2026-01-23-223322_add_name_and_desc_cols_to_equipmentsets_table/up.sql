@@ -1,0 +1,3 @@
+
+ALTER TABLE equipmentsets ADD COLUMN name VARCHAR(64) NOT NULL UNIQUE;
+ALTER TABLE equipmentsets ADD COLUMN description TEXT DEFAULT '';
