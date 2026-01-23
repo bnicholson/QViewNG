@@ -116,6 +116,7 @@ diesel::table! {
         is_active -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        is_default -> Nullable<Bool>,
     }
 }
 
@@ -303,6 +304,8 @@ diesel::table! {
         beginning_verse -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        was_imported_from_ui -> Nullable<Bool>,
+        is_quizstuff_authored_question -> Nullable<Bool>,
     }
 }
 
