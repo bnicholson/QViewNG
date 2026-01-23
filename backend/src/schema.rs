@@ -165,6 +165,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    interfaceboxes (id) {
+        id -> Int8,
+        equipmentsetid -> Int8,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
+        #[max_length = 64]
+        serial_number -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     jumppads (jumppadid) {
         jumppadid -> Int8,
         equipmentsetid -> Int8,
@@ -432,6 +446,7 @@ diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gid));
 diesel::joinable!(games_statsgroups -> statsgroups (sgid));
+diesel::joinable!(interfaceboxes -> equipmentsets (equipmentsetid));
 diesel::joinable!(jumppads -> equipmentsets (equipmentsetid));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
@@ -457,6 +472,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     eventlogs,
     games,
     games_statsgroups,
+    interfaceboxes,
     jumppads,
     quizevents,
     role_permissions,
