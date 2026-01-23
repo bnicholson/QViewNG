@@ -165,6 +165,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    jumppads (jumppadid) {
+        jumppadid -> Int8,
+        equipmentsetid -> Int8,
+        #[max_length = 64]
+        color -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     quizevents (gid, question, eventnum) {
         gid -> Int8,
         question -> Int4,
@@ -421,6 +432,7 @@ diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gid));
 diesel::joinable!(games_statsgroups -> statsgroups (sgid));
+diesel::joinable!(jumppads -> equipmentsets (equipmentsetid));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
@@ -445,6 +457,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     eventlogs,
     games,
     games_statsgroups,
+    jumppads,
     quizevents,
     role_permissions,
     rooms,

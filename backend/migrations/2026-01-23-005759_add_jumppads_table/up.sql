@@ -1,0 +1,8 @@
+
+CREATE TABLE jumppads (
+    jumppadid BIGSERIAL PRIMARY KEY,  -- *BIGSERIAL intentional (human-readable)*
+    equipmentsetid BIGINT NOT NULL REFERENCES equipmentsets(id),
+    color VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
