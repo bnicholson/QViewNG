@@ -38,32 +38,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    computers (computerid) {
-        computerid -> Int8,
-        equipmentsetid -> Int8,
-        #[max_length = 64]
-        brand -> Varchar,
-        #[max_length = 64]
-        operating_system -> Varchar,
-        #[max_length = 32]
-        quizmachine_version -> Varchar,
-        #[max_length = 64]
-        wifi_capabilities -> Varchar,
-        #[max_length = 64]
-        login_username -> Varchar,
-        #[max_length = 64]
-        login_password -> Varchar,
-        has_vga_out_port -> Bool,
-        has_dvi_out_port -> Bool,
-        has_hdmi_out_port -> Bool,
-        has_display_port_out -> Bool,
-        has_usb_port -> Bool,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     divisions (did) {
         did -> Uuid,
         tid -> Uuid,
@@ -161,31 +135,6 @@ diesel::table! {
         gid -> Int8,
         sgid -> Int8,
         created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    interfaceboxes (id) {
-        id -> Int8,
-        equipmentsetid -> Int8,
-        #[sql_name = "type"]
-        #[max_length = 64]
-        type_ -> Varchar,
-        #[max_length = 64]
-        serial_number -> Nullable<Varchar>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    jumppads (jumppadid) {
-        jumppadid -> Int8,
-        equipmentsetid -> Int8,
-        #[max_length = 64]
-        color -> Varchar,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
     }
 }
 
@@ -438,7 +387,6 @@ diesel::table! {
 }
 
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
-diesel::joinable!(computers -> equipmentsets (equipmentsetid));
 diesel::joinable!(equipmentsets -> users (equipmentownerid));
 diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
@@ -446,8 +394,6 @@ diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gid));
 diesel::joinable!(games_statsgroups -> statsgroups (sgid));
-diesel::joinable!(interfaceboxes -> equipmentsets (equipmentsetid));
-diesel::joinable!(jumppads -> equipmentsets (equipmentsetid));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
@@ -466,14 +412,11 @@ diesel::allow_tables_to_appear_in_same_query!(
     apicalllog,
     attachment_blobs,
     attachments,
-    computers,
     divisions,
     equipmentsets,
     eventlogs,
     games,
     games_statsgroups,
-    interfaceboxes,
-    jumppads,
     quizevents,
     role_permissions,
     rooms,
