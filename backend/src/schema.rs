@@ -38,6 +38,31 @@ diesel::table! {
 }
 
 diesel::table! {
+    computers (computerid) {
+        computerid -> Int8,
+        #[max_length = 64]
+        brand -> Varchar,
+        #[max_length = 64]
+        operating_system -> Varchar,
+        #[max_length = 32]
+        quizmachine_version -> Varchar,
+        #[max_length = 64]
+        wifi_capabilities -> Varchar,
+        #[max_length = 64]
+        login_username -> Varchar,
+        #[max_length = 64]
+        login_password -> Varchar,
+        has_vga_out_port -> Bool,
+        has_dvi_out_port -> Bool,
+        has_hdmi_out_port -> Bool,
+        has_display_port_out -> Bool,
+        has_usb_port -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     divisions (did) {
         did -> Uuid,
         tid -> Uuid,
@@ -135,6 +160,46 @@ diesel::table! {
         gid -> Int8,
         sgid -> Int8,
         created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    interfaceboxes (id) {
+        id -> Int8,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
+        #[max_length = 64]
+        serial_number -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    jumppads (jumppadid) {
+        jumppadid -> Int8,
+        #[max_length = 64]
+        color -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    monitors (id) {
+        id -> Int8,
+        #[max_length = 64]
+        size -> Varchar,
+        #[max_length = 64]
+        brand -> Varchar,
+        has_vga_out_port -> Bool,
+        has_dvi_out_port -> Bool,
+        has_hdmi_out_port -> Bool,
+        has_display_port_out -> Bool,
+        misc_notes -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -412,11 +477,15 @@ diesel::allow_tables_to_appear_in_same_query!(
     apicalllog,
     attachment_blobs,
     attachments,
+    computers,
     divisions,
     equipmentsets,
     eventlogs,
     games,
     games_statsgroups,
+    interfaceboxes,
+    jumppads,
+    monitors,
     quizevents,
     role_permissions,
     rooms,
