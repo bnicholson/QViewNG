@@ -121,7 +121,7 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset
         .get_result(db)
 }
 
-// pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
-//     use crate::schema::teams::dsl::*;
-//     diesel::delete(teams.filter(teamid.eq(item_id))).execute(db)
-// }
+pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::teams::dsl::*;
+    diesel::delete(teams.filter(teamid.eq(item_id))).execute(db)
+}
