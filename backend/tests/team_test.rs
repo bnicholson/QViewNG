@@ -142,56 +142,56 @@ async fn get_by_id_works() {
     assert_eq!(team.name, teams[team_of_interest_idx].name);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let tournament = fixtures::tournaments::seed_tournament(&mut conn);
-//     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-//     let team: Team = fixtures::teams::seed_team(&mut conn, division.did);
+    let team: Team = fixtures::teams::seed_team(&mut conn, division.did);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let new_scheduled_start_time = Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap();
+    let new_scheduled_start_time = Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap();
 
-//     let put_payload = json!({
-//         "scheduled_start_time": &new_scheduled_start_time
-//     });
+    let put_payload = json!({
+        "scheduled_start_time": &new_scheduled_start_time
+    });
     
-//     let put_uri = format!("/api/teams/{}", team.teamid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/teams/{}", team.teamid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<Team> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<Team> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_team = put_resp_body.data.unwrap();
-//     assert_eq!(new_team.did, division.did);
-//     assert_eq!(new_team.teamid, team.teamid);
-//     assert_eq!(new_team.scheduled_start_time.unwrap(), new_scheduled_start_time);
-//     assert_ne!(new_team.created_at, new_team.updated_at);
-// }
+    let new_team = put_resp_body.data.unwrap();
+    assert_eq!(new_team.did, division.did);
+    assert_eq!(new_team.teamid, team.teamid);
+    assert_eq!(new_team.name, team.name);
+    assert_ne!(new_team.created_at, new_team.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {

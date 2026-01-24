@@ -111,15 +111,15 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 //         .load::<Team>(db)
 // }
 
-// pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset) -> QueryResult<Team> {
-//     use crate::schema::teams::dsl::*;
-//     diesel::update(teams.filter(teamid.eq(item_id)))
-//         .set((
-//             item,
-//             updated_at.eq(diesel::dsl::now),
-//         ))
-//         .get_result(db)
-// }
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset) -> QueryResult<Team> {
+    use crate::schema::teams::dsl::*;
+    diesel::update(teams.filter(teamid.eq(item_id)))
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
+        .get_result(db)
+}
 
 // pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
 //     use crate::schema::teams::dsl::*;

@@ -67,10 +67,10 @@ fn create_and_insert_team(conn: &mut PgConnection, new_team: NewTeam) -> Team {
         .expect("Failed to create team")
 }
 
-// pub fn seed_team(conn: &mut PgConnection, did: Uuid) -> Team {
-//     let new_team = new_team_one(did);
-//     create_and_insert_team(conn, new_team)
-// }
+pub fn seed_team(conn: &mut PgConnection, did: Uuid) -> Team {
+    let new_team = new_team_one(conn, did);
+    create_and_insert_team(conn, new_team)
+}
 
 pub fn seed_teams(
     conn: &mut PgConnection, 
