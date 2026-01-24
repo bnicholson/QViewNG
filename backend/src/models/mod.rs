@@ -10,3 +10,4 @@ pub mod quizevent;
 pub mod room;
 pub mod round;
 pub mod user;
+pub mod team;

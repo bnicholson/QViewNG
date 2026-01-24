@@ -28,7 +28,27 @@ pub struct Round {
     pub did: Uuid,                              // id of the associated division
     pub scheduled_start_time: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>
+    pub updated_at: DateTime<Utc>,
+    pub scheduled_question_one_id: Option<Uuid>,
+    pub scheduled_question_two_id: Option<Uuid>,
+    pub scheduled_question_three_id: Option<Uuid>,
+    pub scheduled_question_four_id: Option<Uuid>,
+    pub scheduled_question_five_id: Option<Uuid>,
+    pub scheduled_question_six_id: Option<Uuid>,
+    pub scheduled_question_seven_id: Option<Uuid>,
+    pub scheduled_question_eight_id: Option<Uuid>,
+    pub scheduled_question_nine_id: Option<Uuid>,
+    pub scheduled_question_ten_id: Option<Uuid>,
+    pub scheduled_question_eleven_id: Option<Uuid>,
+    pub scheduled_question_twelve_id: Option<Uuid>,
+    pub scheduled_question_thirteen_id: Option<Uuid>,
+    pub scheduled_question_fourteen_id: Option<Uuid>,
+    pub scheduled_question_fifteen_id: Option<Uuid>,
+    pub scheduled_question_sixteen_id: Option<Uuid>,
+    pub scheduled_question_seventeen_id: Option<Uuid>,
+    pub scheduled_question_eighteen_id: Option<Uuid>,
+    pub scheduled_question_nineteen_id: Option<Uuid>,
+    pub scheduled_question_twenty_id: Option<Uuid>,
 }
 
 #[derive(

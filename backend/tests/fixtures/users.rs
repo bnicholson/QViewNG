@@ -42,7 +42,7 @@ pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
     new_user_one("Test User 3276", &unhashed_pwd)
 }
 
-fn create_and_insert_user(conn: &mut PgConnection, new_user: NewUser) -> User {
+pub fn create_and_insert_user(conn: &mut PgConnection, new_user: NewUser) -> User {
     diesel::insert_into(users::table)
         .values(new_user)
         .returning(User::as_returning())

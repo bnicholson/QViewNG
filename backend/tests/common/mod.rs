@@ -1,5 +1,5 @@
 use backend::database::Database;
-use backend::schema::{divisions, tournaments, tournaments_admins, users, rooms, rounds};
+use backend::schema::{divisions, tournaments, tournaments_admins, users, rooms, rounds, teams};
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
@@ -27,6 +27,10 @@ pub fn clean_database() {
     establish_test_connection();  // mostly for running pending migrations
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    diesel::delete(teams::table)
+        .execute(&mut conn)
+        .expect("Failed to clean teams");
 
     diesel::delete(rounds::table)
         .execute(&mut conn)

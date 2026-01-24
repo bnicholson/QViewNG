@@ -23,6 +23,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::user::endpoints(web::scope("/users")))
             .service(services::room::endpoints(web::scope("/rooms")))
             .service(services::round::endpoints(web::scope("/rounds")))
+            .service(services::team::endpoints(web::scope("/teams")))
             // .service(services::file::endpoints(web::scope("/files")))
             // .service(services::namelist::endpoints(web::scope("/namelist")))
             // .service(services::pingmsg::endpoints(web::scope("/pingmsg")))
