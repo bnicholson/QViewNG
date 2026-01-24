@@ -180,33 +180,34 @@ diesel::table! {
 
 diesel::table! {
     games (gid) {
-        gid -> Int8,
+        gid -> Uuid,
         #[max_length = 48]
         org -> Varchar,
+        tournamentid -> Nullable<Uuid>,
+        divisionid -> Nullable<Uuid>,
+        roomid -> Uuid,
+        roundid -> Uuid,
         #[max_length = 64]
         clientkey -> Varchar,
         ignore -> Bool,
         #[max_length = 32]
         ruleset -> Varchar,
+        leftteamid -> Uuid,
+        centerteamid -> Nullable<Uuid>,
+        rightteamid -> Uuid,
+        quizmasterid -> Uuid,
+        contentjudgeid -> Nullable<Uuid>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        quizmasterid -> Uuid,
-        contentjudgeid -> Uuid,
-        leftteamid -> Uuid,
-        centerteamid -> Uuid,
-        rightteamid -> Uuid,
-        tournamentid -> Nullable<Uuid>,
-        divisionid -> Nullable<Uuid>,
-        roomid -> Nullable<Uuid>,
-        roundid -> Nullable<Uuid>,
     }
 }
 
 diesel::table! {
-    games_statsgroups (gid, sgid) {
-        gid -> Int8,
-        sgid -> Int8,
+    games_statsgroups (gameid, statsgroupid) {
+        gameid -> Uuid,
+        statsgroupid -> Uuid,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -442,7 +443,7 @@ diesel::table! {
 
 diesel::table! {
     statsgroups (sgid) {
-        sgid -> Int8,
+        sgid -> Uuid,
         #[max_length = 64]
         name -> Varchar,
         #[max_length = 256]
@@ -598,8 +599,8 @@ diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
 diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
-diesel::joinable!(games_statsgroups -> games (gid));
-diesel::joinable!(games_statsgroups -> statsgroups (sgid));
+diesel::joinable!(games_statsgroups -> games (gameid));
+diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
