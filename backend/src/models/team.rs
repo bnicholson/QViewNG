@@ -76,10 +76,10 @@ pub fn create(db: &mut database::Connection, item: &NewTeam) -> QueryResult<Team
     insert_into(teams).values(item).get_result::<Team>(db)
 }
 
-// pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Team> {
-//     use crate::schema::teams::dsl::*;
-//     teams.filter(teamid.eq(item_id)).first::<Team>(db)
-// }
+pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Team> {
+    use crate::schema::teams::dsl::*;
+    teams.filter(teamid.eq(item_id)).first::<Team>(db)
+}
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Team>> {
     use crate::schema::teams::dsl::*;

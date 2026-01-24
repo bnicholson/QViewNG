@@ -103,44 +103,44 @@ async fn get_all_works() {
     assert_eq!(body[team_of_interest_idx].did, division.did);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let tournament = fixtures::tournaments::seed_tournament(&mut conn);
-//     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-//     let teams: Vec<Team> = fixtures::teams::seed_teams(&mut conn, division.did);
-//     let team_of_interest_idx = 0;
+    let teams: Vec<Team> = fixtures::teams::seed_teams(&mut conn, division.did);
+    let team_of_interest_idx = 0;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let uri = format!("/api/teams/{}", &teams[team_of_interest_idx].teamid);
-//     println!("Teams Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
+    let uri = format!("/api/teams/{}", &teams[team_of_interest_idx].teamid);
+    println!("Teams Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let team: Team = test::read_body_json(resp).await;
-//     assert_eq!(team.did, division.did);
-//     assert_eq!(team.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap());
-// }
+    let team: Team = test::read_body_json(resp).await;
+    assert_eq!(team.did, division.did);
+    assert_eq!(team.name, teams[team_of_interest_idx].name);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
