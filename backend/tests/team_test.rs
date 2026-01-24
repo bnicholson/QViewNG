@@ -55,52 +55,53 @@ async fn create_works() {
     assert_eq!(team.quizzer_two_id, payload.quizzer_two_id);
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let tournament = fixtures::tournaments::seed_tournament(&mut conn);
-//     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-//     fixtures::teams::seed_teams(&mut conn, division.did);
+    fixtures::teams::seed_teams(&mut conn, division.did);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/teams?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/teams?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<Team> = test::read_body_json(resp).await;
+    let body: Vec<Team> = test::read_body_json(resp).await;
 
-//     assert_eq!(body.len(), 3);
+    assert_eq!(body.len(), 3);
 
-//     let mut team_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2045, 5, 23, 00, 00, 0).unwrap() {
-//             team_or_interest_idx = idx;
-//             break;
-//         }
-//     }
-//     assert_ne!(team_or_interest_idx, 10);
-// }
+    let mut team_of_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].name == "Luke Found a Frog" {
+            team_of_interest_idx = idx;
+            break;
+        }
+    }
+    assert_ne!(team_of_interest_idx, 10);
+    assert_eq!(body[team_of_interest_idx].did, division.did);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {

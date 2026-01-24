@@ -81,17 +81,17 @@ pub fn create(db: &mut database::Connection, item: &NewTeam) -> QueryResult<Team
 //     teams.filter(teamid.eq(item_id)).first::<Team>(db)
 // }
 
-// pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Team>> {
-//     use crate::schema::teams::dsl::*;
-//     teams
-//         .order(created_at)
-//         .limit(pagination.page_size)
-//         .offset(
-//             pagination.page
-//                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
-//         )
-//         .load::<Team>(db)
-// }
+pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Team>> {
+    use crate::schema::teams::dsl::*;
+    teams
+        .order(created_at)
+        .limit(pagination.page_size)
+        .offset(
+            pagination.page
+                * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
+        )
+        .load::<Team>(db)
+}
 
 // pub fn read_all_teams_of_division(
 //     db: &mut database::Connection,
