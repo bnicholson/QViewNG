@@ -92,12 +92,7 @@ async fn create(
 
     let mut conn = db.get_connection().expect("Failed to get connection");
 
-    let tournament_exists: bool = tournaments_table
-        .find(item.tid)
-        .get_result::<Tournament>(&mut conn)
-        .is_ok();
-    
-    if !tournament_exists {
+    if !models::tournament::exists(&mut conn, item.tid) {
         println!("Could not find Tournament by ID={}", &item.tid);
         return Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": format!("Tournament with ID {} does not exist", item.tid)

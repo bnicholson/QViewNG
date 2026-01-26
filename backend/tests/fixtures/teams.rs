@@ -99,10 +99,11 @@ pub fn seed_teams_with_names(
     did: Uuid, 
     team_name_1: &str,
     team_name_2: &str,
-) -> Team {
+) -> (Team,Team) {
     let new_team_1 = new_team(conn, did, team_name_1);
     let new_team_2 = new_team(conn, did, team_name_2);
 
-    create_and_insert_team(conn, new_team_2);
-    create_and_insert_team(conn, new_team_1)
+    let team_1 = create_and_insert_team(conn, new_team_1);
+    let team_2 = create_and_insert_team(conn, new_team_2);
+    (team_1,team_2)
 }

@@ -97,6 +97,14 @@ pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResul
         .get_result::<Tournament>(db)
 }
 
+pub fn exists(db: &mut database::Connection, tid: Uuid) -> bool {
+    use crate::schema::tournaments::dsl::tournaments;
+    tournaments
+        .find(tid)
+        .get_result::<Tournament>(db)
+        .is_ok()
+}
+
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
     tournaments.filter(tid.eq(item_id)).first::<Tournament>(db)

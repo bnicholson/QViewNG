@@ -76,6 +76,14 @@ pub fn create(db: &mut database::Connection, item: &NewRound) -> QueryResult<Rou
     insert_into(rounds).values(item).get_result::<Round>(db)
 }
 
+pub fn exists(db: &mut database::Connection, roundid: Uuid) -> bool {
+    use crate::schema::rounds::dsl::rounds;
+    rounds
+        .find(roundid)
+        .get_result::<Round>(db)
+        .is_ok()
+}
+
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Round> {
     use crate::schema::rounds::dsl::*;
     rounds.filter(roundid.eq(item_id)).first::<Round>(db)

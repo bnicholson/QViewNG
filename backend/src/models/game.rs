@@ -1,30 +1,16 @@
-// use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
-// use diesel::prelude::*;
-// use diesel::upsert::*;
-// use diesel::insert_into;
-// use crate::database;
-// use crate::models::common::*;
-// use serde::{Deserialize, Serialize};
-// use utoipa::ToSchema;
-// // this import requires this syntax (to appease rustc):
+use chrono::{DateTime, Utc};
+use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
+use diesel::prelude::*;
+use diesel::upsert::*;
+use diesel::insert_into;
+use uuid::Uuid;
+use crate::database;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+// this import requires this syntax (to appease rustc):
 // use crate::schema::games::dsl::{org,clientkey,ignore,ruleset};
 
-// // #[tsync::tsync]
-// #[derive(
-//     Debug,
-//     Serialize,
-//     Deserialize,
-//     Clone,
-//     Queryable,
-//     Insertable,
-//     Identifiable,
-//     AsChangeset,
-//     Associations,
-//     ToSchema,
-//     Selectable
-// )]
-// #[diesel(table_name = crate::schema::games)]
-// #[diesel(primary_key(gid))]
+// #[tsync::tsync]
 // #[diesel(belongs_to(Tournament, foreign_key = "tournamentid"))]
 // #[diesel(belongs_to(Division, foreign_key = "divisionid"))]
 // #[diesel(belongs_to(Room, foreign_key = "roomid"))]
@@ -34,46 +20,84 @@
 // #[diesel(belongs_to(RightTeam, foreign_key = "rightteamid"))]
 // #[diesel(belongs_to(QuizMaster, foreign_key = "quizmasterid"))]
 // #[diesel(belongs_to(ContentJudge, foreign_key = "contentjudgeid"))]
-// pub struct Game {
-//     pub gid: i64,
-//     pub org: String,
-//     pub clientkey: String,
-//     pub ignore: bool,
-//     pub ruleset: String,
-//     pub quizmasterid: Option<i64>,
-//     pub contentjudgeid: Option<i64>,
-//     pub tournamentid: Option<i64>,
-//     pub divisionid: Option<i64>,
-//     pub roomid: Option<i64>,
-//     pub roundid: Option<i64>,
-//     pub leftteamid: i64,
-//     pub centerteamid: Option<i64>,
-//     pub rightteamid: i64,
-//     #[schema(value_type = String, format = DateTime)]
-//     pub created_at: UTC,
-//     #[schema(value_type = String, format = DateTime)]
-//     pub updated_at: UTC,
-// }
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Clone,
+    Queryable,
+    Selectable,
+    Identifiable,
+    ToSchema
+)]
+#[diesel(table_name = crate::schema::games)]
+#[diesel(primary_key(gid))]
+pub struct Game {
+    pub gid: Uuid,
+    pub org: String,
+    pub tournamentid: Option<Uuid>,
+    pub divisionid: Option<Uuid>,
+    pub roomid: Uuid,
+    pub roundid: Uuid,
+    pub clientkey: String,
+    pub ignore: bool,
+    pub ruleset: String,
+    pub leftteamid: Uuid,
+    pub centerteamid: Option<Uuid>,
+    pub rightteamid: Uuid,
+    pub quizmasterid: Uuid,
+    pub contentjudgeid: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>
+}
+
+#[derive(
+    Insertable,
+    Serialize,
+    Deserialize,
+    Debug
+)]
+#[diesel(table_name = crate::schema::games)]
+pub struct NewGame {
+    pub org: String,
+    pub tournamentid: Option<Uuid>,
+    pub divisionid: Option<Uuid>,
+    pub roomid: Uuid,
+    pub roundid: Uuid,
+    pub clientkey: String,
+    pub ignore: bool,
+    pub ruleset: String,
+    pub leftteamid: Uuid,
+    pub centerteamid: Option<Uuid>,
+    pub rightteamid: Uuid,
+    pub quizmasterid: Uuid,
+    pub contentjudgeid: Option<Uuid>
+}
 
 
-// // #[tsync::tsync]
-// #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset, Selectable)]
-// #[diesel(table_name = crate::schema::games)]
-// #[diesel(primary_key(gid))]
+// #[tsync::tsync]
 // #[belongs_to(Tournament, foreign_key = "tournamentid")]
 // #[belongs_to(Division, foreign_key = "divisionid")]
 // #[belongs_to(Room, foreign_key = "roomid")]
 // #[belongs_to(Round, foreign_key = "roundid")]
-// pub struct GameChangeset {
-//     pub org: String,
-//     pub tournamentid: Option<i64>,
-//     pub divisionid: Option<i64>,
-//     pub roomid: Option<i64>,
-//     pub roundid: Option<i64>,
-//     pub clientkey: String,
-//     pub ignore: bool,
-//     pub ruleset: String,
-// }
+#[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
+#[diesel(table_name = crate::schema::games)]
+#[diesel(primary_key(gid))]
+pub struct GameChangeset {
+    pub org: Option<String>,
+    pub tournamentid: Option<Uuid>,
+    pub divisionid: Option<Uuid>,
+    pub roomid: Option<Uuid>,
+    pub roundid: Option<Uuid>,
+    pub clientkey: Option<String>,
+    pub ignore: Option<bool>,
+    pub ruleset: Option<String>,
+    pub leftteamid: Option<Uuid>,
+    pub centerteamid: Option<Uuid>,
+    pub rightteamid: Option<Uuid>,
+    pub quizmasterid: Option<Uuid>,
+    pub contentjudgeid: Option<Uuid>
+}
 
 // pub fn empty_changeset() -> GameChangeset {
 //     return GameChangeset {   
@@ -88,53 +112,53 @@
 //     }
 // }
 
-// pub fn create(db_conn: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {
-//     use crate::schema::games::dsl::*;
-//     insert_into(games).values(item).get_result::<Game>(db_conn)
-// }
+pub fn create(db_conn: &mut database::Connection, item: &NewGame) -> QueryResult<Game> {
+    use crate::schema::games::dsl::*;
+    insert_into(games).values(item).get_result::<Game>(db_conn)
+}
 
-// pub fn create_update(db_conn: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {
-//     use crate::schema::games::dsl::*;
-//     insert_into(games).values(item).on_conflict(on_constraint(
-//         "games_org_tournament_division_room_round_clientkey_key"))
-//         .do_update()//games.filter(gid.eq(item_id)))
-//         .set(item)
-//         .get_result::<Game>(db_conn)
-// }
+pub fn create_update(db_conn: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {
+    use crate::schema::games::dsl::*;
+    insert_into(games).values(item).on_conflict(on_constraint(
+        "games_org_tournament_division_room_round_clientkey_key"))
+        .do_update()//games.filter(gid.eq(item_id)))
+        .set(item)
+        .get_result::<Game>(db_conn)
+}
 
-// pub fn read(db_conn: &mut database::Connection, item_id: i64) -> QueryResult<Game> {
-//     use crate::schema::games::dsl::*;
-//     games.filter(gid.eq(item_id)).first::<Game>(db_conn)
-// }
+pub fn read(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<Game> {
+    use crate::schema::games::dsl::*;
+    games.filter(gid.eq(item_id)).first::<Game>(db_conn)
+}
 
-// pub fn read_all(db_conn: &mut database::Connection) -> QueryResult<Vec<Game>> {
-//     use crate::schema::games::dsl::*;
-//     games
-//         .order(gid)
-//         .limit(10)
-//         // .offset(44)
-//         .load::<Game>(db_conn)
-// }
+pub fn read_all(db_conn: &mut database::Connection) -> QueryResult<Vec<Game>> {
+    use crate::schema::games::dsl::*;
+    games
+        .order(gid)
+        .limit(10)
+        // .offset(44)
+        .load::<Game>(db_conn)
+}
 
-// pub fn update(db_conn: &mut database::Connection, item_id: i64, item: &GameChangeset) -> QueryResult<Game> {
-//     use crate::schema::games::dsl::*;
-//     diesel::update(games.find(item_id))
-//         .set(item)
-//         .returning(Game::as_returning())
-//         .get_result(db_conn)
-// }
+pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {
+    use crate::schema::games::dsl::*;
+    diesel::update(games.find(item_id))
+        .set(item)
+        .returning(Game::as_returning())
+        .get_result(db_conn)
+}
 
-// pub fn delete(db_conn: &mut database::Connection, item_id: i64) -> QueryResult<usize> {
-//     use crate::schema::games::dsl::*;
-//     diesel::delete(games.filter(gid.eq(item_id))).execute(db_conn)
-// }
+pub fn delete(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::games::dsl::*;
+    diesel::delete(games.filter(gid.eq(item_id))).execute(db_conn)
+}
 
-// // Construct a key for the game information.
-// // we will use this to retrieve any information we have
-// // on this particular game.  
-// pub fn get_gid_from_cache(game: &GameChangeset) -> BigId {
-//     use crate::schema::games::dsl::*;
-//     let gamekey = format!("QV:GAME:{}:{:?}:{:?}:{:?}:{:?}:{}",game.org,game.tournamentid, game.divisionid, game.roomid, game.roundid, game.clientkey);
+// Construct a key for the game information.
+// we will use this to retrieve any information we have
+// on this particular game.  
+// pub fn get_gid_from_cache(game: &GameChangeset) -> Uuid {
+//     // use crate::schema::games::dsl::*;
+//     let gamekey = format!("QV:GAME:{}:{:?}:{:?}:{:?}:{:?}:{}",game.org.unwrap(),game.tournamentid, game.divisionid, game.roomid, game.roundid, game.clientkey.unwrap());
 
 //     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
 //     let mut con = client.get_connection().unwrap();

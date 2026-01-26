@@ -5,3 +5,4 @@ pub mod users;
 pub mod rooms;
 pub mod rounds;
 pub mod teams;
+pub mod games;

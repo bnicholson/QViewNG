@@ -60,12 +60,7 @@ async fn create(
 
     let mut conn = db.get_connection().expect("Failed to get connection");
 
-    let division_exists: bool = divisions_table
-        .find(item.did)
-        .get_result::<Division>(&mut conn)
-        .is_ok();
-    
-    if !division_exists {
+    if !models::division::exists(&mut conn, item.did) {
         println!("Could not find Division by ID={}", &item.did);
         return Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": format!("Division with ID {} does not exist", item.did)

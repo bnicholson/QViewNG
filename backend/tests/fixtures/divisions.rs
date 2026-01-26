@@ -124,7 +124,7 @@ pub fn seed_get_teams_by_division(conn: &mut PgConnection) -> Team {
     let team_4_name = "Keiths Team".to_string();
 
     seed_teams_with_names(conn, div_2.did, &team_3_name, &team_4_name);
-    seed_teams_with_names(conn, div_1.did, &team_1_name, &team_2_name)
+    seed_teams_with_names(conn, div_1.did, &team_1_name, &team_2_name).0
 }
 
 pub fn seed_rounds_in_division(conn: &mut PgConnection, tid: Uuid) -> Division {

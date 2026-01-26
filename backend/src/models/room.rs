@@ -61,6 +61,14 @@ pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room
     insert_into(rooms).values(item).get_result::<Room>(db)
 }
 
+pub fn exists(db: &mut database::Connection, roomid: Uuid) -> bool {
+    use crate::schema::rooms::dsl::rooms;
+    rooms
+        .find(roomid)
+        .get_result::<Room>(db)
+        .is_ok()
+}
+
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Room> {
     use crate::schema::rooms::dsl::*;
     rooms.filter(roomid.eq(item_id)).first::<Room>(db)

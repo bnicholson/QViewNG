@@ -76,6 +76,14 @@ pub fn create(db: &mut database::Connection, item: &NewTeam) -> QueryResult<Team
     insert_into(teams).values(item).get_result::<Team>(db)
 }
 
+pub fn exists(db: &mut database::Connection, id: Uuid) -> bool {
+    use crate::schema::teams::dsl::teams;
+    teams
+        .find(id)
+        .get_result::<Team>(db)
+        .is_ok()
+}
+
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Team> {
     use crate::schema::teams::dsl::*;
     teams.filter(teamid.eq(item_id)).first::<Team>(db)

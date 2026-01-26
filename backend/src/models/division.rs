@@ -64,6 +64,14 @@ pub fn create(db: &mut database::Connection, item: &NewDivision) -> QueryResult<
     insert_into(divisions).values(item).get_result::<Division>(db)
 }
 
+pub fn exists(db: &mut database::Connection, did: Uuid) -> bool {
+    use crate::schema::divisions::dsl::divisions;
+    divisions
+        .find(did)
+        .get_result::<Division>(db)
+        .is_ok()
+}
+
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Division> {
     use crate::schema::divisions::dsl::*;
     divisions.filter(did.eq(item_id)).first::<Division>(db)

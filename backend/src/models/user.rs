@@ -82,6 +82,14 @@ pub fn create(db: &mut database::Connection, item: NewUser) -> QueryResult<User>
     insert_into(users).values(item_with_hashed_password).get_result::<User>(db)
 }
 
+pub fn exists(db: &mut database::Connection, id: Uuid) -> bool {
+    use crate::schema::users::dsl::users;
+    users
+        .find(id)
+        .get_result::<User>(db)
+        .is_ok()
+}
+
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<User> {
     use crate::schema::users::dsl::*;
     users.filter(id.eq(item_id)).first::<User>(db)
