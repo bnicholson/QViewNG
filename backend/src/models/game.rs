@@ -168,7 +168,10 @@ pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParam
 pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
     diesel::update(games.find(item_id))
-        .set(item)
+        .set((
+            item,
+            updated_at.eq(diesel::dsl::now),
+        ))
         .returning(Game::as_returning())
         .get_result(db_conn)
 }

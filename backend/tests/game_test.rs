@@ -194,56 +194,52 @@ async fn get_by_id_works() {
     assert_eq!(game.leftteamid, games[game_of_interest_idx].leftteamid);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let game = fixtures::games::seed_game(&mut conn);
     
-//     let tournament = fixtures::tournaments::seed_tournament(&mut conn);
-//     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
-
-//     let game: Game = fixtures::games::seed_game(&mut conn, division.did);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-
-//     let new_scheduled_start_time = Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap();
-
-//     let put_payload = json!({
-//         "scheduled_start_time": &new_scheduled_start_time
-//     });
+    let app = test::init_service(
+        App::new()
+        .app_data(web::Data::new(db))
+        .configure(configure_routes)
+    ).await;
     
-//     let put_uri = format!("/api/games/{}", game.gameid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let new_left_team = fixtures::teams::seed_team(&mut conn, game.divisionid.unwrap());
 
-//     // Act:
+    let put_payload = json!({
+        "leftteamid": &new_left_team.teamid
+    });
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_uri = format!("/api/games/{}", game.gid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Assert:
+    // Act:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     let put_resp_body: EntityResponse<Game> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    // Assert:
+    
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let new_game = put_resp_body.data.unwrap();
-//     assert_eq!(new_game.did, division.did);
-//     assert_eq!(new_game.gameid, game.gameid);
-//     assert_eq!(new_game.scheduled_start_time.unwrap(), new_scheduled_start_time);
-//     assert_ne!(new_game.created_at, new_game.updated_at);
-// }
+    let put_resp_body: EntityResponse<Game> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
+
+    let updated_game = put_resp_body.data.unwrap();
+    assert_eq!(updated_game.divisionid.unwrap(), game.divisionid.unwrap());
+    assert_eq!(updated_game.leftteamid, new_left_team.teamid);
+    assert_ne!(updated_game.created_at, updated_game.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {

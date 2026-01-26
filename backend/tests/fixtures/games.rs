@@ -84,19 +84,10 @@ fn create_and_insert_game(conn: &mut PgConnection, new_game: NewGame) -> Game {
         .expect("Failed to create game")
 }
 
-pub fn seed_game(
-    conn: &mut PgConnection,
-    tid: Uuid, 
-    did: Uuid, 
-    room_id: Uuid, 
-    round_id: Uuid, 
-    left_team_id: Uuid, 
-    center_team_id: Option<Uuid>, 
-    right_team_id: Uuid, 
-    qm_id: Uuid
-) -> Game {
-    let new_game = new_game_one(tid, did, room_id, round_id, left_team_id, center_team_id, right_team_id, qm_id);
-    create_and_insert_game(conn, new_game)
+pub fn seed_game(conn: &mut PgConnection) -> Game {
+    let deps = seed_game_payload_dependencies(conn, "Tour 1");
+    let payload = get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,Some(deps.5),deps.6,deps.7);
+    create_and_insert_game(conn, payload)
 }
 
 pub fn seed_games(conn: &mut PgConnection) -> Vec<Game> {
