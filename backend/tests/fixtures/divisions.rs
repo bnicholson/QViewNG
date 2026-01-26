@@ -118,13 +118,15 @@ pub fn seed_get_teams_by_division(conn: &mut PgConnection) -> Team {
     let div_1 = &divisions[0];
     let team_1_name = "Jefferons Team".to_string();
     let team_2_name = "Andersons Team".to_string();
+    let team_3_name = "Smiths Team".to_string();
     
     let div_2 = &divisions[1];
-    let team_3_name = "Smiths Team".to_string();
     let team_4_name = "Keiths Team".to_string();
+    let team_5_name = "Jans Team".to_string();
+    let team_6_name = "Tobys Team".to_string();
 
-    seed_teams_with_names(conn, div_2.did, &team_3_name, &team_4_name);
-    seed_teams_with_names(conn, div_1.did, &team_1_name, &team_2_name).0
+    seed_teams_with_names(conn, div_2.did, &team_4_name, &team_5_name, &team_6_name);
+    seed_teams_with_names(conn, div_1.did, &team_1_name, &team_2_name, &team_3_name).0
 }
 
 pub fn seed_rounds_in_division(conn: &mut PgConnection, tid: Uuid) -> Division {

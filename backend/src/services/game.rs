@@ -120,6 +120,7 @@ async fn create(
     let response: EntityResponse<Game> = process_response(result, "post");
     
     match response.code {
+        400 => Ok(HttpResponse::BadRequest().json(response)),
         409 => Ok(HttpResponse::Conflict().json(response)),
         201 => Ok(HttpResponse::Created().json(response)),
         200 => Ok(HttpResponse::Ok().json(response)),

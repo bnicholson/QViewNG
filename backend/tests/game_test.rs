@@ -22,7 +22,7 @@ async fn create_works() {
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let deps = fixtures::games::seed_game_payload_dependencies(&mut conn, "Tour 1");
-    let payload = fixtures::games::get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,deps.5,deps.6);
+    let payload = fixtures::games::get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,Some(deps.5),deps.6,deps.7);
 
     let app = test::init_service(
         App::new()
@@ -49,50 +49,77 @@ async fn create_works() {
 
     let game = body.data.unwrap();
     assert_eq!(game.divisionid.unwrap(), deps.1);
-    assert_eq!(game.quizmasterid, deps.6);
+    assert_eq!(game.quizmasterid, deps.7);
     assert_eq!(game.leftteamid, deps.4);
 }
 
-// #[actix_web::test]
-// async fn create_errors_when_team_is_found_more_than_once_in_a_game() {
+#[actix_web::test]
+async fn create_errors_when_team_is_found_more_than_once_in_a_game() {
 
-//     // Arrange:
+    // Arrange 1:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let deps = fixtures::games::seed_game_payload_dependencies(&mut conn);
-//     let payload = fixtures::games::get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,deps.5,deps.6);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let payload_one = fixtures::games::duplicate_team_in_game_case_one_payload(&mut conn);
     
-//     let req = test::TestRequest::post()
-//         .uri("/api/games")
-//         .set_json(&payload)
-//         .to_request();
+    let req_one = test::TestRequest::post()
+        .uri("/api/games")
+        .set_json(&payload_one)
+        .to_request();
 
-//     // Act:
+    // Act 1:
 
-//     let resp = test::call_service(&app, req).await;
+    let resp_one = test::call_service(&app, req_one).await;
     
-//     // Assert:
+    // Assert 1:
     
-//     assert_eq!(resp.status(), StatusCode::CREATED);
+    assert_eq!(resp_one.status(), StatusCode::BAD_REQUEST);
 
-//     let body: EntityResponse<Game> = test::read_body_json(resp).await;
-//     assert_eq!(body.code, 201);
-//     assert_eq!(body.message, "");
+    // Arrange 2:
 
-//     let game = body.data.unwrap();
-//     assert_eq!(game.divisionid.unwrap(), deps.1);
-//     assert_eq!(game.quizmasterid, deps.6);
-//     assert_eq!(game.leftteamid, deps.4);
-// }
+    clean_database();
+
+    let payload_two = fixtures::games::duplicate_team_in_game_case_two_payload(&mut conn);
+    
+    let req_two = test::TestRequest::post()
+        .uri("/api/games")
+        .set_json(&payload_two)
+        .to_request();
+
+    // Act 2:
+
+    let resp_two = test::call_service(&app, req_two).await;
+    
+    // Assert 2:
+    
+    assert_eq!(resp_two.status(), StatusCode::BAD_REQUEST);
+
+    // Arrange 3:
+
+    clean_database();
+
+    let payload_three = fixtures::games::duplicate_team_in_game_case_three_payload(&mut conn);
+    
+    let req_three = test::TestRequest::post()
+        .uri("/api/games")
+        .set_json(&payload_three)
+        .to_request();
+
+    // Act 3:
+
+    let resp_three = test::call_service(&app, req_three).await;
+    
+    // Assert 3:
+    
+    assert_eq!(resp_three.status(), StatusCode::BAD_REQUEST);
+}
 
 #[actix_web::test]
 async fn get_all_works() {

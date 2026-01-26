@@ -39,7 +39,7 @@ pub fn process_response<T>(result : QueryResult<T>, http_method: &str) -> Entity
                     match dbek {
                         diesel::result::DatabaseErrorKind::UniqueViolation => {
                             response.code = 409;
-                            response.message = "Duplicate Tournament".to_string();
+                            response.message = "Duplicate object".to_string();
                             tracing::info!("{} {} create process_response-> {:?}", line!(), type_name::<T>(), e);
                         },
                         _ => {
@@ -50,7 +50,7 @@ pub fn process_response<T>(result : QueryResult<T>, http_method: &str) -> Entity
                     }
                 },
                 x => {
-                    response.code = 409;
+                    response.code = 400;
                     response.message = format!("{:?}",x);   
                     tracing::error!("{} {} create process_response-> {:?}", line!(), type_name::<T>(), x);     
                 },
@@ -58,6 +58,5 @@ pub fn process_response<T>(result : QueryResult<T>, http_method: &str) -> Entity
         }
     }    
 
-    // return the result
     response
 }

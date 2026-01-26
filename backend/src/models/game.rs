@@ -117,24 +117,24 @@ pub struct GameChangeset {
 pub fn create(db_conn: &mut database::Connection, item: &NewGame) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
 
-    // if item.leftteamid == item.rightteamid {
-    //     return Err(diesel::result::Error::QueryBuilderError(
-    //         "leftteamid and rightteamid cannot be the same".into()
-    //     ));
-    // }
+    if item.leftteamid == item.rightteamid {
+        return Err(diesel::result::Error::QueryBuilderError(
+            "leftteamid and rightteamid cannot be the same".into()
+        ));
+    }
 
-    // if item.centerteamid.is_some() {
-    //     if item.leftteamid == item.centerteamid {
-    //         return Err(diesel::result::Error::QueryBuilderError(
-    //             "leftteamid and centerteamid cannot be the same".into()
-    //         ));
-    //     }
-    //     if item.centerteamid == item.rightteamid {
-    //         return Err(diesel::result::Error::QueryBuilderError(
-    //             "centerteamid and rightteamid cannot be the same".into()
-    //         ));
-    //     }
-    // }
+    if item.centerteamid.is_some() {
+        if item.leftteamid == item.centerteamid.unwrap() {
+            return Err(diesel::result::Error::QueryBuilderError(
+                "leftteamid and centerteamid cannot be the same".into()
+            ));
+        }
+        if item.centerteamid.unwrap() == item.rightteamid {
+            return Err(diesel::result::Error::QueryBuilderError(
+                "centerteamid and rightteamid cannot be the same".into()
+            ));
+        }
+    }
 
     insert_into(games).values(item).get_result::<Game>(db_conn)
 }
