@@ -2,10 +2,12 @@
 mod common;
 mod fixtures;
 
+use std::net::TcpStream;
+
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::round::Round};
-use backend::models::division::Division;
+use backend::database::Database;
+use backend::models::{division::Division,round::Round,team::Team};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use chrono::{TimeZone, Utc};
@@ -282,12 +284,14 @@ async fn get_all_rounds_of_division_works() {
 
     let body: Vec<Round> = test::read_body_json(resp).await;
 
-    assert_eq!(body.len(), 3);
+    let len = 3;
+
+    assert_eq!(body.len(), len);
 
     let mut round_1_idx = 10;
     let mut round_2_idx = 10;
     let mut round_3_idx = 10;
-    for idx in 0..3 {
+    for idx in 0..len {
         if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2061, 5, 23, 00, 00, 0).unwrap() {
             round_1_idx = idx;
         }
@@ -301,4 +305,53 @@ async fn get_all_rounds_of_division_works() {
     assert_ne!(round_1_idx, 10);
     assert_ne!(round_2_idx, 10);
     assert_ne!(round_3_idx, 10);
+}
+
+#[actix_web::test]
+async fn get_all_teams_of_division_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let team: Team = fixtures::divisions::seed_get_teams_by_division(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/divisions/{}/teams?page={}&page_size={}", team.did, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Team> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut round_1_idx = 10;
+    let mut round_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].name == "Jefferons Team".to_string() {
+            round_1_idx = idx;
+        }
+        if body[idx].name == "Andersons Team".to_string() {
+            round_2_idx = idx;
+        }
+    }
+    assert_ne!(round_1_idx, 10);
+    assert_ne!(round_2_idx, 10);
 }

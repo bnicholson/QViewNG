@@ -1,10 +1,11 @@
 use backend::models::division::{Division,NewDivision};
+use backend::models::team::{Team};
 use chrono::{TimeZone, Utc};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::divisions;
 
-use crate::fixtures::{rounds::seed_rounds_with_sched_start_times, tournaments::seed_tournament};
+use crate::fixtures::{rounds::seed_rounds_with_sched_start_times, teams::seed_teams_with_names, tournaments::seed_tournament};
 
 pub fn new_division_one(tid: Uuid, dname: &str) -> NewDivision {
     NewDivision {
@@ -108,6 +109,22 @@ pub fn seed_get_rounds_by_division(conn: &mut PgConnection) -> Division {
     seed_rounds_with_sched_start_times(conn, div_3.did, start_time_7, start_time_8, start_time_9);
 
     div_3.clone()
+}
+
+pub fn seed_get_teams_by_division(conn: &mut PgConnection) -> Team {
+    let tournament = seed_tournament(conn);
+    let divisions = seed_divisions_with_names(conn, tournament.tid, "D1", "D2", "D42");
+
+    let div_1 = &divisions[0];
+    let team_1_name = "Jefferons Team".to_string();
+    let team_2_name = "Andersons Team".to_string();
+    
+    let div_2 = &divisions[1];
+    let team_3_name = "Smiths Team".to_string();
+    let team_4_name = "Keiths Team".to_string();
+
+    seed_teams_with_names(conn, div_2.did, &team_3_name, &team_4_name);
+    seed_teams_with_names(conn, div_1.did, &team_1_name, &team_2_name)
 }
 
 pub fn seed_rounds_in_division(conn: &mut PgConnection, tid: Uuid) -> Division {

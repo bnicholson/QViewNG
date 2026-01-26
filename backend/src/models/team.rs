@@ -93,23 +93,23 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<Team>(db)
 }
 
-// pub fn read_all_teams_of_division(
-//     db: &mut database::Connection,
-//     item_id: Uuid,
-//     pagination: &PaginationParams,
-// ) -> QueryResult<Vec<Team>> {
-//     use crate::schema::teams::dsl::*;
+pub fn read_all_teams_of_division(
+    db: &mut database::Connection,
+    item_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Team>> {
+    use crate::schema::teams::dsl::*;
 
-//     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-//     let offset_val = pagination.page * page_size;
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
 
-//     teams
-//         .filter(did.eq(item_id))
-//         .order(name.asc())
-//         .limit(page_size)
-//         .offset(offset_val)
-//         .load::<Team>(db)
-// }
+    teams
+        .filter(did.eq(item_id))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Team>(db)
+}
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset) -> QueryResult<Team> {
     use crate::schema::teams::dsl::*;
