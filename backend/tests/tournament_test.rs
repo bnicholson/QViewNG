@@ -260,7 +260,7 @@ async fn create_works() {
     let tournament = body.data.unwrap();
     assert_ne!(tournament.tid.to_string().as_str(), "");
     assert_eq!(tournament.organization.as_str(), "Nazarene");
-    assert_eq!(tournament.tname.as_str(), "Test Post");
+    assert_eq!(tournament.tname.as_str(), "Test Tour");
 }
 
 #[actix_web::test]
@@ -272,7 +272,7 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let app = test::init_service(
         App::new()
@@ -311,7 +311,7 @@ async fn update_works() {
     let new_tournament = put_resp_body.data.unwrap();
     assert_eq!(new_tournament.tid, tournament.tid);
     assert_eq!(new_tournament.organization.as_str(), "Nazarene");
-    assert_eq!(new_tournament.tname.as_str(), "Test Post");
+    assert_eq!(new_tournament.tname.as_str(), "Test Tour");
     assert_eq!(new_tournament.venue.as_str(), new_venue);
     assert_eq!(new_tournament.todate, new_todate);
     assert_eq!(new_tournament.info.as_str(), new_info);
@@ -327,7 +327,7 @@ async fn delete_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let app = test::init_service(
         App::new()
@@ -372,7 +372,7 @@ async fn get_all_divisions_of_tournament_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    fixtures::tournaments::seed_tournament(&mut conn);
+    fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let tournament = fixtures::tournaments::seed_get_divisions_by_tournament(&mut conn);
 
@@ -430,7 +430,7 @@ async fn add_admin_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let user_to_become_admin = fixtures::users::seed_user(&mut conn);
 
     let payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user_to_become_admin.id);
@@ -474,7 +474,7 @@ async fn get_all_admins_of_tournament_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let users = fixtures::users::seed_users_for_get_all_admins_of_tour(&mut conn);
     
     let app = test::init_service(
@@ -537,7 +537,7 @@ async fn update_admin_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let user = fixtures::users::seed_user(&mut conn);
 
     let post_payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user.id);
@@ -599,7 +599,7 @@ async fn delete_admin_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let user = fixtures::users::seed_user(&mut conn);
 
     let payload = fixtures::tournaments_admins::get_tour_admin_payload_singular(tournament.tid, user.id);

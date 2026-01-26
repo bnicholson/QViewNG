@@ -4,10 +4,10 @@ use backend::models::tournament::{NewTournament, Tournament};
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
 use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times, users::seed_users_with_fnames};
 
-pub fn new_tournament_one() -> NewTournament {
+pub fn new_tournament_one(tname: &str) -> NewTournament {
     NewTournament {
         organization: "Nazarene".to_string(),
-        tname: "Test Post".to_string(),
+        tname: tname.to_string(),   // "Test Post".to_string(),
         breadcrumb: "/test/post".to_string(),
         fromdate: NaiveDate::from_ymd_opt(2025, 5, 23).unwrap(),
         todate: NaiveDate::from_ymd_opt(2025, 5, 27).unwrap(),
@@ -23,11 +23,11 @@ pub fn new_tournament_one() -> NewTournament {
 }
 
 pub fn get_tournament_payload() -> NewTournament {
-    new_tournament_one()
+    new_tournament_one("Test Post")
 }
 
-pub fn seed_tournament(conn: &mut PgConnection) -> Tournament {
-    create_and_insert_tournament(conn, new_tournament_one())
+pub fn seed_tournament(conn: &mut PgConnection, tname: &str) -> Tournament {
+    create_and_insert_tournament(conn, new_tournament_one(tname))
 }
 
 fn new_tournament_two(name: &str) -> NewTournament {

@@ -20,7 +20,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let payload = fixtures::rooms::get_room_payload(parent_tournament.tid);
 
@@ -63,7 +63,7 @@ async fn get_all_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     fixtures::rooms::seed_rooms(&mut conn, parent_tournament.tid);
 
@@ -113,7 +113,7 @@ async fn get_by_id_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let rooms: Vec<Room> = fixtures::rooms::seed_rooms(&mut conn, parent_tournament.tid);
     let room_of_interest_idx = 0;
@@ -152,7 +152,7 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let room: Room = fixtures::rooms::seed_room(&mut conn, parent_tournament.tid);
 
@@ -208,7 +208,7 @@ async fn delete_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let room: Room = fixtures::rooms::seed_room(&mut conn, parent_tournament.tid);
 

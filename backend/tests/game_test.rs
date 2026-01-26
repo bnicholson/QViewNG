@@ -21,7 +21,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let deps = fixtures::games::seed_game_payload_dependencies(&mut conn);
+    let deps = fixtures::games::seed_game_payload_dependencies(&mut conn, "Tour 1");
     let payload = fixtures::games::get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,deps.5,deps.6);
 
     let app = test::init_service(
@@ -54,18 +54,16 @@ async fn create_works() {
 }
 
 // #[actix_web::test]
-// async fn get_all_works() {
+// async fn create_errors_when_team_is_found_more_than_once_in_a_game() {
 
 //     // Arrange:
-    
+
 //     clean_database();
 //     let db = Database::new(TEST_DB_URL);
 //     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-//     let tournament = fixtures::tournaments::seed_tournament(&mut conn);
-//     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-//     fixtures::games::seed_games(&mut conn, division.did);
+//     let deps = fixtures::games::seed_game_payload_dependencies(&mut conn);
+//     let payload = fixtures::games::get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,deps.5,deps.6);
 
 //     let app = test::init_service(
 //         App::new()
@@ -73,32 +71,63 @@ async fn create_works() {
 //             .configure(configure_routes)
 //     ).await;
     
-//     let uri = format!("/api/games?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
+//     let req = test::TestRequest::post()
+//         .uri("/api/games")
+//         .set_json(&payload)
 //         .to_request();
-    
+
 //     // Act:
-    
+
 //     let resp = test::call_service(&app, req).await;
     
 //     // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+//     assert_eq!(resp.status(), StatusCode::CREATED);
 
-//     let body: Vec<Game> = test::read_body_json(resp).await;
+//     let body: EntityResponse<Game> = test::read_body_json(resp).await;
+//     assert_eq!(body.code, 201);
+//     assert_eq!(body.message, "");
 
-//     assert_eq!(body.len(), 3);
-
-//     let mut game_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2045, 5, 23, 00, 00, 0).unwrap() {
-//             game_or_interest_idx = idx;
-//             break;
-//         }
-//     }
-//     assert_ne!(game_or_interest_idx, 10);
+//     let game = body.data.unwrap();
+//     assert_eq!(game.divisionid.unwrap(), deps.1);
+//     assert_eq!(game.quizmasterid, deps.6);
+//     assert_eq!(game.leftteamid, deps.4);
 // }
+
+#[actix_web::test]
+async fn get_all_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    fixtures::games::seed_games(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/games?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<Game> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 2);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {

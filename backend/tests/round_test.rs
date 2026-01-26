@@ -21,7 +21,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
     let payload = fixtures::rounds::get_round_payload(division.did);
@@ -63,7 +63,7 @@ async fn get_all_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn,"Test Tour");
     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
     fixtures::rounds::seed_rounds(&mut conn, division.did);
@@ -110,7 +110,7 @@ async fn get_by_id_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn,"Test Tour");
     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
     let rounds: Vec<Round> = fixtures::rounds::seed_rounds(&mut conn, division.did);
@@ -149,7 +149,7 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
     let round: Round = fixtures::rounds::seed_round(&mut conn, division.did);
@@ -200,7 +200,7 @@ async fn delete_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
     let round: Round = fixtures::rounds::seed_round(&mut conn, division.did);

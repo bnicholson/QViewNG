@@ -1,10 +1,12 @@
 use chrono::{DateTime, Utc};
+use diesel::result::Error;
 use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
 use diesel::prelude::*;
 use diesel::upsert::*;
 use diesel::insert_into;
 use uuid::Uuid;
 use crate::database;
+use crate::models::common::PaginationParams;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // this import requires this syntax (to appease rustc):
@@ -114,6 +116,26 @@ pub struct GameChangeset {
 
 pub fn create(db_conn: &mut database::Connection, item: &NewGame) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
+
+    // if item.leftteamid == item.rightteamid {
+    //     return Err(diesel::result::Error::QueryBuilderError(
+    //         "leftteamid and rightteamid cannot be the same".into()
+    //     ));
+    // }
+
+    // if item.centerteamid.is_some() {
+    //     if item.leftteamid == item.centerteamid {
+    //         return Err(diesel::result::Error::QueryBuilderError(
+    //             "leftteamid and centerteamid cannot be the same".into()
+    //         ));
+    //     }
+    //     if item.centerteamid == item.rightteamid {
+    //         return Err(diesel::result::Error::QueryBuilderError(
+    //             "centerteamid and rightteamid cannot be the same".into()
+    //         ));
+    //     }
+    // }
+
     insert_into(games).values(item).get_result::<Game>(db_conn)
 }
 
@@ -131,12 +153,15 @@ pub fn read(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<Ga
     games.filter(gid.eq(item_id)).first::<Game>(db_conn)
 }
 
-pub fn read_all(db_conn: &mut database::Connection) -> QueryResult<Vec<Game>> {
+pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     use crate::schema::games::dsl::*;
     games
         .order(gid)
         .limit(10)
-        // .offset(44)
+        .offset(
+            pagination.page
+                * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
+        )
         .load::<Game>(db_conn)
 }
 

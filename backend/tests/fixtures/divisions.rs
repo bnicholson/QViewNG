@@ -87,7 +87,7 @@ pub fn seed_divisions_with_names(
 }
 
 pub fn seed_get_rounds_by_division(conn: &mut PgConnection) -> Division {
-    let tournament = seed_tournament(conn);
+    let tournament = seed_tournament(conn, "Test Post");
     let divisions = seed_divisions_with_names(conn, tournament.tid, "D1", "D2", "D42");
 
     let div_1 = &divisions[0];
@@ -112,7 +112,7 @@ pub fn seed_get_rounds_by_division(conn: &mut PgConnection) -> Division {
 }
 
 pub fn seed_get_teams_by_division(conn: &mut PgConnection) -> Team {
-    let tournament = seed_tournament(conn);
+    let tournament = seed_tournament(conn, "Test Post");
     let divisions = seed_divisions_with_names(conn, tournament.tid, "D1", "D2", "D42");
 
     let div_1 = &divisions[0];

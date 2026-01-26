@@ -23,7 +23,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let payload = fixtures::divisions::get_division_payload(parent_tournament.tid);
 
@@ -68,7 +68,7 @@ async fn get_all_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     fixtures::divisions::seed_divisions(&mut conn, parent_tournament.tid);
 
@@ -120,7 +120,7 @@ async fn get_by_id_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn,"Test Tour");
 
     let divisions: Vec<Division> = fixtures::divisions::seed_divisions(&mut conn, parent_tournament.tid);
     let division_of_interest_idx = 0;
@@ -159,7 +159,7 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let division: Division = fixtures::divisions::seed_division(&mut conn, parent_tournament.tid);
 
@@ -215,7 +215,7 @@ async fn delete_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn);
+    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
     let division: Division = fixtures::divisions::seed_division(&mut conn, parent_tournament.tid);
 
