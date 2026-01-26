@@ -156,44 +156,43 @@ async fn get_all_works() {
     assert_eq!(body.len(), 2);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let games: Vec<Game> = fixtures::games::seed_games(&mut conn);
+    let game_of_interest_idx = 0;
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/games/{}", &games[game_of_interest_idx].gid);
+    println!("Games Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    // Act:
     
-//     let tournament = fixtures::tournaments::seed_tournament(&mut conn);
-//     let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
-
-//     let games: Vec<Game> = fixtures::games::seed_games(&mut conn, division.did);
-//     let game_of_interest_idx = 0;
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-
-//     let uri = format!("/api/games/{}", &games[game_of_interest_idx].gameid);
-//     println!("Games Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
-
-//     // Act:
+    let resp = test::call_service(&app, req).await;
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
-
-//     // Assert:
+    // Assert:
+    assert_eq!(resp.status(), StatusCode::OK);
     
-//     let game: Game = test::read_body_json(resp).await;
-//     assert_eq!(game.did, division.did);
-//     assert_eq!(game.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap());
-// }
+    let game: Game = test::read_body_json(resp).await;
+    assert_eq!(game.divisionid.unwrap(), games[game_of_interest_idx].divisionid.unwrap());
+    assert_eq!(game.rightteamid, games[game_of_interest_idx].rightteamid);
+    assert_eq!(game.centerteamid.unwrap(), games[game_of_interest_idx].centerteamid.unwrap());
+    assert_eq!(game.leftteamid, games[game_of_interest_idx].leftteamid);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
