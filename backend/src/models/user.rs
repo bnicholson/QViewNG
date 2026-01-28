@@ -10,6 +10,114 @@ use utoipa::ToSchema;
 use chrono::{DateTime,Utc};
 use uuid::Uuid;
 
+pub struct UserBuilder {
+    email: Option<String>,
+    hash_password: Option<String>,     
+    activated: Option<bool>,            
+    fname: String,            
+    mname: Option<String>,           
+    lname: Option<String>,         
+    username: Option<String>
+}
+
+impl UserBuilder {
+    pub fn new(fname: &str) -> Self {
+        Self {
+            email: None,
+            hash_password: None,     
+            activated: None,            
+            fname: fname.to_string(),            
+            mname: None,           
+            lname: None,         
+            username: None
+        }
+    }
+    pub fn new_default(fname: &str) -> Self {
+        Self {
+            email: Some("obviously@fakeemail.com".to_string()),
+            hash_password: None,
+            activated: Some(true),
+            fname: fname.to_string(),
+            mname: Some("Maurice".to_string()),
+            lname: Some("Den".to_string()),
+            username: Some("1denmanforthejob1".to_string())
+        }
+    }
+    pub fn set_email(mut self, email: &str) -> Self {
+        self.email = Some(email.to_string());
+        self
+    }
+    pub fn set_hash_password(mut self, hash_password: &str) -> Self {
+        self.hash_password = Some(hash_password.to_string());
+        self
+    }
+    pub fn set_activated(mut self, activated: bool) -> Self {
+        self.activated = Some(activated);
+        self
+    }
+    pub fn set_mname(mut self, mname: &str) -> Self {
+        self.mname = Some(mname.to_string());
+        self
+    }
+    pub fn set_lname(mut self, lname: &str) -> Self {
+        self.lname = Some(lname.to_string());
+        self
+    }
+    pub fn set_username(mut self, username: &str) -> Self {
+        self.username = Some(username.to_string());
+        self
+    }
+    fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+        if self.email.is_none() {
+            errors.push("email is required".to_string());
+        }
+        if self.hash_password.is_none() {
+            errors.push("hash_password is required".to_string());
+        }
+        if self.activated.is_none() {
+            errors.push("set_activated is required".to_string());
+        }
+        if self.mname.is_none() {
+            errors.push("set_mname is required".to_string());
+        }
+        if self.lname.is_none() {
+            errors.push("lname is required".to_string());
+        }
+        if self.username.is_none() {
+            errors.push("username is required".to_string());
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(())
+    }
+    pub fn build(self) -> Result<NewUser, Vec<String>> {
+        match self.validate_all_are_some() {
+            Err(e) => {
+                Err(e)
+            },
+            Ok(_) => {
+                Ok(
+                    NewUser {
+                        email: self.email.unwrap(),
+                        hash_password: self.hash_password.unwrap(),     
+                        activated: self.activated.unwrap(),            
+                        fname: self.fname,            
+                        mname: self.mname.unwrap(),           
+                        lname: self.lname.unwrap(),         
+                        username: self.username.unwrap()
+                    }
+                )
+            }
+        }
+    }
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<User> {
+        let new_user = self.build();
+        create(db, new_user.unwrap())
+    }
+}
+
 #[derive(
     Debug,
     Serialize,

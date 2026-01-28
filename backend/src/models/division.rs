@@ -1,6 +1,5 @@
 
 use crate::database;
-use crate::models::round::Round;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable};
 use serde::{Deserialize, Serialize};
@@ -8,6 +7,109 @@ use crate::models::common::*;
 use utoipa::ToSchema;
 use chrono::{DateTime,Utc};
 use uuid::Uuid;
+
+pub struct DivisionBuilder {
+    tid: Uuid,
+    dname: Option<String>,
+    breadcrumb: Option<String>,
+    is_public: Option<bool>,
+    shortinfo: Option<String>
+}
+
+impl DivisionBuilder {
+    pub fn new(tid: Uuid) -> Self {
+        DivisionBuilder {
+            tid: tid,
+            dname: None,
+            breadcrumb: None,
+            is_public: None,
+            shortinfo: None
+        }
+    }
+
+    pub fn new_default(dname: &str, tid: Uuid) -> Self {
+        // this mostly intended to be used by tests, not production
+        DivisionBuilder {
+            tid: tid,
+            dname: Some(dname.to_string()),
+            breadcrumb: Some("/test/post/for/division/1".to_string()),
+            is_public: Some(false),
+            shortinfo: Some("Experienced (but still young).".to_string())
+        }
+    }
+
+    pub fn set_tid(mut self, tid: Uuid) -> Self {
+        self.tid = tid;
+        self
+    }
+
+    pub fn set_dname(mut self, dname_val: &str) -> Self {
+        self.dname = Some(dname_val.to_string());
+        self
+    }
+
+    pub fn set_breadcrumb(mut self, val: &str) -> Self {
+        self.breadcrumb = Some(val.to_string());
+        self
+    }
+
+    pub fn set_is_public(mut self, val: bool) -> Self {
+        self.is_public = Some(val);
+        self
+    }
+
+    pub fn set_shortinfo(mut self, val: String) -> Self {
+        self.shortinfo = Some(val);
+        self
+    }
+
+    fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+
+        if self.dname.is_none() {
+            errors.push("dname is required".to_string());
+        }
+        if self.breadcrumb.is_none() {
+            errors.push("breadcrumb is required".to_string());
+        }
+        if self.is_public.is_none() {
+            errors.push("is_public is required".to_string());
+        }
+        if self.shortinfo.is_none() {
+            errors.push("shortinfo is required".to_string());
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+            
+        Ok(())
+    }
+
+    pub fn build(self) -> Result<NewDivision, Vec<String>> {
+        match self.validate_all_are_some() {
+            Err(e) => {
+                return Err(e);
+            },
+            Ok(_) => {
+                return Ok(
+                    NewDivision {
+                        tid: self.tid,
+                        dname: self.dname.unwrap(),
+                        breadcrumb: self.breadcrumb.unwrap(),
+                        is_public: self.is_public.unwrap(),
+                        shortinfo: self.shortinfo.unwrap()
+                    }
+                )
+            }
+        }
+    }
+
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Division> {
+        let new_division = self.build();
+        create(db, &new_division.unwrap())
+    }
+}
 
 // #[tsync::tsync]
 #[derive(

@@ -1,12 +1,10 @@
-use std::fmt;
 use diesel::{self,AsChangeset,Identifiable,Insertable,Queryable,RunQueryDsl,insert_into};
-use crate::database::Database;
 use crate::database;
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
 use actix_web::{delete, HttpRequest, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path}};
 // this import requires this syntax (to appease rustc):
-use crate::schema::apicalllog::dsl::{created_at,apicallid,method,uri,version,headers};
+// use crate::schema::apicalllog::dsl::{created_at,apicallid,method,uri,version,headers};
 use chrono::{Utc,DateTime};
 
 // Okay.  We only write entries to this table.  It's used to emergencies
@@ -42,7 +40,7 @@ pub struct ApiCalllogChangeset {
 pub fn apicalllog(req: &HttpRequest) {
     use crate::schema::apicalllog::dsl::*;
     // grab the database
-    let appdb = req.app_data::<Data<Database>>().unwrap();
+    let appdb = req.app_data::<Data<database::Database>>().unwrap();
     let mut db = appdb.pool.get().unwrap();
 
     //    print_type_of(&mdb);

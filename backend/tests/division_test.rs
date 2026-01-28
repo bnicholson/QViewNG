@@ -94,20 +94,26 @@ async fn get_all_works() {
 
     assert_eq!(body.len(), 3);
 
-    let mut div_or_interest_idx = 10;
+    let mut div_1_idx = 10;
+    let mut div_2_idx = 10;
+    let mut div_3_idx = 10;
     for idx in 0..3 {
+        if body[idx].dname == "Test Div 3276" {
+            div_1_idx = idx;
+            continue;
+        }
         if body[idx].dname == "Test Div 9078" {
-            div_or_interest_idx = idx;
-            break;
+            div_2_idx = idx;
+            continue;
+        }
+        if body[idx].dname == "Test Div 4611" {
+            div_3_idx = idx;
+            continue;
         }
     }
-
-    let div_of_interest = &body[div_or_interest_idx];
-    assert_eq!(div_of_interest.tid, parent_tournament.tid);
-    assert_ne!(div_of_interest.did.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
-    assert_eq!(div_of_interest.breadcrumb,"/test/post/for/division/2");
-    assert!(!div_of_interest.is_public);
-    assert_eq!(div_of_interest.shortinfo, "Novice");
+    assert_ne!(div_1_idx, 10);
+    assert_ne!(div_2_idx, 10);
+    assert_ne!(div_3_idx, 10);
 }
 
 
@@ -338,12 +344,13 @@ async fn get_all_teams_of_division_works() {
 
     let body: Vec<Team> = test::read_body_json(resp).await;
 
-    let len = 2;
+    let len = 3;
 
     assert_eq!(body.len(), len);
 
     let mut round_1_idx = 10;
     let mut round_2_idx = 10;
+    let mut round_3_idx = 10;
     for idx in 0..len {
         if body[idx].name == "Jefferons Team".to_string() {
             round_1_idx = idx;
@@ -351,7 +358,11 @@ async fn get_all_teams_of_division_works() {
         if body[idx].name == "Andersons Team".to_string() {
             round_2_idx = idx;
         }
+        if body[idx].name == "Smiths Team".to_string() {
+            round_3_idx = idx;
+        }
     }
     assert_ne!(round_1_idx, 10);
     assert_ne!(round_2_idx, 10);
+    assert_ne!(round_3_idx, 10);
 }

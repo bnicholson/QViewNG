@@ -8,7 +8,63 @@ use diesel::{QueryResult,AsChangeset,Insertable};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use utoipa::ToSchema;
-use chrono::{Utc,DateTime};
+use chrono::{DateTime, TimeZone, Utc};
+
+pub struct RoundBuilder {
+    pub did: Option<Uuid>,                              // id of the associated division
+    pub scheduled_start_time: Option<DateTime<Utc>>
+}
+
+impl RoundBuilder {
+    pub fn new(did: Uuid) -> Self {
+        Self {
+            did: Some(did),
+            scheduled_start_time: None
+        }
+    }
+    pub fn new_default(did: Uuid) -> Self {
+        Self {
+            did: Some(did),
+            scheduled_start_time: Some(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap())
+        }
+    }
+    pub fn set_scheduled_start_time(mut self, time: DateTime<Utc>) -> Self {
+        self.scheduled_start_time = Some(time);
+        self
+    }
+    fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+        if self.did.is_none() {
+            errors.push("did is required".to_string());
+        }
+        if self.scheduled_start_time.is_none() {
+            errors.push("scheduled_start_time is required".to_string());
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(())
+    }
+    pub fn build(self) -> Result<NewRound, Vec<String>> {
+        match self.validate_all_are_some() {
+            Err(e) => {
+                Err(e)
+            },
+            Ok(_) => {
+                Ok(
+                    NewRound {
+                        did: self.did.unwrap(),
+                        scheduled_start_time: self.scheduled_start_time.unwrap()
+                    }
+                )
+            }
+        }
+    }
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Round> {
+        let new_round = self.build();
+        create(db, &new_round.unwrap())
+    }
+}
 
 // #[tsync::tsync]
 #[derive(

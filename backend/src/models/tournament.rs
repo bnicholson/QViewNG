@@ -4,9 +4,201 @@ use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
-use chrono::{Utc,DateTime,TimeZone};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use utoipa::{ToSchema};
 use uuid::Uuid;
+
+#[derive(Clone)]
+pub struct TournamentBuilder {
+    organization: Option<String>,
+    tname: String,
+    breadcrumb: Option<String>,
+    fromdate: Option<chrono::naive::NaiveDate>,
+    todate: Option<chrono::naive::NaiveDate>,
+    venue: Option<String>,
+    city: Option<String>,
+    region: Option<String>,
+    country: Option<String>,
+    contact: Option<String>,
+    contactemail: Option<String>,
+    shortinfo : Option<String>,
+    info: Option<String>
+}
+
+impl TournamentBuilder {
+    pub fn new(tname: &str) -> Self {
+        Self {
+            organization: None,
+            tname: tname.to_string(),
+            breadcrumb: None,
+            fromdate: None,
+            todate: None,
+            venue: None,
+            city: None,
+            region: None,
+            country: None,
+            contact: None,
+            contactemail: None,
+            shortinfo: None,
+            info: None
+        }
+    }
+    pub fn new_default(tname: &str) -> Self {
+        // this mostly intended to be used by tests, not production
+        Self {
+            organization: Some("Nazarene".to_string()),
+            tname: tname.to_string(),
+            breadcrumb: Some("/test/post".to_string()),
+            fromdate: Some(NaiveDate::from_ymd_opt(2025, 5, 23).unwrap()),
+            todate: Some(NaiveDate::from_ymd_opt(2025, 5, 27).unwrap()),
+            venue: Some("Vancouver University".to_string()),
+            city: Some("Vancouver".to_string()),
+            region: Some("North America".to_string()),
+            country: Some("Canada".to_string()),
+            contact: Some("primemin".to_string()),
+            contactemail: Some("primemin@fakeemail.com".to_string()),
+            shortinfo: Some("Winter Olympics".to_string()),
+            info: Some("Shawn White did excellent in the halfpipe.".to_string())
+        }
+    }
+    
+    pub fn set_organization(mut self, org: &str) -> Self {
+        self.organization = Some(org.to_string());
+        self
+    }
+    pub fn set_tname(mut self, tname: &str) -> Self {
+        self.tname = tname.to_string();
+        self
+    }
+    pub fn set_breadcrumb(mut self, breadcrumb: &str) -> Self {
+        self.breadcrumb = Some(breadcrumb.to_string());
+        self
+    }
+    pub fn set_fromdate(mut self, fromdate: NaiveDate) -> Self {
+        self.fromdate = Some(fromdate);
+        self
+    }
+    pub fn set_todate(mut self, todate: NaiveDate) -> Self {
+        self.todate = Some(todate);
+        self
+    }
+    pub fn set_venue(mut self, venue: &str) -> Self {
+        self.venue = Some(venue.to_string());
+        self
+    }
+    pub fn set_city(mut self, city: &str) -> Self {
+        self.city = Some(city.to_string());
+        self
+    }
+    pub fn set_region(mut self, region: &str) -> Self {
+        self.region = Some(region.to_string());
+        self
+    }
+    pub fn set_country(mut self, country: &str) -> Self {
+        self.country = Some(country.to_string());
+        self
+    }
+    pub fn set_contact(mut self, contact: &str) -> Self {
+        self.contact = Some(contact.to_string());
+        self
+    }
+    pub fn set_contactemail(mut self, contactemail: &str) -> Self {
+        self.contactemail = Some(contactemail.to_string());
+        self
+    }
+    pub fn set_shortinfo(mut self, shortinfo: &str) -> Self {
+        self.shortinfo = Some(shortinfo.to_string());
+        self
+    }
+    pub fn set_info(mut self, info: &str) -> Self {
+        self.info = Some(info.to_string());
+        self
+    }
+    fn validate_all_are_some(&self) -> Result<bool, Vec<String>> {
+
+        let mut errors = Vec::new();
+    
+        if self.organization.is_none() {
+            errors.push("organization is required".to_string());
+        }
+        if self.breadcrumb.is_none() {
+            errors.push("breadcrumb is required".to_string());
+        }
+        if self.fromdate.is_none() {
+            errors.push("fromdate is required".to_string());
+        }
+        if self.todate.is_none() {
+            errors.push("todate is required".to_string());
+        }
+        if self.venue.is_none() {
+            errors.push("venue is required".to_string());
+        }
+        if self.city.is_none() {
+            errors.push("city is required".to_string());
+        }
+        if self.region.is_none() {
+            errors.push("region is required".to_string());
+        }
+        if self.country.is_none() {
+            errors.push("country is required".to_string());
+        }
+        if self.contact.is_none() {
+            errors.push("contact is required".to_string());
+        }
+        if self.contactemail.is_none() {
+            errors.push("contactemail is required".to_string());
+        }
+        if self.shortinfo.is_none() {
+            errors.push("shortinfo is required".to_string());
+        }
+        if self.info.is_none() {
+            errors.push("info is required".to_string());
+        }
+        
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(true)
+    }
+    pub fn build(self) -> Result<NewTournament, Vec<String>> {
+        match self.validate_all_are_some() {
+            Err(e) => {
+                Err(e)
+            },
+            Ok(_) => {
+                Ok(NewTournament {
+                    organization: self.organization.unwrap(),
+                    tname: self.tname,
+                    breadcrumb: self.breadcrumb.unwrap(),
+                    fromdate: self.fromdate.unwrap(),
+                    todate: self.todate.unwrap(),
+                    venue: self.venue.unwrap(),
+                    city: self.city.unwrap(),
+                    region: self.region.unwrap(),
+                    country: self.country.unwrap(),
+                    contact: self.contact.unwrap(),
+                    contactemail: self.contactemail.unwrap(),
+                    shortinfo: self.shortinfo.unwrap(),
+                    info: self.info.unwrap()
+                })
+            }
+        }
+    }
+    pub fn build_and_insert(self, db: &mut database::Connection) -> Result<Tournament, Vec<String>> {
+        let new_tournament_result = self.build();
+
+        if new_tournament_result.is_err() {
+            return Err(new_tournament_result.err().unwrap());
+        }
+
+        let new_tournament = new_tournament_result.unwrap();
+        match create(db, &new_tournament) {
+            Err(e) => Err(vec![format!("Database insertion error: {}", e)]),
+            Ok(tournament) => Ok(tournament)
+        }
+    }
+}
 
 // #[tsync::tsync]
 #[derive(
@@ -91,7 +283,6 @@ pub struct TournamentChangeset {
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
-    
     diesel::insert_into(tournaments)
         .values(item)
         .get_result::<Tournament>(db)

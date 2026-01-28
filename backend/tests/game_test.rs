@@ -21,8 +21,9 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let deps = fixtures::games::seed_game_payload_dependencies(&mut conn, "Tour 1");
-    let payload = fixtures::games::get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,Some(deps.5),deps.6,deps.7);
+    let (tid, did, room_id, round_id, left_team_id, center_team_id, right_team_id, qm_id) = fixtures::games::seed_game_payload_dependencies(&mut conn, "Tour 1");
+
+    let payload = fixtures::games::get_game_payload(tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
 
     let app = test::init_service(
         App::new()
@@ -48,9 +49,9 @@ async fn create_works() {
     assert_eq!(body.message, "");
 
     let game = body.data.unwrap();
-    assert_eq!(game.divisionid.unwrap(), deps.1);
-    assert_eq!(game.quizmasterid, deps.7);
-    assert_eq!(game.leftteamid, deps.4);
+    assert_eq!(game.divisionid.unwrap(), did);
+    assert_eq!(game.quizmasterid, qm_id);
+    assert_eq!(game.leftteamid, left_team_id);
 }
 
 #[actix_web::test]

@@ -9,6 +9,120 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{Utc,DateTime};
 
+pub struct TeamBuilder {
+    did: Uuid,
+    coachid: Option<Uuid>,
+    name: Option<String>,
+    quizzer_one_id: Option<Uuid>,
+    quizzer_two_id: Option<Uuid>,
+    quizzer_three_id: Option<Uuid>,
+    quizzer_four_id: Option<Uuid>,
+    quizzer_five_id: Option<Uuid>,
+    quizzer_six_id: Option<Uuid>
+}
+
+impl TeamBuilder {
+    pub fn new(division_id: Uuid) -> Self {
+        Self {
+            did: division_id,
+            coachid: None,
+            name: None,
+            quizzer_one_id: None,
+            quizzer_two_id: None,
+            quizzer_three_id: None,
+            quizzer_four_id: None,
+            quizzer_five_id: None,
+            quizzer_six_id: None
+        }
+    }
+    pub fn new_default(division_id: Uuid) -> Self {
+        Self {
+            did: division_id,
+            coachid: None,
+            name: None,
+            quizzer_one_id: None,
+            quizzer_two_id: None,
+            quizzer_three_id: None,
+            quizzer_four_id: None,
+            quizzer_five_id: None,
+            quizzer_six_id: None
+        }
+    }
+    pub fn set_coachid(mut self, coachid: Uuid) -> Self {
+        self.coachid = Some(coachid);
+        self
+    }
+    pub fn set_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+    pub fn set_quizzer_one_id(mut self, quizzer_one_id: Uuid) -> Self {
+        self.quizzer_one_id = Some(quizzer_one_id);
+        self
+    }
+    pub fn set_quizzer_two_id(mut self, quizzer_two_id: Uuid) -> Self {
+        self.quizzer_two_id = Some(quizzer_two_id);
+        self
+    }
+    pub fn set_quizzer_three_id(mut self, quizzer_three_id: Uuid) -> Self {
+        self.quizzer_three_id = Some(quizzer_three_id);
+        self
+    }
+    pub fn set_quizzer_four_id(mut self, quizzer_four_id: Uuid) -> Self {
+        self.quizzer_four_id = Some(quizzer_four_id);
+        self
+    }
+    pub fn set_quizzer_five_id(mut self, quizzer_five_id: Uuid) -> Self {
+        self.quizzer_five_id = Some(quizzer_five_id);
+        self
+    }
+    pub fn set_quizzer_six_id(mut self, quizzer_six_id: Uuid) -> Self {
+        self.quizzer_six_id = Some(quizzer_six_id);
+        self
+    }
+    fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+
+        if self.name.is_none() {
+            errors.push("name is required".to_string());
+        }
+        if self.coachid.is_none() {
+            errors.push("coachid is required".to_string());
+        }
+        
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(())
+    }
+    pub fn build(self) -> Result<NewTeam, Vec<String>> {
+        match self.validate_all_are_some() {
+            Err(e) => {
+                Err(e)
+            },
+            Ok(_) => {
+                Ok(
+                    NewTeam {
+                        did: self.did,
+                        coachid: self.coachid.unwrap(),
+                        name: self.name.unwrap(),
+                        quizzer_one_id: self.quizzer_one_id,
+                        quizzer_two_id: self.quizzer_two_id,
+                        quizzer_three_id: self.quizzer_three_id,
+                        quizzer_four_id: self.quizzer_four_id,
+                        quizzer_five_id: self.quizzer_five_id,
+                        quizzer_six_id: self.quizzer_six_id
+                    }
+                )
+            }
+        }
+    }
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Team> {
+        let new_team = self.build();
+        create(db, &new_team.unwrap())
+    }
+}
+
 // #[tsync::tsync]
 #[derive(
     Debug,
