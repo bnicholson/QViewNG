@@ -184,6 +184,20 @@ async fn read_rounds(
     }
 }
 
+#[get("/{id}/games")]
+async fn read_games(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::game::read_all_games_of_tournament(&mut conn, tour_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -350,6 +364,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_rooms)
         .service(read_rounds)
         .service(read_divisions)
+        .service(read_games)
         .service(read_admins)
         .service(add_admin)
         .service(create)

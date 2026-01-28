@@ -355,3 +355,174 @@ pub fn seed_get_games_of_division(db: &mut database::Connection) -> (Uuid, Game,
 
     (div_2.did, game_3, game_4)  // returning all Games of Division 2
 }
+
+pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Game, Game) {  // return Game because it contains gid and roundid (and roomid)
+
+    // Required: multiple tournaments (2 minimum) with multiple games (2 minimum) in each tournament
+
+    let qm_1 = UserBuilder::new_default("Grace")
+        .set_hash_password("gfjhfkhfkjhkgggh")
+        .build_and_insert(db)
+        .unwrap();
+
+    let qm_2 = UserBuilder::new_default("Tyler")
+        .set_hash_password("gfjhfkhfkj9kgggh")
+        .build_and_insert(db)
+        .unwrap();
+
+    let qm_3 = UserBuilder::new_default("Jasmine")
+        .set_hash_password("fun")
+        .build_and_insert(db)
+        .unwrap();
+
+    let qm_4 = UserBuilder::new_default("Stephanie")
+        .set_hash_password("777787787")
+        .build_and_insert(db)
+        .unwrap();
+
+    let coach_1 = UserBuilder::new_default("James")
+        .set_hash_password("gfj5fkhfkjhkgggh")
+        .build_and_insert(db)
+        .unwrap();
+
+    let coach_2 = UserBuilder::new_default("Charlie")
+        .set_hash_password("gfjhfkhfkjhkg0gh")
+        .build_and_insert(db)
+        .unwrap();
+
+    let coach_3 = UserBuilder::new_default("Janet")
+        .set_hash_password("gfjhfkhfkjhxxkgggh")
+        .build_and_insert(db)
+        .unwrap();
+
+    let coach_4 = UserBuilder::new_default("Pam")
+        .set_hash_password("gfjhfkgggh")
+        .build_and_insert(db)
+        .unwrap();
+
+
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .build_and_insert(db)
+        .unwrap();
+
+
+    let room_1_of_tour_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let room_2_of_tour_1 = RoomBuilder::new_default("Room 2", tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let room_1_of_tour_2 = RoomBuilder::new_default("Room 1", tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let room_2_of_tour_2 = RoomBuilder::new_default("Room 2", tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+
+    let div_1_of_tour_1 = DivisionBuilder::new_default("Div 1", tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let div_1_of_tour_2 = DivisionBuilder::new_default("Div 2", tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+
+    let team_1 = TeamBuilder::new_default(div_1_of_tour_1.did)
+        .set_name("Team 1")
+        .set_coachid(coach_1.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_2 = TeamBuilder::new_default(div_1_of_tour_1.did)
+        .set_name("Team 2")
+        .set_coachid(coach_2.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_3 = TeamBuilder::new_default(div_1_of_tour_1.did)
+        .set_name("Team 3")
+        .set_coachid(coach_3.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_4 = TeamBuilder::new_default(div_1_of_tour_1.did)
+        .set_name("Team 4")
+        .set_coachid(coach_4.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_5 = TeamBuilder::new_default(div_1_of_tour_2.did)
+        .set_name("Team 5")
+        .set_coachid(coach_1.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_6 = TeamBuilder::new_default(div_1_of_tour_2.did)
+        .set_name("Team 6")
+        .set_coachid(coach_2.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_7 = TeamBuilder::new_default(div_1_of_tour_2.did)
+        .set_name("Team 7")
+        .set_coachid(coach_3.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_8 = TeamBuilder::new_default(div_1_of_tour_2.did)
+        .set_name("Team 8")
+        .set_coachid(coach_4.id)
+        .build_and_insert(db)
+        .unwrap();
+
+
+    let round_1_of_tour_1 = RoundBuilder::new_default(div_1_of_tour_1.did)
+        .build_and_insert(db)
+        .unwrap();
+
+    let round_1_of_tour_2 = RoundBuilder::new_default(div_1_of_tour_2.did)
+        .build_and_insert(db)
+        .unwrap();
+
+
+    let game_1 = GameBuilder::new_default(room_1_of_tour_1.roomid, round_1_of_tour_1.roundid)
+        .set_leftteamid(team_1.teamid)
+        .set_rightteamid(team_2.teamid)
+        .set_quizmasterid(qm_1.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let game_2 = GameBuilder::new_default(room_2_of_tour_1.roomid, round_1_of_tour_1.roundid)
+        .set_leftteamid(team_3.teamid)
+        .set_rightteamid(team_4.teamid)
+        .set_quizmasterid(qm_2.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let game_3 = GameBuilder::new_default(room_1_of_tour_2.roomid, round_1_of_tour_2.roundid)
+        .set_tournamentid(Some(tour_1.tid))
+        .set_leftteamid(team_5.teamid)
+        .set_rightteamid(team_6.teamid)
+        .set_quizmasterid(qm_1.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let game_4 = GameBuilder::new_default(room_2_of_tour_2.roomid, round_1_of_tour_2.roundid)
+        .set_tournamentid(Some(tour_1.tid))
+        .set_leftteamid(team_7.teamid)
+        .set_rightteamid(team_8.teamid)
+        .set_quizmasterid(qm_2.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tour_2.tid, game_3, game_4)  // returning all Games of Tournament 2
+}
