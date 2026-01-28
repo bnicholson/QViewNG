@@ -67,12 +67,12 @@ pub fn duplicate_team_in_game_case_one_payload(db: &mut database::Connection) ->
 }
 
 pub fn duplicate_team_in_game_case_two_payload(db: &mut database::Connection) -> NewGame {
-    let deps_1 = seed_game_payload_dependencies(db, "Tour 1");
+    let deps_1 = seed_game_payload_dependencies(db, "Tour 2");
     get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.4),deps_1.6,deps_1.7)
 }
 
 pub fn duplicate_team_in_game_case_three_payload(db: &mut database::Connection) -> NewGame {
-    let deps_1 = seed_game_payload_dependencies(db, "Tour 1");
+    let deps_1 = seed_game_payload_dependencies(db, "Tour 3");
     get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.6),deps_1.6,deps_1.7)
 }
 

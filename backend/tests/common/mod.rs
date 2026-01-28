@@ -2,6 +2,7 @@ use backend::database::Database;
 use backend::schema::{divisions, tournaments, tournaments_admins, users, rooms, rounds, teams, games};
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use pgtemp::PgTempDB;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
@@ -60,3 +61,18 @@ pub fn clean_database() {
         .execute(&mut conn)
         .expect("Failed to clean tournaments");
 }
+
+// pub fn prepare_database() -> {
+
+//     let db = PgTempDB::async_new().await;
+
+//     let url = db.connection_uri();
+    
+//     let mut conn = PgConnection::establish(&url)
+//         .expect("Failed to connect to test database");
+    
+//     conn.run_pending_migrations(MIGRATIONS)
+//         .expect("Failed to run migrations");
+
+//     db
+// }
