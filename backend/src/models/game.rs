@@ -6,6 +6,7 @@ use diesel::insert_into;
 use uuid::Uuid;
 use crate::database;
 use crate::models::common::PaginationParams;
+use crate::models::round::Round;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -349,6 +350,34 @@ pub fn read_all_games_of_round(db_conn: &mut database::Connection, round_id: Uui
         .limit(page_size)
         .offset(offset_val)
         .load::<Game>(db_conn)
+}
+
+pub fn read_all_games_of_division(db: &mut database::Connection, division_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+    use crate::schema::games::dsl::*;
+    use crate::schema::rounds::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let rounds_ids: Vec<Uuid> = rounds
+        .filter(did.eq(division_id))
+        .order(scheduled_start_time.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Round>(db)
+        .unwrap()
+        .iter()
+        .map(|entity| entity.roundid)
+        .collect();
+
+    println!("round_ids: {:?}", &rounds_ids);
+
+    games
+        .filter(crate::schema::games::dsl::roundid.eq_any(rounds_ids))
+        .order(gid)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)
 }
 
 pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {

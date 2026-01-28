@@ -147,13 +147,14 @@ pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Round> 
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Round>> {
     use crate::schema::rounds::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
     rounds
         .order(created_at)
-        .limit(pagination.page_size)
-        .offset(
-            pagination.page
-                * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
-        )
+        .limit(page_size)
+        .offset(offset_val)
         .load::<Round>(db)
 }
 
