@@ -412,24 +412,25 @@ pub fn read_all_games_of_round(db_conn: &mut database::Connection, round_id: Uui
 
 pub fn read_all_games_of_division(db: &mut database::Connection, division_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     use crate::schema::games::dsl::*;
-    use crate::schema::rounds::dsl::*;
+    // use crate::schema::rounds::dsl::*;
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
-    let rounds_ids: Vec<Uuid> = rounds
-        .filter(did.eq(division_id))
-        .order(scheduled_start_time.asc())
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Round>(db)
-        .unwrap()
-        .iter()
-        .map(|entity| entity.roundid)
-        .collect();
+    // let rounds_ids: Vec<Uuid> = rounds
+    //     .filter(did.eq(division_id))
+    //     .order(scheduled_start_time.asc())
+    //     .limit(page_size)
+    //     .offset(offset_val)
+    //     .load::<Round>(db)
+    //     .unwrap()
+    //     .iter()
+    //     .map(|entity| entity.roundid)
+    //     .collect();
 
     games
-        .filter(crate::schema::games::dsl::roundid.eq_any(rounds_ids))
+        // .filter(crate::schema::games::dsl::roundid.eq_any(rounds_ids))
+        .filter(divisionid.eq(division_id))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)
@@ -438,36 +439,37 @@ pub fn read_all_games_of_division(db: &mut database::Connection, division_id: Uu
 
 pub fn read_all_games_of_tournament(db: &mut database::Connection, tournament_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     use crate::schema::games::dsl::*;
-    use crate::schema::rounds::dsl::*;
-    use crate::schema::divisions::dsl::*;
+    // use crate::schema::rounds::dsl::*;
+    // use crate::schema::divisions::dsl::*;
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
-    let divisions_ids: Vec<Uuid> = divisions
-        .filter(tid.eq(tournament_id))
-        .order(dname.asc())
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Division>(db)
-        .unwrap()
-        .iter()
-        .map(|entity| entity.did)
-        .collect();
+    // let divisions_ids: Vec<Uuid> = divisions
+    //     .filter(tid.eq(tournament_id))
+    //     .order(dname.asc())
+    //     .limit(page_size)
+    //     .offset(offset_val)
+    //     .load::<Division>(db)
+    //     .unwrap()
+    //     .iter()
+    //     .map(|entity| entity.did)
+    //     .collect();
 
-    let rounds_ids: Vec<Uuid> = rounds
-        .filter(crate::schema::rounds::dsl::did.eq_any(divisions_ids))
-        .order(scheduled_start_time.asc())
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Round>(db)
-        .unwrap()
-        .iter()
-        .map(|entity| entity.roundid)
-        .collect();
+    // let rounds_ids: Vec<Uuid> = rounds
+    //     .filter(crate::schema::rounds::dsl::did.eq_any(divisions_ids))
+    //     .order(scheduled_start_time.asc())
+    //     .limit(page_size)
+    //     .offset(offset_val)
+    //     .load::<Round>(db)
+    //     .unwrap()
+    //     .iter()
+    //     .map(|entity| entity.roundid)
+    //     .collect();
 
     games
-        .filter(crate::schema::games::dsl::roundid.eq_any(rounds_ids))
+        // .filter(crate::schema::games::dsl::roundid.eq_any(rounds_ids))
+        .filter(tournamentid.eq(tournament_id))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)

@@ -509,7 +509,7 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1_of_tour_2.roomid, round_1_of_tour_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
+        .set_tournamentid(Some(tour_2.tid))
         .set_leftteamid(team_5.teamid)
         .set_rightteamid(team_6.teamid)
         .set_quizmasterid(qm_1.id)
@@ -517,7 +517,7 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2_of_tour_2.roomid, round_1_of_tour_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
+        .set_tournamentid(Some(tour_2.tid))
         .set_leftteamid(team_7.teamid)
         .set_rightteamid(team_8.teamid)
         .set_quizmasterid(qm_2.id)
