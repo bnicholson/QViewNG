@@ -286,3 +286,52 @@ async fn get_all_games_where_user_is_quizmaster_works() {
     assert_ne!(game_1_idx, 10);
     assert_ne!(game_2_idx, 10);
 }
+
+#[actix_web::test]
+async fn get_all_games_where_user_is_contentjudge_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (qm_id, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/users/{}/games-where-contentjudge?page={}&page_size={}", contenjudge_id, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Game> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut game_1_idx = 10;
+    let mut game_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].gid == game_1.gid {
+            game_1_idx = idx;
+        }
+        if body[idx].gid == game_3.gid {
+            game_2_idx = idx;
+        }
+    }
+    assert_ne!(game_1_idx, 10);
+    assert_ne!(game_2_idx, 10);
+}

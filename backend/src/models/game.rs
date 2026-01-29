@@ -463,6 +463,20 @@ pub fn read_all_games_where_user_is_quizmaster(db: &mut database::Connection, qm
         .load::<Game>(db)
 }
 
+pub fn read_all_games_where_user_is_contentjudge(db: &mut database::Connection, cj_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+    use crate::schema::games::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    games
+        .filter(contentjudgeid.eq(cj_id))
+        .order(gid)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)
+}
+
 pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
     diesel::update(games.find(item_id))
