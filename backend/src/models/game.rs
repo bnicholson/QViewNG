@@ -431,6 +431,24 @@ pub fn read_all_games_of_room(db: &mut database::Connection, room_id: Uuid, pagi
         .load::<Game>(db)
 }
 
+pub fn read_all_games_of_team(db: &mut database::Connection, team_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+    use crate::schema::games::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    games
+        .filter(
+            leftteamid.eq(team_id)
+                .or(centerteamid.eq(team_id))
+                .or(rightteamid.eq(team_id))
+        )
+        .order(gid)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)
+}
+
 pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
     diesel::update(games.find(item_id))
