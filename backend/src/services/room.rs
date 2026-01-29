@@ -52,6 +52,20 @@ async fn read(
     }
 }
 
+#[get("/{id}/games")]
+async fn read_games(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::game::read_all_games_of_room(&mut conn, tour_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -130,6 +144,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_games)
         .service(create)
         .service(update)
         .service(destroy);
