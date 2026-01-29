@@ -578,6 +578,8 @@ diesel::table! {
         id -> Uuid,
         #[max_length = 32]
         username -> Varchar,
+        is_merged_user_id -> Nullable<Uuid>,
+        when_merged -> Nullable<Timestamptz>,
     }
 }
 

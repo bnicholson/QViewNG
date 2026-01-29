@@ -140,7 +140,9 @@ pub struct User {
     pub mname: String,            
     pub lname: String,            
     pub id: Uuid,            
-    pub username: String     
+    pub username: String,
+    pub is_merged_user_id: Option<Uuid>,
+    pub when_merged: Option<DateTime<Utc>>
 }
 
 #[derive(
@@ -170,7 +172,9 @@ pub struct UserChangeset {
     pub fname: Option<String>,            
     pub mname: Option<String>,            
     pub lname: Option<String>,            
-    pub username: Option<String>  
+    pub username: Option<String>,
+    pub is_merged_user_id: Option<Uuid>,
+    pub when_merged: Option<DateTime<Utc>>
 }
 
 fn get_hashed_pwd_version(item: NewUser) -> NewUser {
