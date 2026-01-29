@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
 use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
 use diesel::prelude::*;
-use diesel::upsert::*;
 use diesel::insert_into;
 use uuid::Uuid;
-use crate::database;
+use crate::{database, models};
 use crate::models::common::PaginationParams;
 use crate::models::division::Division;
 use crate::models::round::Round;
@@ -210,8 +209,8 @@ impl GameBuilder {
 pub struct Game {
     pub gid: Uuid,
     pub org: String,
-    pub tournamentid: Option<Uuid>,
-    pub divisionid: Option<Uuid>,
+    pub tournamentid: Uuid,
+    pub divisionid: Uuid,
     pub roomid: Uuid,
     pub roundid: Uuid,
     pub clientkey: String,
@@ -230,7 +229,8 @@ pub struct Game {
     Insertable,
     Serialize,
     Deserialize,
-    Debug
+    Debug,
+    Clone
 )]
 #[diesel(table_name = crate::schema::games)]
 pub struct NewGame {
@@ -287,8 +287,63 @@ pub struct GameChangeset {
 //     }
 // }
 
-pub fn create(db_conn: &mut database::Connection, item: &NewGame) -> QueryResult<Game> {
+pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
+
+    if !models::round::exists(db, item.roundid) {
+        println!("Could not find Round by ID={}", &item.roundid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: Round with ID {} does not exist", item.roundid).into()
+        ));
+    }
+
+    let mut game = item.clone();
+
+    if item.tournamentid.is_none() {
+        let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
+        let division = crate::models::division::read(db, round.did).expect("division not found in database by ID");
+
+        game = NewGame {
+            tournamentid: Some(division.tid),
+            divisionid: Some(round.did),
+            ..game.clone()
+        }
+    } else if item.divisionid.is_none() {
+        let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
+
+        game = NewGame {
+            divisionid: Some(round.did),
+            ..game.clone()
+        }
+    }
+
+    if !models::room::exists(db, item.roomid) {
+        println!("Could not find Room by ID={}", &item.roomid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: Room with ID {} does not exist", item.roomid).into()
+        ));
+    }
+
+    if !models::team::exists(db, item.leftteamid) {
+        println!("Could not find Team by ID={}", &item.leftteamid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: Team with ID {} does not exist", item.leftteamid).into()
+        ));
+    }
+
+    if !models::team::exists(db, item.rightteamid) {
+        println!("Could not find Team by ID={}", &item.rightteamid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: Team with ID {} does not exist", item.rightteamid).into()
+        ));
+    }
+
+    if !models::user::exists(db, item.quizmasterid) {
+        println!("Could not find Team by ID={}", &item.quizmasterid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: User (QuizMaster) with ID {} does not exist", item.quizmasterid).into()
+        ));
+    }
 
     if item.leftteamid == item.rightteamid {
         return Err(diesel::result::Error::QueryBuilderError(
@@ -309,7 +364,9 @@ pub fn create(db_conn: &mut database::Connection, item: &NewGame) -> QueryResult
         }
     }
 
-    insert_into(games).values(item).get_result::<Game>(db_conn)
+    insert_into(games)
+        .values(game)
+        .get_result::<Game>(db)
 }
 
 // pub fn create_update(db_conn: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {

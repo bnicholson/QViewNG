@@ -183,8 +183,8 @@ diesel::table! {
         gid -> Uuid,
         #[max_length = 48]
         org -> Varchar,
-        tournamentid -> Nullable<Uuid>,
-        divisionid -> Nullable<Uuid>,
+        tournamentid -> Uuid,
+        divisionid -> Uuid,
         roomid -> Uuid,
         roundid -> Uuid,
         #[max_length = 64]

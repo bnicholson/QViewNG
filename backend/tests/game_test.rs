@@ -4,11 +4,10 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::database::Database;
+use backend::{database::Database, models::game::NewGame};
 use backend::models::game::Game;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
-use chrono::{TimeZone, Utc};
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -23,7 +22,14 @@ async fn create_works() {
 
     let (tid, did, room_id, round_id, left_team_id, center_team_id, right_team_id, qm_id) = fixtures::games::seed_game_payload_dependencies(&mut conn, "Tour 1");
 
-    let payload = fixtures::games::get_game_payload(tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let init_payload = fixtures::games::get_game_payload(tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    
+    // the model should be able to fill in these gaps left here intentionally for the sake of this test:
+    let payload = NewGame {
+        tournamentid: None,
+        divisionid: None,
+        ..init_payload
+    };
 
     let app = test::init_service(
         App::new()
@@ -49,7 +55,7 @@ async fn create_works() {
     assert_eq!(body.message, "");
 
     let game = body.data.unwrap();
-    assert_eq!(game.divisionid.unwrap(), did);
+    assert_eq!(game.divisionid, did);
     assert_eq!(game.quizmasterid, qm_id);
     assert_eq!(game.leftteamid, left_team_id);
 }
@@ -189,7 +195,7 @@ async fn get_by_id_works() {
     assert_eq!(resp.status(), StatusCode::OK);
     
     let game: Game = test::read_body_json(resp).await;
-    assert_eq!(game.divisionid.unwrap(), games[game_of_interest_idx].divisionid.unwrap());
+    assert_eq!(game.divisionid, games[game_of_interest_idx].divisionid);
     assert_eq!(game.rightteamid, games[game_of_interest_idx].rightteamid);
     assert_eq!(game.centerteamid.unwrap(), games[game_of_interest_idx].centerteamid.unwrap());
     assert_eq!(game.leftteamid, games[game_of_interest_idx].leftteamid);
@@ -212,7 +218,7 @@ async fn update_works() {
         .configure(configure_routes)
     ).await;
     
-    let new_left_team = fixtures::teams::seed_team(&mut conn, game.divisionid.unwrap());
+    let new_left_team = fixtures::teams::seed_team(&mut conn, game.divisionid);
 
     let put_payload = json!({
         "leftteamid": &new_left_team.teamid
@@ -237,7 +243,7 @@ async fn update_works() {
     assert_eq!(put_resp_body.message, "");
 
     let updated_game = put_resp_body.data.unwrap();
-    assert_eq!(updated_game.divisionid.unwrap(), game.divisionid.unwrap());
+    assert_eq!(updated_game.divisionid, game.divisionid);
     assert_eq!(updated_game.leftteamid, new_left_team.teamid);
     assert_ne!(updated_game.created_at, updated_game.updated_at);
 }

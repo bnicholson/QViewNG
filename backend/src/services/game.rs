@@ -59,59 +59,6 @@ async fn create(
 ) -> Result<HttpResponse, Error> {
 
     let mut conn = db.get_connection().expect("Failed to get connection");
-
-    if item.tournamentid.is_some() {
-        if !models::tournament::exists(&mut conn, item.tournamentid.unwrap()) {
-            println!("Could not find Tournament by ID={}", &item.tournamentid.unwrap());
-            return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": format!("Tournament with ID {} does not exist", item.tournamentid.unwrap())
-            })));
-        }
-    }
-
-    if item.divisionid.is_some() {
-        if !models::division::exists(&mut conn, item.divisionid.unwrap()) {
-            println!("Could not find Division by ID={}", &item.divisionid.unwrap());
-            return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": format!("Division with ID {} does not exist", item.divisionid.unwrap())
-            })));
-        }
-    }
-
-    if !models::room::exists(&mut conn, item.roomid) {
-        println!("Could not find Room by ID={}", &item.roomid);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Room with ID {} does not exist", item.roomid)
-        })));
-    }
-
-    if !models::round::exists(&mut conn, item.roundid) {
-        println!("Could not find Round by ID={}", &item.roundid);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Round with ID {} does not exist", item.roundid)
-        })));
-    }
-
-    if !models::team::exists(&mut conn, item.leftteamid) {
-        println!("Could not find Team by ID={}", &item.leftteamid);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Team with ID {} does not exist", item.leftteamid)
-        })));
-    }
-
-    if !models::team::exists(&mut conn, item.rightteamid) {
-        println!("Could not find Team by ID={}", &item.rightteamid);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Team with ID {} does not exist", item.rightteamid)
-        })));
-    }
-
-    if !models::user::exists(&mut conn, item.quizmasterid) {
-        println!("Could not find Team by ID={}", &item.quizmasterid);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Team with ID {} does not exist", item.quizmasterid)
-        })));
-    }
     
     tracing::debug!("{} Game model create {:?}", line!(), item);
     
