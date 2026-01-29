@@ -38,6 +38,20 @@ async fn read(
     }
 }
 
+#[get("/{id}/games-where-quizmaster")]
+async fn read_games_where_quizmaster(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::game::read_all_games_where_user_is_quizmaster(&mut conn, tour_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -104,6 +118,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_games_where_quizmaster)
         .service(create)
         .service(update)
         .service(destroy);
