@@ -1,5 +1,5 @@
-use backend::{database, models::user::{NewUser, User, UserBuilder}};
-use diesel::prelude::*;
+use backend::{database, models::{tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
+use uuid::Uuid;
 
 pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
     UserBuilder::new_default("Test User 3276")
@@ -89,4 +89,40 @@ pub fn seed_users_with_fnames_for_get_all_admins_of_tour(
             .build_and_insert(db)
             .unwrap()
     ]
+}
+
+pub fn seed_get_tournaments_where_user_is_admin(db: &mut database::Connection) -> (User, Uuid, Uuid) {
+
+    // 4 tours where user is admin in 2 tours
+    
+    let admin = UserBuilder::new_default("Test User 3276")
+        .set_hash_password("phunkeypazwurd")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .build_and_insert(db)
+        .unwrap();
+
+    TournamentAdminBuilder::new_default(tour_1.tid, admin.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    TournamentAdminBuilder::new_default(tour_2.tid, admin.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    TournamentBuilder::new_default("Tour 3")
+        .build_and_insert(db)
+        .unwrap();
+
+    TournamentBuilder::new_default("Tour 4")
+        .build_and_insert(db)
+        .unwrap();
+
+    (admin, tour_1.tid, tour_2.tid)
 }

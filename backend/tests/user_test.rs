@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{game::Game, user::User}};
+use backend::{database::Database, models::{game::Game, tournament::Tournament, user::User}};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use bcrypt::verify;
@@ -334,4 +334,53 @@ async fn get_all_games_where_user_is_contentjudge_works() {
     }
     assert_ne!(game_1_idx, 10);
     assert_ne!(game_2_idx, 10);
+}
+
+#[actix_web::test]
+async fn get_all_tournaments_where_user_is_admin_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (admin, tour_1_id, tour_2_id) = fixtures::users::seed_get_tournaments_where_user_is_admin(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/users/{}/tournaments-where-admin?page={}&page_size={}", admin.id, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Tournament> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut tour_1_idx = 10;
+    let mut tour_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].tid == tour_1_id {
+            tour_1_idx = idx;
+        }
+        if body[idx].tid == tour_2_id {
+            tour_2_idx = idx;
+        }
+    }
+    assert_ne!(tour_1_idx, 10);
+    assert_ne!(tour_2_idx, 10);
 }

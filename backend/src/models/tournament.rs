@@ -1,5 +1,7 @@
 
 use crate::database;
+use crate::models::tournament_admin::TournamentAdmin;
+use crate::schema::tournaments;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};
@@ -325,6 +327,30 @@ pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i6
         .filter(fromdate.le(dt_to))
         .load::<Tournament>(db);
     values
+}
+
+pub fn read_all_tournaments_where_user_is_admin(db: &mut database::Connection, admin_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
+    use crate::schema::tournaments_admins::dsl::*;
+    use crate::schema::tournaments::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let tour_ids: Vec<Uuid> = 
+        tournaments_admins
+            .filter(adminid.eq(admin_id))
+            .load::<TournamentAdmin>(db)
+            .unwrap()
+            .iter()
+            .map(|tour_admin| tour_admin.tournamentid)
+            .collect();
+
+    tournaments
+        .filter(tid.eq_any(tour_ids))
+        .order(todate)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Tournament>(db)
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentChangeset) -> QueryResult<Tournament> {

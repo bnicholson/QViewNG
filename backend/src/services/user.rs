@@ -66,6 +66,20 @@ async fn read_games_where_contentjudge(
     }
 }
 
+#[get("/{id}/tournaments-where-admin")]
+async fn read_tournaments_where_admin(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::tournament::read_all_tournaments_where_user_is_admin(&mut conn, user_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -134,6 +148,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_games_where_quizmaster)
         .service(read_games_where_contentjudge)
+        .service(read_tournaments_where_admin)
         .service(create)
         .service(update)
         .service(destroy);
