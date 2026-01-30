@@ -473,7 +473,7 @@ diesel::table! {
 
 diesel::table! {
     tournamentgroups (tgid) {
-        tgid -> Int8,
+        tgid -> Uuid,
         #[max_length = 64]
         name -> Varchar,
         #[max_length = 256]
@@ -485,8 +485,8 @@ diesel::table! {
 
 diesel::table! {
     tournamentgroups_tournaments (tournamentgroupid, tournamentid) {
-        tournamentid -> Int8,
-        tournamentgroupid -> Int8,
+        tournamentid -> Uuid,
+        tournamentgroupid -> Uuid,
         created_at -> Timestamptz,
     }
 }
@@ -611,6 +611,7 @@ diesel::joinable!(rosters_quizzers -> users (quizzerid));
 diesel::joinable!(rounds -> divisions (did));
 diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
+diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
 diesel::joinable!(user_permissions -> users (user_id));
