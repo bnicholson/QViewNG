@@ -1,7 +1,7 @@
 
-use crate::database;
+use crate::{database, models};
 use diesel::*;
-use diesel::{QueryResult,AsChangeset,Insertable,Identifiable};
+use diesel::{QueryResult,Insertable,Identifiable};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
@@ -113,6 +113,21 @@ pub struct NewTournamentGroupTournament {
 
 pub fn create(db: &mut database::Connection, item: NewTournamentGroupTournament) -> QueryResult<TournamentGroupTournament> {
     use crate::schema::tournamentgroups_tournaments::dsl::*;
+
+    if !models::tournament::exists(db, item.tournamentid) {
+        println!("Could not find Tournament by ID={}", &item.tournamentid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: Tournament with ID {} does not exist", item.tournamentid).into()
+        ));
+    }
+
+    if !models::tournamentgroup::exists(db, item.tournamentgroupid) {
+        println!("Could not find TournamentGroup by ID={}", &item.tournamentgroupid);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: TournamentGroup with ID {} does not exist", item.tournamentgroupid).into()
+        ));
+    }
+
     insert_into(tournamentgroups_tournaments).values(item).get_result::<TournamentGroupTournament>(db)
 }
 

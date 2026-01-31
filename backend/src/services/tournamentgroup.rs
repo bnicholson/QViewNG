@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::database::Database;
+use crate::{database::Database, models::tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament}};
 use crate::models::{self, common::PaginationParams, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupChangeset}, tournament::Tournament};
 use crate::schema::tournaments::dsl::{tid as tournament_tid, tournaments as tournaments_table};
 use crate::services::common::{EntityResponse, process_response};
@@ -87,6 +87,35 @@ async fn create(
     }
 }
 
+#[post("/{tg_id}/tournaments")]
+async fn add_tournament(
+    db: Data<Database>,
+    path_id: Path<Uuid>,
+    Json(item): Json<NewTournamentGroupTournament>    
+) -> Result<HttpResponse, Error> {
+    let mut db = db.get_connection().expect("Failed to get connection");
+
+    tracing::debug!("{} TournamentGroupTournament model create {:?}", line!(), item);
+
+    let item_to_be_created = NewTournamentGroupTournament {
+        tournamentgroupid: path_id.into_inner(),
+        ..item
+    };
+    
+    let result : QueryResult<TournamentGroupTournament> = models::tournamentgroup_tournament::create(&mut db, item_to_be_created);
+    
+    println!("Result from creating TournamentGroupTournament: {:?}", result);
+    
+    let response: EntityResponse<TournamentGroupTournament> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
@@ -133,6 +162,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_tournaments)
         .service(create)
+        .service(add_tournament)
         .service(update)
         .service(destroy);
 }

@@ -1,4 +1,4 @@
-use backend::{database, models::{tournament::{Tournament, TournamentBuilder}, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::{TournamentGroupTournament, TournamentGroupTournamentBuilder}}};
+use backend::{database, models::{tournament::{Tournament, TournamentBuilder}, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament, TournamentGroupTournamentBuilder}}};
 
 pub fn get_tournamentgroup_payload() -> NewTournamentGroup {
     TournamentGroupBuilder::new_default("Test TourGroup 1")
@@ -72,4 +72,22 @@ pub fn arrange_get_all_tournaments_of_tournamentgroup_works_integration_test(db:
         .unwrap();
 
     (tg_1, tour_1, tour_2)
+}
+
+pub fn arrange_add_tournament_to_tournamentgroup_works_integration_test(db: &mut database::Connection) -> NewTournamentGroupTournament {
+
+    let tournamentgroup_id = TournamentGroupBuilder::new_default("Test TourGroup 1")
+        .set_description(Some("This is TourGroup 1 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+        .tgid;
+
+    let tournament_id = TournamentBuilder::new_default("Test Tournament 1")
+        .build_and_insert(db)
+        .unwrap()
+        .tid;
+    
+    TournamentGroupTournamentBuilder::new_default(tournamentgroup_id, tournament_id)
+        .build()
+        .unwrap()
 }
