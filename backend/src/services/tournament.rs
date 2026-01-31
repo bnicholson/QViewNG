@@ -241,10 +241,10 @@ async fn create(
     }
 }
 
-#[post("/{tour_id}/admins/{user_id}")]
+#[post("/{tour_id}/admins")]
 async fn add_admin(
     db: Data<Database>,
-    path_ids: Path<(Uuid,Uuid)>,
+    path_ids: Path<Uuid>,
     Json(item): Json<NewTournamentAdmin>    
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
@@ -252,8 +252,7 @@ async fn add_admin(
     tracing::debug!("{} Tournament model create {:?}", line!(), item);
 
     let item_to_be_created = NewTournamentAdmin {
-        tournamentid: path_ids.0,
-        adminid: path_ids.1,
+        tournamentid: path_ids.into_inner(),
         ..item
     };
     
