@@ -1,4 +1,4 @@
-use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::games;
@@ -967,4 +967,23 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
         .unwrap();
 
     (user_1.id, user_2.id, game_1, game_3)  // QM_id, ContentJudge_id, Game, Game
+}
+
+pub fn arrange_get_all_statsgroups_of_game_works_integration_test(db: &mut database::Connection) -> (Game, StatsGroup, StatsGroup) {
+    let (game, _, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
+    let statsgroup_1 = StatsGroupBuilder::new_default("Test StatsGroup for removing games")
+        .set_description(Some("StatsGroup for testing removing games.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let statsgroup_2 = StatsGroupBuilder::new_default("Test SG2")
+        .set_description(Some("StatsGroup for testing removing games.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let game_statsgroup_1 = GameStatsGroupBuilder::new(game.gid, statsgroup_1.sgid)
+        .build_and_insert(db)
+        .unwrap();
+    let game_statsgroup_2 = GameStatsGroupBuilder::new(game.gid, statsgroup_2.sgid)
+        .build_and_insert(db)
+        .unwrap();
+    (game, statsgroup_1, statsgroup_2)
 }

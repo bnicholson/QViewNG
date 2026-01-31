@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::common::PaginationParams;
+use crate::models::game_statsgroup::GameStatsGroup;
 use crate::schema::rounds::scheduled_question_eight_id;
 use diesel::prelude::*;
 use diesel::*;
@@ -142,6 +143,30 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
             pagination.page
                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
         )
+        .load::<StatsGroup>(db)
+}
+
+pub fn read_all_statsgroups_of_game(db: &mut database::Connection, game_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<StatsGroup>> {
+    use crate::schema::games_statsgroups::dsl::*;
+    use crate::schema::statsgroups::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let sg_ids: Vec<Uuid> = 
+        games_statsgroups
+            .filter(gameid.eq(game_id))
+            .load::<GameStatsGroup>(db)
+            .unwrap()
+            .iter()
+            .map(|gsg| gsg.statsgroupid)
+            .collect();
+
+    statsgroups
+        .filter(sgid.eq_any(sg_ids))
+        .order(sgid.asc())
+        .limit(page_size)
+        .offset(offset_val)
         .load::<StatsGroup>(db)
 }
 

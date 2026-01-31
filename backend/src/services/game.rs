@@ -52,6 +52,20 @@ async fn read(
     }
 }
 
+#[get("/{id}/statsgroups")]
+async fn read_statsgroups(
+    db: Data<Database>,
+    game_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::statsgroup::read_all_statsgroups_of_game(&mut conn, game_id.into_inner(), &params) {
+        Ok(games) => HttpResponse::Ok().json(games),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -119,6 +133,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_statsgroups)
         .service(create)
         .service(update)
         .service(destroy);
