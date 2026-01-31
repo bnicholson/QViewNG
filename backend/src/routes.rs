@@ -26,7 +26,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::team::endpoints(web::scope("/teams")))
             .service(services::game::endpoints(web::scope("/games")))
             .service(services::tournamentgroup::endpoints(web::scope("/tournamentgroups")))
-            // .service(services::statsgroup::endpoints(web::scope("/statsgroups")))
+            .service(services::statsgroup::endpoints(web::scope("/statsgroups")))
             // .service(services::quizevent::endpoints(web::scope("/quizevents")))
             // .service(services::roster::endpoints(web::scope("/rosters")))
             // .service(services::equipmentset::endpoints(web::scope("/equipmentset")))

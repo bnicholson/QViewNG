@@ -13,3 +13,4 @@ pub mod user;
 pub mod team;
 pub mod tournamentgroup;
 pub mod tournamentgroup_tournament;
+pub mod statsgroup;
