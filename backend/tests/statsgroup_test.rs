@@ -51,55 +51,57 @@ async fn create_works() {
     assert_eq!(statsgroup.description.unwrap().as_str(), "StatsGroup for integration test create.");
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let (sg1, sg2) = fixtures::statsgroups::arrange_get_all_works_integration_test(&mut conn);
 
-//     fixtures::statsgroups::seed_statsgroups(&mut conn, parent_tournament.tid);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/statsgroups?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/statsgroups?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<StatsGroup> = test::read_body_json(resp).await;
+    let body: Vec<StatsGroup> = test::read_body_json(resp).await;
 
-//     assert_eq!(body.len(), 3);
+    let len = 2;
 
-//     let mut statsgroup_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].name == "Test StatsGroup 9078" {
-//             statsgroup_or_interest_idx = idx;
-//             break;
-//         }
-//     }
+    assert_eq!(body.len(), len);
 
-//     let statsgroup_of_interest = &body[statsgroup_or_interest_idx];
-//     assert_eq!(statsgroup_of_interest.tid, parent_tournament.tid);
-//     assert_eq!(statsgroup_of_interest.building.as_str(), "Bldng 2");
-//     assert_eq!(statsgroup_of_interest.comments.as_str(), "I thought I recognized this place.");
-// }
+    let mut sg_1_interest_idx = 10;
+    let mut sg_2_interest_idx = 10;
+    for idx in 0..len {
+        if body[idx].name == "Test StatsGroup 1" {
+            sg_1_interest_idx = idx;
+            continue;
+        }
+        if body[idx].name == "Test StatsGroup 2" {
+            sg_2_interest_idx = idx;
+            continue;
+        }
+    }
+    assert_ne!(sg_1_interest_idx, 10);
+    assert_ne!(sg_2_interest_idx, 10);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
