@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::game::Game};
+use backend::{database::Database, models::{game::Game, tournament::Tournament}};
 use backend::models::tournamentgroup::TournamentGroup;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -240,4 +240,53 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn get_all_tournaments_of_tournamentgroup_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (tg, tour_1, tour_2) = fixtures::tournamentgroups::arrange_get_all_tournaments_of_tournamentgroup_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournamentgroups/{}/tournaments?page={}&page_size={}", tg.tgid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Tournament> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut game_1_idx = 10;
+    let mut game_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].tid == tour_1.tid {
+            game_1_idx = idx;
+        }
+        if body[idx].tid == tour_2.tid {
+            game_2_idx = idx;
+        }
+    }
+    assert_ne!(game_1_idx, 10);
+    assert_ne!(game_2_idx, 10);
 }

@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::tournament_admin::TournamentAdmin;
+use crate::models::tournamentgroup_tournament::TournamentGroupTournament;
 use crate::schema::tournaments;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
@@ -343,6 +344,30 @@ pub fn read_all_tournaments_where_user_is_admin(db: &mut database::Connection, a
             .unwrap()
             .iter()
             .map(|tour_admin| tour_admin.tournamentid)
+            .collect();
+
+    tournaments
+        .filter(tid.eq_any(tour_ids))
+        .order(todate)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Tournament>(db)
+}
+
+pub fn read_all_tournaments_of_tournamentgroup(db: &mut database::Connection, tg_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
+    use crate::schema::tournamentgroups_tournaments::dsl::*;
+    use crate::schema::tournaments::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let tour_ids: Vec<Uuid> = 
+        tournamentgroups_tournaments
+            .filter(tournamentgroupid.eq(tg_id))
+            .load::<TournamentGroupTournament>(db)
+            .unwrap()
+            .iter()
+            .map(|tg_tour| tg_tour.tournamentid)
             .collect();
 
     tournaments

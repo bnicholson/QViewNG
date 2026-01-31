@@ -51,19 +51,19 @@ async fn read(
     }
 }
 
-// #[get("/{id}/games")]
-// async fn read_games(
-//     db: Data<Database>,
-//     tour_id: Path<Uuid>,
-//     Query(params): Query<PaginationParams>,
-// ) -> HttpResponse {
-//     let mut conn = db.pool.get().unwrap();
+#[get("/{id}/tournaments")]
+async fn read_tournaments(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
 
-//     match models::game::read_all_games_of_tournamentgroup(&mut conn, tour_id.into_inner(), &params) {
-//         Ok(rounds) => HttpResponse::Ok().json(rounds),
-//         Err(_) => HttpResponse::NotFound().finish(),
-//     }
-// }
+    match models::tournament::read_all_tournaments_of_tournamentgroup(&mut conn, tour_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
 
 #[post("")]
 async fn create(
@@ -131,7 +131,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
-        // .service(read_games)
+        .service(read_tournaments)
         .service(create)
         .service(update)
         .service(destroy);
