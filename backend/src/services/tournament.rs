@@ -198,6 +198,20 @@ async fn read_games(
     }
 }
 
+#[get("/{id}/tournamentgroups")]
+async fn read_tournamentgroups(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::tournamentgroup::read_all_tournamentgroups_of_tournament(&mut conn, tour_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -367,6 +381,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_games)
         .service(read_admins)
         .service(add_admin)
+        .service(read_tournamentgroups)
         .service(create)
         .service(update)
         .service(update_admin)

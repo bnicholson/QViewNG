@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
-use backend::{models::{game::Game, room::Room, round::Round, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, user::User}, routes::configure_routes, services::common::EntityResponse};
+use backend::{models::{game::Game, room::Room, round::Round, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::common::EntityResponse};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use serde_json::json;
@@ -817,4 +817,53 @@ async fn get_all_games_of_tournament_works() {
     }
     assert_ne!(game_1_idx, 10);
     assert_ne!(game_2_idx, 10);
+}
+
+#[actix_web::test]
+async fn get_all_tournamentgroups_of_tournament_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (tour, tg_1, tg_2) = fixtures::tournaments::arrange_get_all_tournamentgroups_of_tournament_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/tournamentgroups?page={}&page_size={}", tour.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<TournamentGroup> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut tourgroup_1_idx = 10;
+    let mut tourgroup_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].tgid == tg_1.tgid {
+            tourgroup_1_idx = idx;
+        }
+        if body[idx].tgid == tg_2.tgid {
+            tourgroup_2_idx = idx;
+        }
+    }
+    assert_ne!(tourgroup_1_idx, 10);
+    assert_ne!(tourgroup_2_idx, 10);
 }

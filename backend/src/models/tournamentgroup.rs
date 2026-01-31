@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::common::PaginationParams;
+use crate::models::tournamentgroup_tournament::TournamentGroupTournament;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -144,18 +145,24 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<TournamentGroup>(db)
 }
 
-pub fn read_all_tournamentgroups_of_tournament(
-    db: &mut database::Connection,
-    item_id: Uuid,
-    pagination: &PaginationParams,
-) -> QueryResult<Vec<TournamentGroup>> {
+pub fn read_all_tournamentgroups_of_tournament(db: &mut database::Connection, tour_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<TournamentGroup>> {
+    use crate::schema::tournamentgroups_tournaments::dsl::*;
     use crate::schema::tournamentgroups::dsl::*;
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
+    let tg_ids: Vec<Uuid> = 
+        tournamentgroups_tournaments
+            .filter(tournamentid.eq(tour_id))
+            .load::<TournamentGroupTournament>(db)
+            .unwrap()
+            .iter()
+            .map(|tg_tour| tg_tour.tournamentgroupid)
+            .collect();
+
     tournamentgroups
-        .filter(tgid.eq(item_id))
+        .filter(tgid.eq_any(tg_ids))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)

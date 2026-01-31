@@ -1,6 +1,6 @@
 // In tests/common/mod.rs or tests/fixtures.rs
 use diesel::prelude::*;
-use backend::{database, models::tournament::{NewTournament, Tournament, TournamentBuilder}};
+use backend::{database, models::{tournament::{NewTournament, Tournament, TournamentBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder}};
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
 use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
 
@@ -183,4 +183,49 @@ pub fn seed_get_rounds_by_tournament(db: &mut database::Connection) -> Tournamen
     seed_rounds_with_sched_start_times(db, tour_2_div_2.did, start_time_7, start_time_8, start_time_9);
 
     tour_2.clone()
+}
+
+pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db: &mut database::Connection) -> (Tournament, TournamentGroup, TournamentGroup) {
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tg_1 = TournamentGroupBuilder::new_default("Test TourGroup 1")
+        .set_description(Some("This is TourGroup 1 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    
+    let tg_2 = TournamentGroupBuilder::new_default("Test TourGroup 2")
+        .set_description(Some("This is TourGroup 2 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    let tg_3 = TournamentGroupBuilder::new_default("Test TourGroup 3")
+        .set_description(Some("This is TourGroup 3 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    
+    let tg_4 = TournamentGroupBuilder::new_default("Test TourGroup 4")
+        .set_description(Some("This is TourGroup 4 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    let tg_1_bridge_tour_1 = TournamentGroupTournamentBuilder::new_default(tg_1.tgid, tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let tg_2_bridge_tour_1 = TournamentGroupTournamentBuilder::new_default(tg_2.tgid, tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let tg_3_bridge_tour_2 = TournamentGroupTournamentBuilder::new_default(tg_3.tgid, tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let tg_4_bridge_tour_2 = TournamentGroupTournamentBuilder::new_default(tg_4.tgid, tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tour_1, tg_1, tg_2)
 }
