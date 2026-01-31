@@ -111,44 +111,41 @@ async fn get_all_works() {
     assert_eq!(tg_of_interest_2.description.as_ref().unwrap().as_str(), "This is Tour 2's payload.");
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let tg_2 = fixtures::tournamentgroups::arrange_get_by_id_works_integration_test(&mut conn);
 
-//     let tournamentgroups: Vec<TournamentGroup> = fixtures::tournamentgroups::seed_tournamentgroups(&mut conn, parent_tournament.tid);
-//     let tournamentgroup_of_interest_idx = 0;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let uri = format!("/api/tournamentgroups/{}", tg_2.tgid);
+    println!("TournamentGroups Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     let uri = format!("/api/tournamentgroups/{}", &tournamentgroups[tournamentgroup_of_interest_idx].tournamentgroupid);
-//     println!("TournamentGroups Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
-
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let tournamentgroup: TournamentGroup = test::read_body_json(resp).await;
-//     assert_eq!(tournamentgroup.name, tournamentgroups[tournamentgroup_of_interest_idx].name);
-//     assert_eq!(tournamentgroup.building, tournamentgroups[tournamentgroup_of_interest_idx].building);
-//     assert_eq!(tournamentgroup.comments, tournamentgroups[tournamentgroup_of_interest_idx].comments);
-// }
+    let tournamentgroup_2: TournamentGroup = test::read_body_json(resp).await;
+    assert_eq!(tournamentgroup_2.tgid, tg_2.tgid);
+    assert_eq!(tournamentgroup_2.name, tg_2.name);
+    assert_eq!(tournamentgroup_2.description, tg_2.description);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
