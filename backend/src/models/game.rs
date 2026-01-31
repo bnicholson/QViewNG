@@ -3,6 +3,7 @@ use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
 use diesel::prelude::*;
 use diesel::insert_into;
 use uuid::Uuid;
+use crate::models::game_statsgroup::GameStatsGroup;
 use crate::{database, models};
 use crate::models::common::PaginationParams;
 use crate::models::division::Division;
@@ -484,6 +485,30 @@ pub fn read_all_games_where_user_is_contentjudge(db: &mut database::Connection, 
     games
         .filter(contentjudgeid.eq(cj_id))
         .order(gid)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)
+}
+
+pub fn read_all_games_of_statsgroup(db: &mut database::Connection, sg_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+    use crate::schema::games_statsgroups::dsl::*;
+    use crate::schema::games::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let game_ids: Vec<Uuid> = 
+        games_statsgroups
+            .filter(statsgroupid.eq(sg_id))
+            .load::<GameStatsGroup>(db)
+            .unwrap()
+            .iter()
+            .map(|gsg| gsg.gameid)
+            .collect();
+
+    games
+        .filter(gid.eq_any(game_ids))
+        .order(gid.asc())
         .limit(page_size)
         .offset(offset_val)
         .load::<Game>(db)

@@ -49,6 +49,36 @@ pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connect
     (game, tour, division, round, room, team_1, team_2, coach_1, coach_2, quizmaster)
 }
 
+pub fn seed_2_games_1_round_with_minimum_required_dependencies(db: &mut database::Connection) -> 
+    (Game, Game, Tournament, Division, Round, Room, Room) {
+    let (game_1, tour, division, round, room_1, _, _, coach_1, coach_2, _) = 
+        seed_1_game_with_minimum_required_dependencies(db);
+    let quizmaster_2 = UserBuilder::new_default("Quizmaster 2")
+        .set_hash_password("quizmaster_pw2")
+        .build_and_insert(db)
+        .unwrap();
+    let team_3 = TeamBuilder::new_default(division.did)
+        .set_name("Team 3")
+        .set_coachid(coach_1.id)
+        .build_and_insert(db)
+        .unwrap();
+    let team_4 = TeamBuilder::new_default(division.did)
+        .set_name("Team 4")
+        .set_coachid(coach_2.id)
+        .build_and_insert(db)
+        .unwrap();
+    let room_2 = RoomBuilder::new_default("Room 2", tour.tid)
+        .build_and_insert(db)
+        .unwrap();    
+    let game_2 = GameBuilder::new_default(room_2.roomid, round.roundid)
+        .set_leftteamid(team_3.teamid)
+        .set_rightteamid(team_4.teamid)
+        .set_quizmasterid(quizmaster_2.id)
+        .build_and_insert(db)
+        .unwrap();
+    (game_1, game_2, tour, division, round, room_1, room_2)
+}
+
 pub fn seed_game_payload_dependencies(db: &mut database::Connection, tname: &str) -> (Uuid,Uuid,Uuid,Uuid,Uuid,Uuid,Uuid,Uuid) {
     let tournament = fixtures::tournaments::seed_tournament(db, tname);
     let division = fixtures::divisions::seed_division(db, tournament.tid);

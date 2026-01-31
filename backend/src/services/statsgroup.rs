@@ -48,6 +48,20 @@ async fn read(
     }
 }
 
+#[get("/{id}/games")]
+async fn read_games(
+    db: Data<Database>,
+    sg_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::game::read_all_games_of_statsgroup(&mut conn, sg_id.into_inner(), &params) {
+        Ok(games) => HttpResponse::Ok().json(games),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -139,32 +153,34 @@ async fn destroy(
     }
 }
 
-// #[delete("/{sg_id}/games/{game_id}")]
-// async fn destroy(
-//     db: Data<Database>,
-//     item_ids: Path<(Uuid, Uuid)>,
-// ) -> HttpResponse {
-//     let mut db = db.pool.get().unwrap();
+#[delete("/{sg_id}/games/{game_id}")]
+async fn remove_game(
+    db: Data<Database>,
+    item_ids: Path<(Uuid, Uuid)>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} StatsGroup model delete {:?}", line!(), item_ids);
+    tracing::debug!("{} StatsGroup model delete {:?}", line!(), item_ids);
 
-//     let sg_id = item_ids.0;
-//     let game_id = item_ids.1;
-//     let result = models::game_statsgroup::delete(&mut db, sg_id, game_id);
+    let sg_id = item_ids.0;
+    let game_id = item_ids.1;
+    let result = models::game_statsgroup::delete(&mut db, sg_id, game_id);
 
-//     if result.is_ok() {
-//         HttpResponse::Ok().finish()
-//     } else {
-//         HttpResponse::InternalServerError().finish()
-//     }
-// }
+    if result.is_ok() {
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_games)
         .service(create)
         .service(add_game)
         .service(update)
-        .service(destroy);
+        .service(destroy)
+        .service(remove_game);
 }

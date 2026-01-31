@@ -1,6 +1,6 @@
 use backend::{database, models::{division::DivisionBuilder, game::{Game, GameBuilder}, game_statsgroup::{GameStatsGroup, GameStatsGroupBuilder, NewGameStatsGroup}, room::RoomBuilder, round::RoundBuilder, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupBuilder}, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder}};
 
-use crate::fixtures::games::seed_1_game_with_minimum_required_dependencies;
+use crate::fixtures::games::{seed_1_game_with_minimum_required_dependencies, seed_2_games_1_round_with_minimum_required_dependencies};
 
 pub fn arrange_create_works_integration_test() -> NewStatsGroup {
     StatsGroupBuilder::new_default("Test StatsGroup 2217")
@@ -57,4 +57,32 @@ pub fn arrange_add_game_to_statsgroup_works_integration_test(db: &mut database::
         .build()
         .unwrap();
     (statsgroup, game, new_game_statsgroup)
+}
+
+pub fn arrange_remove_game_from_statsgroup_works_integration_test(db: &mut database::Connection) -> (StatsGroup, Game, GameStatsGroup) {
+    let (game, _, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
+    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for removing games")
+        .set_description(Some("StatsGroup for testing removing games.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let game_statsgroup = GameStatsGroupBuilder::new(game.gid, statsgroup.sgid)
+        .build_and_insert(db)
+        .unwrap();
+    (statsgroup, game, game_statsgroup)
+}
+
+pub fn arrange_get_all_games_of_statsgroup_works_integration_test(db: &mut database::Connection) -> (StatsGroup, Game, Game) {
+    let (game_1, game_2, _, _, _, _, _) = 
+        seed_2_games_1_round_with_minimum_required_dependencies(db);
+    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for getting all games")
+        .set_description(Some("StatsGroup for testing getting all games.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let _game_statsgroup_1 = GameStatsGroupBuilder::new(game_1.gid, statsgroup.sgid)
+        .build_and_insert(db)
+        .unwrap();
+    let _game_statsgroup_2 = GameStatsGroupBuilder::new(game_2.gid, statsgroup.sgid)
+        .build_and_insert(db)
+        .unwrap();
+    (statsgroup, game_1, game_2)
 }

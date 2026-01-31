@@ -158,7 +158,7 @@ pub fn delete(db: &mut database::Connection, statsgroup_id: Uuid, game_id: Uuid)
     use crate::schema::games_statsgroups::dsl::*;
     diesel::delete(
         games_statsgroups
-            .filter(gameid.eq(game_id))
             .filter(statsgroupid.eq(statsgroup_id))
+            .filter(gameid.eq(game_id))
     ).execute(db)
 }
