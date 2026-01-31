@@ -1,8 +1,21 @@
-use backend::models::tournamentgroup::{NewTournamentGroup, TournamentGroupBuilder};
+use backend::{database, models::tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupBuilder}};
 
 pub fn get_tournamentgroup_payload() -> NewTournamentGroup {
     TournamentGroupBuilder::new_default("Test TourGroup 1")
         .set_description(Some("This is Tour 1's payload.".to_string()))
         .build()
         .unwrap()
+}
+
+pub fn arrange_get_all_works_intergration_test(db: &mut database::Connection) -> (TournamentGroup, TournamentGroup) {
+    (
+        TournamentGroupBuilder::new_default("Test TourGroup 1")
+            .set_description(Some("This is Tour 1's payload.".to_string()))
+            .build_and_insert(db)
+            .unwrap(),
+        TournamentGroupBuilder::new_default("Test TourGroup 2")
+            .set_description(Some("This is Tour 2's payload.".to_string()))
+            .build_and_insert(db)
+            .unwrap()
+    )
 }

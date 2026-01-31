@@ -51,55 +51,65 @@ async fn create_works() {
     assert_eq!(tournamentgroup.description.unwrap().as_str(), "This is Tour 1's payload.");
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let (tg_1, tg_2) = fixtures::tournamentgroups::arrange_get_all_works_intergration_test(&mut conn);
 
-//     fixtures::tournamentgroups::seed_tournamentgroups(&mut conn, parent_tournament.tid);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/tournamentgroups?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/tournamentgroups?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<TournamentGroup> = test::read_body_json(resp).await;
+    let body: Vec<TournamentGroup> = test::read_body_json(resp).await;
 
-//     assert_eq!(body.len(), 3);
+    let len = 2;
 
-//     let mut tournamentgroup_or_interest_idx = 10;
-//     for idx in 0..3 {
-//         if body[idx].name == "Test TournamentGroup 9078" {
-//             tournamentgroup_or_interest_idx = idx;
-//             break;
-//         }
-//     }
+    assert_eq!(body.len(), len);
 
-//     let tournamentgroup_of_interest = &body[tournamentgroup_or_interest_idx];
-//     assert_eq!(tournamentgroup_of_interest.tid, parent_tournament.tid);
-//     assert_eq!(tournamentgroup_of_interest.building.as_str(), "Bldng 2");
-//     assert_eq!(tournamentgroup_of_interest.comments.as_str(), "I thought I recognized this place.");
-// }
+    let mut tg_of_interest_1_idx = 10;
+    let mut tg_of_interest_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].name == "Test TourGroup 1".to_string() {
+            tg_of_interest_1_idx = idx;
+            continue;
+        }
+        if body[idx].name == "Test TourGroup 2".to_string() {
+            tg_of_interest_2_idx = idx;
+            continue;
+        }
+    }
+
+    let tg_of_interest_1 = &body[tg_of_interest_1_idx];
+    assert_eq!(tg_of_interest_1.tgid, tg_1.tgid);
+    assert_eq!(tg_of_interest_1.name.as_str(), "Test TourGroup 1");
+    assert_eq!(tg_of_interest_1.description.as_ref().unwrap().as_str(), "This is Tour 1's payload.");
+
+    let tg_of_interest_2 = &body[tg_of_interest_2_idx];
+    assert_eq!(tg_of_interest_2.tgid, tg_2.tgid);
+    assert_eq!(tg_of_interest_2.name.as_str(), "Test TourGroup 2");
+    assert_eq!(tg_of_interest_2.description.as_ref().unwrap().as_str(), "This is Tour 2's payload.");
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
