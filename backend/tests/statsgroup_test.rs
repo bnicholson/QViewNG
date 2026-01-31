@@ -103,44 +103,41 @@ async fn get_all_works() {
     assert_ne!(sg_2_interest_idx, 10);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let statsgroup = 
+        fixtures::statsgroups::arrange_get_statsgroup_by_id_integration_test(&mut conn);
 
-//     let statsgroups: Vec<StatsGroup> = fixtures::statsgroups::seed_statsgroups(&mut conn, parent_tournament.tid);
-//     let statsgroup_of_interest_idx = 0;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let uri = format!("/api/statsgroups/{}", &statsgroup.sgid);
+    println!("StatsGroups Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     let uri = format!("/api/statsgroups/{}", &statsgroups[statsgroup_of_interest_idx].statsgroupid);
-//     println!("StatsGroups Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
-
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let statsgroup: StatsGroup = test::read_body_json(resp).await;
-//     assert_eq!(statsgroup.name, statsgroups[statsgroup_of_interest_idx].name);
-//     assert_eq!(statsgroup.building, statsgroups[statsgroup_of_interest_idx].building);
-//     assert_eq!(statsgroup.comments, statsgroups[statsgroup_of_interest_idx].comments);
-// }
+    let statsgroup: StatsGroup = test::read_body_json(resp).await;
+    assert_eq!(statsgroup.name.as_str(), "Test StatsGroup 2");
+    assert_eq!(statsgroup.description.unwrap().as_str(), "This is StatsGroup 2's description.");
+}
 
 // #[actix_web::test]
 // async fn update_works() {

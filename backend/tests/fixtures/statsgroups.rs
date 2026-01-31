@@ -19,3 +19,14 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
             .unwrap()
     )
 }
+
+pub fn arrange_get_statsgroup_by_id_integration_test(db: &mut database::Connection) -> StatsGroup {
+    StatsGroupBuilder::new_default("Test StatsGroup 1")
+        .set_description(Some("This is StatsGroup 1's description.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    StatsGroupBuilder::new_default("Test StatsGroup 2")
+        .set_description(Some("This is StatsGroup 2's description.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
