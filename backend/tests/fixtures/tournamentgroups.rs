@@ -37,3 +37,10 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> T
         .build_and_insert(db)
         .unwrap()
 }
+
+pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> TournamentGroup {
+    TournamentGroupBuilder::new_default("Test TourGroup 1")
+        .set_description(Some("This is TourGroup 1 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
