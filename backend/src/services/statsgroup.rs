@@ -51,20 +51,6 @@ async fn read(
     }
 }
 
-// #[get("/{id}/games")]
-// async fn read_games(
-//     db: Data<Database>,
-//     tour_id: Path<Uuid>,
-//     Query(params): Query<PaginationParams>,
-// ) -> HttpResponse {
-//     let mut conn = db.pool.get().unwrap();
-
-//     match models::game::read_all_games_of_statsgroup(&mut conn, tour_id.into_inner(), &params) {
-//         Ok(rounds) => HttpResponse::Ok().json(rounds),
-//         Err(_) => HttpResponse::NotFound().finish(),
-//     }
-// }
-
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -87,27 +73,27 @@ async fn create(
     }
 }
 
-// #[put("/{id}")]
-// async fn update(
-//     db: Data<Database>,
-//     item_id: Path<Uuid>,
-//     Json(item): Json<StatsGroupChangeset>,
-// ) -> Result<HttpResponse, Error> {
+#[put("/{id}")]
+async fn update(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Json(item): Json<StatsGroupChangeset>,
+) -> Result<HttpResponse, Error> {
 
-//     let mut db = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} StatsGroup model update {:?} {:?}", line!(), item_id, item); 
+    tracing::debug!("{} StatsGroup model update {:?} {:?}", line!(), item_id, item); 
 
-//     let result = models::statsgroup::update(&mut db, item_id.into_inner(), &item);
+    let result = models::statsgroup::update(&mut db, item_id.into_inner(), &item);
 
-//     let response = process_response(result, "put");
+    let response = process_response(result, "put");
     
-//     match response.code {
-//         409 => Ok(HttpResponse::Conflict().json(response)),
-//         200 => Ok(HttpResponse::Ok().json(response)),
-//         _ => Ok(HttpResponse::InternalServerError().json(response))
-//     }
-// }
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
 
 // #[delete("/{id}")]
 // async fn destroy(
@@ -133,6 +119,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         // .service(read_games)
         .service(create)
-        // .service(update)
+        .service(update)
         // .service(destroy);
 }

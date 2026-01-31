@@ -139,61 +139,56 @@ async fn get_by_id_works() {
     assert_eq!(statsgroup.description.unwrap().as_str(), "This is StatsGroup 2's description.");
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let statsgroup = 
+        fixtures::statsgroups::arrange_update_works_integration_test(&mut conn);
 
-//     let statsgroup: StatsGroup = fixtures::statsgroups::seed_statsgroup(&mut conn, parent_tournament.tid);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let new_name = "My NEW name".to_string();
+    let new_description = "NEW description".to_string();
 
-//     let new_name = "Test StatsGroup NEW".to_string();
-//     let new_building = "Johnson NEW".to_string();
-//     let new_comments = "I can't tell who this building was named after, it's such a common last name.".to_string();
-
-//     let put_payload = json!({
-//         "name": &new_name,
-//         "building": new_building,
-//         "comments": &new_comments
-//     });
+    let put_payload = json!({
+        "name": &new_name,
+        "description": &new_description,
+    });
     
-//     let put_uri = format!("/api/statsgroups/{}", statsgroup.statsgroupid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/statsgroups/{}", statsgroup.sgid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<StatsGroup> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<StatsGroup> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_statsgroup = put_resp_body.data.unwrap();
-//     assert_eq!(new_statsgroup.tid, parent_tournament.tid);
-//     assert_eq!(new_statsgroup.statsgroupid, statsgroup.statsgroupid);
-//     assert_eq!(new_statsgroup.name.as_str(), new_name);
-//     assert_eq!(new_statsgroup.building.as_str(), new_building);
-//     assert_eq!(new_statsgroup.comments.as_str(), new_comments);
-//     assert_ne!(new_statsgroup.created_at, new_statsgroup.updated_at);
-// }
+    let new_statsgroup = put_resp_body.data.unwrap();
+    assert_eq!(new_statsgroup.sgid, statsgroup.sgid);
+    assert_eq!(new_statsgroup.name.as_str(), new_name);
+    assert_eq!(new_statsgroup.description.as_ref().unwrap().as_str(), new_description);
+    assert_ne!(new_statsgroup.created_at, new_statsgroup.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {

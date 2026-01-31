@@ -30,3 +30,10 @@ pub fn arrange_get_statsgroup_by_id_integration_test(db: &mut database::Connecti
         .build_and_insert(db)
         .unwrap()
 }
+
+pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> StatsGroup {
+    StatsGroupBuilder::new_default("Test StatsGroup 1")
+        .set_description(Some("StatsGroup 1 testing update.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
