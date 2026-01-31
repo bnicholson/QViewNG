@@ -143,10 +143,10 @@ pub fn create(db: &mut database::Connection, item: NewTournamentGroupTournament)
 //         .get_result(db)
 // }
 
-pub fn delete(db: &mut database::Connection, tour_id: Uuid, user_id: Uuid) -> QueryResult<usize> {
-    use crate::schema::tournaments_admins::dsl::*;
-    diesel::delete(tournaments_admins
+pub fn delete(db: &mut database::Connection, tg_id: Uuid, tour_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::tournamentgroups_tournaments::dsl::*;
+    diesel::delete(tournamentgroups_tournaments
+        .filter(tournamentgroupid.eq(tg_id)))
         .filter(tournamentid.eq(tour_id))
-        .filter(adminid.eq(user_id)))
         .execute(db)
 }

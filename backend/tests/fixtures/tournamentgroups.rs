@@ -91,3 +91,21 @@ pub fn arrange_add_tournament_to_tournamentgroup_works_integration_test(db: &mut
         .build()
         .unwrap()
 }
+
+pub fn arrange_remove_tournament_from_tournamentgroup_works_integration_test(db: &mut database::Connection) -> (TournamentGroup, Tournament) {
+
+    let tournamentgroup = TournamentGroupBuilder::new_default("Test TourGroup 1")
+        .set_description(Some("This is TourGroup 1 testing.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tournament 1")
+        .build_and_insert(db)
+        .unwrap();
+    
+    let _bridge = TournamentGroupTournamentBuilder::new_default(tournamentgroup.tgid, tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournamentgroup, tournament)
+}
