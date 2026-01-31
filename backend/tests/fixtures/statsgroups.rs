@@ -37,3 +37,10 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> S
         .build_and_insert(db)
         .unwrap()
 }
+
+pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> StatsGroup {
+    StatsGroupBuilder::new_default("Test StatsGroup 1")
+        .set_description(Some("StatsGroup 1 testing delete.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}

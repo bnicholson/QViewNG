@@ -190,98 +190,47 @@ async fn update_works() {
     assert_ne!(new_statsgroup.created_at, new_statsgroup.updated_at);
 }
 
-// #[actix_web::test]
-// async fn delete_works() {
+#[actix_web::test]
+async fn delete_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let statsgroup = fixtures::statsgroups::arrange_delete_works_integration_test(&mut conn);
 
-//     let statsgroup: StatsGroup = fixtures::statsgroups::seed_statsgroup(&mut conn, parent_tournament.tid);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let delete_uri = format!("/api/statsgroups/{}", statsgroup.statsgroupid);
-//     let delete_req = test::TestRequest::delete()
-//         .uri(&delete_uri)
-//         .to_request();
+    let delete_uri = format!("/api/statsgroups/{}", statsgroup.sgid);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let delete_resp = test::call_service(&app, delete_req).await;
+    let delete_resp = test::call_service(&app, delete_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(delete_resp.status(), StatusCode::OK);
+    assert_eq!(delete_resp.status(), StatusCode::OK);
 
-//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-//     assert_eq!(&delete_resp_body_string, "");
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/statsgroups/{}", statsgroup.statsgroupid);
-//     let get_by_id_req = test::TestRequest::get()
-//         .uri(&get_by_id_uri)
-//         .to_request();
+    let get_by_id_uri = format!("/api/statsgroups/{}", statsgroup.sgid);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
 
-//     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
-//     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-// }
-
-// #[actix_web::test]
-// async fn get_all_games_of_statsgroup_works() {
-
-//     // Arrange:
-    
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-//     let (game_2, game_4 ) = fixtures::games::seed_get_games_of_statsgroup(&mut conn);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-    
-//     let uri = format!("/api/statsgroups/{}/games?page={}&page_size={}", game_2.statsgroupid, PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
-    
-//     // Act:
-    
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
-
-//     // Assert:
-
-//     let body: Vec<Game> = test::read_body_json(resp).await;
-
-//     let len = 2;
-
-//     assert_eq!(body.len(), len);
-
-//     let mut game_1_idx = 10;
-//     let mut game_2_idx = 10;
-//     for idx in 0..len {
-//         if body[idx].gid == game_2.gid {
-//             game_1_idx = idx;
-//         }
-//         if body[idx].gid == game_4.gid {
-//             game_2_idx = idx;
-//         }
-//     }
-//     assert_ne!(game_1_idx, 10);
-//     assert_ne!(game_2_idx, 10);
-// }
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}
