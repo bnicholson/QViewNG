@@ -145,24 +145,6 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<StatsGroup>(db)
 }
 
-// pub fn read_all_statsgroups_of_tournament(
-//     db: &mut database::Connection,
-//     item_id: Uuid,
-//     pagination: &PaginationParams,
-// ) -> QueryResult<Vec<StatsGroup>> {
-//     use crate::schema::statsgroups::dsl::*;
-
-//     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-//     let offset_val = pagination.page * page_size;
-
-//     statsgroups
-//         .filter(sgid.eq(item_id))
-//         .order(name.asc())
-//         .limit(page_size)
-//         .offset(offset_val)
-//         .load::<StatsGroup>(db)
-// }
-
 pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &StatsGroupChangeset) -> QueryResult<StatsGroup> {
     use crate::schema::statsgroups::dsl::*;
     diesel::update(statsgroups.filter(sgid.eq(sg_id)))

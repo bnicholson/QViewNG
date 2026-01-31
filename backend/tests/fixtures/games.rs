@@ -1,8 +1,53 @@
-use backend::{database, models::{division::DivisionBuilder, game::{Game, GameBuilder, NewGame}, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::games;
 use crate::fixtures;
+
+pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connection) 
+    -> (Game, Tournament, Division, Round, Room, Team, Team, User, User, User) {
+    let tour = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+    let division = DivisionBuilder::new_default("Div 1", tour.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let round = RoundBuilder::new_default(division.did)
+        .build_and_insert(db)
+        .unwrap();
+    let room = RoomBuilder::new_default("Room 1", tour.tid)
+        .build_and_insert(db)
+        .unwrap();    
+    let coach_1 = UserBuilder::new_default("Coach 1")
+        .set_hash_password("CoachPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let coach_2 = UserBuilder::new_default("Coach 2")
+        .set_hash_password("Coawd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let quizmaster = UserBuilder::new_default("Quizmaster")
+        .set_hash_password("QuizmasterPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let team_1 = TeamBuilder::new_default(division.did)
+        .set_name("Team 1")
+        .set_coachid(coach_1.id)
+        .build_and_insert(db)
+        .unwrap();
+    let team_2 = TeamBuilder::new_default(division.did)
+        .set_name("Team 2")
+        .set_coachid(coach_2.id)
+        .build_and_insert(db)
+        .unwrap();
+    let game = GameBuilder::new_default(room.roomid, round.roundid)
+        .set_leftteamid(team_1.teamid)
+        .set_rightteamid(team_2.teamid)
+        .set_quizmasterid(quizmaster.id)
+        .build_and_insert(db)
+        .unwrap();
+    (game, tour, division, round, room, team_1, team_2, coach_1, coach_2, quizmaster)
+}
 
 pub fn seed_game_payload_dependencies(db: &mut database::Connection, tname: &str) -> (Uuid,Uuid,Uuid,Uuid,Uuid,Uuid,Uuid,Uuid) {
     let tournament = fixtures::tournaments::seed_tournament(db, tname);

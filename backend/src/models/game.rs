@@ -369,15 +369,6 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
         .get_result::<Game>(db)
 }
 
-// pub fn create_update(db_conn: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {
-//     use crate::schema::games::dsl::*;
-//     insert_into(games).values(item).on_conflict(on_constraint(
-//         "games_org_tournament_division_room_round_clientkey_key"))
-//         .do_update()//games.filter(gid.eq(item_id)))
-//         .set(item)
-//         .get_result::<Game>(db_conn)
-// }
-
 pub fn read(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
     games.filter(gid.eq(item_id)).first::<Game>(db_conn)

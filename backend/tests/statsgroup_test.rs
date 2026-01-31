@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::game::Game};
+use backend::{database::Database, models::{game::Game, game_statsgroup::GameStatsGroup}};
 use backend::models::statsgroup::StatsGroup;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -234,3 +234,92 @@ async fn delete_works() {
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
 }
+
+#[actix_web::test]
+async fn add_game_to_statsgroup_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (statsgroup, game, new_gsg) = fixtures::statsgroups::arrange_add_game_to_statsgroup_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/statsgroups/{}/games", statsgroup.sgid);
+    let req = test::TestRequest::post()
+        .uri(&uri)
+        .set_json(&new_gsg)
+        .to_request();
+    
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<GameStatsGroup> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournamentgroup_tournament = body.data.unwrap();
+    assert_eq!(tournamentgroup_tournament.statsgroupid, statsgroup.sgid);
+    assert_eq!(tournamentgroup_tournament.gameid, game.gid);
+}
+
+// #[actix_web::test]
+// async fn remove_tournament_from_tournamentgroup_works() {
+
+//     // Arrange:
+
+//     clean_database();
+//     let db = Database::new(TEST_DB_URL);
+//     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+//     let (tg, tour) = 
+//         fixtures::statsgroups::arrange_remove_tournament_from_tournamentgroup_works_integration_test(&mut conn);
+
+//     let app = test::init_service(
+//         App::new()
+//             .app_data(web::Data::new(db))
+//             .configure(configure_routes)
+//     ).await;
+    
+//     let delete_uri = format!("/api/statsgroups/{}/games/{}", tg.tgid, tour.tid);
+//     let delete_req = test::TestRequest::delete()
+//         .uri(&delete_uri)
+//         .to_request();
+
+//     // Act:
+    
+//     let delete_resp = test::call_service(&app, delete_req).await;
+
+//     // Assert:
+    
+//     assert_eq!(delete_resp.status(), StatusCode::OK);
+
+//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+//     assert_eq!(&delete_resp_body_string, "");
+
+
+//     let get_tours_uri = format!("/api/statsgroups/{}/games?page={}&page_size={}", tg.tgid, PAGE_NUM, PAGE_SIZE);
+//     let get_tours_req = test::TestRequest::get()
+//         .uri(&get_tours_uri)
+//         .to_request();
+
+//     let get_tours_resp = test::call_service(&app, get_tours_req).await;
+
+//     assert_eq!(get_tours_resp.status(), StatusCode::OK);
+
+//     let body: Vec<Tournament> = test::read_body_json(get_tours_resp).await;
+//     assert_eq!(body.len(), 0);
+// }

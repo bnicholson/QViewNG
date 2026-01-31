@@ -1,11 +1,8 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use serde_json::json;
-use crate::database::Database;
-use crate::models::{self, common::PaginationParams, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupChangeset}, tournament::Tournament};
-use crate::schema::tournaments::dsl::{tid as tournament_tid, tournaments as tournaments_table};
+use crate::{database::Database, models::game_statsgroup::{GameStatsGroup, NewGameStatsGroup}};
+use crate::models::{self, common::PaginationParams, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupChangeset}};
 use crate::services::common::{EntityResponse, process_response};
-use utoipa::OpenApi;
-use diesel::{QueryDsl, QueryResult, RunQueryDsl, dsl::{exists,select}};
+use diesel::QueryResult;
 use uuid::Uuid;
 
 // #[derive(OpenApi)]
@@ -73,6 +70,35 @@ async fn create(
     }
 }
 
+#[post("/{sg_id}/games")]
+async fn add_game(
+    db: Data<Database>,
+    path_id: Path<Uuid>,
+    Json(item): Json<NewGameStatsGroup>    
+) -> Result<HttpResponse, Error> {
+    let mut db = db.get_connection().expect("Failed to get connection");
+
+    tracing::debug!("{} GameStatsGroup model create {:?}", line!(), item);
+
+    let item_to_be_created = NewGameStatsGroup {
+        statsgroupid: path_id.into_inner(),
+        ..item
+    };
+    
+    let result : QueryResult<GameStatsGroup> = models::game_statsgroup::create(&mut db, &item_to_be_created);
+    
+    println!("Result from creating GameStatsGroup: {:?}", result);
+    
+    let response: EntityResponse<GameStatsGroup> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
@@ -113,11 +139,32 @@ async fn destroy(
     }
 }
 
+// #[delete("/{sg_id}/games/{game_id}")]
+// async fn destroy(
+//     db: Data<Database>,
+//     item_ids: Path<(Uuid, Uuid)>,
+// ) -> HttpResponse {
+//     let mut db = db.pool.get().unwrap();
+
+//     tracing::debug!("{} StatsGroup model delete {:?}", line!(), item_ids);
+
+//     let sg_id = item_ids.0;
+//     let game_id = item_ids.1;
+//     let result = models::game_statsgroup::delete(&mut db, sg_id, game_id);
+
+//     if result.is_ok() {
+//         HttpResponse::Ok().finish()
+//     } else {
+//         HttpResponse::InternalServerError().finish()
+//     }
+// }
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
         .service(create)
+        .service(add_game)
         .service(update)
         .service(destroy);
 }
