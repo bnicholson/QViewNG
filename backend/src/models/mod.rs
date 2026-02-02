@@ -15,3 +15,4 @@ pub mod tournamentgroup;
 pub mod tournamentgroup_tournament;
 pub mod statsgroup;
 pub mod game_statsgroup;
+pub mod roster;

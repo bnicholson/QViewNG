@@ -8,6 +8,7 @@ pub mod team;
 pub mod game;
 pub mod tournamentgroup;
 pub mod statsgroup;
+pub mod roster;
 // pub mod file;
 // pub mod quizevent;
 // pub mod pingmsg;
