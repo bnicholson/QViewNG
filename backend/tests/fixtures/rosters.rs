@@ -2,7 +2,7 @@ use backend::{
     database, 
     models::{
         roster::{NewRoster, Roster, RosterBuilder}, 
-        roster_coach::{NewRosterCoach, RosterCoachBuilder}, 
+        roster_coach::{NewRosterCoach, RosterCoach, RosterCoachBuilder}, 
         user::{User, UserBuilder}
     }
 };
@@ -141,4 +141,18 @@ pub fn arrange_get_all_coaches_of_roster_works_integration_test(db: &mut databas
         .unwrap();
 
     (roster_2, coach_3, coach_4)
+}
+
+pub fn arrange_remove_coach_from_roster_works_integration_test(db: &mut database::Connection) -> (User, Roster, RosterCoach) {
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    let roster = RosterBuilder::new_default("Roster 1", coach.id)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_coach = RosterCoachBuilder::new_default(coach.id, roster.rosterid)
+            .build_and_insert(db)
+            .unwrap();
+    (coach, roster, roster_coach)
 }

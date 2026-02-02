@@ -172,6 +172,26 @@ async fn destroy(
     }
 }
 
+#[delete("/{sg_id}/coaches/{coach_id}")]
+async fn remove_coach(
+    db: Data<Database>,
+    item_ids: Path<(Uuid, Uuid)>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    tracing::debug!("{} Roster model delete {:?}", line!(), item_ids);
+
+    let roster_id = item_ids.0;
+    let coach_id = item_ids.1;
+    let result = models::roster_coach::delete(&mut db, roster_id, coach_id);
+
+    if result.is_ok() {
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
+
 // #[delete("/{sg_id}/quizzers/{quizzer_id}")]
 // async fn remove_quizzer(
 //     db: Data<Database>,
@@ -202,5 +222,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(add_coach)
         .service(update)
         .service(destroy)
+        .service(remove_coach)
         // .service(remove_quizzer);
 }

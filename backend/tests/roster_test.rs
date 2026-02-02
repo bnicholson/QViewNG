@@ -326,51 +326,51 @@ async fn get_all_coaches_of_roster_works() {
     assert_ne!(user_2_idx, 10);
 }
 
-// #[actix_web::test]
-// async fn remove_game_from_roster_works() {
+#[actix_web::test]
+async fn remove_coach_from_roster_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
 
-//     let (roster, game, game_roster) = 
-//         fixtures::rosters::arrange_remove_game_from_roster_works_integration_test(&mut conn);
+    let (coach, roster, roster_coach) = 
+        fixtures::rosters::arrange_remove_coach_from_roster_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let delete_uri = format!("/api/rosters/{}/games/{}", roster.rosterid, game.gid);
-//     let delete_req = test::TestRequest::delete()
-//         .uri(&delete_uri)
-//         .to_request();
+    let delete_uri = format!("/api/rosters/{}/coaches/{}", roster_coach.rosterid, roster_coach.coachid);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let delete_resp = test::call_service(&app, delete_req).await;
+    let delete_resp = test::call_service(&app, delete_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(delete_resp.status(), StatusCode::OK);
+    assert_eq!(delete_resp.status(), StatusCode::OK);
 
-//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-//     assert_eq!(&delete_resp_body_string, "");
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_games_uri = format!("/api/rosters/{}/games?page={}&page_size={}", roster.rosterid, PAGE_NUM, PAGE_SIZE);
-//     let get_games_req = test::TestRequest::get()
-//         .uri(&get_games_uri)
-//         .to_request();
+    let get_games_uri = format!("/api/rosters/{}/coaches?page={}&page_size={}", roster_coach.rosterid, PAGE_NUM, PAGE_SIZE);
+    let get_games_req = test::TestRequest::get()
+        .uri(&get_games_uri)
+        .to_request();
 
-//     let get_games_resp = test::call_service(&app, get_games_req).await;
+    let get_games_resp = test::call_service(&app, get_games_req).await;
 
-//     assert_eq!(get_games_resp.status(), StatusCode::OK);
+    assert_eq!(get_games_resp.status(), StatusCode::OK);
 
-//     let body: Vec<Game> = test::read_body_json(get_games_resp).await;
-//     assert_eq!(body.len(), 0);
-// }
+    let body: Vec<User> = test::read_body_json(get_games_resp).await;
+    assert_eq!(body.len(), 0);
+}

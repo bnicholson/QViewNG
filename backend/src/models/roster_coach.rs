@@ -92,11 +92,11 @@ pub fn create(db: &mut database::Connection, item: NewRosterCoach) -> QueryResul
         .get_result::<RosterCoach>(db)
 }
 
-pub fn delete(db: &mut database::Connection, statsgroup_id: Uuid, game_id: Uuid) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, roster_id: Uuid, coach_id: Uuid) -> QueryResult<usize> {
     use crate::schema::rosters_coaches::dsl::*;
     diesel::delete(
         rosters_coaches
-            .filter(coachid.eq(statsgroup_id))
-            .filter(rosterid.eq(game_id))
+            .filter(coachid.eq(coach_id))
+            .filter(rosterid.eq(roster_id))
     ).execute(db)
 }
