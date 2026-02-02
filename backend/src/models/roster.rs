@@ -2,6 +2,7 @@
 use crate::database;
 use crate::models::common::PaginationParams;
 use crate::models::roster_coach::RosterCoach;
+use crate::models::roster_quizzer::RosterQuizzer;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -145,6 +146,30 @@ pub fn read_all_rosters_of_coach(db: &mut database::Connection, coach_id: Uuid, 
             .unwrap()
             .iter()
             .map(|rc| rc.rosterid)
+            .collect();
+
+    rosters
+        .filter(crate::schema::rosters::dsl::rosterid.eq_any(roster_ids))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Roster>(db)
+}
+
+pub fn read_all_rosters_containing_quizzer(db: &mut database::Connection, quizzer_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Roster>> {
+    use crate::schema::rosters_quizzers::dsl::*;
+    use crate::schema::rosters::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let roster_ids: Vec<Uuid> = 
+        rosters_quizzers
+            .filter(quizzerid.eq(quizzer_id))
+            .load::<RosterQuizzer>(db)
+            .unwrap()
+            .iter()
+            .map(|rq| rq.rosterid)
             .collect();
 
     rosters

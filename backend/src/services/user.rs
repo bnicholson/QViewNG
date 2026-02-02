@@ -122,6 +122,20 @@ async fn read_rosters_of_coach(
     }
 }
 
+#[get("/{id}/rosters-containing-quizzer")]
+async fn read_rosters_containing_quizzer(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::roster::read_all_rosters_containing_quizzer(&mut conn, user_id.into_inner(), &params) {
+        Ok(rounds) => HttpResponse::Ok().json(rounds),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -239,6 +253,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_teams_where_coach)
         .service(read_teams_where_quizzer)
         .service(read_rosters_of_coach)
+        .service(read_rosters_containing_quizzer)
         .service(create)
         .service(create_roster)
         .service(update)
