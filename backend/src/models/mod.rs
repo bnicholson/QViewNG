@@ -16,5 +16,5 @@ pub mod tournamentgroup_tournament;
 pub mod statsgroup;
 pub mod game_statsgroup;
 pub mod roster;
-// pub mod roster_coach;
+pub mod roster_coach;
 pub mod roster_quizzer;

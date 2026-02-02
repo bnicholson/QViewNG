@@ -38,6 +38,10 @@ impl RosterBuilder {
         self.description = description;
         self
     }
+    pub fn set_created_by_userid(mut self, created_by_userid: Uuid) -> Self {
+        self.created_by_userid = created_by_userid;
+        self
+    }
     // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
     //     let mut errors = Vec::new();
     //     if self.name.is_none() {

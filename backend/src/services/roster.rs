@@ -1,5 +1,5 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{database::Database, models::{self, common::PaginationParams, roster::{NewRoster, Roster, RosterChangeset}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
+use crate::{database::Database, models::{self, common::PaginationParams, roster::{NewRoster, Roster, RosterChangeset}, roster_coach::{NewRosterCoach, RosterCoach}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
 use crate::services::common::{EntityResponse, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -61,28 +61,6 @@ async fn read(
 //     }
 // }
 
-#[post("")]
-async fn create(
-    db: Data<Database>,
-    Json(item): Json<NewRoster>,
-) -> Result<HttpResponse, Error> {
-
-    let mut conn = db.get_connection().expect("Failed to get connection");
-
-    tracing::debug!("{} Roster model create {:?}", line!(), item);
-    
-    let result: QueryResult<Roster> = models::roster::create(&mut conn, &item);
-
-    let response: EntityResponse<Roster> = process_response(result, "post");
-    
-    match response.code {
-        409 => Ok(HttpResponse::Conflict().json(response)),
-        201 => Ok(HttpResponse::Created().json(response)),
-        200 => Ok(HttpResponse::Ok().json(response)),
-        _ => Ok(HttpResponse::InternalServerError().json(response))
-    }
-}
-
 #[post("/{sg_id}/quizzers/{quizzer_id}")]
 async fn add_quizzer(
     db: Data<Database>,
@@ -102,6 +80,35 @@ async fn add_quizzer(
     println!("Result from creating RosterQuizzer: {:?}", result);
     
     let response: EntityResponse<RosterQuizzer> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
+#[post("/{roster_id}/coaches")]
+async fn add_coach(
+    db: Data<Database>,
+    path_id: Path<Uuid>,
+    Json(item): Json<NewRosterCoach>    
+) -> Result<HttpResponse, Error> {
+    let mut db = db.get_connection().expect("Failed to get connection");
+
+    tracing::debug!("{} NewRosterCoach model create {:?}", line!(), item);
+
+    let item_to_be_created = NewRosterCoach {
+        rosterid: path_id.into_inner(),
+        ..item
+    };
+    
+    let result : QueryResult<RosterCoach> = models::roster_coach::create(&mut db, item_to_be_created);
+    
+    println!("Result from creating RosterCoach: {:?}", result);
+    
+    let response: EntityResponse<RosterCoach> = process_response(result, "post");
     
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
@@ -176,8 +183,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         // .service(read_quizzers)
-        .service(create)
         .service(add_quizzer)
+        .service(add_coach)
         .service(update)
         .service(destroy)
         // .service(remove_quizzer);

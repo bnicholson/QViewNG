@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{models::{self, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
+use crate::{models::{self, roster::{NewRoster, Roster}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
 use crate::models::{tournament::Tournament,common::PaginationParams};
 use crate::database::Database;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl};
@@ -130,6 +130,29 @@ async fn create(
     }
 }
 
+#[post("/{coach_id}/rosters")]
+async fn create_roster(
+    db: Data<Database>,
+    coach_id: Path<Uuid>,
+    Json(item): Json<NewRoster>,
+) -> Result<HttpResponse, Error> {
+
+    let mut conn = db.get_connection().expect("Failed to get connection");
+
+    tracing::debug!("{} Roster model create {:?}", line!(), item);
+    
+    let result: QueryResult<Roster> = models::roster::create(&mut conn, &item);
+
+    let response: EntityResponse<Roster> = process_response(result, "post");
+    
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
+
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
@@ -180,6 +203,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_teams_where_coach)
         .service(read_teams_where_quizzer)
         .service(create)
+        .service(create_roster)
         .service(update)
         .service(destroy);
 }

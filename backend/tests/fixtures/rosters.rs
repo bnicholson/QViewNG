@@ -1,4 +1,11 @@
-use backend::{database, models::{roster::{NewRoster, Roster, RosterBuilder}, user::{User, UserBuilder}}};
+use backend::{
+    database, 
+    models::{
+        roster::{NewRoster, Roster, RosterBuilder}, 
+        roster_coach::{NewRosterCoach, RosterCoachBuilder}, 
+        user::{User, UserBuilder}
+    }
+};
 
 
 pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> NewRoster {
@@ -80,6 +87,20 @@ pub fn arrange_add_quizzer_to_roster_works_integration_test(db: &mut database::C
         .build_and_insert(db)
         .unwrap();
     (roster, quizzer)
+}
+
+pub fn arrange_add_rostercoach_to_roster_works_integration_test(db: &mut database::Connection) -> NewRosterCoach {
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    let roster = RosterBuilder::new("Roster 1", coach.id)
+        .set_description(Some("Roster for testing adding rostercoaches.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    RosterCoachBuilder::new_default(coach.id, roster.rosterid)
+        .build()
+        .unwrap()
 }
 
 // pub fn arrange_add_game_to_statsgroup_works_integration_test(db: &mut database::Connection) -> (Roster, Game, NewGameRoster) {
