@@ -32,12 +32,12 @@ pub fn arrange_get_roster_by_id_integration_test(db: &mut database::Connection) 
         .unwrap()
 }
 
-// pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> Roster {
-//     RosterBuilder::new_default("Test Roster 1")
-//         .set_description(Some("Roster 1 testing update.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap()
-// }
+pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> Roster {
+    RosterBuilder::new_default("Test Roster 1")
+        .set_description(Some("Roster 1 testing update.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
 
 // pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> Roster {
 //     RosterBuilder::new_default("Test Roster 1")

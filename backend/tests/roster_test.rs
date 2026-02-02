@@ -139,56 +139,56 @@ async fn get_by_id_works() {
     assert_eq!(roster.description.unwrap().as_str(), "This is Roster 2's description.");
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let roster = 
-//         fixtures::rosters::arrange_update_works_integration_test(&mut conn);
+    let roster = 
+        fixtures::rosters::arrange_update_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let new_name = "My NEW name".to_string();
-//     let new_description = "NEW description".to_string();
+    let new_name = "My NEW name".to_string();
+    let new_description = "NEW description".to_string();
 
-//     let put_payload = json!({
-//         "name": &new_name,
-//         "description": &new_description,
-//     });
+    let put_payload = json!({
+        "name": &new_name,
+        "description": &new_description,
+    });
     
-//     let put_uri = format!("/api/rosters/{}", roster.rosterid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/rosters/{}", roster.rosterid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<Roster> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<Roster> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_roster = put_resp_body.data.unwrap();
-//     assert_eq!(new_roster.rosterid, roster.rosterid);
-//     assert_eq!(new_roster.name.as_str(), new_name);
-//     assert_eq!(new_roster.description.as_ref().unwrap().as_str(), new_description);
-//     assert_ne!(new_roster.created_at, new_roster.updated_at);
-// }
+    let new_roster = put_resp_body.data.unwrap();
+    assert_eq!(new_roster.rosterid, roster.rosterid);
+    assert_eq!(new_roster.name.as_str(), new_name);
+    assert_eq!(new_roster.description.as_ref().unwrap().as_str(), new_description);
+    assert_ne!(new_roster.created_at, new_roster.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
