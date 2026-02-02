@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::common::PaginationParams;
+use crate::models::roster_coach::RosterCoach;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -42,16 +43,6 @@ impl RosterBuilder {
         self.created_by_userid = created_by_userid;
         self
     }
-    // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
-    //     let mut errors = Vec::new();
-    //     if self.name.is_none() {
-    //         errors.push("name is required".to_string());
-    //     }
-    //     if !errors.is_empty() {
-    //         return Err(errors);
-    //     }
-    //     Ok(())
-    // }
     pub fn build(self) -> Result<NewRoster, Vec<String>> {
         Ok(
             NewRoster {
@@ -60,19 +51,6 @@ impl RosterBuilder {
                 created_by_userid: self.created_by_userid,
             }
         )
-        // match self.validate_all_are_some() {
-        //     Err(e) => {
-        //         Err(e)
-        //     },
-        //     Ok(_) => {
-        //         Ok(
-        //             NewRoster {
-        //                 name: self.name,
-        //                 description: self.description,
-        //             }
-        //         )
-        //     }
-        // }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Roster> {
         let new_roster = self.build();
@@ -80,7 +58,6 @@ impl RosterBuilder {
     }
 }
 
-// #[tsync::tsync]
 #[derive(
     Debug,
     Serialize,
@@ -151,6 +128,30 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
             pagination.page
                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
         )
+        .load::<Roster>(db)
+}
+
+pub fn read_all_rosters_of_coach(db: &mut database::Connection, coach_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Roster>> {
+    use crate::schema::rosters_coaches::dsl::*;
+    use crate::schema::rosters::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let roster_ids: Vec<Uuid> = 
+        rosters_coaches
+            .filter(coachid.eq(coach_id))
+            .load::<RosterCoach>(db)
+            .unwrap()
+            .iter()
+            .map(|rc| rc.rosterid)
+            .collect();
+
+    rosters
+        .filter(crate::schema::rosters::dsl::rosterid.eq_any(roster_ids))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
         .load::<Roster>(db)
 }
 

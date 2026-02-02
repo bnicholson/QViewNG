@@ -1,4 +1,4 @@
-use backend::{database, models::{division::DivisionBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
+use backend::{database, models::{division::DivisionBuilder, roster::{Roster, RosterBuilder}, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
 use uuid::Uuid;
 
 pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
@@ -289,4 +289,63 @@ pub fn arrange_get_all_teams_where_user_is_quizzer_works_integration_test(
         .unwrap();
 
     (quizzer_of_interest, team_1, team_2, team_3, team_4, team_5, team_6)
+}
+
+pub fn arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(
+    db: &mut database::Connection
+) -> (User, User, Roster, Roster) {
+    let coach_1 = UserBuilder::new_default("Coach 1")
+        .set_hash_password("CoachPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let quizzer_1 = UserBuilder::new_default("Quizzer 1")
+        .set_hash_password("CoachPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let roster_1 = RosterBuilder::new_default("Roster 1", coach_1.id)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_2 = RosterBuilder::new_default("Roster 2", coach_1.id)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_coach_1 = RosterCoachBuilder::new_default(coach_1.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_coach_2 = RosterCoachBuilder::new_default(coach_1.id, roster_2.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_quizzer_1 = RosterQuizzerBuilder::new_default(quizzer_1.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_quizzer_2 = RosterQuizzerBuilder::new_default(quizzer_1.id, roster_2.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let coach_2 = UserBuilder::new_default("Coach 2")
+        .set_hash_password("CoachPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let quizzer_2 = UserBuilder::new_default("Quizzer 2")
+        .set_hash_password("CoachPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let roster_3 = RosterBuilder::new_default("Roster 3", coach_2.id)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_4 = RosterBuilder::new_default("Roster 4", coach_2.id)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_coach_3 = RosterCoachBuilder::new_default(coach_2.id, roster_3.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_coach_4 = RosterCoachBuilder::new_default(coach_2.id, roster_4.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_quizzer_3 = RosterQuizzerBuilder::new_default(quizzer_2.id, roster_3.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_quizzer_4 = RosterQuizzerBuilder::new_default(quizzer_2.id, roster_4.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    (coach_2, quizzer_2,roster_3,roster_4)
 }
