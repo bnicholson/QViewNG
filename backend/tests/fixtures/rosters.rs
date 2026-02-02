@@ -1,20 +1,28 @@
-use backend::{database, models::roster::{NewRoster, Roster, RosterBuilder}};
+use backend::{database, models::{roster::{NewRoster, Roster, RosterBuilder}, user::UserBuilder}};
 
 
-pub fn arrange_create_works_integration_test() -> NewRoster {
-    RosterBuilder::new("Test Roster 2317")
+pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> NewRoster {
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    RosterBuilder::new("Test Roster 2317", coach.id)
         .set_description(Some("Roster for integration test create.".to_string()))
         .build()
         .unwrap()
 }
 
 pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> (Roster, Roster) {
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
     (
-        RosterBuilder::new_default("Test Roster 1")
+        RosterBuilder::new("Test Roster 1", coach.id)
             .set_description(Some("This is Roster 1's description.".to_string()))
             .build_and_insert(db)
             .unwrap(),
-        RosterBuilder::new_default("Test Roster 2")
+        RosterBuilder::new("Test Roster 2", coach.id)
             .set_description(Some("This is Roster 2's description.".to_string()))
             .build_and_insert(db)
             .unwrap()
@@ -22,25 +30,37 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
 }
 
 pub fn arrange_get_roster_by_id_integration_test(db: &mut database::Connection) -> Roster {
-    RosterBuilder::new_default("Test Roster 1")
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    RosterBuilder::new("Test Roster 1", coach.id)
         .set_description(Some("This is Roster 1's description.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    RosterBuilder::new_default("Test Roster 2")
+    RosterBuilder::new("Test Roster 2", coach.id)
         .set_description(Some("This is Roster 2's description.".to_string()))
         .build_and_insert(db)
         .unwrap()
 }
 
 pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> Roster {
-    RosterBuilder::new_default("Test Roster 1")
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    RosterBuilder::new("Test Roster 1", coach.id)
         .set_description(Some("Roster 1 testing update.".to_string()))
         .build_and_insert(db)
         .unwrap()
 }
 
 pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> Roster {
-    RosterBuilder::new_default("Test Roster 1")
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    RosterBuilder::new("Test Roster 1", coach.id)
         .set_description(Some("Roster 1 testing delete.".to_string()))
         .build_and_insert(db)
         .unwrap()

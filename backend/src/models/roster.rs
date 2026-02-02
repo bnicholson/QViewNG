@@ -12,19 +12,22 @@ use chrono::{Utc,DateTime};
 pub struct RosterBuilder {
     name: String,
     description: Option<String>,
+    created_by_userid: Uuid,
 }
 
 impl RosterBuilder {
-    pub fn new(roster_name: &str) -> Self {
+    pub fn new(roster_name: &str, created_by_userid: Uuid) -> Self {
         Self {
             name: roster_name.to_string(),
             description: None,
+            created_by_userid,
         }
     }
-    pub fn new_default(roster_name: &str) -> Self {
+    pub fn new_default(roster_name: &str, created_by_userid: Uuid) -> Self {
         Self {
             name: roster_name.to_string(),
             description: None,
+            created_by_userid,
         }
     }
     pub fn set_name(mut self, roster_name: String) -> Self {
@@ -50,6 +53,7 @@ impl RosterBuilder {
             NewRoster {
                 name: self.name,
                 description: self.description,
+                created_by_userid: self.created_by_userid,
             }
         )
         // match self.validate_all_are_some() {
@@ -89,6 +93,7 @@ pub struct Roster {
     pub rosterid: Uuid,                            // identifies the roster uniquely
     pub name: String,                              // Name of the roster (human readable)
     pub description: Option<String>,               // Description of the roster
+    pub created_by_userid: Uuid,                   // User (Coach) who created the roster
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -103,6 +108,7 @@ pub struct Roster {
 pub struct NewRoster {
     pub name: String,
     pub description: Option<String>,
+    pub created_by_userid: Uuid,
 }
 
 // #[tsync::tsync]
@@ -143,30 +149,6 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         )
         .load::<Roster>(db)
 }
-
-// pub fn read_all_rosters_of_game(db: &mut database::Connection, game_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Roster>> {
-//     use crate::schema::games_rosters::dsl::*;
-//     use crate::schema::rosters::dsl::*;
-
-//     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-//     let offset_val = pagination.page * page_size;
-
-//     let sg_ids: Vec<Uuid> = 
-//         games_rosters
-//             .filter(gameid.eq(game_id))
-//             .load::<GameRoster>(db)
-//             .unwrap()
-//             .iter()
-//             .map(|gsg| gsg.rosterid)
-//             .collect();
-
-//     rosters
-//         .filter(sgid.eq_any(sg_ids))
-//         .order(sgid.asc())
-//         .limit(page_size)
-//         .offset(offset_val)
-//         .load::<Roster>(db)
-// }
 
 pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &RosterChangeset) -> QueryResult<Roster> {
     use crate::schema::rosters::dsl::*;

@@ -364,6 +364,7 @@ diesel::table! {
         name -> Varchar,
         #[max_length = 256]
         description -> Nullable<Varchar>,
+        created_by_userid -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -608,6 +609,7 @@ diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
 diesel::joinable!(rooms -> tournaments (tid));
+diesel::joinable!(rosters -> users (created_by_userid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));

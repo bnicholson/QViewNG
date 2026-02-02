@@ -20,7 +20,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let payload = fixtures::rosters::arrange_create_works_integration_test();
+    let payload = fixtures::rosters::arrange_create_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
