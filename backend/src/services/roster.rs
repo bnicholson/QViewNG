@@ -192,25 +192,25 @@ async fn remove_coach(
     }
 }
 
-// #[delete("/{sg_id}/quizzers/{quizzer_id}")]
-// async fn remove_quizzer(
-//     db: Data<Database>,
-//     item_ids: Path<(Uuid, Uuid)>,
-// ) -> HttpResponse {
-//     let mut db = db.pool.get().unwrap();
+#[delete("/{roster_id}/quizzers/{quizzer_id}")]
+async fn remove_quizzer(
+    db: Data<Database>,
+    item_ids: Path<(Uuid, Uuid)>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} Roster model delete {:?}", line!(), item_ids);
+    tracing::debug!("{} Roster model delete {:?}", line!(), item_ids);
 
-//     let sg_id = item_ids.0;
-//     let quizzer_id = item_ids.1;
-//     let result = models::quizzer_roster::delete(&mut db, sg_id, quizzer_id);
+    let roster_id = item_ids.0;
+    let quizzer_id = item_ids.1;
+    let result = models::roster_quizzer::delete(&mut db, roster_id, quizzer_id);
 
-//     if result.is_ok() {
-//         HttpResponse::Ok().finish()
-//     } else {
-//         HttpResponse::InternalServerError().finish()
-//     }
-// }
+    if result.is_ok() {
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
@@ -223,5 +223,5 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(update)
         .service(destroy)
         .service(remove_coach)
-        // .service(remove_quizzer);
+        .service(remove_quizzer);
 }

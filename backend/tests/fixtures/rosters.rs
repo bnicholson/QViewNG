@@ -1,7 +1,7 @@
 use backend::{
     database, 
     models::{
-        roster::{NewRoster, Roster, RosterBuilder}, roster_coach::{NewRosterCoach, RosterCoach, RosterCoachBuilder}, roster_quizzer::RosterQuizzerBuilder, user::{User, UserBuilder}
+        roster::{NewRoster, Roster, RosterBuilder}, roster_coach::{NewRosterCoach, RosterCoach, RosterCoachBuilder}, roster_quizzer::{RosterQuizzer, RosterQuizzerBuilder}, user::{User, UserBuilder}
     }
 };
 
@@ -181,4 +181,25 @@ pub fn arrange_get_all_quizzers_of_roster_works_integration_test(db: &mut databa
         .unwrap();
 
     (roster, quizzer_1, quizzer_2)
+}
+
+pub fn arrange_remove_quizzer_from_roster_works_integration_test(db: &mut database::Connection) -> (User, Roster, RosterQuizzer) {
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    let roster = RosterBuilder::new_default("Roster 1", coach.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let quizzer = UserBuilder::new_default("Quizzer 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+
+    let roster_quizzer = RosterQuizzerBuilder::new_default(quizzer.id, roster.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+
+    (quizzer, roster, roster_quizzer)
 }
