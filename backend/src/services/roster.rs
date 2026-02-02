@@ -134,23 +134,23 @@ async fn update(
     }
 }
 
-// #[delete("/{id}")]
-// async fn destroy(
-//     db: Data<Database>,
-//     item_id: Path<Uuid>,
-// ) -> HttpResponse {
-//     let mut db = db.pool.get().unwrap();
+#[delete("/{id}")]
+async fn destroy(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} Roster model delete {:?}", line!(), item_id);
+    tracing::debug!("{} Roster model delete {:?}", line!(), item_id);
 
-//     let result = models::roster::delete(&mut db, item_id.into_inner());
+    let result = models::roster::delete(&mut db, item_id.into_inner());
 
-//     if result.is_ok() {
-//         HttpResponse::Ok().finish()
-//     } else {
-//         HttpResponse::InternalServerError().finish()
-//     }
-// }
+    if result.is_ok() {
+        HttpResponse::Ok().finish()
+    } else {
+        HttpResponse::InternalServerError().finish()
+    }
+}
 
 // #[delete("/{sg_id}/games/{game_id}")]
 // async fn remove_game(
@@ -180,6 +180,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(create)
         // .service(add_game)
         .service(update)
-        // .service(destroy)
+        .service(destroy)
         // .service(remove_game);
 }

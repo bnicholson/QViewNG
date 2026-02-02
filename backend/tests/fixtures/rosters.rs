@@ -39,12 +39,12 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> R
         .unwrap()
 }
 
-// pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> Roster {
-//     RosterBuilder::new_default("Test Roster 1")
-//         .set_description(Some("Roster 1 testing delete.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap()
-// }
+pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> Roster {
+    RosterBuilder::new_default("Test Roster 1")
+        .set_description(Some("Roster 1 testing delete.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
 
 // pub fn arrange_add_game_to_statsgroup_works_integration_test(db: &mut database::Connection) -> (Roster, Game, NewGameRoster) {
 //     let (game, _, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
