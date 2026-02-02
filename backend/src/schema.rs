@@ -359,25 +359,29 @@ diesel::table! {
 
 diesel::table! {
     rosters (rosterid) {
-        rosterid -> Int8,
+        rosterid -> Uuid,
         #[max_length = 64]
         name -> Varchar,
         #[max_length = 256]
         description -> Nullable<Varchar>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
     rosters_coaches (coachid, rosterid) {
         coachid -> Uuid,
-        rosterid -> Int8,
+        rosterid -> Uuid,
+        created_at -> Timestamptz,
     }
 }
 
 diesel::table! {
     rosters_quizzers (quizzerid, rosterid) {
         quizzerid -> Uuid,
-        rosterid -> Int8,
+        rosterid -> Uuid,
+        created_at -> Timestamptz,
     }
 }
 
