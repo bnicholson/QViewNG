@@ -547,47 +547,7 @@ async fn create_roster_works() {
 }
 
 // #[actix_web::test]
-// async fn add_game_to_roster_works() {
-
-//     // Arrange:
-
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
-
-//     let (roster, game, new_gsg) = fixtures::rosters::arrange_add_game_to_roster_works_integration_test(&mut conn);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-    
-//     let uri = format!("/api/rosters/{}/games", roster.rosterid);
-//     let req = test::TestRequest::post()
-//         .uri(&uri)
-//         .set_json(&new_gsg)
-//         .to_request();
-    
-//     // Act:
-
-//     let resp = test::call_service(&app, req).await;
-    
-//     // Assert:
-    
-//     assert_eq!(resp.status(), StatusCode::CREATED);
-
-//     let body: EntityResponse<GameRoster> = test::read_body_json(resp).await;
-//     assert_eq!(body.code, 201);
-//     assert_eq!(body.message, "");
-
-//     let tournamentgroup_tournament = body.data.unwrap();
-//     assert_eq!(tournamentgroup_tournament.rosterid, roster.rosterid);
-//     assert_eq!(tournamentgroup_tournament.gameid, game.gid);
-// }
-
-// #[actix_web::test]
-// async fn get_all_games_of_roster_works() {
+// async fn get_all_rosters_of_coach_works() {
 
 //     // Arrange:
     
@@ -634,6 +594,46 @@ async fn create_roster_works() {
 //     }
 //     assert_ne!(game_1_idx, 10);
 //     assert_ne!(game_2_idx, 10);
+// }
+
+// #[actix_web::test]
+// async fn add_game_to_roster_works() {
+
+//     // Arrange:
+
+//     clean_database();
+//     let db = Database::new(TEST_DB_URL);
+//     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+//     let (roster, game, new_gsg) = fixtures::rosters::arrange_add_game_to_roster_works_integration_test(&mut conn);
+
+//     let app = test::init_service(
+//         App::new()
+//             .app_data(web::Data::new(db))
+//             .configure(configure_routes)
+//     ).await;
+    
+//     let uri = format!("/api/rosters/{}/games", roster.rosterid);
+//     let req = test::TestRequest::post()
+//         .uri(&uri)
+//         .set_json(&new_gsg)
+//         .to_request();
+    
+//     // Act:
+
+//     let resp = test::call_service(&app, req).await;
+    
+//     // Assert:
+    
+//     assert_eq!(resp.status(), StatusCode::CREATED);
+
+//     let body: EntityResponse<GameRoster> = test::read_body_json(resp).await;
+//     assert_eq!(body.code, 201);
+//     assert_eq!(body.message, "");
+
+//     let tournamentgroup_tournament = body.data.unwrap();
+//     assert_eq!(tournamentgroup_tournament.rosterid, roster.rosterid);
+//     assert_eq!(tournamentgroup_tournament.gameid, game.gid);
 // }
 
 // #[actix_web::test]

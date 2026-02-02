@@ -1,5 +1,6 @@
 
 use crate::database;
+use crate::models::roster_coach::RosterCoach;
 use crate::models::tournament_admin::TournamentAdmin;
 use bcrypt::{DEFAULT_COST, hash};
 use diesel::*;
@@ -242,6 +243,35 @@ pub fn read_all_admins_of_tournament(
 
     users
         .filter(id.eq_any(admin_ids))
+        .order(fname.asc())
+        .order(lname.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<User>(db)
+}
+
+pub fn read_all_coaches_of_roster(
+    db: &mut database::Connection,
+    roster_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<User>> {
+    use crate::schema::users::dsl::*;
+    use crate::schema::rosters_coaches::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let coach_ids: Vec<Uuid> = 
+        rosters_coaches
+            .filter(rosterid.eq(roster_id))
+            .load::<RosterCoach>(db)
+            .unwrap()
+            .iter()
+            .map(|rostercoach| rostercoach.coachid)
+            .collect();
+
+    users
+        .filter(id.eq_any(coach_ids))
         .order(fname.asc())
         .order(lname.asc())
         .limit(page_size)
