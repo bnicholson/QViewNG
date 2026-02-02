@@ -251,6 +251,31 @@ pub fn read_all_teams_where_user_is_coach(
         .load::<Team>(db)
 }
 
+pub fn read_all_teams_where_user_is_quizzer(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Team>> {
+    use crate::schema::teams::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    teams
+        .filter(
+            quizzer_one_id.eq(user_id)
+                .or(quizzer_two_id.eq(user_id))
+                .or(quizzer_three_id.eq(user_id))
+                .or(quizzer_four_id.eq(user_id))
+                .or(quizzer_five_id.eq(user_id))
+                .or(quizzer_six_id.eq(user_id))
+        )
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Team>(db)
+}
+
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset) -> QueryResult<Team> {
     use crate::schema::teams::dsl::*;
     diesel::update(teams.filter(teamid.eq(item_id)))
