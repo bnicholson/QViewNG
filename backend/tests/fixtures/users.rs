@@ -1,4 +1,4 @@
-use backend::{database, models::{tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
+use backend::{database, models::{division::DivisionBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
 use uuid::Uuid;
 
 pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
@@ -125,4 +125,40 @@ pub fn seed_get_tournaments_where_user_is_admin(db: &mut database::Connection) -
         .unwrap();
 
     (admin, tour_1.tid, tour_2.tid)
+}
+
+pub fn arrange_get_all_teams_where_user_is_coach_works_integration_test(
+    db: &mut database::Connection
+) -> (User, Team, Team) {
+
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("CoachPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+    let division_1 = DivisionBuilder::new_default("Div 1", tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let team_1 = TeamBuilder::new_default(division_1.did)
+        .set_name("Team 1")
+        .set_coachid(coach.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .build_and_insert(db)
+        .unwrap();
+    let division_2 = DivisionBuilder::new_default("Div 2", tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let team_2 = TeamBuilder::new_default(division_2.did)
+        .set_name("Team 2")
+        .set_coachid(coach.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (coach, team_1, team_2)
 }

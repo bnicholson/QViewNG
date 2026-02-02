@@ -1,5 +1,4 @@
 use backend::{database, models::{team::{NewTeam, Team, TeamBuilder}, user::UserBuilder}};
-use diesel::prelude::*;
 use uuid::Uuid;
 
 use crate::fixtures::users::create_and_insert_user;
