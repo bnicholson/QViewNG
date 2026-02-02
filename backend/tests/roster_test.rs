@@ -196,46 +196,6 @@ async fn delete_works() {
 }
 
 #[actix_web::test]
-async fn add_quizzer_to_roster_works() {
-
-    // Arrange:
-
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-
-    let (roster, quizzer) = 
-        fixtures::rosters::arrange_add_quizzer_to_roster_works_integration_test(&mut conn);
-
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/rosters/{}/quizzers/{}", roster.rosterid, quizzer.id);
-    let req = test::TestRequest::post()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-
-    let resp = test::call_service(&app, req).await;
-    
-    // Assert:
-    
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let body: EntityResponse<RosterQuizzer> = test::read_body_json(resp).await;
-    assert_eq!(body.code, 201);
-    assert_eq!(body.message, "");
-
-    let roster_quizzer = body.data.unwrap();
-    assert_eq!(roster_quizzer.rosterid, roster.rosterid);
-    assert_eq!(roster_quizzer.quizzerid, quizzer.id);
-}
-
-#[actix_web::test]
 async fn add_coach_to_roster_works() {
 
     // Arrange:
@@ -374,3 +334,142 @@ async fn remove_coach_from_roster_works() {
     let body: Vec<User> = test::read_body_json(get_games_resp).await;
     assert_eq!(body.len(), 0);
 }
+
+#[actix_web::test]
+async fn add_quizzer_to_roster_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (roster, quizzer) = 
+        fixtures::rosters::arrange_add_quizzer_to_roster_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/rosters/{}/quizzers/{}", roster.rosterid, quizzer.id);
+    let req = test::TestRequest::post()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<RosterQuizzer> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let roster_quizzer = body.data.unwrap();
+    assert_eq!(roster_quizzer.rosterid, roster.rosterid);
+    assert_eq!(roster_quizzer.quizzerid, quizzer.id);
+}
+
+#[actix_web::test]
+async fn get_all_quizzers_of_roster_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (roster, quizzer_1, quizzer_2) = 
+        fixtures::rosters::arrange_get_all_quizzers_of_roster_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/rosters/{}/quizzers?page={}&page_size={}", roster.rosterid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<User> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut quizzer_1_idx = 10;
+    let mut quizzer_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].id == quizzer_1.id {
+            quizzer_1_idx = idx;
+        }
+        if body[idx].id == quizzer_2.id {
+            quizzer_2_idx = idx;
+        }
+    }
+    assert_ne!(quizzer_1_idx, 10);
+    assert_ne!(quizzer_2_idx, 10);
+}
+
+// #[actix_web::test]
+// async fn remove_coach_from_roster_works() {
+
+//     // Arrange:
+
+//     clean_database();
+//     let db = Database::new(TEST_DB_URL);
+//     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+//     let (coach, roster, roster_coach) = 
+//         fixtures::rosters::arrange_remove_coach_from_roster_works_integration_test(&mut conn);
+
+//     let app = test::init_service(
+//         App::new()
+//             .app_data(web::Data::new(db))
+//             .configure(configure_routes)
+//     ).await;
+    
+//     let delete_uri = format!("/api/rosters/{}/coaches/{}", roster_coach.rosterid, roster_coach.coachid);
+//     let delete_req = test::TestRequest::delete()
+//         .uri(&delete_uri)
+//         .to_request();
+
+//     // Act:
+    
+//     let delete_resp = test::call_service(&app, delete_req).await;
+
+//     // Assert:
+    
+//     assert_eq!(delete_resp.status(), StatusCode::OK);
+
+//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+//     assert_eq!(&delete_resp_body_string, "");
+
+
+//     let get_games_uri = format!("/api/rosters/{}/coaches?page={}&page_size={}", roster_coach.rosterid, PAGE_NUM, PAGE_SIZE);
+//     let get_games_req = test::TestRequest::get()
+//         .uri(&get_games_uri)
+//         .to_request();
+
+//     let get_games_resp = test::call_service(&app, get_games_req).await;
+
+//     assert_eq!(get_games_resp.status(), StatusCode::OK);
+
+//     let body: Vec<User> = test::read_body_json(get_games_resp).await;
+//     assert_eq!(body.len(), 0);
+// }

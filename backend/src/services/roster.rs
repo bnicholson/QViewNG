@@ -47,19 +47,19 @@ async fn read(
     }
 }
 
-// #[get("/{id}/quizzers")]
-// async fn read_quizzers(
-//     db: Data<Database>,
-//     sg_id: Path<Uuid>,
-//     Query(params): Query<PaginationParams>,
-// ) -> HttpResponse {
-//     let mut conn = db.pool.get().unwrap();
+#[get("/{id}/quizzers")]
+async fn read_quizzers(
+    db: Data<Database>,
+    roster_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
 
-//     match models::quizzer::read_all_quizzers_of_roster(&mut conn, sg_id.into_inner(), &params) {
-//         Ok(quizzers) => HttpResponse::Ok().json(quizzers),
-//         Err(_) => HttpResponse::NotFound().finish(),
-//     }
-// }
+    match models::user::read_all_quizzers_of_roster(&mut conn, roster_id.into_inner(), &params) {
+        Ok(quizzers) => HttpResponse::Ok().json(quizzers),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
 
 #[get("/{coach_id}/coaches")]
 async fn read_coaches(
@@ -217,7 +217,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(read_coaches)
-        // .service(read_quizzers)
+        .service(read_quizzers)
         .service(add_quizzer)
         .service(add_coach)
         .service(update)
