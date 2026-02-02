@@ -1,5 +1,5 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{database::Database, models::{self, common::PaginationParams, roster::{NewRoster, Roster, RosterChangeset}}};
+use crate::{database::Database, models::{self, common::PaginationParams, roster::{NewRoster, Roster, RosterChangeset}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
 use crate::services::common::{EntityResponse, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -47,16 +47,16 @@ async fn read(
     }
 }
 
-// #[get("/{id}/games")]
-// async fn read_games(
+// #[get("/{id}/quizzers")]
+// async fn read_quizzers(
 //     db: Data<Database>,
 //     sg_id: Path<Uuid>,
 //     Query(params): Query<PaginationParams>,
 // ) -> HttpResponse {
 //     let mut conn = db.pool.get().unwrap();
 
-//     match models::game::read_all_games_of_roster(&mut conn, sg_id.into_inner(), &params) {
-//         Ok(games) => HttpResponse::Ok().json(games),
+//     match models::quizzer::read_all_quizzers_of_roster(&mut conn, sg_id.into_inner(), &params) {
+//         Ok(quizzers) => HttpResponse::Ok().json(quizzers),
 //         Err(_) => HttpResponse::NotFound().finish(),
 //     }
 // }
@@ -83,34 +83,33 @@ async fn create(
     }
 }
 
-// #[post("/{sg_id}/games")]
-// async fn add_game(
-//     db: Data<Database>,
-//     path_id: Path<Uuid>,
-//     Json(item): Json<NewGameRoster>    
-// ) -> Result<HttpResponse, Error> {
-//     let mut db = db.get_connection().expect("Failed to get connection");
+#[post("/{sg_id}/quizzers/{quizzer_id}")]
+async fn add_quizzer(
+    db: Data<Database>,
+    path_id: Path<(Uuid, Uuid)>,
+) -> Result<HttpResponse, Error> {
+    let mut db = db.get_connection().expect("Failed to get connection");
 
-//     tracing::debug!("{} GameRoster model create {:?}", line!(), item);
+    // tracing::debug!("{} RosterQuizzer model create {:?}", line!(), item);
 
-//     let item_to_be_created = NewGameRoster {
-//         rosterid: path_id.into_inner(),
-//         ..item
-//     };
+    let item_to_be_created = NewRosterQuizzer {
+        rosterid: path_id.0,
+        quizzerid: path_id.1,
+    };
     
-//     let result : QueryResult<GameRoster> = models::game_roster::create(&mut db, &item_to_be_created);
+    let result : QueryResult<RosterQuizzer> = models::roster_quizzer::create(&mut db, &item_to_be_created);
     
-//     println!("Result from creating GameRoster: {:?}", result);
+    println!("Result from creating RosterQuizzer: {:?}", result);
     
-//     let response: EntityResponse<GameRoster> = process_response(result, "post");
+    let response: EntityResponse<RosterQuizzer> = process_response(result, "post");
     
-//     match response.code {
-//         409 => Ok(HttpResponse::Conflict().json(response)),
-//         201 => Ok(HttpResponse::Created().json(response)),
-//         200 => Ok(HttpResponse::Ok().json(response)),
-//         _ => Ok(HttpResponse::InternalServerError().json(response))
-//     }
-// }
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        201 => Ok(HttpResponse::Created().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
 
 #[put("/{id}")]
 async fn update(
@@ -152,8 +151,8 @@ async fn destroy(
     }
 }
 
-// #[delete("/{sg_id}/games/{game_id}")]
-// async fn remove_game(
+// #[delete("/{sg_id}/quizzers/{quizzer_id}")]
+// async fn remove_quizzer(
 //     db: Data<Database>,
 //     item_ids: Path<(Uuid, Uuid)>,
 // ) -> HttpResponse {
@@ -162,8 +161,8 @@ async fn destroy(
 //     tracing::debug!("{} Roster model delete {:?}", line!(), item_ids);
 
 //     let sg_id = item_ids.0;
-//     let game_id = item_ids.1;
-//     let result = models::game_roster::delete(&mut db, sg_id, game_id);
+//     let quizzer_id = item_ids.1;
+//     let result = models::quizzer_roster::delete(&mut db, sg_id, quizzer_id);
 
 //     if result.is_ok() {
 //         HttpResponse::Ok().finish()
@@ -176,10 +175,10 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
-        // .service(read_games)
+        // .service(read_quizzers)
         .service(create)
-        // .service(add_game)
+        .service(add_quizzer)
         .service(update)
         .service(destroy)
-        // .service(remove_game);
+        // .service(remove_quizzer);
 }

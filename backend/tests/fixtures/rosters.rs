@@ -1,4 +1,4 @@
-use backend::{database, models::{roster::{NewRoster, Roster, RosterBuilder}, user::UserBuilder}};
+use backend::{database, models::{roster::{NewRoster, Roster, RosterBuilder}, user::{User, UserBuilder}}};
 
 
 pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> NewRoster {
@@ -64,6 +64,22 @@ pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> R
         .set_description(Some("Roster 1 testing delete.".to_string()))
         .build_and_insert(db)
         .unwrap()
+}
+
+pub fn arrange_add_quizzer_to_roster_works_integration_test(db: &mut database::Connection) -> (Roster, User) {
+    let coach = UserBuilder::new_default("Coach 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    let quizzer = UserBuilder::new_default("Quizzer 1")
+        .set_hash_password("password123")
+        .build_and_insert(db)
+        .unwrap();
+    let roster = RosterBuilder::new("Test Roster for adding quizzers", coach.id)
+        .set_description(Some("Roster for testing adding quizzers.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    (roster, quizzer)
 }
 
 // pub fn arrange_add_game_to_statsgroup_works_integration_test(db: &mut database::Connection) -> (Roster, Game, NewGameRoster) {

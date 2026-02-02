@@ -11,7 +11,8 @@ use backend::schema::{
     tournaments, 
     tournaments_admins, 
     users, 
-    rosters
+    rosters,
+    rosters_quizzers
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -41,6 +42,10 @@ pub fn clean_database() {
     establish_test_connection();  // mostly for running pending migrations
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    diesel::delete(rosters_quizzers::table)
+        .execute(&mut conn)
+        .expect("Failed to clean rosters_quizzers");
 
     diesel::delete(rosters::table)
         .execute(&mut conn)
