@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}};
+use backend::{database::Database, models::{game::Game, roster::Roster, roster_coach::RosterCoach, team::Team, tournament::Tournament, user::User}};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use bcrypt::verify;
@@ -544,6 +544,21 @@ async fn create_roster_works() {
     assert_ne!(roster.rosterid, uuid::Uuid::nil());
     assert_eq!(roster.name.as_str(), "Test Roster 2317");
     assert_eq!(roster.description.unwrap().as_str(), "Roster for integration test create.");
+
+
+    // test also that the coach was added to the roster via record inserted in the rosters_coaches table:
+
+    let get_coaches_uri = format!("/api/rosters/{}/coaches?page={}&page_size={}", roster.rosterid, PAGE_NUM, PAGE_SIZE);
+    let get_coaches_req = test::TestRequest::get()
+        .uri(&get_coaches_uri)
+        .to_request();
+
+    let get_coaches_resp = test::call_service(&app, get_coaches_req).await;
+
+    assert_eq!(get_coaches_resp.status(), StatusCode::OK);
+
+    let body: Vec<User> = test::read_body_json(get_coaches_resp).await;
+    assert_eq!(body.len(), 1);
 }
 
 // #[actix_web::test]

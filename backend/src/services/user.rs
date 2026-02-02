@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{models::{self, roster::{NewRoster, Roster}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
+use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{NewRosterCoach, RosterCoach, RosterCoachBuilder}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
 use crate::models::{tournament::Tournament,common::PaginationParams};
 use crate::database::Database;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl};
@@ -133,23 +133,45 @@ async fn create(
 #[post("/{coach_id}/rosters")]
 async fn create_roster(
     db: Data<Database>,
-    coach_id: Path<Uuid>,
     Json(item): Json<NewRoster>,
 ) -> Result<HttpResponse, Error> {
 
     let mut conn = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} Roster model create {:?}", line!(), item);
-    
-    let result: QueryResult<Roster> = models::roster::create(&mut conn, &item);
 
-    let response: EntityResponse<Roster> = process_response(result, "post");
+    // Create the Roster:
     
-    match response.code {
-        409 => Ok(HttpResponse::Conflict().json(response)),
-        201 => Ok(HttpResponse::Created().json(response)),
-        200 => Ok(HttpResponse::Ok().json(response)),
-        _ => Ok(HttpResponse::InternalServerError().json(response))
+    let command_1_result: QueryResult<Roster> = models::roster::create(&mut conn, &item);
+
+    if command_1_result.is_err() {
+        println!("Error creating Roster: {:?}", command_1_result);
+        let command_1_response: EntityResponse<Roster> = process_response(command_1_result, "post");
+        return Ok(HttpResponse::InternalServerError().json(command_1_response));
+    }
+
+    // Create the RosterCoach record (*this is what gives the coach access to the Roster):
+
+    let coach_id = item.created_by_userid;
+    let roster_id = command_1_result.as_ref().unwrap().rosterid;
+    let new_rostercoach = RosterCoachBuilder::new(coach_id, roster_id)
+        .build()
+        .unwrap();
+    
+    let command_2_result: QueryResult<RosterCoach> = models::roster_coach::create(&mut conn, new_rostercoach);
+
+    if command_2_result.is_err() {
+        println!("Error creating RosterCoach: {:?}", command_2_result);
+        let command_2_response: EntityResponse<RosterCoach> = process_response(command_2_result, "post");
+        return Ok(HttpResponse::InternalServerError().json(command_2_response));
+    }
+    
+    let command_1_response: EntityResponse<Roster> = process_response(command_1_result, "post");    
+    match command_1_response.code {
+        409 => Ok(HttpResponse::Conflict().json(command_1_response)),
+        201 => Ok(HttpResponse::Created().json(command_1_response)),
+        200 => Ok(HttpResponse::Ok().json(command_1_response)),
+        _ => Ok(HttpResponse::InternalServerError().json(command_1_response))
     }
 }
 
