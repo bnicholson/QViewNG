@@ -34,18 +34,18 @@ async fn index(
     }
 }
 
-// #[get("/{id}")]
-// async fn read(
-//     db: Data<Database>,
-//     item_id: Path<Uuid>,
-// ) -> HttpResponse {
-//     let mut conn = db.pool.get().unwrap();
+#[get("/{id}")]
+async fn read(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
 
-//     match models::roster::read(&mut conn, item_id.into_inner()) {
-//         Ok(roster) => HttpResponse::Ok().json(roster),
-//         Err(_) => HttpResponse::NotFound().finish(),
-//     }
-// }
+    match models::roster::read(&mut conn, item_id.into_inner()) {
+        Ok(roster) => HttpResponse::Ok().json(roster),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
 
 // #[get("/{id}/games")]
 // async fn read_games(
@@ -175,7 +175,7 @@ async fn create(
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
-        // .service(read)
+        .service(read)
         // .service(read_games)
         .service(create)
         // .service(add_game)

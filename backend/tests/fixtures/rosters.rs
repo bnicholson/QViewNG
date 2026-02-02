@@ -21,16 +21,16 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
     )
 }
 
-// pub fn arrange_get_statsgroup_by_id_integration_test(db: &mut database::Connection) -> Roster {
-//     RosterBuilder::new_default("Test Roster 1")
-//         .set_description(Some("This is Roster 1's description.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     RosterBuilder::new_default("Test Roster 2")
-//         .set_description(Some("This is Roster 2's description.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap()
-// }
+pub fn arrange_get_roster_by_id_integration_test(db: &mut database::Connection) -> Roster {
+    RosterBuilder::new_default("Test Roster 1")
+        .set_description(Some("This is Roster 1's description.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    RosterBuilder::new_default("Test Roster 2")
+        .set_description(Some("This is Roster 2's description.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
 
 // pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> Roster {
 //     RosterBuilder::new_default("Test Roster 1")
