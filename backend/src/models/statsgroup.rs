@@ -37,16 +37,6 @@ impl StatsGroupBuilder {
         self.description = description;
         self
     }
-    // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
-    //     let mut errors = Vec::new();
-    //     if self.name.is_none() {
-    //         errors.push("name is required".to_string());
-    //     }
-    //     if !errors.is_empty() {
-    //         return Err(errors);
-    //     }
-    //     Ok(())
-    // }
     pub fn build(self) -> Result<NewStatsGroup, Vec<String>> {
         Ok(
             NewStatsGroup {
@@ -54,19 +44,6 @@ impl StatsGroupBuilder {
                 description: self.description,
             }
         )
-        // match self.validate_all_are_some() {
-        //     Err(e) => {
-        //         Err(e)
-        //     },
-        //     Ok(_) => {
-        //         Ok(
-        //             NewStatsGroup {
-        //                 name: self.name,
-        //                 description: self.description,
-        //             }
-        //         )
-        //     }
-        // }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<StatsGroup> {
         let new_statsgroup = self.build();

@@ -26,24 +26,6 @@ impl RosterQuizzerBuilder {
             rosterid,
         }
     }
-    // pub fn set_name(mut self, rostercoach_name: String) -> Self {
-    //     self.name = rostercoach_name;
-    //     self
-    // }
-    // pub fn set_description(mut self, description: Option<String>) -> Self {
-    //     self.description = description;
-    //     self
-    // }
-    // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
-    //     let mut errors = Vec::new();
-    //     if self.name.is_none() {
-    //         errors.push("name is required".to_string());
-    //     }
-    //     if !errors.is_empty() {
-    //         return Err(errors);
-    //     }
-    //     Ok(())
-    // }
     pub fn build(self) -> Result<NewRosterQuizzer, Vec<String>> {
         Ok(
             NewRosterQuizzer {
@@ -51,19 +33,6 @@ impl RosterQuizzerBuilder {
                 rosterid: self.rosterid,
             }
         )
-        // match self.validate_all_are_some() {
-        //     Err(e) => {
-        //         Err(e)
-        //     },
-        //     Ok(_) => {
-        //         Ok(
-        //             NewRosterQuizzer {
-        //                 name: self.name,
-        //                 description: self.description,
-        //             }
-        //         )
-        //     }
-        // }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<RosterQuizzer> {
         let new_rostercoach = self.build();
@@ -132,41 +101,6 @@ pub fn create(db: &mut database::Connection, item: &NewRosterQuizzer) -> QueryRe
         .values(item)
         .get_result::<RosterQuizzer>(db)
 }
-
-// pub fn exists(db: &mut database::Connection, rostercoachid: Uuid) -> bool {
-//     use crate::schema::rosters_quizzers::dsl::rosters_quizzers;
-//     rosters_quizzers
-//         .find(rostercoachid)
-//         .get_result::<RosterQuizzer>(db)
-//         .is_ok()
-// }
-
-// pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<RosterQuizzer> {
-//     use crate::schema::rosters_quizzers::dsl::*;
-//     rosters_quizzers.filter(sgid.eq(item_id)).first::<RosterQuizzer>(db)
-// }
-
-// pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<RosterQuizzer>> {
-//     use crate::schema::rosters_quizzers::dsl::*;
-//     rosters_quizzers
-//         .order(created_at)
-//         .limit(pagination.page_size)
-//         .offset(
-//             pagination.page
-//                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
-//         )
-//         .load::<RosterQuizzer>(db)
-// }
-
-// pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &RosterQuizzerChangeset) -> QueryResult<RosterQuizzer> {
-//     use crate::schema::rosters_quizzers::dsl::*;
-//     diesel::update(rosters_quizzers.filter(sgid.eq(sg_id)))
-//         .set((
-//             item,
-//             updated_at.eq(diesel::dsl::now),
-//         ))
-//         .get_result(db)
-// }
 
 pub fn delete(db: &mut database::Connection, roster_id: Uuid, quizzer_id: Uuid) -> QueryResult<usize> {
     use crate::schema::rosters_quizzers::dsl::*;

@@ -36,16 +36,6 @@ impl TournamentGroupBuilder {
         self.description = description;
         self
     }
-    // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
-    //     let mut errors = Vec::new();
-    //     if self.description.is_none() {
-    //         errors.push("description is required".to_string());
-    //     }
-    //     if !errors.is_empty() {
-    //         return Err(errors);
-    //     }
-    //     Ok(())
-    // }
     pub fn build(self) -> Result<NewTournamentGroup, Vec<String>> {
         Ok(
             NewTournamentGroup {
@@ -53,19 +43,6 @@ impl TournamentGroupBuilder {
                 description: self.description
             }
         )
-        // match self.validate_all_are_some() {
-        //     Err(e) => {
-        //         Err(e)
-        //     },
-        //     Ok(_) => {
-        //         Ok(
-        //             NewTournamentGroup {
-        //                 name: self.name,
-        //                 description: self.description
-        //             }
-        //         )
-        //     }
-        // }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<TournamentGroup> {
         let new_tournamentgroup = self.build();

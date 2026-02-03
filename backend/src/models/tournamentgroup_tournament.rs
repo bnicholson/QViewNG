@@ -33,18 +33,6 @@ impl TournamentGroupTournamentBuilder {
         self.tournamentgroupid = tournamentgroupid;
         self
     }
-    
-    // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
-    //     let mut errors = Vec::new();
-    //     if self.role_description.is_none() {
-    //         errors.push("role_description is required".to_string());
-    //     }
-    //     if self.access_lvl.is_none() {
-    //         errors.push("access_lvl is required".to_string());
-    //     }
-        
-    //     Ok(())
-    // }
     pub fn build(self) -> Result<NewTournamentGroupTournament, Vec<String>> {
         Ok(
             NewTournamentGroupTournament {
@@ -52,19 +40,6 @@ impl TournamentGroupTournamentBuilder {
                 tournamentgroupid: self.tournamentgroupid,
             }
         )
-        // match self.validate_all_are_some() {
-        //     Err(e) => {
-        //         Err(e)
-        //     },
-        //     Ok(_) => {
-        //         Ok(
-        //             NewTournamentGroupTournament {
-        //                 tournamentid: self.tournamentid,
-        //                 tournamentgroupid: self.tournamentgroupid,
-        //             }
-        //         )
-        //     }
-        // }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<TournamentGroupTournament> {
         let new_tournamentgrouptournament = self.build();
@@ -130,18 +105,6 @@ pub fn create(db: &mut database::Connection, item: NewTournamentGroupTournament)
 
     insert_into(tournamentgroups_tournaments).values(item).get_result::<TournamentGroupTournament>(db)
 }
-
-// pub fn update(db: &mut database::Connection, tour_id: Uuid, user_id: Uuid, item: &TournamentGroupTournamentChangeset) -> QueryResult<TournamentGroupTournament> {
-//     use crate::schema::tournaments_admins::dsl::*;
-//     diesel::update(tournaments_admins
-//         .filter(tournamentid.eq(tour_id))
-//         .filter(adminid.eq(user_id)))
-//         .set((
-//             item,
-//             updated_at.eq(diesel::dsl::now),
-//         ))
-//         .get_result(db)
-// }
 
 pub fn delete(db: &mut database::Connection, tg_id: Uuid, tour_id: Uuid) -> QueryResult<usize> {
     use crate::schema::tournamentgroups_tournaments::dsl::*;

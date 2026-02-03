@@ -6,8 +6,6 @@ use uuid::Uuid;
 use crate::models::game_statsgroup::GameStatsGroup;
 use crate::{database, models};
 use crate::models::common::PaginationParams;
-use crate::models::division::Division;
-use crate::models::round::Round;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -120,12 +118,6 @@ impl GameBuilder {
         if self.org.is_none() {
             errors.push("org is required".to_string());
         }
-        // if self.tournamentid.is_none() {
-        //     errors.push("tournamentid is required".to_string());
-        // }
-        // if self.divisionid.is_none() {
-        //     errors.push("divisionid is required".to_string());
-        // }
         if self.clientkey.is_none() {
             errors.push("clientkey is required".to_string());
         }

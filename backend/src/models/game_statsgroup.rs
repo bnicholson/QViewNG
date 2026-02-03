@@ -26,24 +26,6 @@ impl GameStatsGroupBuilder {
             statsgroupid,
         }
     }
-    // pub fn set_name(mut self, gamestatsgroup_name: String) -> Self {
-    //     self.name = gamestatsgroup_name;
-    //     self
-    // }
-    // pub fn set_description(mut self, description: Option<String>) -> Self {
-    //     self.description = description;
-    //     self
-    // }
-    // fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
-    //     let mut errors = Vec::new();
-    //     if self.name.is_none() {
-    //         errors.push("name is required".to_string());
-    //     }
-    //     if !errors.is_empty() {
-    //         return Err(errors);
-    //     }
-    //     Ok(())
-    // }
     pub fn build(self) -> Result<NewGameStatsGroup, Vec<String>> {
         Ok(
             NewGameStatsGroup {
@@ -51,19 +33,6 @@ impl GameStatsGroupBuilder {
                 statsgroupid: self.statsgroupid,
             }
         )
-        // match self.validate_all_are_some() {
-        //     Err(e) => {
-        //         Err(e)
-        //     },
-        //     Ok(_) => {
-        //         Ok(
-        //             NewGameStatsGroup {
-        //                 name: self.name,
-        //                 description: self.description,
-        //             }
-        //         )
-        //     }
-        // }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<GameStatsGroup> {
         let new_gamestatsgroup = self.build();
@@ -71,7 +40,6 @@ impl GameStatsGroupBuilder {
     }
 }
 
-// #[tsync::tsync]
 #[derive(
     Debug,
     Serialize,
@@ -118,41 +86,6 @@ pub fn create(db: &mut database::Connection, item: &NewGameStatsGroup) -> QueryR
         .values(item)
         .get_result::<GameStatsGroup>(db)
 }
-
-// pub fn exists(db: &mut database::Connection, gamestatsgroupid: Uuid) -> bool {
-//     use crate::schema::games_statsgroups::dsl::games_statsgroups;
-//     games_statsgroups
-//         .find(gamestatsgroupid)
-//         .get_result::<GameStatsGroup>(db)
-//         .is_ok()
-// }
-
-// pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<GameStatsGroup> {
-//     use crate::schema::games_statsgroups::dsl::*;
-//     games_statsgroups.filter(sgid.eq(item_id)).first::<GameStatsGroup>(db)
-// }
-
-// pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<GameStatsGroup>> {
-//     use crate::schema::games_statsgroups::dsl::*;
-//     games_statsgroups
-//         .order(created_at)
-//         .limit(pagination.page_size)
-//         .offset(
-//             pagination.page
-//                 * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
-//         )
-//         .load::<GameStatsGroup>(db)
-// }
-
-// pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &GameStatsGroupChangeset) -> QueryResult<GameStatsGroup> {
-//     use crate::schema::games_statsgroups::dsl::*;
-//     diesel::update(games_statsgroups.filter(sgid.eq(sg_id)))
-//         .set((
-//             item,
-//             updated_at.eq(diesel::dsl::now),
-//         ))
-//         .get_result(db)
-// }
 
 pub fn delete(db: &mut database::Connection, statsgroup_id: Uuid, game_id: Uuid) -> QueryResult<usize> {
     use crate::schema::games_statsgroups::dsl::*;
