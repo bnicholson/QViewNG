@@ -48,8 +48,8 @@ impl EquipmentSetBuilder {
         self.is_default = Some(is_default);
         self
     }
-    pub fn set_name(mut self, equipmentset_name: String) -> Self {
-        self.name = Some(equipmentset_name);
+    pub fn set_name(mut self, equipmentset_name: &str) -> Self {
+        self.name = Some(equipmentset_name.to_string());
         self
     }
     pub fn set_description(mut self, description: Option<String>) -> Self {

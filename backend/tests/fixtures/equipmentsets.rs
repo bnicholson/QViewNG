@@ -1,4 +1,4 @@
-use backend::{database, models::{equipmentset::{EquipmentSetBuilder, NewEquipmentSet}, user::UserBuilder}};
+use backend::{database, models::{equipmentset::{EquipmentSet, EquipmentSetBuilder, NewEquipmentSet}, user::UserBuilder}};
 
 pub fn arrange_create_works_integration_test(
     conn: &mut database::Connection
@@ -10,4 +10,23 @@ pub fn arrange_create_works_integration_test(
     EquipmentSetBuilder::new_default(equipment_owner.id)
         .build()
         .unwrap()
+}
+
+pub fn arrange_get_all_works_integration_test(
+    conn: &mut database::Connection
+) -> (EquipmentSet, EquipmentSet) {
+    let equipment_owner = UserBuilder::new_default("Derek")
+        .set_hash_password("anothernotsupersecurepassword")
+        .build_and_insert(conn)
+        .unwrap();
+    (
+        EquipmentSetBuilder::new_default(equipment_owner.id)
+            .set_name("Equipment Set 1")
+            .build_and_insert(conn)
+            .unwrap(),
+        EquipmentSetBuilder::new_default(equipment_owner.id)
+            .set_name("Equipment Set 2")
+            .build_and_insert(conn)
+            .unwrap()
+    )
 }
