@@ -137,10 +137,10 @@ pub struct NewEquipmentSet {
 #[diesel(table_name = crate::schema::equipmentsets)]
 #[diesel(primary_key(id))]
 pub struct EquipmentSetChangeset {
-    pub equipmentownerid: Uuid,
-    pub is_active: bool,
+    pub equipmentownerid: Option<Uuid>,
+    pub is_active: Option<bool>,
     pub is_default: Option<bool>,
-    pub name: String,
+    pub name: Option<String>,
     pub description: Option<String>,
 }
 

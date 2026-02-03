@@ -47,3 +47,29 @@ pub fn arrange_get_equipmentset_by_id_works_integration_test(
         .build_and_insert(conn)
         .unwrap()
 }
+
+pub fn arrange_update_works_integration_test(
+    conn: &mut database::Connection
+) -> EquipmentSet {
+    let equipment_owner = UserBuilder::new_default("Frank")
+        .set_hash_password("securepassword123")
+        .build_and_insert(conn)
+        .unwrap();
+    EquipmentSetBuilder::new_default(equipment_owner.id)
+        .set_name("Old Equipment Set Name")
+        .build_and_insert(conn)
+        .unwrap()
+}
+
+pub fn arrange_delete_works_integration_test(
+    conn: &mut database::Connection
+) -> EquipmentSet {
+    let equipment_owner = UserBuilder::new_default("Grace")
+        .set_hash_password("mypasswordisverysecure")
+        .build_and_insert(conn)
+        .unwrap();
+    EquipmentSetBuilder::new_default(equipment_owner.id)
+        .set_name("Equipment Set To Be Deleted")
+        .build_and_insert(conn)
+        .unwrap()
+}
