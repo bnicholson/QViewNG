@@ -18,3 +18,4 @@ pub mod game_statsgroup;
 pub mod roster;
 pub mod roster_coach;
 pub mod roster_quizzer;
+pub mod equipmentset;

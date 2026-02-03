@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{game::Game, roster::Roster, roster_coach::RosterCoach, team::Team, tournament::Tournament, user::User}};
+use backend::{database::Database, models::{game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use bcrypt::verify;

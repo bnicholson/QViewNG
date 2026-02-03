@@ -9,3 +9,4 @@ pub mod games;
 pub mod tournamentgroups;
 pub mod statsgroups;
 pub mod rosters;
+pub mod equipmentsets;
