@@ -30,3 +30,20 @@ pub fn arrange_get_all_works_integration_test(
             .unwrap()
     )
 }
+
+pub fn arrange_get_equipmentset_by_id_works_integration_test(
+    conn: &mut database::Connection
+) -> EquipmentSet {
+    let equipment_owner = UserBuilder::new_default("Evelyn")
+        .set_hash_password("yetanothernotsupersecurepassword")
+        .build_and_insert(conn)
+        .unwrap();
+    EquipmentSetBuilder::new_default(equipment_owner.id)
+            .set_name("Equipment Set 1")
+            .build_and_insert(conn)
+            .unwrap();
+    EquipmentSetBuilder::new_default(equipment_owner.id)
+        .set_name("Equipment Set 2")
+        .build_and_insert(conn)
+        .unwrap()
+}
