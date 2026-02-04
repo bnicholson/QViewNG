@@ -11,4 +11,4 @@ pub mod statsgroups;
 pub mod rosters;
 pub mod equipmentsets;
 pub mod computers;
-// pub mod equipment_dbos;
+pub mod equipment_dbos;

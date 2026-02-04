@@ -4,54 +4,48 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database};
+use backend::{database::Database, models::{self, equipment_dbo::EquipmentDbo}};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
-// #[actix_web::test]
-// async fn create_works() {
+#[actix_web::test]
+async fn create_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
 
-//     let payload = fixtures::equipment_dbos::arrange_create_works_integration_test(&mut conn);
+    let payload = fixtures::equipment_dbos::arrange_create_works_integration_test(&mut conn);
 
-//     // let app = test::init_service(
-//     //     App::new()
-//     //         .app_data(web::Data::new(db))
-//     //         .configure(configure_routes)
-//     // ).await;
+    // Act:
 
-//     // Act:
-
-//     let equipment_dbo_result = models::equipment_dbo::create(&mut conn, &payload);    
+    let equipment_dbo_result = models::equipment_dbo::create(&mut conn, &payload);    
     
-//     // Assert:
+    // Assert:
 
-//     if equipment_dbo_result.is_err() {
-//         println!("Error creating EquipmentDbo: {:?}", equipment_dbo_result.unwrap_err());
-//         assert!(false);
-//     }
+    // if equipment_dbo_result.is_err() {
+    //     println!("Error creating EquipmentDbo: {:?}", equipment_dbo_result.as_ref().unwrap_err());
+    //     assert!(false);
+    // }
     
-//     assert!(equipment_dbo_result.is_ok());
+    assert!(equipment_dbo_result.is_ok());
 
-//     let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
-//     assert_eq!(equipment_dbo.computerid, payload.computerid);
-//     assert_eq!(equipment_dbo.jumppadid, payload.jumppadid);
-//     assert_eq!(equipment_dbo.interfaceboxid, payload.interfaceboxid);
-//     assert_eq!(equipment_dbo.monitorid, payload.monitorid);
-//     assert_eq!(equipment_dbo.microphonerecorderid, payload.microphonerecorderid);
-//     assert_eq!(equipment_dbo.projectorid, payload.projectorid);
-//     assert_eq!(equipment_dbo.powerstripid, payload.powerstripid);
-//     assert_eq!(equipment_dbo.extensioncordid, payload.extensioncordid);
-//     assert_eq!(equipment_dbo.misc_note, payload.misc_note);
-//     assert_eq!(equipment_dbo.equipmentsetid, payload.equipmentsetid);
-// }
+    let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
+    assert_eq!(equipment_dbo.computerid, payload.computerid);
+    assert_eq!(equipment_dbo.jumppadid, payload.jumppadid);
+    assert_eq!(equipment_dbo.interfaceboxid, payload.interfaceboxid);
+    assert_eq!(equipment_dbo.monitorid, payload.monitorid);
+    assert_eq!(equipment_dbo.microphonerecorderid, payload.microphonerecorderid);
+    assert_eq!(equipment_dbo.projectorid, payload.projectorid);
+    assert_eq!(equipment_dbo.powerstripid, payload.powerstripid);
+    assert_eq!(equipment_dbo.extensioncordid, payload.extensioncordid);
+    assert_eq!(equipment_dbo.misc_note, payload.misc_note);
+    assert_eq!(equipment_dbo.equipmentsetid, payload.equipmentsetid);
+}
 
 // #[actix_web::test]
 // async fn get_all_works() {
