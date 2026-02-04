@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, equipment_dbo::EquipmentDbo}};
+use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::EquipmentDbo}};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
@@ -47,57 +47,48 @@ async fn create_works() {
     assert_eq!(equipment_dbo.equipmentsetid, payload.equipmentsetid);
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let (es_1, es_2) = fixtures::equipment_dbos::arrange_get_all_works_integration_test(&mut conn);
+    let (equipment_computer_1, equipment_computer_2) = 
+        fixtures::equipment_dbos::arrange_get_all_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let pagination = PaginationParams {
+        page: 0,
+        page_size: PAGE_SIZE,
+    };
     
-//     let uri = format!("/api/equipmentdbos?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    // Act:
     
-//     // Act:
+    let equipment_dbo_result = models::equipment_dbo::read_all(&mut conn, &pagination);    
     
-//     let resp = test::call_service(&app, req).await;
-    
-//     // Assert:
-    
-//     assert_eq!(resp.status(), StatusCode::OK);
+    // Assert:
+        
+    let equipment_dbo_vec = equipment_dbo_result.unwrap();
 
-//     let body: Vec<EquipmentSet> = test::read_body_json(resp).await;
+    let len = 2;
 
-//     let len = 2;
-
-//     assert_eq!(body.len(), len);
-
-//     let mut equipmentset_1_interest_idx = 10;
-//     let mut equipmentset_2_interest_idx = 10;
-//     for idx in 0..len {
-//         if body[idx].name == es_1.name {
-//             equipmentset_1_interest_idx = idx;
-//             continue;
-//         }
-//         if body[idx].name == es_2.name {
-//             equipmentset_2_interest_idx = idx;
-//             continue;
-//         }
-//     }
-//     assert_ne!(equipmentset_1_interest_idx, 10);
-//     assert_ne!(equipmentset_2_interest_idx, 10);
-// }
+    let mut equipmentset_1_interest_idx = 10;
+    let mut equipmentset_2_interest_idx = 10;
+    for idx in 0..len {
+        if equipment_dbo_vec[idx].id == equipment_computer_1.id {
+            equipmentset_1_interest_idx = idx;
+            continue;
+        }
+        if equipment_dbo_vec[idx].id == equipment_computer_2.id {
+            equipmentset_2_interest_idx = idx;
+            continue;
+        }
+    }
+    assert_ne!(equipmentset_1_interest_idx, 10);
+    assert_ne!(equipmentset_2_interest_idx, 10);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
