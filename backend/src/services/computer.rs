@@ -38,18 +38,18 @@ async fn index(
     }
 }
 
-// #[get("/{id}")]
-// async fn read(
-//     db: Data<Database>,
-//     item_id: Path<i64>,
-// ) -> HttpResponse {
-//     let mut conn = db.pool.get().unwrap();
+#[get("/{id}")]
+async fn read(
+    db: Data<Database>,
+    item_id: Path<i64>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
 
-//     match models::computer::read(&mut conn, item_id.into_inner()) {
-//         Ok(computer) => HttpResponse::Ok().json(computer),
-//         Err(_) => HttpResponse::NotFound().finish(),
-//     }
-// }
+    match models::computer::read(&mut conn, item_id.into_inner()) {
+        Ok(computer) => HttpResponse::Ok().json(computer),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
 
 #[post("")]
 async fn create(
@@ -116,7 +116,7 @@ async fn create(
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
-        // .service(read)
+        .service(read)
         .service(create)
         // .service(update)
         // .service(destroy);
