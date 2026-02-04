@@ -86,3 +86,25 @@ pub fn arrange_get_equipment_by_id_works_integration_test(db: &mut database::Con
         .build_and_insert(db)
         .unwrap()
 }
+
+pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> EquipmentDbo {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let computer = ComputerBuilder::new_default()
+        .build_and_insert(db)
+        .unwrap();
+    EquipmentDboBuilder::new_default()
+        .set_computerid(Some(computer.computerid))
+        .set_misc_note(Some("Test note 9900".to_string()))
+        .set_equipmentsetid(Some(equipment_set.id))
+        .build_and_insert(db)
+        .unwrap()
+}

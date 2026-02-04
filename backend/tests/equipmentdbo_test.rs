@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::EquipmentDbo}};
+use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::{EquipmentChangesetDbo, EquipmentDbo}}};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
@@ -113,56 +113,35 @@ async fn get_by_id_works() {
     assert_eq!(equipment.misc_note, equipment_dbo.misc_note);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let original_equipment = 
-//         fixtures::equipment_dbos::arrange_update_works_integration_test(&mut conn);
+    let original_equipment = 
+        fixtures::equipment_dbos::arrange_update_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let new_misc_note = "NEW Misc Note".to_string();
 
-//     let new_name = "NEW Eq Set".to_string();
-//     let new_description = "NEW description".to_string();
+    let put_payload = EquipmentChangesetDbo {
+        misc_note: Some(new_misc_note),
+        equipmentsetid: None,
+    };
 
-//     let put_payload = json!({
-//         "name": &new_name,
-//         "description": &new_description,
-//     });
+    // Act:
     
-//     let put_uri = format!("/api/equipmentdbos/{}", original_equipment.id);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let equipment_dbo_result = models::equipment_dbo::update(&mut conn, original_equipment.id, &put_payload);    
 
-//     // Act:
+    // Assert:
     
-//     let put_resp = test::call_service(&app, put_req).await;
-
-//     // Assert:
-    
-//     assert_eq!(put_resp.status(), StatusCode::OK);
-
-//     let put_resp_body: EntityResponse<EquipmentSet> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
-
-//     let new_equipment = put_resp_body.data.unwrap();
-//     assert_eq!(new_equipment.id, original_equipment.id);
-//     assert_eq!(new_equipment.name, new_name);
-//     assert_eq!(new_equipment.description.unwrap(), new_description);
-//     assert_ne!(new_equipment.created_at, new_equipment.updated_at);
-// }
+    assert!(equipment_dbo_result.is_ok());
+    let equipment_dbo = equipment_dbo_result.unwrap();
+    assert_eq!(equipment_dbo.misc_note, put_payload.misc_note);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
