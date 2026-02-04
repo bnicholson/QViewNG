@@ -441,10 +441,15 @@ pub fn create(db: &mut database::Connection, item: &NewComputer) -> QueryResult<
 
     let new_computer_dbo = item.to_dbo();
 
-    let computer_dbo = insert_into(computers)
+    let computer_dbo_result = insert_into(computers)
         .values(new_computer_dbo)
-        .get_result::<ComputerDbo>(db)?;
-    Ok(computer_dbo.to_model())
+        .get_result::<ComputerDbo>(db);
+
+    if computer_dbo_result.is_err() {
+        return Err(computer_dbo_result.err().unwrap());
+    }
+
+    Ok(computer_dbo_result.unwrap().to_model())
 }
 
 
@@ -458,8 +463,17 @@ pub fn exists(db: &mut database::Connection, computer_id: i64) -> bool {
 
 pub fn read(db: &mut database::Connection, item_id: i64) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
-    let computer_dbo = computers.filter(computerid.eq(item_id)).first::<ComputerDbo>(db).unwrap();
-    Ok(computer_dbo.to_model())
+
+    let computer_dbo_result = 
+        computers
+            .filter(computerid.eq(item_id))
+            .first::<ComputerDbo>(db);
+    
+    if computer_dbo_result.is_err() {
+        return Err(computer_dbo_result.err().unwrap());
+    }
+    
+    Ok(computer_dbo_result.unwrap().to_model())
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Computer>> {
@@ -468,15 +482,22 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
-    Ok(
+    let computer_dbo_result =
         computers
             .order(created_at)
             .limit(page_size)
             .offset(offset_val)
-            .load::<ComputerDbo>(db)
+            .load::<ComputerDbo>(db);
+    
+    if computer_dbo_result.is_err() {
+        return Err(computer_dbo_result.err().unwrap());
+    }
+
+    Ok(
+        computer_dbo_result
             .unwrap()
             .into_iter()
-            .map(|dbo| dbo.to_model())
+            .map(|c| c.to_model())
             .collect()
     )
 }
@@ -484,7 +505,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 pub fn update(db: &mut database::Connection, item_id: i64, item: &ComputerChangeSet) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
 
-    let computer_dbo = 
+    let computer_dbo_result = 
         diesel::update(computers.filter(computerid.eq(item_id)))
             .set((
                 item.to_dbo(),
@@ -492,11 +513,11 @@ pub fn update(db: &mut database::Connection, item_id: i64, item: &ComputerChange
             ))
             .get_result::<ComputerDbo>(db);
 
-    if computer_dbo.is_err() {
-        return Err(computer_dbo.err().unwrap());
+    if computer_dbo_result.is_err() {
+        return Err(computer_dbo_result.err().unwrap());
     }
 
-    Ok(computer_dbo.unwrap().to_model())
+    Ok(computer_dbo_result.unwrap().to_model())
 }
 
 pub fn delete(db: &mut database::Connection, item_id: i64) -> QueryResult<usize> {

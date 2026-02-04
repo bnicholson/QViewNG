@@ -50,57 +50,57 @@ async fn create_works() {
     assert_eq!(computer.operating_system, payload.operating_system);  // from ComputerDbo ("computers" table)
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let (es_1, es_2) = fixtures::computers::arrange_get_all_works_integration_test(&mut conn);
+    let (computer_1, computer_2) = fixtures::computers::arrange_get_all_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/computers?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/equipment/computers?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<Computer> = test::read_body_json(resp).await;
+    let body: Vec<Computer> = test::read_body_json(resp).await;
 
-//     let len = 2;
+    let len = 2;
 
-//     assert_eq!(body.len(), len);
+    assert_eq!(body.len(), len);
 
-//     let mut computer_1_interest_idx = 10;
-//     let mut computer_2_interest_idx = 10;
-//     for idx in 0..len {
-//         if body[idx].name == es_1.name {
-//             computer_1_interest_idx = idx;
-//             continue;
-//         }
-//         if body[idx].name == es_2.name {
-//             computer_2_interest_idx = idx;
-//             continue;
-//         }
-//     }
-//     assert_ne!(computer_1_interest_idx, 10);
-//     assert_ne!(computer_2_interest_idx, 10);
-// }
+    let mut computer_1_interest_idx = 10;
+    let mut computer_2_interest_idx = 10;
+    for idx in 0..len {
+        if body[idx].brand == computer_1.brand {
+            computer_1_interest_idx = idx;
+            continue;
+        }
+        if body[idx].brand == computer_2.brand {
+            computer_2_interest_idx = idx;
+            continue;
+        }
+    }
+    assert_ne!(computer_1_interest_idx, 10);
+    assert_ne!(computer_2_interest_idx, 10);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
@@ -120,7 +120,7 @@ async fn create_works() {
 //             .configure(configure_routes)
 //     ).await;
 
-//     let uri = format!("/api/computers/{}", &computer.id);
+//     let uri = format!("/api/equipment/computers/{}", &computer.id);
 //     println!("Computers Get by ID URI: {}", &uri);
 //     let req = test::TestRequest::get()
 //         .uri(uri.as_str())
@@ -163,7 +163,7 @@ async fn create_works() {
 //         "description": &new_description,
 //     });
     
-//     let put_uri = format!("/api/computers/{}", original_computer.id);
+//     let put_uri = format!("/api/equipment/computers/{}", original_computer.id);
 //     let put_req = test::TestRequest::put()
 //         .uri(&put_uri)
 //         .set_json(&put_payload)
@@ -205,7 +205,7 @@ async fn create_works() {
 //             .configure(configure_routes)
 //     ).await;
     
-//     let delete_uri = format!("/api/computers/{}", computer.id);
+//     let delete_uri = format!("/api/equipment/computers/{}", computer.id);
 //     let delete_req = test::TestRequest::delete()
 //         .uri(&delete_uri)
 //         .to_request();
@@ -223,7 +223,7 @@ async fn create_works() {
 //     assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/computers/{}", computer.id);
+//     let get_by_id_uri = format!("/api/equipment/computers/{}", computer.id);
 //     let get_by_id_req = test::TestRequest::get()
 //         .uri(&get_by_id_uri)
 //         .to_request();
