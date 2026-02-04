@@ -138,56 +138,56 @@ async fn get_by_id_works() {
     assert_eq!(resp_computer.operating_system, computer.operating_system);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let original_computer = 
-//         fixtures::computers::arrange_update_works_integration_test(&mut conn);
+    let original_computer = 
+        fixtures::computers::arrange_update_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let new_name = "NEW Eq Set".to_string();
-//     let new_description = "NEW description".to_string();
+    let new_brand = "NEW Brand".to_string();
+    let new_operating_system = "NEW OS".to_string();
 
-//     let put_payload = json!({
-//         "name": &new_name,
-//         "description": &new_description,
-//     });
+    let put_payload = json!({
+        "brand": &new_brand,
+        "operating_system": &new_operating_system,
+    });
     
-//     let put_uri = format!("/api/equipment/computers/{}", original_computer.id);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/equipment/computers/{}", original_computer.computerid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<Computer> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<Computer> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_computer = put_resp_body.data.unwrap();
-//     assert_eq!(new_computer.id, original_computer.id);
-//     assert_eq!(new_computer.name, new_name);
-//     assert_eq!(new_computer.description.unwrap(), new_description);
-//     assert_ne!(new_computer.created_at, new_computer.updated_at);
-// }
+    let new_computer = put_resp_body.data.unwrap();
+    assert_eq!(new_computer.computerid, original_computer.computerid);
+    assert_eq!(new_computer.brand, new_brand);
+    assert_eq!(new_computer.operating_system, new_operating_system);
+    assert_ne!(new_computer.created_at, new_computer.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
@@ -206,7 +206,7 @@ async fn get_by_id_works() {
 //             .configure(configure_routes)
 //     ).await;
     
-//     let delete_uri = format!("/api/equipment/computers/{}", computer.id);
+//     let delete_uri = format!("/api/equipment/computers/{}", computer.computerid);
 //     let delete_req = test::TestRequest::delete()
 //         .uri(&delete_uri)
 //         .to_request();
@@ -224,7 +224,7 @@ async fn get_by_id_works() {
 //     assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/equipment/computers/{}", computer.id);
+//     let get_by_id_uri = format!("/api/equipment/computers/{}", computer.computerid);
 //     let get_by_id_req = test::TestRequest::get()
 //         .uri(&get_by_id_uri)
 //         .to_request();

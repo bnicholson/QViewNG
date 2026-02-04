@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{database::Database, models::computer::{Computer, NewComputer}};
+use crate::{database::Database, models::computer::{Computer, ComputerChangeSet, NewComputer}};
 use crate::models::{self, common::PaginationParams, tournament::Tournament};
 use crate::schema::tournaments::dsl::{tid as tournament_tid, tournaments as tournaments_table};
 use crate::services::common::{EntityResponse, process_response};
@@ -73,27 +73,27 @@ async fn create(
     }
 }
 
-// #[put("/{id}")]
-// async fn update(
-//     db: Data<Database>,
-//     item_id: Path<i64>,
-//     Json(item): Json<ComputerChangeset>,
-// ) -> Result<HttpResponse, Error> {
+#[put("/{id}")]
+async fn update(
+    db: Data<Database>,
+    item_id: Path<i64>,
+    Json(item): Json<ComputerChangeSet>,
+) -> Result<HttpResponse, Error> {
 
-//     let mut db = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} Computer model update {:?} {:?}", line!(), item_id, item); 
+    tracing::debug!("{} Computer model update {:?} {:?}", line!(), item_id, item); 
 
-//     let result = models::computer::update(&mut db, item_id.into_inner(), &item);
+    let result = models::computer::update(&mut db, item_id.into_inner(), &item);
 
-//     let response = process_response(result, "put");
+    let response = process_response(result, "put");
     
-//     match response.code {
-//         409 => Ok(HttpResponse::Conflict().json(response)),
-//         200 => Ok(HttpResponse::Ok().json(response)),
-//         _ => Ok(HttpResponse::InternalServerError().json(response))
-//     }
-// }
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
 
 // #[delete("/{id}")]
 // async fn destroy(
@@ -118,6 +118,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(create)
-        // .service(update)
+        .service(update)
         // .service(destroy);
 }
