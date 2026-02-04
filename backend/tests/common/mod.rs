@@ -14,7 +14,8 @@ use backend::schema::{
     rosters,
     rosters_quizzers,
     rosters_coaches,
-    equipmentsets
+    equipmentsets,
+    equipment
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -44,6 +45,10 @@ pub fn clean_database() {
     establish_test_connection();  // mostly for running pending migrations
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    diesel::delete(equipment::table)
+        .execute(&mut conn)
+        .expect("Failed to clean equipment");
 
     diesel::delete(equipmentsets::table)
         .execute(&mut conn)
