@@ -44,7 +44,6 @@ async fn create_works() {
     assert_eq!(equipment_dbo.powerstripid, payload.powerstripid);
     assert_eq!(equipment_dbo.extensioncordid, payload.extensioncordid);
     assert_eq!(equipment_dbo.misc_note, payload.misc_note);
-    assert_eq!(equipment_dbo.equipmentsetid, payload.equipmentsetid);
 }
 
 #[actix_web::test]
@@ -74,56 +73,45 @@ async fn get_all_works() {
 
     let len = 2;
 
-    let mut equipmentset_1_interest_idx = 10;
-    let mut equipmentset_2_interest_idx = 10;
+    let mut equipment_1_interest_idx = 10;
+    let mut equipment_2_interest_idx = 10;
     for idx in 0..len {
         if equipment_dbo_vec[idx].id == equipment_computer_1.id {
-            equipmentset_1_interest_idx = idx;
+            equipment_1_interest_idx = idx;
             continue;
         }
         if equipment_dbo_vec[idx].id == equipment_computer_2.id {
-            equipmentset_2_interest_idx = idx;
+            equipment_2_interest_idx = idx;
             continue;
         }
     }
-    assert_ne!(equipmentset_1_interest_idx, 10);
-    assert_ne!(equipmentset_2_interest_idx, 10);
+    assert_ne!(equipment_1_interest_idx, 10);
+    assert_ne!(equipment_2_interest_idx, 10);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let equipmentset = 
-//         fixtures::equipment_dbos::arrange_get_equipmentset_by_id_works_integration_test(&mut conn);
+    let equipment = 
+        fixtures::equipment_dbos::arrange_get_equipment_by_id_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-
-//     let uri = format!("/api/equipmentdbos/{}", &equipmentset.id);
-//     println!("EquipmentDbos Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
-
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let equipment_dbo_result = models::equipment_dbo::read(&mut conn, equipment.id);    
 
-//     // Assert:
-    
-//     let equipmentset: EquipmentSet = test::read_body_json(resp).await;
-//     assert_eq!(equipmentset.name, equipmentset.name);
-// }
+    // Assert:
+
+    assert!(equipment_dbo_result.is_ok());
+
+    let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
+    assert_eq!(equipment.misc_note, equipment_dbo.misc_note);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
@@ -134,7 +122,7 @@ async fn get_all_works() {
 //     let db = Database::new(TEST_DB_URL);
 //     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let original_equipmentset = 
+//     let original_equipment = 
 //         fixtures::equipment_dbos::arrange_update_works_integration_test(&mut conn);
 
 //     let app = test::init_service(
@@ -151,7 +139,7 @@ async fn get_all_works() {
 //         "description": &new_description,
 //     });
     
-//     let put_uri = format!("/api/equipmentdbos/{}", original_equipmentset.id);
+//     let put_uri = format!("/api/equipmentdbos/{}", original_equipment.id);
 //     let put_req = test::TestRequest::put()
 //         .uri(&put_uri)
 //         .set_json(&put_payload)
@@ -169,11 +157,11 @@ async fn get_all_works() {
 //     assert_eq!(put_resp_body.code, 200);
 //     assert_eq!(put_resp_body.message, "");
 
-//     let new_equipmentset = put_resp_body.data.unwrap();
-//     assert_eq!(new_equipmentset.id, original_equipmentset.id);
-//     assert_eq!(new_equipmentset.name, new_name);
-//     assert_eq!(new_equipmentset.description.unwrap(), new_description);
-//     assert_ne!(new_equipmentset.created_at, new_equipmentset.updated_at);
+//     let new_equipment = put_resp_body.data.unwrap();
+//     assert_eq!(new_equipment.id, original_equipment.id);
+//     assert_eq!(new_equipment.name, new_name);
+//     assert_eq!(new_equipment.description.unwrap(), new_description);
+//     assert_ne!(new_equipment.created_at, new_equipment.updated_at);
 // }
 
 // #[actix_web::test]
@@ -185,7 +173,7 @@ async fn get_all_works() {
 //     let db = Database::new(TEST_DB_URL);
 //     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let equipmentset = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
+//     let equipment = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
 
 //     let app = test::init_service(
 //         App::new()
@@ -193,7 +181,7 @@ async fn get_all_works() {
 //             .configure(configure_routes)
 //     ).await;
     
-//     let delete_uri = format!("/api/equipmentdbos/{}", equipmentset.id);
+//     let delete_uri = format!("/api/equipmentdbos/{}", equipment.id);
 //     let delete_req = test::TestRequest::delete()
 //         .uri(&delete_uri)
 //         .to_request();
@@ -211,7 +199,7 @@ async fn get_all_works() {
 //     assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/equipmentdbos/{}", equipmentset.id);
+//     let get_by_id_uri = format!("/api/equipmentdbos/{}", equipment.id);
 //     let get_by_id_req = test::TestRequest::get()
 //         .uri(&get_by_id_uri)
 //         .to_request();
