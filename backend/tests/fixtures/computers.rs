@@ -89,3 +89,22 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> C
         .build_and_insert(db)
         .unwrap()
 }
+
+pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> Computer {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    // let equipment_set = EquipmentSetBuilder::new_default(user.id)
+    //     .set_is_active(true)
+    //     .set_is_default(true)
+    //     .set_description(Some("This is a test equipment set.".to_string()))
+    //     .build_and_insert(db)
+    //     .unwrap();
+    ComputerBuilder::new_default()
+        .set_brand(Some("Brand Delete".to_string()))
+        .set_operating_system(Some("OS Delete".to_string()))
+        // .set_misc_note(Some("Test computer for delete.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}
