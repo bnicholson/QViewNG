@@ -49,6 +49,10 @@ pub fn clean_database() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
+    diesel::delete(equipment::table)
+        .execute(&mut conn)
+        .expect("Failed to clean equipment");
+
     diesel::delete(interfaceboxes::table)
         .execute(&mut conn)
         .expect("Failed to clean interfaceboxes");
@@ -56,10 +60,6 @@ pub fn clean_database() {
     diesel::delete(jumppads::table)
         .execute(&mut conn)
         .expect("Failed to clean jumppads");
-
-    diesel::delete(equipment::table)
-        .execute(&mut conn)
-        .expect("Failed to clean equipment");
 
     diesel::delete(computers::table)
         .execute(&mut conn)
