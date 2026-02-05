@@ -52,57 +52,57 @@ async fn create_works() {
     assert_eq!(monitor.misc_note, payload.misc_note);  // from EquipmentDbo ("equipment" table)
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let (monitor_1, monitor_2) = fixtures::monitors::arrange_get_all_works_integration_test(&mut conn);
+    let (monitor_1, monitor_2) = fixtures::monitors::arrange_get_all_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/equipment/monitors?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/equipment/monitors?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<Monitor> = test::read_body_json(resp).await;
+    let body: Vec<Monitor> = test::read_body_json(resp).await;
 
-//     let len = 2;
+    let len = 2;
 
-//     assert_eq!(body.len(), len);
+    assert_eq!(body.len(), len);
 
-//     let mut monitor_1_interest_idx = 10;
-//     let mut monitor_2_interest_idx = 10;
-//     for idx in 0..len {
-//         if body[idx].serial_number == monitor_1.serial_number {
-//             monitor_1_interest_idx = idx;
-//             continue;
-//         }
-//         if body[idx].serial_number == monitor_2.serial_number {
-//             monitor_2_interest_idx = idx;
-//             continue;
-//         }
-//     }
-//     assert_ne!(monitor_1_interest_idx, 10);
-//     assert_ne!(monitor_2_interest_idx, 10);
-// }
+    let mut monitor_1_interest_idx = 10;
+    let mut monitor_2_interest_idx = 10;
+    for idx in 0..len {
+        if body[idx].id == monitor_1.id {
+            monitor_1_interest_idx = idx;
+            continue;
+        }
+        if body[idx].id == monitor_2.id {
+            monitor_2_interest_idx = idx;
+            continue;
+        }
+    }
+    assert_ne!(monitor_1_interest_idx, 10);
+    assert_ne!(monitor_2_interest_idx, 10);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
