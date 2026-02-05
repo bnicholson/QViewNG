@@ -78,27 +78,26 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> J
         .build_and_insert(db)
         .unwrap();
     JumpPadBuilder::new_default(equipment_set.id)
-        .set_color(Some("Brand Z".to_string()))
+        .set_color(Some("red".to_string()))
         .set_misc_note(Some("Test jumppad for update.".to_string()))
         .build_and_insert(db)
         .unwrap()
 }
 
-// pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> JumpPad {
-//     let user = UserBuilder::new_default("User 1")
-//         .set_hash_password("SOmeTHinGSeCUre!23")
-//         .build_and_insert(db)
-//         .unwrap();
-//     let equipment_set = EquipmentSetBuilder::new_default(user.id)
-//         .set_is_active(true)
-//         .set_is_default(true)
-//         .set_description(Some("This is a test equipment set.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     JumpPadBuilder::new_default(equipment_set.id)
-//         .set_color(Some("Brand Delete".to_string()))
-//         .set_operating_system(Some("OS Delete".to_string()))
-//         .set_misc_note(Some("Test jumppad for delete.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap()
-// }
+pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> JumpPad {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    JumpPadBuilder::new_default(equipment_set.id)
+        .set_color(Some("blue".to_string()))
+        .set_misc_note(Some("Test jumppad for delete.".to_string()))
+        .build_and_insert(db)
+        .unwrap()
+}

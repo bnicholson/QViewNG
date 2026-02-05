@@ -192,47 +192,47 @@ async fn update_works() {
     assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
 }
 
-// #[actix_web::test]
-// async fn delete_works() {
+#[actix_web::test]
+async fn delete_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let jumppad = fixtures::jumppads::arrange_delete_works_integration_test(&mut conn);
+    let jumppad = fixtures::jumppads::arrange_delete_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let delete_uri = format!("/api/equipment/jumppads/{}", jumppad.equipmentid);
-//     let delete_req = test::TestRequest::delete()
-//         .uri(&delete_uri)
-//         .to_request();
+    let delete_uri = format!("/api/equipment/jumppads/{}", jumppad.equipmentid);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let delete_resp = test::call_service(&app, delete_req).await;
+    let delete_resp = test::call_service(&app, delete_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(delete_resp.status(), StatusCode::OK);
+    assert_eq!(delete_resp.status(), StatusCode::OK);
 
-//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-//     assert_eq!(&delete_resp_body_string, "");
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/equipment/jumppads/{}", jumppad.equipmentid);
-//     let get_by_id_req = test::TestRequest::get()
-//         .uri(&get_by_id_uri)
-//         .to_request();
+    let get_by_id_uri = format!("/api/equipment/jumppads/{}", jumppad.equipmentid);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
 
-//     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
-//     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-// }
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}
