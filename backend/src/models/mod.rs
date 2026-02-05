@@ -22,7 +22,7 @@ pub mod equipmentset;
 pub mod computer;
 pub mod equipment_dbo;
 pub mod jumppad;
-// pub mod interfacebox;
+pub mod interfacebox;
 // pub mod monitor;
 // pub mod microphonerecorder;
 // pub mod projector;
