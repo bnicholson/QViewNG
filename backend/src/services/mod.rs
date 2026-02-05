@@ -11,6 +11,7 @@ pub mod statsgroup;
 pub mod roster;
 pub mod equipmentset;
 pub mod computer;
+pub mod jumppad;
 // pub mod file;
 // pub mod quizevent;
 // pub mod pingmsg;

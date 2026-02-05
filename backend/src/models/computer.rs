@@ -187,30 +187,6 @@ impl ComputerBuilder {
     }
 }
 
-
-pub fn covert_to_model_from_dbos(computer_dbo: ComputerDbo, equipment_dbo: EquipmentDbo) -> Computer {
-    Computer {
-        computerid: computer_dbo.computerid,
-        brand: computer_dbo.brand,
-        operating_system: computer_dbo.operating_system,
-        quizmachine_version: computer_dbo.quizmachine_version,
-        wifi_capabilities: computer_dbo.wifi_capabilities,
-        login_username: computer_dbo.login_username,
-        login_password: computer_dbo.login_password,
-        has_vga_out_port: computer_dbo.has_vga_out_port,
-        has_dvi_out_port: computer_dbo.has_dvi_out_port,
-        has_hdmi_out_port: computer_dbo.has_hdmi_out_port,
-        has_display_port_out: computer_dbo.has_display_port_out,
-        has_usb_port: computer_dbo.has_usb_port,
-
-        equipmentid: equipment_dbo.id,
-        equipmentsetid: equipment_dbo.equipmentsetid,
-        misc_note: equipment_dbo.misc_note,
-        created_at: equipment_dbo.created_at,
-        updated_at: equipment_dbo.updated_at,
-    }
-}
-
 #[derive(
     Debug,
     Serialize,
@@ -450,6 +426,29 @@ impl ComputerChangeSet {
                 equipmentsetid: clone_of_self.equipmentsetid
             }
         )
+    }
+}
+
+pub fn covert_to_model_from_dbos(computer_dbo: ComputerDbo, equipment_dbo: EquipmentDbo) -> Computer {
+    Computer {
+        computerid: computer_dbo.computerid,
+        brand: computer_dbo.brand,
+        operating_system: computer_dbo.operating_system,
+        quizmachine_version: computer_dbo.quizmachine_version,
+        wifi_capabilities: computer_dbo.wifi_capabilities,
+        login_username: computer_dbo.login_username,
+        login_password: computer_dbo.login_password,
+        has_vga_out_port: computer_dbo.has_vga_out_port,
+        has_dvi_out_port: computer_dbo.has_dvi_out_port,
+        has_hdmi_out_port: computer_dbo.has_hdmi_out_port,
+        has_display_port_out: computer_dbo.has_display_port_out,
+        has_usb_port: computer_dbo.has_usb_port,
+
+        equipmentid: equipment_dbo.id,
+        equipmentsetid: equipment_dbo.equipmentsetid,
+        misc_note: equipment_dbo.misc_note,
+        created_at: equipment_dbo.created_at,
+        updated_at: equipment_dbo.updated_at,
     }
 }
 
