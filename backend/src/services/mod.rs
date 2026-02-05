@@ -13,6 +13,7 @@ pub mod equipmentset;
 pub mod computer;
 pub mod jumppad;
 pub mod interfacebox;
+pub mod monitor;
 // pub mod file;
 // pub mod quizevent;
 // pub mod pingmsg;
