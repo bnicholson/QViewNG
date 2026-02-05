@@ -138,62 +138,59 @@ async fn get_by_id_works() {
     assert_eq!(resp_jumppad.color, jumppad.color);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let original_jumppad = 
-//         fixtures::jumppads::arrange_update_works_integration_test(&mut conn);
+    let original_jumppad = 
+        fixtures::jumppads::arrange_update_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let new_brand = "NEW Brand".to_string();
-//     let new_operating_system = "NEW OS".to_string();
-//     let new_misc_note = "NEW NOTE".to_string();
+    let new_color = "turquoise".to_string();
+    let new_misc_note = "Ah, yes".to_string();
 
-//     let put_payload = json!({
-//         "brand": &new_brand,
-//         "operating_system": &new_operating_system,
-//         "misc_note": &new_misc_note
-//     });
+    let put_payload = json!({
+        "color": &new_color,
+        "misc_note": &new_misc_note
+    });
     
-//     let put_uri = format!("/api/equipment/jumppads/{}", original_jumppad.equipmentid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/equipment/jumppads/{}", original_jumppad.equipmentid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<JumpPad> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<JumpPad> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_jumppad = put_resp_body.data.unwrap();
-//     assert_eq!(new_jumppad.jumppadid, original_jumppad.jumppadid);
-//     assert_eq!(new_jumppad.brand, new_brand);
-//     assert_eq!(new_jumppad.operating_system, new_operating_system);
-//     assert_eq!(new_jumppad.misc_note.unwrap(), new_misc_note);
-//     assert_ne!(new_jumppad.created_at, new_jumppad.updated_at);
+    let new_jumppad = put_resp_body.data.unwrap();
+    assert_eq!(new_jumppad.jumppadid, original_jumppad.jumppadid);
+    assert_eq!(new_jumppad.color, new_color);
+    assert_eq!(new_jumppad.misc_note.unwrap(), new_misc_note);
+    assert_ne!(new_jumppad.created_at, new_jumppad.updated_at);
 
-//     let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_jumppad.equipmentid).unwrap();
-//     assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
-// }
+    let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_jumppad.equipmentid).unwrap();
+    assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
