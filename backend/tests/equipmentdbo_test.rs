@@ -143,47 +143,35 @@ async fn update_works() {
     assert_eq!(equipment_dbo.misc_note, put_payload.misc_note);
 }
 
-// #[actix_web::test]
-// async fn delete_works() {
+#[actix_web::test]
+async fn delete_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let equipment = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
+    let equipment = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    // Act:
     
-//     let delete_uri = format!("/api/equipmentdbos/{}", equipment.id);
-//     let delete_req = test::TestRequest::delete()
-//         .uri(&delete_uri)
-//         .to_request();
+    let equipment_dbo_result = models::equipment_dbo::delete(&mut conn, equipment.id);   
 
-//     // Act:
+    // Assert:
     
-//     let delete_resp = test::call_service(&app, delete_req).await;
+    assert!(equipment_dbo_result.is_ok());
+    let equipment_dbo_delete_count = equipment_dbo_result.unwrap();
+    assert_eq!(equipment_dbo_delete_count, 1);
 
-//     // Assert:
-    
-//     assert_eq!(delete_resp.status(), StatusCode::OK);
+    // Check DB if it shows the correct number of equipment records after deletion:
+    let pagination = PaginationParams {
+        page: 0,
+        page_size: PAGE_SIZE,
+    };
+    let get_result = models::equipment_dbo::read_all(&mut conn, &pagination);  
+    assert!(get_result.is_ok());  
 
-//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-//     assert_eq!(&delete_resp_body_string, "");
-
-
-//     let get_by_id_uri = format!("/api/equipmentdbos/{}", equipment.id);
-//     let get_by_id_req = test::TestRequest::get()
-//         .uri(&get_by_id_uri)
-//         .to_request();
-
-//     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
-
-//     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-// }
+    let equipment_dbo_vec = get_result.unwrap();
+    assert_eq!(equipment_dbo_vec.len(), 0);
+}
