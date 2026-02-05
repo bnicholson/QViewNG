@@ -140,61 +140,61 @@ async fn get_by_id_works() {
     assert_eq!(resp_monitor.brand, monitor.brand);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let original_monitor = 
-//         fixtures::monitors::arrange_update_works_integration_test(&mut conn);
+    let original_monitor = 
+        fixtures::monitors::arrange_update_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let new_type_ = "LPT".to_string();
-//     let new_serial_number = "TTTuuuTTT".to_string();
-//     let new_misc_note = "Ah, yes".to_string();
+    let new_size = "19 inches".to_string();
+    let new_brand = "Lenovo".to_string();
+    let new_misc_note = "Ah, something new!".to_string();
 
-//     let put_payload = json!({
-//         "type_": &new_type_,
-//         "serial_number": &new_serial_number,
-//         "misc_note": &new_misc_note
-//     });
+    let put_payload = json!({
+        "size": &new_size,
+        "brand": &new_brand,
+        "misc_note": &new_misc_note
+    });
     
-//     let put_uri = format!("/api/equipment/monitors/{}", original_monitor.equipmentid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/equipment/monitors/{}", original_monitor.equipmentid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<Monitor> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<Monitor> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_monitor = put_resp_body.data.unwrap();
-//     assert_eq!(new_monitor.type_, new_type_);
-//     assert_eq!(new_monitor.serial_number.unwrap(), new_serial_number);
-//     assert_eq!(new_monitor.misc_note.unwrap(), new_misc_note);
-//     assert_ne!(new_monitor.created_at, new_monitor.updated_at);
+    let new_monitor = put_resp_body.data.unwrap();
+    assert_eq!(new_monitor.size, new_size);
+    assert_eq!(new_monitor.brand, new_brand);
+    assert_eq!(new_monitor.misc_note.unwrap(), new_misc_note);
+    assert_ne!(new_monitor.created_at, new_monitor.updated_at);
 
-//     let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_monitor.equipmentid).unwrap();
-//     assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
-// }
+    let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_monitor.equipmentid).unwrap();
+    assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
