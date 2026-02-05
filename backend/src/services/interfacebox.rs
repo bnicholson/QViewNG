@@ -73,27 +73,27 @@ async fn create(
     }
 }
 
-// #[put("/{id}")]
-// async fn update(
-//     db: Data<Database>,
-//     item_id: Path<i64>,
-//     Json(item): Json<InterfaceBoxChangeSet>,
-// ) -> Result<HttpResponse, Error> {
+#[put("/{id}")]
+async fn update(
+    db: Data<Database>,
+    item_id: Path<i64>,
+    Json(item): Json<InterfaceBoxChangeSet>,
+) -> Result<HttpResponse, Error> {
 
-//     let mut db = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-//     tracing::debug!("{} InterfaceBox model update {:?} {:?}", line!(), item_id, item); 
+    tracing::debug!("{} InterfaceBox model update {:?} {:?}", line!(), item_id, item); 
 
-//     let result = models::interfacebox::update(&mut db, item_id.into_inner(), &item);
+    let result = models::interfacebox::update(&mut db, item_id.into_inner(), &item);
 
-//     let response = process_response(result, "put");
+    let response = process_response(result, "put");
     
-//     match response.code {
-//         409 => Ok(HttpResponse::Conflict().json(response)),
-//         200 => Ok(HttpResponse::Ok().json(response)),
-//         _ => Ok(HttpResponse::InternalServerError().json(response))
-//     }
-// }
+    match response.code {
+        409 => Ok(HttpResponse::Conflict().json(response)),
+        200 => Ok(HttpResponse::Ok().json(response)),
+        _ => Ok(HttpResponse::InternalServerError().json(response))
+    }
+}
 
 // #[delete("/{id}")]
 // async fn destroy(
@@ -119,6 +119,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(create)
-        // .service(update)
+        .service(update)
         // .service(destroy);
 }
