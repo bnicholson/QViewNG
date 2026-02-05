@@ -2,13 +2,8 @@
 mod common;
 mod fixtures;
 
-use actix_http::StatusCode;
-use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::{EquipmentChangesetDbo, EquipmentDbo}}};
-use backend::routes::configure_routes;
-use backend::services::common::EntityResponse;
-use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::{EquipmentDbo, EquipmentDboChangeset}}};
+use crate::common::{PAGE_SIZE, TEST_DB_URL, clean_database};
 
 #[actix_web::test]
 async fn create_works() {
@@ -127,7 +122,7 @@ async fn update_works() {
 
     let new_misc_note = "NEW Misc Note".to_string();
 
-    let put_payload = EquipmentChangesetDbo {
+    let put_payload = EquipmentDboChangeset {
         misc_note: Some(new_misc_note),
         equipmentsetid: None,
     };

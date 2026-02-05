@@ -201,43 +201,11 @@ pub struct NewEquipmentDbo {
     pub misc_note: Option<String>,
     pub equipmentsetid: i64,
 }
-// impl NewEquipmentDbo {
-//     pub fn validate(&self) -> Result<(), Vec<String>> {
-//         let mut errors = Vec::new();
-
-//         let mut equipment_type_id_counter = 0;
-//         for equipment_type_id in [
-//             &self.computerid,
-//             &self.jumppadid,
-//             &self.interfaceboxid,
-//             &self.monitorid,
-//             &self.microphonerecorderid,
-//             &self.projectorid,
-//             &self.powerstripid,
-//             &self.extensioncordid,
-//         ] {
-//             if equipment_type_id.is_some() {
-//                 equipment_type_id_counter += 1;
-//             }
-//         }
-//         if equipment_type_id_counter != 1 {
-//             errors.push("exactly one equipment type ID is required".to_string());
-//         }
-
-//         if self.misc_note.is_none() {
-//             errors.push("misc_note is required".to_string());
-//         }
-//         if !errors.is_empty() {
-//             return Err(errors);
-//         }
-//         Ok(())
-//     }
-// }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::equipment)]
 #[diesel(primary_key(id))]
-pub struct EquipmentChangesetDbo {
+pub struct EquipmentDboChangeset {
     pub misc_note: Option<String>,
     pub equipmentsetid: Option<i64>,
 }
@@ -274,7 +242,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<EquipmentDbo>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: i64, item: &EquipmentChangesetDbo) -> QueryResult<EquipmentDbo> {
+pub fn update(db: &mut database::Connection, item_id: i64, item: &EquipmentDboChangeset) -> QueryResult<EquipmentDbo> {
     use crate::schema::equipment::dsl::*;
     diesel::update(equipment.filter(id.eq(item_id)))
         .set((

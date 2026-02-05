@@ -109,6 +109,7 @@ async fn destroy(
     if result.is_ok() {
         HttpResponse::Ok().finish()
     } else {
+        println!("Errored delete result: {:?}",result);
         HttpResponse::InternalServerError().finish()
     }
 }

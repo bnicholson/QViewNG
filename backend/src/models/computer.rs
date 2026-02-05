@@ -1,9 +1,9 @@
 
-use crate::database;
+use crate::{database, models};
 use crate::models::common::PaginationParams;
-// use crate::models::equipment::EquipmentBuilder;
-use diesel::prelude::*;
-use diesel::*;
+use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset, NewEquipmentDbo};
+use diesel::dsl::insert_into;
+use diesel::{prelude::*, result};
 use diesel::{QueryResult,AsChangeset,Insertable};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -11,7 +11,7 @@ use chrono::{Utc,DateTime};
 
 #[derive(Debug, Clone)]
 pub struct ComputerBuilder {
-    // equipmentsetid: i64,
+    equipmentsetid: i64,
     brand: Option<String>,
     operating_system: Option<String>,
     quizmachine_version: Option<String>,
@@ -23,14 +23,13 @@ pub struct ComputerBuilder {
     has_hdmi_out_port: Option<bool>,
     has_display_port_out: Option<bool>,
     has_usb_port: Option<bool>,
-    // misc_note: Option<String>,
+    misc_note: Option<String>,
 }
 
 impl ComputerBuilder {
-    // pub fn new(equipmentsetid: i64) -> Self {
-    pub fn new() -> Self {
+    pub fn new(equipmentsetid: i64) -> Self {
         Self {
-            // equipmentsetid,
+            equipmentsetid,
             brand: None,
             operating_system: None,
             quizmachine_version: None,
@@ -42,13 +41,12 @@ impl ComputerBuilder {
             has_hdmi_out_port: None,
             has_display_port_out: None,
             has_usb_port: None,
-            // misc_note: None,
+            misc_note: None,
         }
     }
-    // pub fn new_default(equipmentsetid: i64) -> Self {
-    pub fn new_default() -> Self {
+    pub fn new_default(equipmentsetid: i64) -> Self {
         Self {
-            // equipmentsetid,
+            equipmentsetid,
             brand: Some(String::new()),
             operating_system: Some(String::new()),
             quizmachine_version: Some(String::new()),
@@ -60,8 +58,12 @@ impl ComputerBuilder {
             has_hdmi_out_port: Some(false),
             has_display_port_out: Some(false),
             has_usb_port: Some(false),
-            // misc_note: None,
+            misc_note: None,
         }
+    }
+    pub fn set_equipmentsetid(mut self, equipmentsetid: i64) -> Self {
+        self.equipmentsetid = equipmentsetid;
+        self
     }
     pub fn set_brand(mut self, brand: Option<String>) -> Self {
         self.brand = brand;
@@ -107,10 +109,10 @@ impl ComputerBuilder {
         self.has_usb_port = has_usb_port;
         self
     }
-    // pub fn set_misc_note(mut self, misc_note: Option<String>) -> Self {
-    //     self.misc_note = misc_note;
-    //     self
-    // }
+    pub fn set_misc_note(mut self, misc_note: Option<String>) -> Self {
+        self.misc_note = misc_note;
+        self
+    }
     fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
 
@@ -147,9 +149,6 @@ impl ComputerBuilder {
         if self.has_usb_port.is_none() {
             errors.push("has_usb_port is required".to_string());
         }
-        // if self.misc_note.is_none() {
-        //     errors.push("misc_note is required".to_string());
-        // }
 
         if !errors.is_empty() {
             return Err(errors);
@@ -164,7 +163,7 @@ impl ComputerBuilder {
             Ok(_) => {
                 Ok(
                     NewComputer {
-                        // equipmentsetid: self.equipmentsetid,
+                        equipmentsetid: self.equipmentsetid,
                         brand: self.brand.unwrap(),
                         operating_system: self.operating_system.unwrap(),
                         quizmachine_version: self.quizmachine_version.unwrap(),
@@ -176,28 +175,39 @@ impl ComputerBuilder {
                         has_hdmi_out_port: self.has_hdmi_out_port.unwrap(),
                         has_display_port_out: self.has_display_port_out.unwrap(),
                         has_usb_port: self.has_usb_port.unwrap(),
-                        // misc_note: self.misc_note,
+                        misc_note: self.misc_note,
                     }
                 )
             }
         }
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Computer> {
-        // let equipmentsetid = self.equipmentsetid;
-        // let misc_note = self.clone().misc_note.unwrap();
-
         let new_computer = self.build();
         create(db, &new_computer.unwrap())
-        // let computer_dbo = create(db, &new_computer_dbo.unwrap()).unwrap();
+    }
+}
 
-        // EquipmentBuilder::new()
-        //     .set_computerid(Some(computer_dbo.computerid))
-        //     .set_misc_note(Some(misc_note))
-        //     .set_equipmentsetid(Some(equipmentsetid))
-        //     .build_and_insert(db)
-        //     .unwrap();
 
-        // Ok(computer_dbo)
+pub fn covert_to_model_from_dbos(computer_dbo: ComputerDbo, equipment_dbo: EquipmentDbo) -> Computer {
+    Computer {
+        computerid: computer_dbo.computerid,
+        brand: computer_dbo.brand,
+        operating_system: computer_dbo.operating_system,
+        quizmachine_version: computer_dbo.quizmachine_version,
+        wifi_capabilities: computer_dbo.wifi_capabilities,
+        login_username: computer_dbo.login_username,
+        login_password: computer_dbo.login_password,
+        has_vga_out_port: computer_dbo.has_vga_out_port,
+        has_dvi_out_port: computer_dbo.has_dvi_out_port,
+        has_hdmi_out_port: computer_dbo.has_hdmi_out_port,
+        has_display_port_out: computer_dbo.has_display_port_out,
+        has_usb_port: computer_dbo.has_usb_port,
+
+        equipmentid: equipment_dbo.id,
+        equipmentsetid: equipment_dbo.equipmentsetid,
+        misc_note: equipment_dbo.misc_note,
+        created_at: equipment_dbo.created_at,
+        updated_at: equipment_dbo.updated_at,
     }
 }
 
@@ -232,11 +242,11 @@ struct ComputerDbo {
     pub updated_at: DateTime<Utc>,
 }
 impl ComputerDbo {
-    pub fn to_model(&self) -> Computer {
+    pub fn to_model(&self, equipment_dbo: EquipmentDbo) -> Computer {
         Computer {
-            // equipmentid: 0, // to be filled in later
+            equipmentid: equipment_dbo.id,
             computerid: self.computerid,
-            // equipmentsetid: 0, // to be filled in later
+            equipmentsetid: equipment_dbo.equipmentsetid,
             brand: self.brand.clone(),
             operating_system: self.operating_system.clone(),
             quizmachine_version: self.quizmachine_version.clone(),
@@ -248,7 +258,7 @@ impl ComputerDbo {
             has_hdmi_out_port: self.has_hdmi_out_port,
             has_display_port_out: self.has_display_port_out,
             has_usb_port: self.has_usb_port,
-            // misc_note: None, // to be filled in later
+            misc_note: equipment_dbo.misc_note,
             created_at: self.created_at,
             updated_at: self.updated_at,
         }
@@ -262,9 +272,9 @@ impl ComputerDbo {
     Clone
 )]
 pub struct Computer {
-    // pub equipmentid: i64,
+    pub equipmentid: i64,
     pub computerid: i64,
-    // pub equipmentsetid: i64,
+    pub equipmentsetid: i64,
     pub brand: String,
     pub operating_system: String,
     pub quizmachine_version: String,
@@ -276,7 +286,7 @@ pub struct Computer {
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
     pub has_usb_port: bool,
-    // pub misc_note: Option<String>,
+    pub misc_note: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -322,9 +332,9 @@ struct NewComputerDbo {
     pub has_usb_port: bool,
 }
 impl NewComputerDbo {
-    fn to_model(&self) -> NewComputer {
+    fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewComputer {
         NewComputer {
-            // equipmentsetid: 0, // to be filled in later
+            equipmentsetid: new_equipment_dbo.equipmentsetid,
             brand: self.brand.clone(),
             operating_system: self.operating_system.clone(),
             quizmachine_version: self.quizmachine_version.clone(),
@@ -336,7 +346,7 @@ impl NewComputerDbo {
             has_hdmi_out_port: self.has_hdmi_out_port,
             has_display_port_out: self.has_display_port_out,
             has_usb_port: self.has_usb_port,
-            // misc_note: None, // to be filled in later
+            misc_note: new_equipment_dbo.misc_note,
         }
     }
 }
@@ -348,7 +358,7 @@ impl NewComputerDbo {
     Clone
 )]
 pub struct NewComputer {
-    // pub equipmentsetid: i64,
+    pub equipmentsetid: i64,
     pub brand: String,
     pub operating_system: String,
     pub quizmachine_version: String,
@@ -360,7 +370,7 @@ pub struct NewComputer {
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
     pub has_usb_port: bool,
-    // pub misc_note: Option<String>,
+    pub misc_note: Option<String>,
 }
 impl NewComputer {
     fn to_dbo(&self) -> NewComputerDbo {
@@ -419,37 +429,62 @@ pub struct ComputerChangeSet {
     pub misc_note: Option<String>,
 }
 impl ComputerChangeSet {
-    fn to_dbo(&self) -> ComputerDboChangeset {
-        ComputerDboChangeset {
-            brand: self.brand.clone(),
-            operating_system: self.operating_system.clone(),
-            quizmachine_version: self.quizmachine_version.clone(),
-            wifi_capabilities: self.wifi_capabilities.clone(),
-            login_username: self.login_username.clone(),
-            login_password: self.login_password.clone(),
-            has_vga_out_port: self.has_vga_out_port,
-            has_dvi_out_port: self.has_dvi_out_port,
-            has_hdmi_out_port: self.has_hdmi_out_port,
-            has_display_port_out: self.has_display_port_out,
-            has_usb_port: self.has_usb_port,
-        }
+    fn to_dbos(&self) -> (ComputerDboChangeset, EquipmentDboChangeset) {
+        let clone_of_self = self.clone();
+        (
+            ComputerDboChangeset {
+                brand: self.brand.clone(),
+                operating_system: self.operating_system.clone(),
+                quizmachine_version: self.quizmachine_version.clone(),
+                wifi_capabilities: self.wifi_capabilities.clone(),
+                login_username: self.login_username.clone(),
+                login_password: self.login_password.clone(),
+                has_vga_out_port: self.has_vga_out_port,
+                has_dvi_out_port: self.has_dvi_out_port,
+                has_hdmi_out_port: self.has_hdmi_out_port,
+                has_display_port_out: self.has_display_port_out,
+                has_usb_port: self.has_usb_port,
+            },
+            EquipmentDboChangeset {
+                misc_note: clone_of_self.misc_note,
+                equipmentsetid: clone_of_self.equipmentsetid
+            }
+        )
     }
 }
 
 pub fn create(db: &mut database::Connection, item: &NewComputer) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
 
+    let misc_note = item.clone().misc_note;
+    let equipmentsetid = item.equipmentsetid;
     let new_computer_dbo = item.to_dbo();
 
-    let computer_dbo_result = insert_into(computers)
-        .values(new_computer_dbo)
-        .get_result::<ComputerDbo>(db);
+    let computer_dbo_result = 
+        insert_into(computers)
+            .values(new_computer_dbo)
+            .get_result::<ComputerDbo>(db);
 
     if computer_dbo_result.is_err() {
         return Err(computer_dbo_result.err().unwrap());
     }
 
-    Ok(computer_dbo_result.unwrap().to_model())
+    let computer_dbo = computer_dbo_result.unwrap();
+
+    let equipment_dbo_result  = 
+        EquipmentDboBuilder::new()
+            .set_computerid(Some(computer_dbo.computerid))
+            .set_misc_note(misc_note)
+            .set_equipmentsetid(Some(equipmentsetid))
+            .build_and_insert(db);
+
+    if equipment_dbo_result.is_err() {
+        return Err(equipment_dbo_result.err().unwrap());
+    }
+
+    let equipment_dbo = equipment_dbo_result.unwrap();
+
+    Ok(computer_dbo.to_model(equipment_dbo))
 }
 
 
@@ -461,66 +496,144 @@ pub fn exists(db: &mut database::Connection, computer_id: i64) -> bool {
         .is_ok()
 }
 
-pub fn read(db: &mut database::Connection, item_id: i64) -> QueryResult<Computer> {
+pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
+
+    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_dbo_id);
+
+    if equipment_dbo_result.is_err() {
+        return Err(equipment_dbo_result.err().unwrap());
+    }
+
+    let equipment_dbo = equipment_dbo_result.unwrap();
+
+    if equipment_dbo.computerid.is_none() {
+        println!("EquipmentDbo of ID {} has no computerid. Could not retrieve computer from DB.", equipment_dbo.id);
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: EquipmentDbo of ID {} has no computerid. Could not retrieve computer from DB.", equipment_dbo.id).into()
+        ));
+    }
 
     let computer_dbo_result = 
         computers
-            .filter(computerid.eq(item_id))
+            .filter(computerid.eq(equipment_dbo.computerid.unwrap()))
             .first::<ComputerDbo>(db);
     
     if computer_dbo_result.is_err() {
         return Err(computer_dbo_result.err().unwrap());
     }
     
-    Ok(computer_dbo_result.unwrap().to_model())
+    Ok(computer_dbo_result.unwrap().to_model(equipment_dbo))
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Computer>> {
     use crate::schema::computers::dsl::*;
+    use crate::schema::equipment::dsl::*;
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
-    let computer_dbo_result =
-        computers
-            .order(created_at)
+    let tuple_result: Result<Vec<(EquipmentDbo, ComputerDbo)>, result::Error> =
+        equipment
+            .inner_join(computers)
+            .order(crate::schema::computers::dsl::computerid)
             .limit(page_size)
             .offset(offset_val)
-            .load::<ComputerDbo>(db);
+            .load::<(EquipmentDbo, ComputerDbo)>(db);
     
-    if computer_dbo_result.is_err() {
-        return Err(computer_dbo_result.err().unwrap());
+    if tuple_result.is_err() {
+        return Err(tuple_result.err().unwrap());
     }
 
     Ok(
-        computer_dbo_result
+        tuple_result
             .unwrap()
             .into_iter()
-            .map(|c| c.to_model())
+            .map(|c: (EquipmentDbo, ComputerDbo)| c.1.to_model(c.0))
             .collect()
     )
 }
 
-pub fn update(db: &mut database::Connection, item_id: i64, item: &ComputerChangeSet) -> QueryResult<Computer> {
+pub fn update(db: &mut database::Connection, equipment_id: i64, item: &ComputerChangeSet) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
 
+    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_id);
+
+    if equipment_dbo_result.is_err() {
+        return Err(equipment_dbo_result.err().unwrap());
+    }
+
+    let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
+
+    let (computer_dbo_changeset, equipment_dbo_changeset) = item.to_dbos();
+
+    if equipment_dbo.computerid.is_none() {
+        println!("EquipmentDbo's computerid is none. Computer could not be updated.");
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: EquipmentDbo's computerid is none. Computer could not be updated.").into()
+        ));
+    }
+
     let computer_dbo_result = 
-        diesel::update(computers.filter(computerid.eq(item_id)))
-            .set((
-                item.to_dbo(),
-                updated_at.eq(diesel::dsl::now),
-            ))
+        diesel::update(
+            computers
+                .filter(computerid.eq(equipment_dbo.computerid.unwrap())))
+                .set((
+                    computer_dbo_changeset,
+                    updated_at.eq(diesel::dsl::now),
+                )
+        )
             .get_result::<ComputerDbo>(db);
 
     if computer_dbo_result.is_err() {
         return Err(computer_dbo_result.err().unwrap());
     }
 
-    Ok(computer_dbo_result.unwrap().to_model())
+    let equipment_dbo_result = 
+        models::equipment_dbo::update(db, equipment_dbo.id, &equipment_dbo_changeset);
+
+    if equipment_dbo_result.is_err() {
+        return Err(computer_dbo_result.err().unwrap());
+    }
+
+    Ok(
+        covert_to_model_from_dbos(
+            computer_dbo_result.unwrap(), 
+            equipment_dbo_result.unwrap()
+        )
+    )
 }
 
-pub fn delete(db: &mut database::Connection, item_id: i64) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(usize, usize)> {
     use crate::schema::computers::dsl::*;
-    diesel::delete(computers.filter(computerid.eq(item_id))).execute(db)
+
+    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_id);
+
+    if equipment_dbo_result.is_err() {
+        return Err(equipment_dbo_result.err().unwrap());
+    }
+
+    let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
+
+    if equipment_dbo.computerid.is_none() {
+        println!("EquipmentDbo's computerid is none. Computer could not be updated.");
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: EquipmentDbo's computerid is none. Computer could not be updated.").into()
+        ));
+    }
+
+    let equipment_dbo_delete_result = models::equipment_dbo::delete(db, equipment_id);
+
+    if equipment_dbo_delete_result.is_err() {
+        return Err(equipment_dbo_delete_result.err().unwrap());
+    }
+
+    let computer_delete_result = 
+        diesel::delete(computers.filter(computerid.eq(equipment_dbo.computerid.unwrap()))).execute(db);
+
+    if computer_delete_result.is_err() {
+        return Err(computer_delete_result.err().unwrap());
+    }
+
+    Ok((computer_delete_result.unwrap(), equipment_dbo_delete_result.unwrap()))
 }

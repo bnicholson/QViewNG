@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::database::Database;
+use backend::{database::Database, models};
 use backend::models::computer::Computer;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -48,6 +48,8 @@ async fn create_works() {
     let computer = body.data.unwrap();
     assert_eq!(computer.brand, payload.brand);  // from ComputerDbo ("computers" table)
     assert_eq!(computer.operating_system, payload.operating_system);  // from ComputerDbo ("computers" table)
+    assert_eq!(computer.equipmentsetid, payload.equipmentsetid);  // from EquipmentDbo ("equipment" table)
+    assert_eq!(computer.misc_note, payload.misc_note);  // from EquipmentDbo ("equipment" table)
 }
 
 #[actix_web::test]
@@ -120,7 +122,7 @@ async fn get_by_id_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/equipment/computers/{}", &computer.computerid);
+    let uri = format!("/api/equipment/computers/{}", &computer.equipmentid);
     println!("Computers Get by ID URI: {}", &uri);
     let req = test::TestRequest::get()
         .uri(uri.as_str())
@@ -158,13 +160,15 @@ async fn update_works() {
 
     let new_brand = "NEW Brand".to_string();
     let new_operating_system = "NEW OS".to_string();
+    let new_misc_note = "NEW NOTE".to_string();
 
     let put_payload = json!({
         "brand": &new_brand,
         "operating_system": &new_operating_system,
+        "misc_note": &new_misc_note
     });
     
-    let put_uri = format!("/api/equipment/computers/{}", original_computer.computerid);
+    let put_uri = format!("/api/equipment/computers/{}", original_computer.equipmentid);
     let put_req = test::TestRequest::put()
         .uri(&put_uri)
         .set_json(&put_payload)
@@ -186,7 +190,11 @@ async fn update_works() {
     assert_eq!(new_computer.computerid, original_computer.computerid);
     assert_eq!(new_computer.brand, new_brand);
     assert_eq!(new_computer.operating_system, new_operating_system);
+    assert_eq!(new_computer.misc_note.unwrap(), new_misc_note);
     assert_ne!(new_computer.created_at, new_computer.updated_at);
+
+    let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_computer.equipmentid).unwrap();
+    assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
 }
 
 #[actix_web::test]
@@ -206,7 +214,7 @@ async fn delete_works() {
             .configure(configure_routes)
     ).await;
     
-    let delete_uri = format!("/api/equipment/computers/{}", computer.computerid);
+    let delete_uri = format!("/api/equipment/computers/{}", computer.equipmentid);
     let delete_req = test::TestRequest::delete()
         .uri(&delete_uri)
         .to_request();
@@ -224,7 +232,7 @@ async fn delete_works() {
     assert_eq!(&delete_resp_body_string, "");
 
 
-    let get_by_id_uri = format!("/api/equipment/computers/{}", computer.computerid);
+    let get_by_id_uri = format!("/api/equipment/computers/{}", computer.equipmentid);
     let get_by_id_req = test::TestRequest::get()
         .uri(&get_by_id_uri)
         .to_request();

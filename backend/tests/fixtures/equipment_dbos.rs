@@ -12,7 +12,7 @@ pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> N
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    let computer = ComputerBuilder::new_default()
+    let computer = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
     EquipmentDboBuilder::new_default()
@@ -34,10 +34,10 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    let computer_1 = ComputerBuilder::new_default()
+    let computer_1 = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
-    let computer_2 = ComputerBuilder::new_default()
+    let computer_2 = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
     (
@@ -67,10 +67,10 @@ pub fn arrange_get_equipment_by_id_works_integration_test(db: &mut database::Con
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    let computer_1 = ComputerBuilder::new_default()
+    let computer_1 = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
-    let computer_2 = ComputerBuilder::new_default()
+    let computer_2 = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
     EquipmentDboBuilder::new_default()
@@ -98,7 +98,7 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> E
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    let computer = ComputerBuilder::new_default()
+    let computer = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
     EquipmentDboBuilder::new_default()
@@ -120,7 +120,7 @@ pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> E
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    let computer = ComputerBuilder::new_default()
+    let computer = ComputerBuilder::new_default(equipment_set.id)
         .build_and_insert(db)
         .unwrap();
     EquipmentDboBuilder::new_default()
