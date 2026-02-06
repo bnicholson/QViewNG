@@ -2,11 +2,10 @@ use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data,
 use serde_json::json;
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, room::{NewRoom, Room, RoomChangeset}, tournament::Tournament};
-use crate::schema::rooms::dsl::{rooms as rooms_table,tid as room_tid};
-use crate::schema::tournaments::dsl::{tid as tournament_tid, tournaments as tournaments_table};
+use crate::schema::tournaments::dsl::{tournaments as tournaments_table};
 use crate::services::common::{EntityResponse, process_response};
-use utoipa::OpenApi;
-use diesel::{QueryDsl, QueryResult, RunQueryDsl, dsl::{exists,select}};
+// use utoipa::OpenApi;
+use diesel::{QueryDsl, QueryResult, RunQueryDsl};
 use uuid::Uuid;
 
 // #[derive(OpenApi)]

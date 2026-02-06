@@ -1,7 +1,7 @@
 
 use crate::{database, models};
 use crate::models::common::PaginationParams;
-use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset, NewEquipmentDbo};
+use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset};
 use diesel::dsl::insert_into;
 use diesel::{prelude::*, result};
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -129,16 +129,6 @@ pub struct JumpPad {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-impl JumpPad {
-    pub fn to_dbo(&self) -> JumpPadDbo {
-        JumpPadDbo {
-            jumppadid: self.jumppadid.clone(),
-            color: self.color.clone(),
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        }
-    }
-}
 
 #[derive(
     Insertable,
@@ -149,15 +139,6 @@ impl JumpPad {
 #[diesel(table_name = crate::schema::jumppads)]
 struct NewJumpPadDbo {
     pub color: String,
-}
-impl NewJumpPadDbo {
-    fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewJumpPad {
-        NewJumpPad {
-            equipmentsetid: new_equipment_dbo.equipmentsetid,
-            color: self.color.clone(),
-            misc_note: new_equipment_dbo.misc_note,
-        }
-    }
 }
 
 #[derive(
@@ -214,7 +195,7 @@ impl JumpPadChangeSet {
     }
 }
 
-pub fn covert_to_model_from_dbos(jumppad_dbo: JumpPadDbo, equipment_dbo: EquipmentDbo) -> JumpPad {
+fn covert_to_model_from_dbos(jumppad_dbo: JumpPadDbo, equipment_dbo: EquipmentDbo) -> JumpPad {
     JumpPad {
         jumppadid: jumppad_dbo.jumppadid,
         color: jumppad_dbo.color,

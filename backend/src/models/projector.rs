@@ -10,8 +10,7 @@ use utoipa::ToSchema;
 use chrono::{Utc,DateTime};
 
 #[derive(Debug, Clone)]
-pub struct MonitorBuilder {
-    size: Option<String>,
+pub struct ProjectorBuilder {
     brand: Option<String>,
     has_vga_out_port: Option<bool>,
     has_dvi_out_port: Option<bool>,
@@ -22,10 +21,9 @@ pub struct MonitorBuilder {
     misc_note: Option<String>,
 }
 
-impl MonitorBuilder {
+impl ProjectorBuilder {
     pub fn new(equipmentsetid: i64) -> Self {
         Self {
-            size: None,
             brand: None,
             has_vga_out_port: None,
             has_dvi_out_port: None,
@@ -38,7 +36,6 @@ impl MonitorBuilder {
     }
     pub fn new_default(equipmentsetid: i64) -> Self {
         Self {
-            size: None,
             brand: None,
             has_vga_out_port: Some(false),
             has_dvi_out_port: Some(false),
@@ -53,8 +50,8 @@ impl MonitorBuilder {
         self.equipmentsetid = equipmentsetid;
         self
     }
-    pub fn set_size(mut self, size: Option<String>) -> Self {
-        self.size = size;
+    pub fn set_misc_note(mut self, misc_note: Option<String>) -> Self {
+        self.misc_note = misc_note;
         self
     }
     pub fn set_brand(mut self, brand: Option<String>) -> Self {
@@ -77,16 +74,9 @@ impl MonitorBuilder {
         self.has_display_port_out = has_display_port_out;
         self
     }
-    pub fn set_misc_note(mut self, misc_note: Option<String>) -> Self {
-        self.misc_note = misc_note;
-        self
-    }
     fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
 
-        if self.size.is_none() {
-            errors.push("size is required".to_string());
-        }
         if self.brand.is_none() {
             errors.push("brand is required".to_string());
         }
@@ -108,15 +98,14 @@ impl MonitorBuilder {
         }
         Ok(())
     }
-    pub fn build(self) -> Result<NewMonitor, Vec<String>> {
+    pub fn build(self) -> Result<NewProjector, Vec<String>> {
         match self.validate() {
             Err(e) => {
                 Err(e)
             },
             Ok(_) => {
                 Ok(
-                    NewMonitor {
-                        size: self.size.unwrap(),
+                    NewProjector {
                         brand: self.brand.unwrap(),
                         has_vga_out_port: self.has_vga_out_port.unwrap(),
                         has_dvi_out_port: self.has_dvi_out_port.unwrap(),
@@ -130,9 +119,9 @@ impl MonitorBuilder {
             }
         }
     }
-    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Monitor> {
-        let new_monitor = self.build();
-        create(db, &new_monitor.unwrap())
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Projector> {
+        let new_projector = self.build();
+        create(db, &new_projector.unwrap())
     }
 }
 
@@ -148,24 +137,23 @@ impl MonitorBuilder {
     ToSchema
 )]
 #[diesel(check_for_backend(diesel::pg::Pg))]  // this shows which field has incorrect type compared to the schema.rs file
-#[diesel(table_name = crate::schema::monitors)]
+#[diesel(table_name = crate::schema::projectors)]
 #[diesel(primary_key(id))]
-struct MonitorDbo {
+struct ProjectorDbo {
     pub id: i64,
-    pub size: String,
     pub brand: String,
     pub has_vga_out_port: bool,
     pub has_dvi_out_port: bool,
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
+
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-impl MonitorDbo {
-    pub fn to_model(&self, equipment_dbo: EquipmentDbo) -> Monitor {
-        Monitor {
+impl ProjectorDbo {
+    pub fn to_model(&self, equipment_dbo: EquipmentDbo) -> Projector {
+        Projector {
             id: self.id,
-            size: self.size.clone(),
             brand: self.brand.clone(),
             has_vga_out_port: self.has_vga_out_port,
             has_dvi_out_port: self.has_dvi_out_port,
@@ -187,9 +175,8 @@ impl MonitorDbo {
     Deserialize,
     Clone
 )]
-pub struct Monitor {
+pub struct Projector {
     pub id: i64,
-    pub size: String,
     pub brand: String,
     pub has_vga_out_port: bool,
     pub has_dvi_out_port: bool,
@@ -202,6 +189,21 @@ pub struct Monitor {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+// impl Projector {
+//     fn to_dbo(&self) -> ProjectorDbo {
+//         ProjectorDbo {
+//             id: self.id,
+//             brand: self.brand.clone(),
+//             has_vga_out_port: self.has_vga_out_port,
+//             has_dvi_out_port: self.has_dvi_out_port,
+//             has_hdmi_out_port: self.has_hdmi_out_port,
+//             has_display_port_out: self.has_display_port_out,
+
+//             created_at: self.created_at,
+//             updated_at: self.updated_at,
+//         }
+//     }
+// }
 
 #[derive(
     Insertable,
@@ -209,15 +211,28 @@ pub struct Monitor {
     Deserialize,
     Debug
 )]
-#[diesel(table_name = crate::schema::monitors)]
-struct NewMonitorDbo {
-    pub size: String,
+#[diesel(table_name = crate::schema::projectors)]
+struct NewProjectorDbo {
     pub brand: String,
     pub has_vga_out_port: bool,
     pub has_dvi_out_port: bool,
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
 }
+// impl NewProjectorDbo {
+//     fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewProjector {
+//         NewProjector {
+//             brand: self.brand.clone(),
+//             has_vga_out_port: self.has_vga_out_port,
+//             has_dvi_out_port: self.has_dvi_out_port,
+//             has_hdmi_out_port: self.has_hdmi_out_port,
+//             has_display_port_out: self.has_display_port_out,
+
+//             equipmentsetid: new_equipment_dbo.equipmentsetid,
+//             misc_note: new_equipment_dbo.misc_note,
+//         }
+//     }
+// }
 
 #[derive(
     Debug,
@@ -225,8 +240,7 @@ struct NewMonitorDbo {
     Deserialize,
     Clone
 )]
-pub struct NewMonitor {
-    pub size: String,
+pub struct NewProjector {
     pub brand: String,
     pub has_vga_out_port: bool,
     pub has_dvi_out_port: bool,
@@ -236,10 +250,9 @@ pub struct NewMonitor {
     pub equipmentsetid: i64,
     pub misc_note: Option<String>,
 }
-impl NewMonitor {
-    fn to_dbo(&self) -> NewMonitorDbo {
-        NewMonitorDbo {
-            size: self.size.clone(),
+impl NewProjector {
+    fn to_dbo(&self) -> NewProjectorDbo {
+        NewProjectorDbo {
             brand: self.brand.clone(),
             has_vga_out_port: self.has_vga_out_port,
             has_dvi_out_port: self.has_dvi_out_port,
@@ -250,10 +263,9 @@ impl NewMonitor {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::monitors)]
+#[diesel(table_name = crate::schema::projectors)]
 #[diesel(primary_key(id))]
-struct MonitorDboChangeset {
-    pub size: Option<String>,
+struct ProjectorDboChangeset {
     pub brand: Option<String>,
     pub has_vga_out_port: Option<bool>,
     pub has_dvi_out_port: Option<bool>,
@@ -267,8 +279,7 @@ struct MonitorDboChangeset {
     Deserialize,
     Clone
 )]
-pub struct MonitorChangeSet {
-    pub size: Option<String>,
+pub struct ProjectorChangeSet {
     pub brand: Option<String>,
     pub has_vga_out_port: Option<bool>,
     pub has_dvi_out_port: Option<bool>,
@@ -278,12 +289,11 @@ pub struct MonitorChangeSet {
     pub equipmentsetid: Option<i64>,
     pub misc_note: Option<String>,
 }
-impl MonitorChangeSet {
-    fn to_dbos(&self) -> (MonitorDboChangeset, EquipmentDboChangeset) {
+impl ProjectorChangeSet {
+    fn to_dbos(&self) -> (ProjectorDboChangeset, EquipmentDboChangeset) {
         let clone_of_self = self.clone();
         (
-            MonitorDboChangeset {
-                size: self.size.clone(),
+            ProjectorDboChangeset {
                 brand: self.brand.clone(),
                 has_vga_out_port: self.has_vga_out_port,
                 has_dvi_out_port: self.has_dvi_out_port,
@@ -298,45 +308,44 @@ impl MonitorChangeSet {
     }
 }
 
-fn covert_to_model_from_dbos(monitor_dbo: MonitorDbo, equipment_dbo: EquipmentDbo) -> Monitor {
-    Monitor {
-        id: monitor_dbo.id,
-        size: monitor_dbo.size,
-        brand: monitor_dbo.brand,
-        has_vga_out_port: monitor_dbo.has_vga_out_port,
-        has_dvi_out_port: monitor_dbo.has_dvi_out_port,
-        has_hdmi_out_port: monitor_dbo.has_hdmi_out_port,
-        has_display_port_out: monitor_dbo.has_display_port_out,
-
+fn covert_to_model_from_dbos(projector_dbo: ProjectorDbo, equipment_dbo: EquipmentDbo) -> Projector {
+    Projector {
+        id: projector_dbo.id,
+        brand: projector_dbo.brand.clone(),
+        has_vga_out_port: projector_dbo.has_vga_out_port,
+        has_dvi_out_port: projector_dbo.has_dvi_out_port,
+        has_hdmi_out_port: projector_dbo.has_hdmi_out_port,
+        has_display_port_out: projector_dbo.has_display_port_out,
+        
+        created_at: equipment_dbo.created_at,
+        updated_at: equipment_dbo.updated_at,
         equipmentid: equipment_dbo.id,
         equipmentsetid: equipment_dbo.equipmentsetid,
         misc_note: equipment_dbo.misc_note,
-        created_at: equipment_dbo.created_at,
-        updated_at: equipment_dbo.updated_at,
     }
 }
 
-pub fn create(db: &mut database::Connection, item: &NewMonitor) -> QueryResult<Monitor> {
-    use crate::schema::monitors::dsl::*;
+pub fn create(db: &mut database::Connection, item: &NewProjector) -> QueryResult<Projector> {
+    use crate::schema::projectors::dsl::*;
 
     let misc_note = item.clone().misc_note;
     let equipmentsetid = item.equipmentsetid;
-    let new_monitor_dbo = item.to_dbo();
+    let new_projector_dbo = item.to_dbo();
 
-    let monitor_dbo_result = 
-        insert_into(monitors)
-            .values(new_monitor_dbo)
-            .get_result::<MonitorDbo>(db);
+    let projector_dbo_result = 
+        insert_into(projectors)
+            .values(new_projector_dbo)
+            .get_result::<ProjectorDbo>(db);
 
-    if monitor_dbo_result.is_err() {
-        return Err(monitor_dbo_result.err().unwrap());
+    if projector_dbo_result.is_err() {
+        return Err(projector_dbo_result.err().unwrap());
     }
 
-    let monitor_dbo = monitor_dbo_result.unwrap();
+    let projector_dbo = projector_dbo_result.unwrap();
 
     let equipment_dbo_result  = 
         EquipmentDboBuilder::new()
-            .set_monitorid(Some(monitor_dbo.id))
+            .set_projectorid(Some(projector_dbo.id))
             .set_misc_note(misc_note)
             .set_equipmentsetid(Some(equipmentsetid))
             .build_and_insert(db);
@@ -347,20 +356,20 @@ pub fn create(db: &mut database::Connection, item: &NewMonitor) -> QueryResult<M
 
     let equipment_dbo = equipment_dbo_result.unwrap();
 
-    Ok(monitor_dbo.to_model(equipment_dbo))
+    Ok(projector_dbo.to_model(equipment_dbo))
 }
 
 
-pub fn exists(db: &mut database::Connection, monitor_id: i64) -> bool {
-    use crate::schema::monitors::dsl::*;
-    monitors
-        .find(monitor_id)
-        .get_result::<MonitorDbo>(db)
+pub fn exists(db: &mut database::Connection, projector_id: i64) -> bool {
+    use crate::schema::projectors::dsl::*;
+    projectors
+        .find(projector_id)
+        .get_result::<ProjectorDbo>(db)
         .is_ok()
 }
 
-pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<Monitor> {
-    use crate::schema::monitors::dsl::*;
+pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<Projector> {
+    use crate::schema::projectors::dsl::*;
 
     let equipment_dbo_result = models::equipment_dbo::read(db, equipment_dbo_id);
 
@@ -370,39 +379,39 @@ pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult
 
     let equipment_dbo = equipment_dbo_result.unwrap();
 
-    if equipment_dbo.monitorid.is_none() {
-        println!("EquipmentDbo of ID {} has no id. Could not retrieve monitor from DB.", equipment_dbo.id);
+    if equipment_dbo.projectorid.is_none() {
+        println!("EquipmentDbo of ID {} has no id. Could not retrieve projector from DB.", equipment_dbo.id);
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("Error: EquipmentDbo of ID {} has no id. Could not retrieve monitor from DB.", equipment_dbo.id).into()
+            format!("Error: EquipmentDbo of ID {} has no id. Could not retrieve projector from DB.", equipment_dbo.id).into()
         ));
     }
 
-    let monitor_dbo_result = 
-        monitors
-            .filter(id.eq(equipment_dbo.monitorid.unwrap()))
-            .first::<MonitorDbo>(db);
+    let projector_dbo_result = 
+        projectors
+            .filter(id.eq(equipment_dbo.projectorid.unwrap()))
+            .first::<ProjectorDbo>(db);
     
-    if monitor_dbo_result.is_err() {
-        return Err(monitor_dbo_result.err().unwrap());
+    if projector_dbo_result.is_err() {
+        return Err(projector_dbo_result.err().unwrap());
     }
     
-    Ok(monitor_dbo_result.unwrap().to_model(equipment_dbo))
+    Ok(projector_dbo_result.unwrap().to_model(equipment_dbo))
 }
 
-pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Monitor>> {
-    use crate::schema::monitors::dsl::*;
+pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Projector>> {
+    use crate::schema::projectors::dsl::*;
     use crate::schema::equipment::dsl::*;
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
-    let tuple_result: Result<Vec<(EquipmentDbo, MonitorDbo)>, result::Error> =
+    let tuple_result: Result<Vec<(EquipmentDbo, ProjectorDbo)>, result::Error> =
         equipment
-            .inner_join(monitors)
-            .order(crate::schema::monitors::dsl::id)
+            .inner_join(projectors)
+            .order(crate::schema::projectors::dsl::id)
             .limit(page_size)
             .offset(offset_val)
-            .load::<(EquipmentDbo, MonitorDbo)>(db);
+            .load::<(EquipmentDbo, ProjectorDbo)>(db);
     
     if tuple_result.is_err() {
         return Err(tuple_result.err().unwrap());
@@ -412,13 +421,13 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         tuple_result
             .unwrap()
             .into_iter()
-            .map(|c: (EquipmentDbo, MonitorDbo)| c.1.to_model(c.0))
+            .map(|c: (EquipmentDbo, ProjectorDbo)| c.1.to_model(c.0))
             .collect()
     )
 }
 
-pub fn update(db: &mut database::Connection, equipment_id: i64, item: &MonitorChangeSet) -> QueryResult<Monitor> {
-    use crate::schema::monitors::dsl::*;
+pub fn update(db: &mut database::Connection, equipment_id: i64, item: &ProjectorChangeSet) -> QueryResult<Projector> {
+    use crate::schema::projectors::dsl::*;
 
     let equipment_dbo_result = models::equipment_dbo::read(db, equipment_id);
 
@@ -428,47 +437,47 @@ pub fn update(db: &mut database::Connection, equipment_id: i64, item: &MonitorCh
 
     let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
 
-    let (monitor_dbo_changeset, equipment_dbo_changeset) = item.to_dbos();
+    let (projector_dbo_changeset, equipment_dbo_changeset) = item.to_dbos();
 
-    if equipment_dbo.monitorid.is_none() {
-        println!("EquipmentDbo's id is none. Monitor could not be updated.");
+    if equipment_dbo.projectorid.is_none() {
+        println!("EquipmentDbo's id is none. Projector could not be updated.");
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("Error: EquipmentDbo's id is none. Monitor could not be updated.").into()
+            format!("Error: EquipmentDbo's id is none. Projector could not be updated.").into()
         ));
     }
 
-    let monitor_dbo_result = 
+    let projector_dbo_result = 
         diesel::update(
-            monitors
-                .filter(id.eq(equipment_dbo.monitorid.unwrap())))
+            projectors
+                .filter(id.eq(equipment_dbo.projectorid.unwrap())))
                 .set((
-                    monitor_dbo_changeset,
+                    projector_dbo_changeset,
                     updated_at.eq(diesel::dsl::now),
                 )
         )
-            .get_result::<MonitorDbo>(db);
+            .get_result::<ProjectorDbo>(db);
 
-    if monitor_dbo_result.is_err() {
-        return Err(monitor_dbo_result.err().unwrap());
+    if projector_dbo_result.is_err() {
+        return Err(projector_dbo_result.err().unwrap());
     }
 
     let equipment_dbo_result = 
         models::equipment_dbo::update(db, equipment_dbo.id, &equipment_dbo_changeset);
 
     if equipment_dbo_result.is_err() {
-        return Err(monitor_dbo_result.err().unwrap());
+        return Err(projector_dbo_result.err().unwrap());
     }
 
     Ok(
         covert_to_model_from_dbos(
-            monitor_dbo_result.unwrap(), 
+            projector_dbo_result.unwrap(), 
             equipment_dbo_result.unwrap()
         )
     )
 }
 
 pub fn delete(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(usize, usize)> {
-    use crate::schema::monitors::dsl::*;
+    use crate::schema::projectors::dsl::*;
 
     let equipment_dbo_result = models::equipment_dbo::read(db, equipment_id);
 
@@ -478,10 +487,10 @@ pub fn delete(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(
 
     let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
 
-    if equipment_dbo.monitorid.is_none() {
-        println!("EquipmentDbo's id is none. Monitor could not be updated.");
+    if equipment_dbo.projectorid.is_none() {
+        println!("EquipmentDbo's id is none. Projector could not be updated.");
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("Error: EquipmentDbo's id is none. Monitor could not be updated.").into()
+            format!("Error: EquipmentDbo's id is none. Projector could not be updated.").into()
         ));
     }
 
@@ -491,12 +500,12 @@ pub fn delete(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(
         return Err(equipment_dbo_delete_result.err().unwrap());
     }
 
-    let monitor_delete_result = 
-        diesel::delete(monitors.filter(id.eq(equipment_dbo.monitorid.unwrap()))).execute(db);
+    let projector_delete_result = 
+        diesel::delete(projectors.filter(id.eq(equipment_dbo.projectorid.unwrap()))).execute(db);
 
-    if monitor_delete_result.is_err() {
-        return Err(monitor_delete_result.err().unwrap());
+    if projector_delete_result.is_err() {
+        return Err(projector_delete_result.err().unwrap());
     }
 
-    Ok((monitor_delete_result.unwrap(), equipment_dbo_delete_result.unwrap()))
+    Ok((projector_delete_result.unwrap(), equipment_dbo_delete_result.unwrap()))
 }

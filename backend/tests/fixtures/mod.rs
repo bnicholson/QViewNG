@@ -16,3 +16,4 @@ pub mod jumppads;
 pub mod interfaceboxes;
 pub mod monitors;
 pub mod microphonerecorders;
+pub mod projectors;

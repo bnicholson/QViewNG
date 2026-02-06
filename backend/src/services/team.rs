@@ -1,13 +1,11 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{database::Database, models::division::Division};
-use crate::models::{self, common::PaginationParams, team::{NewTeam, Team, TeamChangeset}, tournament::Tournament};
-use crate::schema::teams::dsl::{teams as teams_table,teamid};
-use crate::schema::tournaments::dsl::{tid as tournament_tid, tournaments as tournaments_table};
-use crate::schema::divisions::dsl::{did as division_did, divisions as divisions_table};
+use crate::models::{self, common::PaginationParams, team::{NewTeam, Team, TeamChangeset}};
+use crate::schema::divisions::dsl::{divisions as divisions_table};
 use crate::services::common::{EntityResponse, process_response};
-use utoipa::OpenApi;
-use diesel::{QueryDsl, QueryResult, RunQueryDsl, dsl::{exists,select}};
+// use utoipa::OpenApi;
+use diesel::{QueryDsl, QueryResult, RunQueryDsl};
 use uuid::Uuid;
 
 // #[derive(OpenApi)]

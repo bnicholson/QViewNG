@@ -2,7 +2,6 @@
 use crate::database;
 use crate::models::common::PaginationParams;
 use crate::models::game_statsgroup::GameStatsGroup;
-use crate::schema::rounds::scheduled_question_eight_id;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};

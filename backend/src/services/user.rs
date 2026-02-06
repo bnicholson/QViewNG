@@ -1,10 +1,8 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use serde_json::json;
-use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{NewRosterCoach, RosterCoach, RosterCoachBuilder}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
-use crate::models::{tournament::Tournament,common::PaginationParams};
+use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{RosterCoach, RosterCoachBuilder}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
+use crate::models::common::PaginationParams;
 use crate::database::Database;
-use diesel::{QueryDsl, QueryResult, RunQueryDsl};
-use crate::schema::tournaments::dsl::{tournaments as tournaments_table};
+use diesel::QueryResult;
 use uuid::Uuid;
 
 #[get("")]

@@ -2,7 +2,6 @@
 use crate::database;
 use crate::models::tournament_admin::TournamentAdmin;
 use crate::models::tournamentgroup_tournament::TournamentGroupTournament;
-use crate::schema::tournaments;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable,Queryable};
 use serde::{Deserialize, Serialize};

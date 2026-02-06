@@ -1,5 +1,5 @@
 use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{database::Database, models::{self, common::PaginationParams, roster::{NewRoster, Roster, RosterChangeset}, roster_coach::{NewRosterCoach, RosterCoach}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
+use crate::{database::Database, models::{self, common::PaginationParams, roster::RosterChangeset, roster_coach::{NewRosterCoach, RosterCoach}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
 use crate::services::common::{EntityResponse, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;

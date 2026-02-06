@@ -1,7 +1,7 @@
 
 use crate::{database, models};
 use crate::models::common::PaginationParams;
-use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset, NewEquipmentDbo};
+use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset};
 use diesel::dsl::insert_into;
 use diesel::{prelude::*, result};
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -143,17 +143,6 @@ pub struct InterfaceBox {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-impl InterfaceBox {
-    pub fn to_dbo(&self) -> InterfaceBoxDbo {
-        InterfaceBoxDbo {
-            id: self.id.clone(),
-            type_: self.type_.clone(),
-            serial_number: self.serial_number.clone(),
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        }
-    }
-}
 
 #[derive(
     Insertable,
@@ -165,16 +154,6 @@ impl InterfaceBox {
 struct NewInterfaceBoxDbo {
     pub type_: String,
     pub serial_number: Option<String>,
-}
-impl NewInterfaceBoxDbo {
-    fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewInterfaceBox {
-        NewInterfaceBox {
-            equipmentsetid: new_equipment_dbo.equipmentsetid,
-            type_: self.type_.clone(),
-            serial_number: self.serial_number.clone(),
-            misc_note: new_equipment_dbo.misc_note,
-        }
-    }
 }
 
 #[derive(
@@ -236,7 +215,7 @@ impl InterfaceBoxChangeSet {
     }
 }
 
-pub fn covert_to_model_from_dbos(interfacebox_dbo: InterfaceBoxDbo, equipment_dbo: EquipmentDbo) -> InterfaceBox {
+fn covert_to_model_from_dbos(interfacebox_dbo: InterfaceBoxDbo, equipment_dbo: EquipmentDbo) -> InterfaceBox {
     InterfaceBox {
         id: interfacebox_dbo.id,
         type_: interfacebox_dbo.type_,

@@ -1,7 +1,7 @@
 
 use crate::{database, models};
 use crate::models::common::PaginationParams;
-use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset, NewEquipmentDbo};
+use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset};
 use diesel::dsl::insert_into;
 use diesel::{prelude::*, result};
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -133,17 +133,6 @@ pub struct MicrophoneRecorder {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-impl MicrophoneRecorder {
-    pub fn to_dbo(&self) -> MicrophoneRecorderDbo {
-        MicrophoneRecorderDbo {
-            id: self.id,
-            type_: self.type_.clone(),
-
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        }
-    }
-}
 
 #[derive(
     Insertable,
@@ -154,16 +143,6 @@ impl MicrophoneRecorder {
 #[diesel(table_name = crate::schema::microphonerecorders)]
 struct NewMicrophoneRecorderDbo {
     pub type_: String,
-}
-impl NewMicrophoneRecorderDbo {
-    fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewMicrophoneRecorder {
-        NewMicrophoneRecorder {
-            type_: self.type_.clone(),
-
-            equipmentsetid: new_equipment_dbo.equipmentsetid,
-            misc_note: new_equipment_dbo.misc_note,
-        }
-    }
 }
 
 #[derive(
@@ -220,7 +199,7 @@ impl MicrophoneRecorderChangeSet {
     }
 }
 
-pub fn covert_to_model_from_dbos(microphonerecorder_dbo: MicrophoneRecorderDbo, equipment_dbo: EquipmentDbo) -> MicrophoneRecorder {
+fn covert_to_model_from_dbos(microphonerecorder_dbo: MicrophoneRecorderDbo, equipment_dbo: EquipmentDbo) -> MicrophoneRecorder {
     MicrophoneRecorder {
         id: microphonerecorder_dbo.id,
         type_: microphonerecorder_dbo.type_.clone(),

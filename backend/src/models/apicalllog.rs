@@ -2,7 +2,7 @@ use diesel::{self,AsChangeset,Identifiable,Insertable,Queryable,RunQueryDsl,inse
 use crate::database;
 use serde::{Deserialize, Serialize};
 use crate::models::common::*;
-use actix_web::{delete, HttpRequest, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path}};
+use actix_web::{HttpRequest, web::Data};
 // this import requires this syntax (to appease rustc):
 // use crate::schema::apicalllog::dsl::{created_at,apicallid,method,uri,version,headers};
 use chrono::{Utc,DateTime};
@@ -75,14 +75,17 @@ pub fn apicalllog(req: &HttpRequest) {
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
 fn version2str(req_version: actix_web::http::Version) -> String {
-    match req_version {
-        HTTP_09 => "HTTP/0.9".to_string(),
-        HTTP_10 => "HTTP/1.0".to_string(),
-        HTTP_11 => "HTTP/1.1".to_string(),
-        HTTP_2 =>  "HTTP/2.0".to_string(),
-        HTTP_3 =>  "HTTP/3.0".to_string(),
-        _ => unreachable!(),
-    }
+    "HTTP/0.9".to_string()
+    // Commented out the following because all cases of match statement were resolving to the first arm, 
+    // making the match statement purposeless. ToDo when apicalllog is reintroduced to the backend endpoints.
+    // match req_version {
+    //     HTTP_09 => "HTTP/0.9".to_string(),
+    //     HTTP_10 => "HTTP/1.0".to_string(),
+    //     HTTP_11 => "HTTP/1.1".to_string(),
+    //     HTTP_2 =>  "HTTP/2.0".to_string(),
+    //     HTTP_3 =>  "HTTP/3.0".to_string(),
+    //     _ => unreachable!(),
+    // }
 }
 
 fn headers2str(_headers: &actix_web::http::header::HeaderMap) -> String {

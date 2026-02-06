@@ -1,7 +1,7 @@
 
 use crate::{database, models};
 use crate::models::common::PaginationParams;
-use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset, NewEquipmentDbo};
+use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset};
 use diesel::dsl::insert_into;
 use diesel::{prelude::*, result};
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -266,26 +266,6 @@ pub struct Computer {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-impl Computer {
-    pub fn to_dbo(&self) -> ComputerDbo {
-        ComputerDbo {
-            computerid: self.computerid,
-            brand: self.brand.clone(),
-            operating_system: self.operating_system.clone(),
-            quizmachine_version: self.quizmachine_version.clone(),
-            wifi_capabilities: self.wifi_capabilities.clone(),
-            login_username: self.login_username.clone(),
-            login_password: self.login_password.clone(),
-            has_vga_out_port: self.has_vga_out_port,
-            has_dvi_out_port: self.has_dvi_out_port,
-            has_hdmi_out_port: self.has_hdmi_out_port,
-            has_display_port_out: self.has_display_port_out,
-            has_usb_port: self.has_usb_port,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        }
-    }
-}
 
 #[derive(
     Insertable,
@@ -306,25 +286,6 @@ struct NewComputerDbo {
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
     pub has_usb_port: bool,
-}
-impl NewComputerDbo {
-    fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewComputer {
-        NewComputer {
-            equipmentsetid: new_equipment_dbo.equipmentsetid,
-            brand: self.brand.clone(),
-            operating_system: self.operating_system.clone(),
-            quizmachine_version: self.quizmachine_version.clone(),
-            wifi_capabilities: self.wifi_capabilities.clone(),
-            login_username: self.login_username.clone().unwrap_or_default(),
-            login_password: self.login_password.clone().unwrap_or_default(),
-            has_vga_out_port: self.has_vga_out_port,
-            has_dvi_out_port: self.has_dvi_out_port,
-            has_hdmi_out_port: self.has_hdmi_out_port,
-            has_display_port_out: self.has_display_port_out,
-            has_usb_port: self.has_usb_port,
-            misc_note: new_equipment_dbo.misc_note,
-        }
-    }
 }
 
 #[derive(
@@ -429,7 +390,7 @@ impl ComputerChangeSet {
     }
 }
 
-pub fn covert_to_model_from_dbos(computer_dbo: ComputerDbo, equipment_dbo: EquipmentDbo) -> Computer {
+fn covert_to_model_from_dbos(computer_dbo: ComputerDbo, equipment_dbo: EquipmentDbo) -> Computer {
     Computer {
         computerid: computer_dbo.computerid,
         brand: computer_dbo.brand,
