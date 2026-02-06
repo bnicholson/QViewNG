@@ -39,7 +39,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .service(services::monitor::endpoints(web::scope("/monitors")))
                     .service(services::microphonerecorder::endpoints(web::scope("/microphonerecorders")))
                     .service(services::projector::endpoints(web::scope("/projectors")))
-                    // .service(services::powerstrip::endpoints(web::scope("/powerstrips")))
+                    .service(services::powerstrip::endpoints(web::scope("/powerstrips")))
                     // .service(services::extensioncord::endpoints(web::scope("/extensioncords")))
             )
             // .service(services::file::endpoints(web::scope("/files")))

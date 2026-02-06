@@ -18,7 +18,6 @@ async fn create_works() {
 
     clean_database();
     let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::tournamentgroups::get_tournamentgroup_payload();
 

@@ -189,21 +189,6 @@ pub struct Projector {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-// impl Projector {
-//     fn to_dbo(&self) -> ProjectorDbo {
-//         ProjectorDbo {
-//             id: self.id,
-//             brand: self.brand.clone(),
-//             has_vga_out_port: self.has_vga_out_port,
-//             has_dvi_out_port: self.has_dvi_out_port,
-//             has_hdmi_out_port: self.has_hdmi_out_port,
-//             has_display_port_out: self.has_display_port_out,
-
-//             created_at: self.created_at,
-//             updated_at: self.updated_at,
-//         }
-//     }
-// }
 
 #[derive(
     Insertable,
@@ -219,20 +204,6 @@ struct NewProjectorDbo {
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
 }
-// impl NewProjectorDbo {
-//     fn to_model(&self, new_equipment_dbo: NewEquipmentDbo) -> NewProjector {
-//         NewProjector {
-//             brand: self.brand.clone(),
-//             has_vga_out_port: self.has_vga_out_port,
-//             has_dvi_out_port: self.has_dvi_out_port,
-//             has_hdmi_out_port: self.has_hdmi_out_port,
-//             has_display_port_out: self.has_display_port_out,
-
-//             equipmentsetid: new_equipment_dbo.equipmentsetid,
-//             misc_note: new_equipment_dbo.misc_note,
-//         }
-//     }
-// }
 
 #[derive(
     Debug,

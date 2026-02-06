@@ -295,7 +295,7 @@ async fn remove_coach_from_roster_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (coach, roster, roster_coach) = 
+    let (_, _, roster_coach) = 
         fixtures::rosters::arrange_remove_coach_from_roster_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -434,7 +434,7 @@ async fn remove_quizzer_from_roster_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (quizzer, roster, roster_quizzer) = 
+    let (_, _, roster_quizzer) = 
         fixtures::rosters::arrange_remove_quizzer_from_roster_works_integration_test(&mut conn);
 
     let app = test::init_service(

@@ -16,6 +16,7 @@ pub mod interfacebox;
 pub mod monitor;
 pub mod microphonerecorder;
 pub mod projector;
+pub mod powerstrip;
 // pub mod file;
 // pub mod quizevent;
 // pub mod pingmsg;

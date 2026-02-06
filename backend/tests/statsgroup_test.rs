@@ -18,7 +18,6 @@ async fn create_works() {
 
     clean_database();
     let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::statsgroups::arrange_create_works_integration_test();
 
@@ -60,7 +59,7 @@ async fn get_all_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let (sg1, sg2) = fixtures::statsgroups::arrange_get_all_works_integration_test(&mut conn);
+    fixtures::statsgroups::arrange_get_all_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
@@ -334,7 +333,7 @@ async fn remove_game_from_statsgroup_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (statsgroup, game, game_statsgroup) = 
+    let (statsgroup, game, _) = 
         fixtures::statsgroups::arrange_remove_game_from_statsgroup_works_integration_test(&mut conn);
 
     let app = test::init_service(

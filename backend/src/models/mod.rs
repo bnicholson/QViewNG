@@ -26,6 +26,6 @@ pub mod interfacebox;
 pub mod monitor;
 pub mod microphonerecorder;
 pub mod projector;
-// pub mod powerstrip;
+pub mod powerstrip;
 // pub mod extensioncord;
 // pub mod equipmentregistration;

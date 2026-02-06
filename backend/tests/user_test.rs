@@ -247,7 +247,7 @@ async fn get_all_games_where_user_is_quizmaster_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let (qm_id, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
+    let (qm_id, _, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
 
     let app = test::init_service(
         App::new()
@@ -296,7 +296,7 @@ async fn get_all_games_where_user_is_contentjudge_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let (qm_id, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
+    let (_, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
 
     let app = test::init_service(
         App::new()
@@ -570,7 +570,7 @@ async fn get_all_rosters_of_coach_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let (coach_2, quizzer_2, roster_3, roster_4) = 
+    let (coach_2, _, roster_3, roster_4) = 
         fixtures::users::arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -620,7 +620,7 @@ async fn get_all_rosters_of_quizzer_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let (coach_2, quizzer_2, roster_3, roster_4) = 
+    let (_, quizzer_2, roster_3, roster_4) = 
         fixtures::users::arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(&mut conn);
 
     let app = test::init_service(
