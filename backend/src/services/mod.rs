@@ -14,6 +14,7 @@ pub mod computer;
 pub mod jumppad;
 pub mod interfacebox;
 pub mod monitor;
+pub mod microphonerecorder;
 // pub mod file;
 // pub mod quizevent;
 // pub mod pingmsg;

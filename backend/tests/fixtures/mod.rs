@@ -15,3 +15,4 @@ pub mod equipment_dbos;
 pub mod jumppads;
 pub mod interfaceboxes;
 pub mod monitors;
+pub mod microphonerecorders;
