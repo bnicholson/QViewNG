@@ -141,58 +141,61 @@ async fn get_by_id_works() {
     assert_eq!(resp_powerstrip.model, powerstrip.model);
 }
 
-// #[actix_web::test]
-// async fn update_works() {
+#[actix_web::test]
+async fn update_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let original_powerstrip = 
-//         fixtures::powerstrips::arrange_update_works_integration_test(&mut conn);
+    let original_powerstrip = 
+        fixtures::powerstrips::arrange_update_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let new_brand = "ChevronLaser".to_string();
-//     let new_misc_note = "Ah, something new!".to_string();
+    let new_make = "TVGuy".to_string();
+    let new_model = "4-port".to_string();
+    let new_misc_note = "Ah, something new!".to_string();
 
-//     let put_payload = json!({
-//         "brand": &new_brand,
-//         "misc_note": &new_misc_note
-//     });
+    let put_payload = json!({
+        "make": &new_make,
+        "model": &new_model,
+        "misc_note": &new_misc_note
+    });
     
-//     let put_uri = format!("/api/equipment/powerstrips/{}", original_powerstrip.equipmentid);
-//     let put_req = test::TestRequest::put()
-//         .uri(&put_uri)
-//         .set_json(&put_payload)
-//         .to_request();
+    let put_uri = format!("/api/equipment/powerstrips/{}", original_powerstrip.equipmentid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let put_resp = test::call_service(&app, put_req).await;
+    let put_resp = test::call_service(&app, put_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(put_resp.status(), StatusCode::OK);
 
-//     let put_resp_body: EntityResponse<PowerStrip> = test::read_body_json(put_resp).await;
-//     assert_eq!(put_resp_body.code, 200);
-//     assert_eq!(put_resp_body.message, "");
+    let put_resp_body: EntityResponse<PowerStrip> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
 
-//     let new_powerstrip = put_resp_body.data.unwrap();
-//     assert_eq!(new_powerstrip.brand, new_brand);
-//     assert_eq!(new_powerstrip.misc_note.unwrap(), new_misc_note);
-//     assert_ne!(new_powerstrip.created_at, new_powerstrip.updated_at);
+    let new_powerstrip = put_resp_body.data.unwrap();
+    assert_eq!(new_powerstrip.make, new_make);
+    assert_eq!(new_powerstrip.model, new_model);
+    assert_eq!(new_powerstrip.misc_note.unwrap(), new_misc_note);
+    assert_ne!(new_powerstrip.created_at, new_powerstrip.updated_at);
 
-//     let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_powerstrip.equipmentid).unwrap();
-//     assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
-// }
+    let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_powerstrip.equipmentid).unwrap();
+    assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
+}
 
 // #[actix_web::test]
 // async fn delete_works() {
