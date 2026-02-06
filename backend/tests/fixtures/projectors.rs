@@ -19,29 +19,29 @@ pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> N
         .unwrap()
 }
 
-// pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> (Projector, Projector) {
-//     let user = UserBuilder::new_default("User 1")
-//         .set_hash_password("SOmeTHinGSeCUre!23")
-//         .build_and_insert(db)
-//         .unwrap();
-//     let equipment_set = EquipmentSetBuilder::new_default(user.id)
-//         .set_is_active(true)
-//         .set_is_default(true)
-//         .set_description(Some("This is a test equipment set.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     let projector_1 = ProjectorBuilder::new_default(equipment_set.id)
-//         .set_brand(Some("CoolFlik".to_string()))
-//         .set_misc_note(Some("First test projector.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     let projector_2 = ProjectorBuilder::new_default(equipment_set.id)
-//         .set_brand(Some("ResMaster".to_string()))
-//         .set_misc_note(Some("Second test projector.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     (projector_1, projector_2)
-// }
+pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> (Projector, Projector) {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let projector_1 = ProjectorBuilder::new_default(equipment_set.id)
+        .set_brand(Some("CoolFlik".to_string()))
+        .set_misc_note(Some("First test projector.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let projector_2 = ProjectorBuilder::new_default(equipment_set.id)
+        .set_brand(Some("ResMaster".to_string()))
+        .set_misc_note(Some("Second test projector.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    (projector_1, projector_2)
+}
 
 // pub fn arrange_get_projector_by_id_works_integration_test(db: &mut database::Connection) -> Projector {
 //     let user = UserBuilder::new_default("User 1")
