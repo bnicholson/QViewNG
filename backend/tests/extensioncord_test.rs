@@ -103,42 +103,41 @@ async fn get_all_works() {
     assert_ne!(extensioncord_2_interest_idx, 10);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let extensioncord = 
-//         fixtures::extensioncords::arrange_get_extensioncord_by_id_works_integration_test(&mut conn);
+    let extensioncord = 
+        fixtures::extensioncords::arrange_get_extensioncord_by_id_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let uri = format!("/api/equipment/extensioncords/{}", &extensioncord.equipmentid);
-//     println!("ExtensionCords Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
+    let uri = format!("/api/equipment/extensioncords/{}", &extensioncord.equipmentid);
+    println!("ExtensionCords Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let resp_extensioncord: ExtensionCord = test::read_body_json(resp).await;
-//     assert_eq!(resp_extensioncord.id, extensioncord.id);
-//     assert_eq!(resp_extensioncord.length, extensioncord.length);
-//     assert_eq!(resp_extensioncord.model, extensioncord.model);
-// }
+    let resp_extensioncord: ExtensionCord = test::read_body_json(resp).await;
+    assert_eq!(resp_extensioncord.id, extensioncord.id);
+    assert_eq!(resp_extensioncord.length, extensioncord.length);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
