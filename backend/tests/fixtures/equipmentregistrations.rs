@@ -65,30 +65,41 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
     )
 }
 
-// pub fn arrange_get_equipmentregistration_by_id_works_integration_test(db: &mut database::Connection) -> EquipmentRegistration {
-//     let user = UserBuilder::new_default("User 1")
-//         .set_hash_password("SOmeTHinGSeCUre!23")
-//         .build_and_insert(db)
-//         .unwrap();
-//     let equipment_set = EquipmentSetBuilder::new_default(user.id)
-//         .set_is_active(true)
-//         .set_is_default(true)
-//         .set_description(Some("This is a test equipment set.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     EquipmentRegistrationBuilder::new_default(equipment_set.id)
-//         .set_brand(Some("Brand Y".to_string()))
-//         .set_operating_system(Some("OS Y".to_string()))
-//         .set_misc_note(Some("Test computer for get by ID.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     EquipmentRegistrationBuilder::new_default(equipment_set.id)
-//         .set_brand(Some("Brand X".to_string()))
-//         .set_operating_system(Some("OS X".to_string()))
-//         .set_misc_note(Some("Test computer for get by ID.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap()
-// }
+pub fn arrange_get_by_id_works_integration_test(db: &mut database::Connection) -> EquipmentRegistration {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let computer_1 = ComputerBuilder::new_default(equipment_set.id)
+        .set_brand(Some("Test Brand".to_string()))
+        .set_operating_system(Some("Test OS".to_string()))
+        .set_misc_note(Some("This is a test computer.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let computer_2 = ComputerBuilder::new_default(equipment_set.id)
+        .set_brand(Some("CoolioShmoolio".to_string()))
+        .set_operating_system(Some("CrashOS".to_string()))
+        .set_misc_note(Some("This is a test computer.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+
+    EquipmentRegistrationBuilder::new_default(computer_1.equipmentid, tour.tid)
+        .build_and_insert(db)
+        .unwrap();
+    EquipmentRegistrationBuilder::new_default(computer_2.equipmentid, tour.tid)
+        .build_and_insert(db)
+        .unwrap()
+}
 
 // pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> EquipmentRegistration {
 //     let user = UserBuilder::new_default("User 1")

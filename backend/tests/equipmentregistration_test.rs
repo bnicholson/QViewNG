@@ -102,44 +102,40 @@ async fn get_all_works() {
     assert_ne!(equipmentregistration_2_interest_idx, 10);
 }
 
-// #[actix_web::test]
-// async fn get_by_id_works() {
+#[actix_web::test]
+async fn get_by_id_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let equipmentregistration: EquipmentRegistration = 
+        fixtures::equipmentregistrations::arrange_get_by_id_works_integration_test(&mut conn);
 
-//     let equipmentregistrations: Vec<EquipmentRegistration> = fixtures::equipmentregistrations::seed_equipmentregistrations(&mut conn, parent_tournament.tid);
-//     let equipmentregistration_of_interest_idx = 0;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let uri = format!("/api/equipmentregistrations/{}", &equipmentregistration.id);
+    println!("EquipmentRegistrations Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
 
-//     let uri = format!("/api/equipmentregistrations/{}", &equipmentregistrations[equipmentregistration_of_interest_idx].equipmentregistrationid);
-//     println!("EquipmentRegistrations Get by ID URI: {}", &uri);
-//     let req = test::TestRequest::get()
-//         .uri(uri.as_str())
-//         .to_request();
-
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     // Assert:
+    // Assert:
     
-//     let equipmentregistration: EquipmentRegistration = test::read_body_json(resp).await;
-//     assert_eq!(equipmentregistration.name, equipmentregistrations[equipmentregistration_of_interest_idx].name);
-//     assert_eq!(equipmentregistration.building, equipmentregistrations[equipmentregistration_of_interest_idx].building);
-//     assert_eq!(equipmentregistration.comments, equipmentregistrations[equipmentregistration_of_interest_idx].comments);
-// }
+    let body_equipmentregistration: EquipmentRegistration = test::read_body_json(resp).await;
+    assert_eq!(body_equipmentregistration.id, equipmentregistration.id);
+}
 
 // #[actix_web::test]
 // async fn update_works() {
