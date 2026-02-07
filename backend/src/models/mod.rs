@@ -21,6 +21,7 @@ pub mod roster_quizzer;
 pub mod equipmentset;
 pub mod computer;
 pub mod equipment_dbo;
+pub mod equipment;
 pub mod jumppad;
 pub mod interfacebox;
 pub mod monitor;

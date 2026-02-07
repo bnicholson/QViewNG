@@ -30,6 +30,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::statsgroup::endpoints(web::scope("/statsgroups")))
             .service(services::roster::endpoints(web::scope("/rosters")))
             .service(services::equipmentset::endpoints(web::scope("/equipmentsets")))
+            .service(services::equipment::endpoints(web::scope("/equipment")))
             // .service(services::equipmentregistration::endpoints(web::scope("/equipmentregistrations")))
             .service(
                 web::scope("/equipment")

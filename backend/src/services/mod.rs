@@ -10,6 +10,7 @@ pub mod tournamentgroup;
 pub mod statsgroup;
 pub mod roster;
 pub mod equipmentset;
+pub mod equipment;
 pub mod computer;
 pub mod jumppad;
 pub mod interfacebox;
