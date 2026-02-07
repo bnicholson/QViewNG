@@ -21,7 +21,8 @@ use backend::schema::{
     interfaceboxes,
     microphonerecorders,
     projectors,
-    extensioncords
+    extensioncords,
+    equipmentregistrations
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -51,6 +52,10 @@ pub fn clean_database() {
     establish_test_connection();  // mostly for running pending migrations
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    diesel::delete(equipmentregistrations::table)
+        .execute(&mut conn)
+        .expect("Failed to clean equipmentregistrations");
 
     diesel::delete(equipment::table)
         .execute(&mut conn)
