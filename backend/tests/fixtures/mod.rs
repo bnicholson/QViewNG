@@ -10,6 +10,7 @@ pub mod tournamentgroups;
 pub mod statsgroups;
 pub mod rosters;
 pub mod equipmentsets;
+pub mod equipmentregistrations;
 pub mod equipment_dbos;
 pub mod equipment;
 pub mod computers;
