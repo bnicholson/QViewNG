@@ -22,18 +22,18 @@ use diesel::QueryResult;
 //         )
 //     )
 // ]
-// #[get("")]
-// async fn index(
-//     db: Data<Database>,
-//     Query(url_params): Query<PaginationParams>,
-// ) -> HttpResponse {
-//     let mut db = db.get_connection().expect("Failed to get connection");
+#[get("")]
+async fn index(
+    db: Data<Database>,
+    Query(url_params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut db = db.get_connection().expect("Failed to get connection");
     
-//     match models::extensioncord::read_all(&mut db, &url_params) {
-//         Ok(extensioncord) => HttpResponse::Ok().json(extensioncord),
-//         Err(_) => HttpResponse::InternalServerError().finish(),
-//     }
-// }
+    match models::extensioncord::read_all(&mut db, &url_params) {
+        Ok(extensioncord) => HttpResponse::Ok().json(extensioncord),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
 
 // #[get("/{id}")]
 // async fn read(
@@ -113,7 +113,7 @@ async fn create(
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        // .service(index)
+        .service(index)
         // .service(read)
         .service(create)
         // .service(update)
