@@ -1,6 +1,36 @@
-use backend::{database, models::{computer::ComputerBuilder, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder, NewEquipmentRegistration}, equipmentset::EquipmentSetBuilder, room::Room, tournament::TournamentBuilder, user::UserBuilder}};
+use backend::{database, models::{computer::{Computer, ComputerBuilder}, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder, NewEquipmentRegistration}, equipmentset::{EquipmentSet, EquipmentSetBuilder}, room::Room, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
 
 use crate::fixtures::rooms::seed_1_room_with_minimum_required_dependencies;
+
+pub fn seed_1_equipmentregistration_with_minimum_required_dependencies(db: &mut database::Connection) 
+    -> (EquipmentRegistration, Tournament, Computer, EquipmentSet, User) {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let computer = ComputerBuilder::new_default(equipment_set.id)
+        .set_brand(Some("Test Brand".to_string()))
+        .set_operating_system(Some("Test OS".to_string()))
+        .set_misc_note(Some("This is a test computer.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    let tour = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+
+    let equipment_registration = EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    (equipment_registration, tour, computer, equipment_set, user)
+}
 
 pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> NewEquipmentRegistration {
     let user = UserBuilder::new_default("User 1")
@@ -131,21 +161,8 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> (
     )
 }
 
-// pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> EquipmentRegistration {
-//     let user = UserBuilder::new_default("User 1")
-//         .set_hash_password("SOmeTHinGSeCUre!23")
-//         .build_and_insert(db)
-//         .unwrap();
-//     let equipment_set = EquipmentSetBuilder::new_default(user.id)
-//         .set_is_active(true)
-//         .set_is_default(true)
-//         .set_description(Some("This is a test equipment set.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap();
-//     EquipmentRegistrationBuilder::new_default(equipment_set.id)
-//         .set_brand(Some("Brand Delete".to_string()))
-//         .set_operating_system(Some("OS Delete".to_string()))
-//         .set_misc_note(Some("Test computer for delete.".to_string()))
-//         .build_and_insert(db)
-//         .unwrap()
-// }
+pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> EquipmentRegistration {
+    let (equipmentregistration, _,_,_,_,) = 
+        seed_1_equipmentregistration_with_minimum_required_dependencies(db);
+    equipmentregistration
+}

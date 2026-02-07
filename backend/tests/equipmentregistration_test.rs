@@ -188,52 +188,51 @@ async fn update_works() {
     assert_ne!(new_equipmentregistration.created_at, new_equipmentregistration.updated_at);
 }
 
-// #[actix_web::test]
-// async fn delete_works() {
+#[actix_web::test]
+async fn delete_works() {
 
-//     // Arrange:
+    // Arrange:
 
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let equipmentregistration = 
+        fixtures::equipmentregistrations::arrange_delete_works_integration_test(&mut conn);
 
-//     let equipmentregistration: EquipmentRegistration = fixtures::equipmentregistrations::seed_equipmentregistration(&mut conn, parent_tournament.tid);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let delete_uri = format!("/api/equipmentregistrations/{}", equipmentregistration.equipmentregistrationid);
-//     let delete_req = test::TestRequest::delete()
-//         .uri(&delete_uri)
-//         .to_request();
+    let delete_uri = format!("/api/equipmentregistrations/{}", equipmentregistration.id);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
 
-//     // Act:
+    // Act:
     
-//     let delete_resp = test::call_service(&app, delete_req).await;
+    let delete_resp = test::call_service(&app, delete_req).await;
 
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(delete_resp.status(), StatusCode::OK);
+    assert_eq!(delete_resp.status(), StatusCode::OK);
 
-//     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-//     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-//     assert_eq!(&delete_resp_body_string, "");
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
 
 
-//     let get_by_id_uri = format!("/api/equipmentregistrations/{}", equipmentregistration.equipmentregistrationid);
-//     let get_by_id_req = test::TestRequest::get()
-//         .uri(&get_by_id_uri)
-//         .to_request();
+    let get_by_id_uri = format!("/api/equipmentregistrations/{}", equipmentregistration.id);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
 
-//     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
-//     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-// }
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+}
 
 // #[actix_web::test]
 // async fn get_all_games_of_equipmentregistration_works() {
