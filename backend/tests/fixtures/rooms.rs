@@ -1,7 +1,18 @@
-use backend::models::room::{Room,NewRoom};
+use backend::{database, models::{room::{NewRoom, Room, RoomBuilder}, tournament::{Tournament, TournamentBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::rooms;
+
+pub fn seed_1_room_with_minimum_required_dependencies(db: &mut database::Connection) 
+    -> (Room, Tournament) {
+    let tour = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+    let room = RoomBuilder::new_default("Room 1", tour.tid)
+        .build_and_insert(db)
+        .unwrap();
+    (room, tour)
+}
 
 pub fn new_room_one(tid: Uuid, room_name: &str) -> NewRoom {
     NewRoom {
