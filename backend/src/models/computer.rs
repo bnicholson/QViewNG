@@ -456,10 +456,14 @@ pub fn exists(db: &mut database::Connection, computer_id: i64) -> bool {
         .is_ok()
 }
 
-pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<Computer> {
+pub fn read(db: &mut database::Connection, computer_id: i64) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
+    use crate::schema::equipment::dsl::*;
 
-    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_dbo_id);
+    let equipment_dbo_result = 
+        equipment
+            .filter(crate::schema::equipment::dsl::computerid.eq(computer_id))
+            .first::<EquipmentDbo>(db);
 
     if equipment_dbo_result.is_err() {
         return Err(equipment_dbo_result.err().unwrap());
@@ -476,7 +480,7 @@ pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult
 
     let computer_dbo_result = 
         computers
-            .filter(computerid.eq(equipment_dbo.computerid.unwrap()))
+            .filter(crate::schema::computers::dsl::computerid.eq(equipment_dbo.computerid.unwrap()))
             .first::<ComputerDbo>(db);
     
     if computer_dbo_result.is_err() {

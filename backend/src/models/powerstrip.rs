@@ -318,10 +318,14 @@ pub fn exists(db: &mut database::Connection, powerstrip_id: i64) -> bool {
         .is_ok()
 }
 
-pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<PowerStrip> {
+pub fn read(db: &mut database::Connection, powerstrip_id: i64) -> QueryResult<PowerStrip> {
     use crate::schema::powerstrips::dsl::*;
+    use crate::schema::equipment::dsl::*;
 
-    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_dbo_id);
+    let equipment_dbo_result = 
+        equipment
+            .filter(crate::schema::equipment::dsl::powerstripid.eq(powerstrip_id))
+            .first::<EquipmentDbo>(db);
 
     if equipment_dbo_result.is_err() {
         return Err(equipment_dbo_result.err().unwrap());
@@ -338,7 +342,7 @@ pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult
 
     let powerstrip_dbo_result = 
         powerstrips
-            .filter(id.eq(equipment_dbo.powerstripid.unwrap()))
+            .filter(crate::schema::powerstrips::dsl::id.eq(equipment_dbo.powerstripid.unwrap()))
             .first::<PowerStripDbo>(db);
     
     if powerstrip_dbo_result.is_err() {

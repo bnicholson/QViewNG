@@ -276,10 +276,14 @@ pub fn exists(db: &mut database::Connection, extensioncord_id: i64) -> bool {
         .is_ok()
 }
 
-pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<ExtensionCord> {
+pub fn read(db: &mut database::Connection, extensioncord_id: i64) -> QueryResult<ExtensionCord> {
     use crate::schema::extensioncords::dsl::*;
+    use crate::schema::equipment::dsl::*;
 
-    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_dbo_id);
+    let equipment_dbo_result = 
+        equipment
+            .filter(crate::schema::equipment::dsl::extensioncordid.eq(extensioncord_id))
+            .first::<EquipmentDbo>(db);
 
     if equipment_dbo_result.is_err() {
         return Err(equipment_dbo_result.err().unwrap());
@@ -296,7 +300,7 @@ pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult
 
     let extensioncord_dbo_result = 
         extensioncords
-            .filter(id.eq(equipment_dbo.extensioncordid.unwrap()))
+            .filter(crate::schema::extensioncords::dsl::id.eq(equipment_dbo.extensioncordid.unwrap()))
             .first::<ExtensionCordDbo>(db);
     
     if extensioncord_dbo_result.is_err() {

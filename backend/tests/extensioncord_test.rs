@@ -121,7 +121,7 @@ async fn get_by_id_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/equipment/extensioncords/{}", &extensioncord.equipmentid);
+    let uri = format!("/api/equipment/extensioncords/{}", &extensioncord.id);
     println!("ExtensionCords Get by ID URI: {}", &uri);
     let req = test::TestRequest::get()
         .uri(uri.as_str())

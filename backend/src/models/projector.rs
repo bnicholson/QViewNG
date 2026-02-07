@@ -339,10 +339,14 @@ pub fn exists(db: &mut database::Connection, projector_id: i64) -> bool {
         .is_ok()
 }
 
-pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult<Projector> {
+pub fn read(db: &mut database::Connection, projector_id: i64) -> QueryResult<Projector> {
     use crate::schema::projectors::dsl::*;
+    use crate::schema::equipment::dsl::*;
 
-    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_dbo_id);
+    let equipment_dbo_result = 
+        equipment
+            .filter(crate::schema::equipment::dsl::projectorid.eq(projector_id))
+            .first::<EquipmentDbo>(db);
 
     if equipment_dbo_result.is_err() {
         return Err(equipment_dbo_result.err().unwrap());
@@ -359,7 +363,7 @@ pub fn read(db: &mut database::Connection, equipment_dbo_id: i64) -> QueryResult
 
     let projector_dbo_result = 
         projectors
-            .filter(id.eq(equipment_dbo.projectorid.unwrap()))
+            .filter(crate::schema::projectors::dsl::id.eq(equipment_dbo.projectorid.unwrap()))
             .first::<ProjectorDbo>(db);
     
     if projector_dbo_result.is_err() {

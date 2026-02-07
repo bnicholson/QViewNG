@@ -122,7 +122,7 @@ async fn get_by_id_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/equipment/monitors/{}", &monitor.equipmentid);
+    let uri = format!("/api/equipment/monitors/{}", &monitor.id);
     println!("Monitors Get by ID URI: {}", &uri);
     let req = test::TestRequest::get()
         .uri(uri.as_str())
