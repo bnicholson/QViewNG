@@ -20,7 +20,8 @@ use backend::schema::{
     jumppads,
     interfaceboxes,
     microphonerecorders,
-    projectors
+    projectors,
+    extensioncords
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -54,6 +55,10 @@ pub fn clean_database() {
     diesel::delete(equipment::table)
         .execute(&mut conn)
         .expect("Failed to clean equipment");
+
+    diesel::delete(extensioncords::table)
+        .execute(&mut conn)
+        .expect("Failed to clean extensioncords");
 
     diesel::delete(projectors::table)
         .execute(&mut conn)

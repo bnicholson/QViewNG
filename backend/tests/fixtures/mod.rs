@@ -18,3 +18,4 @@ pub mod monitors;
 pub mod microphonerecorders;
 pub mod projectors;
 pub mod powerstrips;
+pub mod extensioncords;
