@@ -2,8 +2,8 @@
 mod common;
 mod fixtures;
 
-use backend::{database::Database, models::{computer::Computer, equipment::Equipment, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
-use crate::common::{TEST_DB_URL, clean_database};
+use backend::{database::Database, models::{computer::Computer, equipment::Equipment, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 use actix_web::{App, test, web::{self}};
 use actix_http::StatusCode;
 
@@ -203,4 +203,54 @@ async fn get_by_id_works() {
         _ => panic!("Expected ExtensionCord variant"),
     }; 
     assert_eq!(body_extensioncord.length, extensioncord.length);
+}
+
+#[actix_web::test]
+async fn get_all_equipmentregistrations_of_equipment_piece_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (computer, er_1, er_2) = 
+        fixtures::equipment::arrange_get_all_equipmentregistrations_of_equipment_piece_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/equipment/{}/equipmentregistrations?page={}&page_size={}", computer.equipmentid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<EquipmentRegistration> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut equipmentregistration_1_idx = 10;
+    let mut equipmentregistration_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].id == er_1.id {
+            equipmentregistration_1_idx = idx;
+        }
+        if body[idx].id == er_2.id {
+            equipmentregistration_2_idx = idx;
+        }
+    }
+    assert_ne!(equipmentregistration_1_idx, 10);
+    assert_ne!(equipmentregistration_2_idx, 10);
 }

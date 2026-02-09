@@ -1,4 +1,4 @@
-use backend::{database, models::{computer::{ComputerBuilder, Computer}, equipmentset::EquipmentSetBuilder, extensioncord::{ExtensionCordBuilder, ExtensionCord}, interfacebox::{InterfaceBoxBuilder, InterfaceBox}, jumppad::{JumpPadBuilder, JumpPad}, microphonerecorder::{MicrophoneRecorderBuilder, MicrophoneRecorder}, monitor::{MonitorBuilder, Monitor}, powerstrip::{PowerStrip, PowerStripBuilder}, projector::{Projector, ProjectorBuilder}, user::UserBuilder}};
+use backend::{database, models::{computer::{Computer, ComputerBuilder}, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder}, equipmentset::EquipmentSetBuilder, extensioncord::{ExtensionCord, ExtensionCordBuilder}, interfacebox::{InterfaceBox, InterfaceBoxBuilder}, jumppad::{JumpPad, JumpPadBuilder}, microphonerecorder::{MicrophoneRecorder, MicrophoneRecorderBuilder}, monitor::{Monitor, MonitorBuilder}, powerstrip::{PowerStrip, PowerStripBuilder}, projector::{Projector, ProjectorBuilder}, tournament::TournamentBuilder, user::UserBuilder}};
 
 pub fn seed_1_of_each_equipment_piece_type(db: &mut database::Connection) -> 
     (Computer, JumpPad, InterfaceBox, Monitor, MicrophoneRecorder, Projector, PowerStrip, ExtensionCord)
@@ -66,4 +66,40 @@ pub fn arrange_get_equipment_by_id_works_integration_test(db: &mut database::Con
     (Computer, JumpPad, InterfaceBox, Monitor, MicrophoneRecorder, Projector, PowerStrip, ExtensionCord)
 {
     seed_1_of_each_equipment_piece_type(db)
+}
+
+pub fn arrange_get_all_equipmentregistrations_of_equipment_piece_works_integration_test(db: &mut database::Connection) 
+    -> (Computer, EquipmentRegistration, EquipmentRegistration) {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let computer = ComputerBuilder::new_default(equipment_set.id)
+        .set_brand(Some("Test Brand".to_string()))
+        .set_operating_system(Some("Test OS".to_string()))
+        .set_misc_note(Some("This is a test computer.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+    let equipmentregistration_1 = EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+    
+    let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .build_and_insert(db)
+        .unwrap();
+    let equipmentregistration_2 = EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour_2.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    (computer, equipmentregistration_1, equipmentregistration_2)
 }

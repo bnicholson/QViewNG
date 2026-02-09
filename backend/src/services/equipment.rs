@@ -1,5 +1,5 @@
-use actix_web::{get, HttpResponse, web::{Data, Path}};
-use crate::database::Database;
+use actix_web::{HttpResponse, get, web::{Data, Path, Query}};
+use crate::{database::Database, models::common::PaginationParams};
 use crate::models;
 
 #[get("/{id}")]
@@ -15,7 +15,22 @@ async fn read(
     }
 }
 
+#[get("/{id}/equipmentregistrations")]
+async fn read_equipmentregistrations(
+    db: Data<Database>,
+    equipment_id: Path<i64>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::equipmentregistration::read_all_equipmentregistrations_of_equipment_piece(&mut conn, equipment_id.into_inner(), &params) {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        .service(read);
+        .service(read)
+        .service(read_equipmentregistrations);
 }
