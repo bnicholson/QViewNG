@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::game::Game};
+use backend::{database::Database, models::{equipmentregistration::EquipmentRegistration, game::Game}};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -293,4 +293,54 @@ async fn get_all_games_of_room_works() {
     }
     assert_ne!(game_1_idx, 10);
     assert_ne!(game_2_idx, 10);
+}
+
+#[actix_web::test]
+async fn get_all_equipmentregistrations_of_room_works() {
+
+    // Arrange:
+    
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (room, er_1, er_2) = 
+        fixtures::rooms::arrange_get_all_equipmentregistrations_of_room_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/rooms/{}/equipmentregistrations?page={}&page_size={}", room.roomid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<EquipmentRegistration> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut equipmentregistration_1_idx = 10;
+    let mut equipmentregistration_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].id == er_1.id {
+            equipmentregistration_1_idx = idx;
+        }
+        if body[idx].id == er_2.id {
+            equipmentregistration_2_idx = idx;
+        }
+    }
+    assert_ne!(equipmentregistration_1_idx, 10);
+    assert_ne!(equipmentregistration_2_idx, 10);
 }

@@ -194,6 +194,24 @@ pub fn read_all_equipmentregistrations_of_equipment_piece(
         .load::<EquipmentRegistration>(db)
 }
 
+pub fn read_all_equipmentregistrations_of_room(
+    db: &mut database::Connection,
+    room_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<EquipmentRegistration>> {
+    use crate::schema::equipmentregistrations::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    equipmentregistrations
+        .filter(roomid.eq(room_id))
+        .order(id.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<EquipmentRegistration>(db)
+}
+
 pub fn update(db: &mut database::Connection, item_id: i64, item: &EquipmentRegistrationChangeset) -> QueryResult<EquipmentRegistration> {
     use crate::schema::equipmentregistrations::dsl::*;
     diesel::update(equipmentregistrations.filter(id.eq(item_id)))

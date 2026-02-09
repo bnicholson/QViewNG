@@ -1,4 +1,4 @@
-use backend::{database, models::{room::{NewRoom, Room, RoomBuilder}, tournament::{Tournament, TournamentBuilder}}};
+use backend::{database, models::{computer::ComputerBuilder, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder}, equipmentset::EquipmentSetBuilder, monitor::MonitorBuilder, room::{NewRoom, Room, RoomBuilder}, tournament::{Tournament, TournamentBuilder}, user::UserBuilder}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::rooms;
@@ -83,4 +83,49 @@ pub fn seed_rooms_with_names(
         create_and_insert_room(conn, new_room_2),
         create_and_insert_room(conn, new_room_3),
     ]
+}
+
+pub fn arrange_get_all_equipmentregistrations_of_room_works_integration_test(db: &mut database::Connection) 
+    -> (Room, EquipmentRegistration, EquipmentRegistration) {
+    let user = UserBuilder::new_default("User 1")
+        .set_hash_password("SOmeTHinGSeCUre!23")
+        .build_and_insert(db)
+        .unwrap();
+    let equipment_set = EquipmentSetBuilder::new_default(user.id)
+        .set_is_active(true)
+        .set_is_default(true)
+        .set_description(Some("This is a test equipment set.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let computer = ComputerBuilder::new_default(equipment_set.id)
+        .set_brand(Some("Test Brand".to_string()))
+        .set_operating_system(Some("Test OS".to_string()))
+        .set_misc_note(Some("This is a test computer.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let equipmentregistration_1 = EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour_1.tid)
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db)
+        .unwrap();
+
+    let monitor = MonitorBuilder::new_default(equipment_set.id)
+        .set_size(Some("17 inches".to_string()))
+        .set_brand(Some("Brand H".to_string()))
+        .set_misc_note(Some("Test monitor for delete.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let equipmentregistration_2 = EquipmentRegistrationBuilder::new_default(monitor.equipmentid, tour_1.tid)
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db)
+        .unwrap();
+
+    (room_1, equipmentregistration_1, equipmentregistration_2)
 }

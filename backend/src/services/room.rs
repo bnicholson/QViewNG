@@ -65,6 +65,20 @@ async fn read_games(
     }
 }
 
+#[get("/{id}/equipmentregistrations")]
+async fn read_equipmentregistrations(
+    db: Data<Database>,
+    room_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::equipmentregistration::read_all_equipmentregistrations_of_room(&mut conn, room_id.into_inner(), &params) {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -144,6 +158,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(read_games)
+        .service(read_equipmentregistrations)
         .service(create)
         .service(update)
         .service(destroy);
