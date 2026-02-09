@@ -1,8 +1,6 @@
-// In tests/common/mod.rs or tests/fixtures.rs
-use diesel::prelude::*;
-use backend::{database, models::{tournament::{NewTournament, Tournament, TournamentBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder}};
+use backend::{database, models::{equipmentregistration::EquipmentRegistration, tournament::{NewTournament, Tournament, TournamentBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder}};
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
-use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
+use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, equipmentregistrations::seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
 
 pub fn get_tournament_payload() -> NewTournament {
     TournamentBuilder::new_default("Test Tour").build().unwrap()
@@ -228,4 +226,10 @@ pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db:
         .unwrap();
 
     (tour_1, tg_1, tg_2)
+}
+
+pub fn arrange_get_all_equipmentregistrations_of_tournament_works_integration_test(db: &mut database::Connection) 
+    -> (Tournament,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,
+        EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration) {
+    seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies(db)
 }

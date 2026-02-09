@@ -156,6 +156,20 @@ async fn read_admins(
     }
 }
 
+#[get("/{id}/equipmentregistrations")]
+async fn read_equipmentregistrations(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    match models::equipmentregistration::read_all_equipmentregistrations_of_tournament(&mut conn, tour_id.into_inner(), &params) {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[get("/{id}/rooms")]
 async fn read_rooms(
     db: Data<Database>,
@@ -379,9 +393,10 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_divisions)
         .service(read_games)
         .service(read_admins)
-        .service(add_admin)
         .service(read_tournamentgroups)
+        .service(read_equipmentregistrations)
         .service(create)
+        .service(add_admin)
         .service(update)
         .service(update_admin)
         .service(destroy)

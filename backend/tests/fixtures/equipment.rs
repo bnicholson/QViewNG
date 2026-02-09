@@ -1,7 +1,6 @@
 use backend::{database, models::{computer::{ComputerBuilder, Computer}, equipmentset::EquipmentSetBuilder, extensioncord::{ExtensionCordBuilder, ExtensionCord}, interfacebox::{InterfaceBoxBuilder, InterfaceBox}, jumppad::{JumpPadBuilder, JumpPad}, microphonerecorder::{MicrophoneRecorderBuilder, MicrophoneRecorder}, monitor::{MonitorBuilder, Monitor}, powerstrip::{PowerStrip, PowerStripBuilder}, projector::{Projector, ProjectorBuilder}, user::UserBuilder}};
 
-
-pub fn arrange_get_equipment_by_id_works_integration_test(db: &mut database::Connection) -> 
+pub fn seed_1_of_each_equipment_piece_type(db: &mut database::Connection) -> 
     (Computer, JumpPad, InterfaceBox, Monitor, MicrophoneRecorder, Projector, PowerStrip, ExtensionCord)
 {
     let user = UserBuilder::new_default("User 1")
@@ -61,4 +60,10 @@ pub fn arrange_get_equipment_by_id_works_integration_test(db: &mut database::Con
             .build_and_insert(db)
             .unwrap()
     )
+}
+
+pub fn arrange_get_equipment_by_id_works_integration_test(db: &mut database::Connection) -> 
+    (Computer, JumpPad, InterfaceBox, Monitor, MicrophoneRecorder, Projector, PowerStrip, ExtensionCord)
+{
+    seed_1_of_each_equipment_piece_type(db)
 }

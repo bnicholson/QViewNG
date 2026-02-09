@@ -1,6 +1,43 @@
 use backend::{database, models::{computer::{Computer, ComputerBuilder}, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder, NewEquipmentRegistration}, equipmentset::{EquipmentSet, EquipmentSetBuilder}, room::Room, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
 
-use crate::fixtures::rooms::seed_1_room_with_minimum_required_dependencies;
+use crate::fixtures::{equipment::seed_1_of_each_equipment_piece_type, rooms::seed_1_room_with_minimum_required_dependencies};
+
+pub fn seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies(db: &mut database::Connection) 
+    -> (Tournament, EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,
+        EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration) {
+    let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .build_and_insert(db)
+        .unwrap();
+    let (computer, jumppad, interfacebox, monitor, microphonerecorder, projector, powerstrip, extensioncord) = 
+        seed_1_of_each_equipment_piece_type(db);
+    (
+        tour_1.clone(),
+        EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(jumppad.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(interfacebox.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(monitor.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(microphonerecorder.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(projector.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(powerstrip.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap(),
+        EquipmentRegistrationBuilder::new_default(extensioncord.equipmentid, tour_1.tid)
+            .build_and_insert(db)
+            .unwrap()
+    )   
+}
 
 pub fn seed_1_equipmentregistration_with_minimum_required_dependencies(db: &mut database::Connection) 
     -> (EquipmentRegistration, Tournament, Computer, EquipmentSet, User) {
