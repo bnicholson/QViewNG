@@ -21,3 +21,4 @@ pub mod microphonerecorders;
 pub mod projectors;
 pub mod powerstrips;
 pub mod extensioncords;
+pub mod apicalllogs;

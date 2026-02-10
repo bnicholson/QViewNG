@@ -1,5 +1,4 @@
 
-use crate::models::equipment::Equipment;
 use crate::{database, models};
 use crate::models::common::PaginationParams;
 use crate::models::equipment_dbo::{EquipmentDbo, EquipmentDboBuilder, EquipmentDboChangeset};

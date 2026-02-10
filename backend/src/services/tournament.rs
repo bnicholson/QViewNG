@@ -5,7 +5,6 @@ use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
 use crate::services::common::{EntityResponse, process_response};
 use chrono::Utc;
-use crate::models::apicalllog::{apicalllog};
 use utoipa::OpenApi;
 use diesel::{QueryResult};
 use crate::database::Database;
@@ -31,7 +30,7 @@ async fn get_between_dates(
     let mut db = db.pool.get().unwrap();
 
     // log this api call
-    apicalllog(&req);
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::tournament::read_between_dates(&mut db, dinfo.from_date, dinfo.to_date);
 
@@ -108,7 +107,7 @@ async fn read_today(
 
     println!("Inside /api/tournaments/today");
     // log this api call
-    apicalllog(&req);
+    models::apicalllog::create(&mut db, &req);
 
     // convert the query from the api call from timestamps in millis since 1970
     // to an actual 
@@ -237,11 +236,14 @@ async fn read_tournamentgroups(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewTournament>    
+    Json(item): Json<NewTournament>,
+    req: HttpRequest  
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} Tournament model create {:?}", line!(), item);
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
 
