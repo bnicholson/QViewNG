@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{models::{self, division::{Division, DivisionChangeset, NewDivision}}, services::common::{EntityResponse, process_response}};
 use crate::models::common::PaginationParams;
@@ -28,8 +28,12 @@ pub struct DivisionDoc;
 async fn index(
     db: Data<Database>,
     Query(info): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::division::read_all(&mut db, &info);
    
@@ -46,8 +50,12 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::division::read(&mut conn, item_id.into_inner()) {
         Ok(division) => HttpResponse::Ok().json(division),
@@ -60,8 +68,12 @@ async fn read_rounds(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::round::read_all_rounds_of_division(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
@@ -74,8 +86,12 @@ async fn read_teams(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::team::read_all_teams_of_division(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
@@ -88,8 +104,12 @@ async fn read_games(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::game::read_all_games_of_division(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
@@ -101,9 +121,13 @@ async fn read_games(
 async fn create(
     db: Data<Database>,
     Json(item): Json<NewDivision>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut conn = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     if !models::tournament::exists(&mut conn, item.tid) {
         println!("Could not find Tournament by ID={}", &item.tid);
@@ -131,9 +155,13 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<DivisionChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     tracing::debug!("{} Division model update {:?} {:?}", line!(), item_id, item); 
 
@@ -152,10 +180,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Division model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::division::delete(&mut db, item_id.into_inner());
 
