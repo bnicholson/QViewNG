@@ -10,4 +10,4 @@ export PATH="/usr/lib/postgresql/16/bin:$PATH"
 
 # Run tests (*only use one of these lines at a time based on your use case):
 # cargo test -- --test-threads=1  # for all integration tests; uses a single test DB synchronously (for now)
-cargo test --test statsgroup_test -- --test-threads=1  # for single integration test file; uses a single test DB synchronously (for now)
+cargo test --test team_test -- --test-threads=1  # for single integration test file; uses a single test DB synchronously (for now)
