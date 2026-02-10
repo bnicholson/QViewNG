@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{database::Database, models::{self, common::PaginationParams, roster::RosterChangeset, roster_coach::{NewRosterCoach, RosterCoach}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
 use crate::services::common::{EntityResponse, process_response};
 use diesel::QueryResult;
@@ -25,8 +25,12 @@ use uuid::Uuid;
 async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     match models::roster::read_all(&mut db, &url_params) {
         Ok(roster) => HttpResponse::Ok().json(roster),
@@ -38,10 +42,14 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::roster::read(&mut conn, item_id.into_inner()) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::roster::read(&mut db, item_id.into_inner()) {
         Ok(roster) => HttpResponse::Ok().json(roster),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -52,10 +60,14 @@ async fn read_quizzers(
     db: Data<Database>,
     roster_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::user::read_all_quizzers_of_roster(&mut conn, roster_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::user::read_all_quizzers_of_roster(&mut db, roster_id.into_inner(), &params) {
         Ok(quizzers) => HttpResponse::Ok().json(quizzers),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -66,10 +78,14 @@ async fn read_coaches(
     db: Data<Database>,
     coach_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::user::read_all_coaches_of_roster(&mut conn, coach_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::user::read_all_coaches_of_roster(&mut db, coach_id.into_inner(), &params) {
         Ok(quizzers) => HttpResponse::Ok().json(quizzers),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -79,10 +95,14 @@ async fn read_coaches(
 async fn add_quizzer(
     db: Data<Database>,
     path_id: Path<(Uuid, Uuid)>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
 
     // tracing::debug!("{} RosterQuizzer model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let item_to_be_created = NewRosterQuizzer {
         rosterid: path_id.0,
@@ -107,11 +127,15 @@ async fn add_quizzer(
 async fn add_coach(
     db: Data<Database>,
     path_id: Path<Uuid>,
-    Json(item): Json<NewRosterCoach>    
+    Json(item): Json<NewRosterCoach>   ,
+    req: HttpRequest 
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} NewRosterCoach model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let item_to_be_created = NewRosterCoach {
         rosterid: path_id.into_inner(),
@@ -137,11 +161,15 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<RosterChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Roster model update {:?} {:?}", line!(), item_id, item); 
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::roster::update(&mut db, item_id.into_inner(), &item);
 
@@ -158,10 +186,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Roster model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::roster::delete(&mut db, item_id.into_inner());
 
@@ -176,10 +208,14 @@ async fn destroy(
 async fn remove_coach(
     db: Data<Database>,
     item_ids: Path<(Uuid, Uuid)>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Roster model delete {:?}", line!(), item_ids);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let roster_id = item_ids.0;
     let coach_id = item_ids.1;
@@ -196,10 +232,14 @@ async fn remove_coach(
 async fn remove_quizzer(
     db: Data<Database>,
     item_ids: Path<(Uuid, Uuid)>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Roster model delete {:?}", line!(), item_ids);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let roster_id = item_ids.0;
     let quizzer_id = item_ids.1;
