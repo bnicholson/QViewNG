@@ -58,8 +58,12 @@ async fn get_between_dates(
 async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
+    req: HttpRequest  
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     match models::tournament::read_all(&mut db, &url_params) {
         Ok(tournament) => HttpResponse::Ok().json(tournament),
@@ -80,8 +84,12 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest  
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     match models::tournament::read(&mut db, item_id.into_inner()) {
         Ok(tournament) => HttpResponse::Ok().json(tournament),
@@ -132,10 +140,14 @@ async fn read_divisions(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::division::read_all_divisions_of_tournament(&mut conn, item_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::division::read_all_divisions_of_tournament(&mut db, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -146,10 +158,14 @@ async fn read_admins(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::user::read_all_admins_of_tournament(&mut conn, item_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::user::read_all_admins_of_tournament(&mut db, item_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -160,10 +176,14 @@ async fn read_equipmentregistrations(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::equipmentregistration::read_all_equipmentregistrations_of_tournament(&mut conn, tour_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::equipmentregistration::read_all_equipmentregistrations_of_tournament(&mut db, tour_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -174,8 +194,12 @@ async fn read_rooms(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::room::read_all_rooms_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
@@ -188,8 +212,12 @@ async fn read_rounds(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::round::read_all_rounds_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
@@ -202,8 +230,12 @@ async fn read_games(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::game::read_all_games_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
@@ -216,8 +248,12 @@ async fn read_tournamentgroups(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::tournamentgroup::read_all_tournamentgroups_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
@@ -261,9 +297,13 @@ async fn create(
 async fn add_admin(
     db: Data<Database>,
     path_ids: Path<Uuid>,
-    Json(item): Json<NewTournamentAdmin>    
+    Json(item): Json<NewTournamentAdmin>,
+    req: HttpRequest  
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     tracing::debug!("{} Tournament model create {:?}", line!(), item);
 
@@ -298,8 +338,12 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<TournamentChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     tracing::debug!("{} Tournement model update {:?} {:?}", line!(), item_id, item); 
 
@@ -319,8 +363,12 @@ async fn update_admin(
     db: Data<Database>,
     item_id: Path<(Uuid,Uuid)>,
     Json(item): Json<TournamentAdminChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     tracing::debug!("{} Tournement model update {:?} {:?}", line!(), item_id, item); 
 
@@ -350,8 +398,12 @@ async fn update_admin(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     tracing::debug!("{} Tournament model delete {:?}", line!(), item_id);
 
@@ -368,8 +420,12 @@ async fn destroy(
 async fn remove_admin(
     db: Data<Database>,
     path_ids: Path<(Uuid,Uuid)>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let tour_id = path_ids.0;
     let admin_id = path_ids.1;

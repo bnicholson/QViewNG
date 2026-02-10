@@ -1,6 +1,6 @@
-use backend::{database, models::{equipmentregistration::EquipmentRegistration, tournament::{NewTournament, Tournament, TournamentBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder}};
+use backend::{database, models::{equipmentregistration::EquipmentRegistration, tournament::{NewTournament, Tournament, TournamentBuilder}, tournament_admin::{NewTournamentAdmin, TournamentAdmin, TournamentAdminBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::{User, UserBuilder}}};
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
-use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, equipmentregistrations::seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
+use crate::fixtures::{self,divisions::{seed_division_with_name, seed_divisions_with_names}, equipmentregistrations::seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
 
 pub fn get_tournament_payload() -> NewTournament {
     TournamentBuilder::new_default("Test Tour").build().unwrap()
@@ -232,4 +232,56 @@ pub fn arrange_get_all_equipmentregistrations_of_tournament_works_integration_te
     -> (Tournament,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,
         EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration) {
     seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies(db)
+}
+
+pub fn arrange_get_all_admins_of_tournament_works_integration_test(db: &mut database::Connection) 
+    -> (Tournament, TournamentAdmin, TournamentAdmin) {
+    let tour = TournamentBuilder::new_default("Test Tour")
+        .build_and_insert(db)
+        .unwrap();
+
+    let user_1 = 
+        UserBuilder::new_default("Test User 3")
+            .set_hash_password("Some pwd&7")
+            .build_and_insert(db)
+            .unwrap();
+    let admin_1 = TournamentAdminBuilder::new_default(tour.tid, user_1.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let user_2 = 
+        UserBuilder::new_default("Test User 9")
+            .set_email("edbashful@fakeemail.com")
+            .set_hash_password("Grace_abundantly90")
+            .set_activated(true)
+            .set_mname("Eugene")
+            .set_lname("Davidson")
+            .set_username("edbashful")
+            .build_and_insert(db)
+            .unwrap();
+    let admin_2 = TournamentAdminBuilder::new_default(tour.tid, user_2.id)
+        .build_and_insert(db)
+        .unwrap();
+    (
+        tour,
+        admin_1,
+        admin_2
+    )
+}
+
+pub fn arrange_delete_admin_works_integration_test(db: &mut database::Connection) -> (Tournament, User, TournamentAdmin) {
+    
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .build_and_insert(db)
+        .unwrap();
+    let user = UserBuilder::new_default("Test User 3276")
+        .set_hash_password("phunkeypazwurd")
+        .build_and_insert(db)
+        .unwrap();
+    let tour_admin = TournamentAdminBuilder::new_default(tournament.tid, user.id)
+        .set_role_description("default role (test id 334)")
+        .build_and_insert(db)
+        .unwrap();
+    
+    (tournament, user, tour_admin)
 }
