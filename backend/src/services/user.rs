@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{RosterCoach, RosterCoachBuilder}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
@@ -9,12 +9,14 @@ use uuid::Uuid;
 async fn index(
     db: Data<Database>,
     Query(info): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
     let result = models::user::read_all(&mut db, &info);
-   
-    println!("Users: {:?}",result);
     
     if result.is_ok() {
         HttpResponse::Ok().json(result.unwrap())
@@ -27,10 +29,14 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::user::read(&mut conn, item_id.into_inner()) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::user::read(&mut db, item_id.into_inner()) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -41,10 +47,14 @@ async fn read_games_where_quizmaster(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::game::read_all_games_where_user_is_quizmaster(&mut conn, tour_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::game::read_all_games_where_user_is_quizmaster(&mut db, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -55,10 +65,14 @@ async fn read_games_where_contentjudge(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::game::read_all_games_where_user_is_contentjudge(&mut conn, tour_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::game::read_all_games_where_user_is_contentjudge(&mut db, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -69,10 +83,14 @@ async fn read_tournaments_where_admin(
     db: Data<Database>,
     user_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::tournament::read_all_tournaments_where_user_is_admin(&mut conn, user_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::tournament::read_all_tournaments_where_user_is_admin(&mut db, user_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -83,10 +101,14 @@ async fn read_teams_where_coach(
     db: Data<Database>,
     user_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::team::read_all_teams_where_user_is_coach(&mut conn, user_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::team::read_all_teams_where_user_is_coach(&mut db, user_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -97,10 +119,14 @@ async fn read_teams_where_quizzer(
     db: Data<Database>,
     user_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::team::read_all_teams_where_user_is_quizzer(&mut conn, user_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::team::read_all_teams_where_user_is_quizzer(&mut db, user_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -111,10 +137,14 @@ async fn read_rosters_of_coach(
     db: Data<Database>,
     user_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::roster::read_all_rosters_of_coach(&mut conn, user_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::roster::read_all_rosters_of_coach(&mut db, user_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -125,10 +155,14 @@ async fn read_rosters_containing_quizzer(
     db: Data<Database>,
     user_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::roster::read_all_rosters_containing_quizzer(&mut conn, user_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::roster::read_all_rosters_containing_quizzer(&mut db, user_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -138,13 +172,17 @@ async fn read_rosters_containing_quizzer(
 async fn create(
     db: Data<Database>,
     Json(item): Json<NewUser>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut conn = db.get_connection().expect("Failed to get connection");
+    let mut db = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} User model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
-    let result: QueryResult<User> = models::user::create(&mut conn, item);
+    let result: QueryResult<User> = models::user::create(&mut db, item);
 
     let response: EntityResponse<User> = process_response(result, "post");
     
@@ -160,15 +198,19 @@ async fn create(
 async fn create_roster(
     db: Data<Database>,
     Json(item): Json<NewRoster>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut conn = db.get_connection().expect("Failed to get connection");
+    let mut db = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} Roster model create {:?}", line!(), item);
 
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
     // Create the Roster:
     
-    let command_1_result: QueryResult<Roster> = models::roster::create(&mut conn, &item);
+    let command_1_result: QueryResult<Roster> = models::roster::create(&mut db, &item);
 
     if command_1_result.is_err() {
         println!("Error creating Roster: {:?}", command_1_result);
@@ -184,7 +226,7 @@ async fn create_roster(
         .build()
         .unwrap();
     
-    let command_2_result: QueryResult<RosterCoach> = models::roster_coach::create(&mut conn, new_rostercoach);
+    let command_2_result: QueryResult<RosterCoach> = models::roster_coach::create(&mut db, new_rostercoach);
 
     if command_2_result.is_err() {
         println!("Error creating RosterCoach: {:?}", command_2_result);
@@ -206,11 +248,15 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<UserChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} User model update {:?} {:?}", line!(), item_id, item); 
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::user::update(&mut db, item_id.into_inner(), &item);
 
@@ -227,10 +273,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} User model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::user::delete(&mut db, item_id.into_inner());
 
