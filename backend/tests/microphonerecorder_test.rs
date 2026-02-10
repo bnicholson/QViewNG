@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
 use backend::models::microphonerecorder::MicrophoneRecorder;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -28,8 +28,9 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
     
+    let uri = "/api/equipment/microphonerecorders";
     let req = test::TestRequest::post()
-        .uri("/api/equipment/microphonerecorders")
+        .uri(&uri)
         .set_json(&payload)
         .to_request();
 
@@ -49,6 +50,14 @@ async fn create_works() {
     assert_eq!(microphonerecorder.type_, payload.type_);  // from MicrophoneRecorderDbo ("microphonerecorders" table)
     assert_eq!(microphonerecorder.equipmentsetid, payload.equipmentsetid);  // from EquipmentDbo ("equipment" table)
     assert_eq!(microphonerecorder.misc_note, payload.misc_note);  // from EquipmentDbo ("equipment" table)
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -101,6 +110,14 @@ async fn get_all_works() {
     }
     assert_ne!(microphonerecorder_1_interest_idx, 10);
     assert_ne!(microphonerecorder_2_interest_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -137,6 +154,14 @@ async fn get_by_id_works() {
     let resp_microphonerecorder: MicrophoneRecorder = test::read_body_json(resp).await;
     assert_eq!(resp_microphonerecorder.id, microphonerecorder.id);
     assert_eq!(resp_microphonerecorder.type_, microphonerecorder.type_);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -190,6 +215,14 @@ async fn update_works() {
 
     let new_equipment_dbo = models::equipment_dbo::read(&mut conn, new_microphonerecorder.equipmentid).unwrap();
     assert_ne!(new_equipment_dbo.created_at, new_equipment_dbo.updated_at);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
 }
 
 #[actix_web::test]
@@ -235,4 +268,12 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
