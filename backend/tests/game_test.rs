@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{game::NewGame, statsgroup::StatsGroup}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::NewGame, statsgroup::StatsGroup}};
 use backend::models::game::Game;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -37,8 +37,9 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
     
+    let uri = "/api/games"; 
     let req = test::TestRequest::post()
-        .uri("/api/games")
+        .uri(&uri)
         .set_json(&payload)
         .to_request();
 
@@ -58,6 +59,14 @@ async fn create_works() {
     assert_eq!(game.divisionid, did);
     assert_eq!(game.quizmasterid, qm_id);
     assert_eq!(game.leftteamid, left_team_id);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -76,8 +85,9 @@ async fn create_errors_when_team_is_found_more_than_once_in_a_game() {
 
     let payload_one = fixtures::games::duplicate_team_in_game_case_one_payload(&mut conn);
     
+    let uri_1 = "/api/games";
     let req_one = test::TestRequest::post()
-        .uri("/api/games")
+        .uri(&uri_1)
         .set_json(&payload_one)
         .to_request();
 
@@ -161,6 +171,14 @@ async fn get_all_works() {
     let body: Vec<Game> = test::read_body_json(resp).await;
 
     assert_eq!(body.len(), 2);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -199,6 +217,14 @@ async fn get_by_id_works() {
     assert_eq!(game.rightteamid, games[game_of_interest_idx].rightteamid);
     assert_eq!(game.centerteamid.unwrap(), games[game_of_interest_idx].centerteamid.unwrap());
     assert_eq!(game.leftteamid, games[game_of_interest_idx].leftteamid);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -246,6 +272,14 @@ async fn update_works() {
     assert_eq!(updated_game.divisionid, game.divisionid);
     assert_eq!(updated_game.leftteamid, new_left_team.teamid);
     assert_ne!(updated_game.created_at, updated_game.updated_at);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
 }
 
 #[actix_web::test]
@@ -291,6 +325,14 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
 
 #[actix_web::test]
@@ -341,4 +383,12 @@ async fn get_all_statsgroups_of_game_works() {
     }
     assert_ne!(statsgroup_1_idx, 10);
     assert_ne!(statsgroup_2_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }

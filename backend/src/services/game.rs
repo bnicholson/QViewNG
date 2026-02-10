@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, game::{NewGame, Game, GameChangeset}};
 use crate::services::common::{EntityResponse, process_response};
@@ -27,8 +27,12 @@ use uuid::Uuid;
 async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     match models::game::read_all(&mut db, &url_params) {
         Ok(game) => HttpResponse::Ok().json(game),
@@ -40,8 +44,12 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::game::read(&mut conn, item_id.into_inner()) {
         Ok(game) => HttpResponse::Ok().json(game),
@@ -54,8 +62,12 @@ async fn read_statsgroups(
     db: Data<Database>,
     game_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::statsgroup::read_all_statsgroups_of_game(&mut conn, game_id.into_inner(), &params) {
         Ok(games) => HttpResponse::Ok().json(games),
@@ -67,11 +79,15 @@ async fn read_statsgroups(
 async fn create(
     db: Data<Database>,
     Json(item): Json<NewGame>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut conn = db.get_connection().expect("Failed to get connection");
     
     tracing::debug!("{} Game model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
     
     let result: QueryResult<Game> = models::game::create(&mut conn, &item);
 
@@ -91,11 +107,15 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<GameChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Game model update {:?} {:?}", line!(), item_id, item); 
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::game::update(&mut db, item_id.into_inner(), &item);
 
@@ -112,10 +132,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Game model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::game::delete(&mut db, item_id.into_inner());
 
