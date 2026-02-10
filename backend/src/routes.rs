@@ -30,7 +30,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::statsgroup::endpoints(web::scope("/statsgroups")))
             .service(services::roster::endpoints(web::scope("/rosters")))
             .service(services::equipmentset::endpoints(web::scope("/equipmentsets")))
-            .service(services::equipment::endpoints(web::scope("/equipment")))
             .service(services::equipmentregistration::endpoints(web::scope("/equipmentregistrations")))
             .service(
                 web::scope("/equipment")
@@ -42,6 +41,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .service(services::projector::endpoints(web::scope("/projectors")))
                     .service(services::powerstrip::endpoints(web::scope("/powerstrips")))
                     .service(services::extensioncord::endpoints(web::scope("/extensioncords")))
+                    .service(services::equipment::endpoints(web::scope("")))  // *must be after all other paths of parent service
             )
             // .service(services::file::endpoints(web::scope("/files")))
             // .service(services::namelist::endpoints(web::scope("/namelist")))
