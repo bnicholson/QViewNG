@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, room::{NewRoom, Room, RoomChangeset}, tournament::Tournament};
@@ -29,8 +29,12 @@ use uuid::Uuid;
 async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     match models::room::read_all(&mut db, &url_params) {
         Ok(room) => HttpResponse::Ok().json(room),
@@ -42,10 +46,14 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::room::read(&mut conn, item_id.into_inner()) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::room::read(&mut db, item_id.into_inner()) {
         Ok(room) => HttpResponse::Ok().json(room),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -56,10 +64,14 @@ async fn read_games(
     db: Data<Database>,
     tour_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::game::read_all_games_of_room(&mut conn, tour_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -70,10 +82,14 @@ async fn read_equipmentregistrations(
     db: Data<Database>,
     room_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::equipmentregistration::read_all_equipmentregistrations_of_room(&mut conn, room_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::equipmentregistration::read_all_equipmentregistrations_of_room(&mut db, room_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -83,13 +99,14 @@ async fn read_equipmentregistrations(
 async fn create(
     db: Data<Database>,
     Json(item): Json<NewRoom>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut conn = db.get_connection().expect("Failed to get connection");
+    let mut db = db.get_connection().expect("Failed to get connection");
 
     let tournament_exists: bool = tournaments_table
         .find(item.tid)
-        .get_result::<Tournament>(&mut conn)
+        .get_result::<Tournament>(&mut db)
         .is_ok();
     
     if !tournament_exists {
@@ -100,8 +117,11 @@ async fn create(
     }
 
     tracing::debug!("{} Room model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
-    let result: QueryResult<Room> = models::room::create(&mut conn, &item);
+    let result: QueryResult<Room> = models::room::create(&mut db, &item);
 
     let response: EntityResponse<Room> = process_response(result, "post");
     
@@ -118,11 +138,15 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<RoomChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Room model update {:?} {:?}", line!(), item_id, item); 
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::room::update(&mut db, item_id.into_inner(), &item);
 
@@ -139,10 +163,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Room model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::room::delete(&mut db, item_id.into_inner());
 

@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{equipmentregistration::EquipmentRegistration, game::Game}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game}};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -30,8 +30,9 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
     
+    let uri = "/api/rooms";
     let req = test::TestRequest::post()
-        .uri("/api/rooms")
+        .uri(&uri)
         .set_json(&payload)
         .to_request();
 
@@ -52,6 +53,14 @@ async fn create_works() {
     assert_eq!(room.name.as_str(), "Test Room 2217");
     assert_eq!(room.building.as_str(), "Building 451");
     assert_eq!(room.comments.as_str(), "None at this time.");
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -102,6 +111,14 @@ async fn get_all_works() {
     assert_eq!(room_of_interest.tid, parent_tournament.tid);
     assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
     assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -141,6 +158,14 @@ async fn get_by_id_works() {
     assert_eq!(room.name, rooms[room_of_interest_idx].name);
     assert_eq!(room.building, rooms[room_of_interest_idx].building);
     assert_eq!(room.comments, rooms[room_of_interest_idx].comments);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -197,6 +222,14 @@ async fn update_works() {
     assert_eq!(new_room.building.as_str(), new_building);
     assert_eq!(new_room.comments.as_str(), new_comments);
     assert_ne!(new_room.created_at, new_room.updated_at);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
 }
 
 #[actix_web::test]
@@ -244,6 +277,14 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
 
 #[actix_web::test]
@@ -293,6 +334,14 @@ async fn get_all_games_of_room_works() {
     }
     assert_ne!(game_1_idx, 10);
     assert_ne!(game_2_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -343,4 +392,12 @@ async fn get_all_equipmentregistrations_of_room_works() {
     }
     assert_ne!(equipmentregistration_1_idx, 10);
     assert_ne!(equipmentregistration_2_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
