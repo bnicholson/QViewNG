@@ -2,7 +2,7 @@
 mod common;
 mod fixtures;
 
-use backend::{database::Database, models::{computer::Computer, equipment::Equipment, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, computer::Computer, equipment::Equipment, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 use actix_web::{App, test, web::{self}};
 use actix_http::StatusCode;
@@ -203,6 +203,14 @@ async fn get_by_id_works() {
         _ => panic!("Expected ExtensionCord variant"),
     }; 
     assert_eq!(body_extensioncord.length, extensioncord.length);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 8);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, computer_uri);
 }
 
 #[actix_web::test]
@@ -253,4 +261,12 @@ async fn get_all_equipmentregistrations_of_equipment_piece_works() {
     }
     assert_ne!(equipmentregistration_1_idx, 10);
     assert_ne!(equipmentregistration_2_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
