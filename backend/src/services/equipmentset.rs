@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, equipmentset::{NewEquipmentSet, EquipmentSet, EquipmentSetChangeset}};
 use crate::services::common::{EntityResponse, process_response};
@@ -26,8 +26,12 @@ use diesel::QueryResult;
 async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     match models::equipmentset::read_all(&mut db, &url_params) {
         Ok(equipmentset) => HttpResponse::Ok().json(equipmentset),
@@ -39,8 +43,12 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<i64>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
 
     match models::equipmentset::read(&mut conn, item_id.into_inner()) {
         Ok(equipmentset) => HttpResponse::Ok().json(equipmentset),
@@ -52,11 +60,15 @@ async fn read(
 async fn create(
     db: Data<Database>,
     Json(item): Json<NewEquipmentSet>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut conn = db.get_connection().expect("Failed to get connection");
 
     tracing::debug!("{} EquipmentSet model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
     
     let result: QueryResult<EquipmentSet> = models::equipmentset::create(&mut conn, &item);
 
@@ -75,11 +87,15 @@ async fn update(
     db: Data<Database>,
     item_id: Path<i64>,
     Json(item): Json<EquipmentSetChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} EquipmentSet model update {:?} {:?}", line!(), item_id, item); 
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::equipmentset::update(&mut db, item_id.into_inner(), &item);
 
@@ -96,10 +112,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<i64>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} EquipmentSet model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::equipmentset::delete(&mut db, item_id.into_inner());
 
