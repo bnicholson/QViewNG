@@ -1,4 +1,4 @@
-use actix_web::{delete, Error, get, HttpResponse, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, round::{NewRound, Round, RoundChangeset}};
@@ -28,8 +28,12 @@ use uuid::Uuid;
 async fn index(
     db: Data<Database>,
     Query(url_params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
     match models::round::read_all(&mut db, &url_params) {
         Ok(round) => HttpResponse::Ok().json(round),
@@ -41,10 +45,14 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::round::read(&mut conn, item_id.into_inner()) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::round::read(&mut db, item_id.into_inner()) {
         Ok(round) => HttpResponse::Ok().json(round),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -55,10 +63,14 @@ async fn read_games(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
+    req: HttpRequest
 ) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
+    let mut db = db.pool.get().unwrap();
 
-    match models::game::read_all_games_of_round(&mut conn, item_id.into_inner(), &params) {
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::game::read_all_games_of_round(&mut db, item_id.into_inner(), &params) {
         Ok(games) => HttpResponse::Ok().json(games),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -68,11 +80,12 @@ async fn read_games(
 async fn create(
     db: Data<Database>,
     Json(item): Json<NewRound>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut conn = db.get_connection().expect("Failed to get connection");
+    let mut db = db.get_connection().expect("Failed to get connection");
 
-    if !models::division::exists(&mut conn, item.did) {
+    if !models::division::exists(&mut db, item.did) {
         println!("Could not find Division by ID={}", &item.did);
         return Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": format!("Division with ID {} does not exist", item.did)
@@ -80,8 +93,11 @@ async fn create(
     }
 
     tracing::debug!("{} Round model create {:?}", line!(), item);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
     
-    let result: QueryResult<Round> = models::round::create(&mut conn, &item);
+    let result: QueryResult<Round> = models::round::create(&mut db, &item);
 
     let response: EntityResponse<Round> = process_response(result, "post");
     
@@ -98,11 +114,15 @@ async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Json(item): Json<RoundChangeset>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Round model update {:?} {:?}", line!(), item_id, item); 
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::round::update(&mut db, item_id.into_inner(), &item);
 
@@ -119,10 +139,14 @@ async fn update(
 async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     tracing::debug!("{} Round model delete {:?}", line!(), item_id);
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
 
     let result = models::round::delete(&mut db, item_id.into_inner());
 
