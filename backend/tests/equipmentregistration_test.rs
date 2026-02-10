@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::database::Database;
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
 use backend::models::equipmentregistration::EquipmentRegistration;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -47,6 +47,14 @@ async fn create_works() {
 
     let equipmentregistration: EquipmentRegistration = body.data.unwrap();
     assert_eq!(equipmentregistration.status, new_equipment_registration.status);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), "/api/equipmentregistrations");
 }
 
 #[actix_web::test]
@@ -100,6 +108,14 @@ async fn get_all_works() {
     }
     assert_ne!(equipmentregistration_1_interest_idx, 10);
     assert_ne!(equipmentregistration_2_interest_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -135,6 +151,14 @@ async fn get_by_id_works() {
     
     let body_equipmentregistration: EquipmentRegistration = test::read_body_json(resp).await;
     assert_eq!(body_equipmentregistration.id, equipmentregistration.id);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -186,6 +210,14 @@ async fn update_works() {
     assert_eq!(new_equipmentregistration.status, new_status);
     assert_eq!(new_equipmentregistration.roomid.unwrap(), new_room_id);
     assert_ne!(new_equipmentregistration.created_at, new_equipmentregistration.updated_at);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
 }
 
 #[actix_web::test]
@@ -232,53 +264,12 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
-
-// #[actix_web::test]
-// async fn get_all_games_of_equipmentregistration_works() {
-
-//     // Arrange:
-    
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-//     let (game_2, game_4 ) = fixtures::games::seed_get_games_of_equipmentregistration(&mut conn);
-
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
-    
-//     let uri = format!("/api/equipmentregistrations/{}/games?page={}&page_size={}", game_2.equipmentregistrationid, PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
-    
-//     // Act:
-    
-//     let resp = test::call_service(&app, req).await;
-//     assert_eq!(resp.status(), StatusCode::OK);
-
-//     // Assert:
-
-//     let body: Vec<Game> = test::read_body_json(resp).await;
-
-//     let len = 2;
-
-//     assert_eq!(body.len(), len);
-
-//     let mut game_1_idx = 10;
-//     let mut game_2_idx = 10;
-//     for idx in 0..len {
-//         if body[idx].gid == game_2.gid {
-//             game_1_idx = idx;
-//         }
-//         if body[idx].gid == game_4.gid {
-//             game_2_idx = idx;
-//         }
-//     }
-//     assert_ne!(game_1_idx, 10);
-//     assert_ne!(game_2_idx, 10);
-// }
