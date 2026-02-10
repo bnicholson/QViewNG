@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{game::Game, game_statsgroup::GameStatsGroup}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, game_statsgroup::GameStatsGroup}};
 use backend::models::statsgroup::StatsGroup;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -18,6 +18,7 @@ async fn create_works() {
 
     clean_database();
     let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::statsgroups::arrange_create_works_integration_test();
 
@@ -27,8 +28,9 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
     
+    let uri = "/api/statsgroups";
     let req = test::TestRequest::post()
-        .uri("/api/statsgroups")
+        .uri(&uri)
         .set_json(&payload)
         .to_request();
 
@@ -48,6 +50,14 @@ async fn create_works() {
     assert_ne!(statsgroup.sgid, uuid::Uuid::nil());
     assert_eq!(statsgroup.name.as_str(), "Test StatsGroup 2217");
     assert_eq!(statsgroup.description.unwrap().as_str(), "StatsGroup for integration test create.");
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -100,6 +110,14 @@ async fn get_all_works() {
     }
     assert_ne!(sg_1_interest_idx, 10);
     assert_ne!(sg_2_interest_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -136,6 +154,14 @@ async fn get_by_id_works() {
     let statsgroup: StatsGroup = test::read_body_json(resp).await;
     assert_eq!(statsgroup.name.as_str(), "Test StatsGroup 2");
     assert_eq!(statsgroup.description.unwrap().as_str(), "This is StatsGroup 2's description.");
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -187,6 +213,14 @@ async fn update_works() {
     assert_eq!(new_statsgroup.name.as_str(), new_name);
     assert_eq!(new_statsgroup.description.as_ref().unwrap().as_str(), new_description);
     assert_ne!(new_statsgroup.created_at, new_statsgroup.updated_at);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
 }
 
 #[actix_web::test]
@@ -232,6 +266,14 @@ async fn delete_works() {
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
     assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
 
 #[actix_web::test]
@@ -272,6 +314,14 @@ async fn add_game_to_statsgroup_works() {
     let tournamentgroup_tournament = body.data.unwrap();
     assert_eq!(tournamentgroup_tournament.statsgroupid, statsgroup.sgid);
     assert_eq!(tournamentgroup_tournament.gameid, game.gid);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -322,6 +372,14 @@ async fn get_all_games_of_statsgroup_works() {
     }
     assert_ne!(game_1_idx, 10);
     assert_ne!(game_2_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
 #[actix_web::test]
@@ -371,4 +429,12 @@ async fn remove_game_from_statsgroup_works() {
 
     let body: Vec<Game> = test::read_body_json(get_games_resp).await;
     assert_eq!(body.len(), 0);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
