@@ -15,30 +15,25 @@ pub fn seed_1_room_with_minimum_required_dependencies(db: &mut database::Connect
 }
 
 pub fn new_room_one(tid: Uuid, room_name: &str) -> NewRoom {
-    NewRoom {
-        tid: tid,
-        name: room_name.to_string(),
-        building: "Building 451".to_string(),
-        comments: "None at this time.".to_string()
-    }
+    RoomBuilder::new_default(room_name, tid)
+        .build()
+        .unwrap()
 }
 
 pub fn new_room_two(tid: Uuid, room_name: &str) -> NewRoom {
-    NewRoom {
-        tid: tid,
-        name: room_name.to_string(),
-        building: "Bldng 2".to_string(),
-        comments: "I thought I recognized this place.".to_string()
-    }
+    RoomBuilder::new_default(room_name, tid)
+        .set_building("Bldng 2".to_string())
+        .set_comments("I thought I recognized this place.".to_string())
+        .build()
+        .unwrap()
 }
 
 pub fn new_room_three(tid: Uuid, room_name: &str) -> NewRoom {
-    NewRoom {
-        tid: tid,
-        name: room_name.to_string(),
-        building: "Building H".to_string(),
-        comments: "How'd we get here?".to_string()
-    }
+    RoomBuilder::new_default(room_name, tid)
+        .set_building("Building H".to_string())
+        .set_comments("How'd we get here?".to_string())
+        .build()
+        .unwrap()
 }
 
 pub fn get_room_payload(tid: Uuid) -> NewRoom {

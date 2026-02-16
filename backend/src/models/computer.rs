@@ -24,6 +24,7 @@ pub struct ComputerBuilder {
     has_display_port_out: Option<bool>,
     has_usb_port: Option<bool>,
     misc_note: Option<String>,
+    clientkey: Option<String>,
 }
 
 impl ComputerBuilder {
@@ -42,6 +43,7 @@ impl ComputerBuilder {
             has_display_port_out: None,
             has_usb_port: None,
             misc_note: None,
+            clientkey: None,
         }
     }
     pub fn new_default(equipmentsetid: i64) -> Self {
@@ -59,6 +61,7 @@ impl ComputerBuilder {
             has_display_port_out: Some(false),
             has_usb_port: Some(false),
             misc_note: None,
+            clientkey: None,
         }
     }
     pub fn set_equipmentsetid(mut self, equipmentsetid: i64) -> Self {
@@ -111,6 +114,10 @@ impl ComputerBuilder {
     }
     pub fn set_misc_note(mut self, misc_note: Option<String>) -> Self {
         self.misc_note = misc_note;
+        self
+    }
+    pub fn set_clientkey(mut self, clientkey: Option<String>) -> Self {
+        self.clientkey = clientkey;
         self
     }
     fn validate(&self) -> Result<(), Vec<String>> {
@@ -176,6 +183,7 @@ impl ComputerBuilder {
                         has_display_port_out: self.has_display_port_out.unwrap(),
                         has_usb_port: self.has_usb_port.unwrap(),
                         misc_note: self.misc_note,
+                        clientkey: self.clientkey.unwrap_or_else(|| "".to_string()),
                     }
                 )
             }
@@ -216,6 +224,7 @@ struct ComputerDbo {
     pub has_usb_port: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub clientkey: String,
 }
 impl ComputerDbo {
     pub fn to_model(&self, equipment_dbo: EquipmentDbo) -> Computer {
@@ -229,14 +238,15 @@ impl ComputerDbo {
             wifi_capabilities: self.wifi_capabilities.clone(),
             login_username: self.login_username.clone(),
             login_password: self.login_password.clone(),
-            has_vga_out_port: self.has_vga_out_port,
-            has_dvi_out_port: self.has_dvi_out_port,
-            has_hdmi_out_port: self.has_hdmi_out_port,
-            has_display_port_out: self.has_display_port_out,
-            has_usb_port: self.has_usb_port,
-            misc_note: equipment_dbo.misc_note,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
+            has_vga_out_port: self.has_vga_out_port.clone(),
+            has_dvi_out_port: self.has_dvi_out_port.clone(),
+            has_hdmi_out_port: self.has_hdmi_out_port.clone(),
+            has_display_port_out: self.has_display_port_out.clone(),
+            has_usb_port: self.has_usb_port.clone(),
+            misc_note: equipment_dbo.misc_note.clone(),
+            created_at: self.created_at.clone(),
+            updated_at: self.updated_at.clone(),
+            clientkey: self.clientkey.clone(),
         }
     }
 }
@@ -265,6 +275,7 @@ pub struct Computer {
     pub misc_note: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub clientkey: String,
 }
 
 #[derive(
@@ -286,6 +297,7 @@ struct NewComputerDbo {
     pub has_hdmi_out_port: bool,
     pub has_display_port_out: bool,
     pub has_usb_port: bool,
+    pub clientkey: String,
 }
 
 #[derive(
@@ -308,6 +320,7 @@ pub struct NewComputer {
     pub has_display_port_out: bool,
     pub has_usb_port: bool,
     pub misc_note: Option<String>,
+    pub clientkey: String,
 }
 impl NewComputer {
     fn to_dbo(&self) -> NewComputerDbo {
@@ -318,11 +331,12 @@ impl NewComputer {
             wifi_capabilities: self.wifi_capabilities.clone(),
             login_username: Some(self.login_username.clone()),
             login_password: Some(self.login_password.clone()),
-            has_vga_out_port: self.has_vga_out_port,
-            has_dvi_out_port: self.has_dvi_out_port,
-            has_hdmi_out_port: self.has_hdmi_out_port,
-            has_display_port_out: self.has_display_port_out,
-            has_usb_port: self.has_usb_port,
+            has_vga_out_port: self.has_vga_out_port.clone(),
+            has_dvi_out_port: self.has_dvi_out_port.clone(),
+            has_hdmi_out_port: self.has_hdmi_out_port.clone(),
+            has_display_port_out: self.has_display_port_out.clone(),
+            has_usb_port: self.has_usb_port.clone(),
+            clientkey: self.clientkey.clone(),
         }
     }
 }
@@ -342,6 +356,7 @@ struct ComputerDboChangeset {
     pub has_hdmi_out_port: Option<bool>,
     pub has_display_port_out: Option<bool>,
     pub has_usb_port: Option<bool>,
+    pub clientkey: Option<String>,
 }
 
 #[derive(
@@ -364,6 +379,7 @@ pub struct ComputerChangeSet {
     pub has_display_port_out: Option<bool>,
     pub has_usb_port: Option<bool>,
     pub misc_note: Option<String>,
+    pub clientkey: Option<String>,
 }
 impl ComputerChangeSet {
     fn to_dbos(&self) -> (ComputerDboChangeset, EquipmentDboChangeset) {
@@ -376,11 +392,12 @@ impl ComputerChangeSet {
                 wifi_capabilities: self.wifi_capabilities.clone(),
                 login_username: self.login_username.clone(),
                 login_password: self.login_password.clone(),
-                has_vga_out_port: self.has_vga_out_port,
-                has_dvi_out_port: self.has_dvi_out_port,
-                has_hdmi_out_port: self.has_hdmi_out_port,
-                has_display_port_out: self.has_display_port_out,
-                has_usb_port: self.has_usb_port,
+                has_vga_out_port: self.has_vga_out_port.clone(),
+                has_dvi_out_port: self.has_dvi_out_port.clone(),
+                has_hdmi_out_port: self.has_hdmi_out_port.clone(),
+                has_display_port_out: self.has_display_port_out.clone(),
+                has_usb_port: self.has_usb_port.clone(),
+                clientkey: self.clientkey.clone(),
             },
             EquipmentDboChangeset {
                 misc_note: clone_of_self.misc_note,
@@ -404,6 +421,7 @@ fn covert_to_model_from_dbos(computer_dbo: ComputerDbo, equipment_dbo: Equipment
         has_hdmi_out_port: computer_dbo.has_hdmi_out_port,
         has_display_port_out: computer_dbo.has_display_port_out,
         has_usb_port: computer_dbo.has_usb_port,
+        clientkey: computer_dbo.clientkey,
 
         equipmentid: equipment_dbo.id,
         equipmentsetid: equipment_dbo.equipmentsetid,

@@ -15,7 +15,6 @@ pub struct GameBuilder {
     divisionid: Option<Uuid>,
     roomid: Uuid,
     roundid: Uuid,
-    clientkey: Option<String>,
     ignore: Option<bool>,
     ruleset: Option<String>,
     leftteamid: Option<Uuid>,
@@ -33,7 +32,6 @@ impl GameBuilder {
             divisionid: None,
             roomid: room_id,
             roundid: round_id,
-            clientkey: None,
             ignore: None,
             ruleset: None,
             leftteamid: None,
@@ -50,7 +48,6 @@ impl GameBuilder {
             divisionid: None,
             roomid: room_id,
             roundid: round_id,
-            clientkey: Some("".to_string()),
             ignore: Some(false),
             ruleset: Some("Tournament".to_string()),
             leftteamid: None,
@@ -78,10 +75,6 @@ impl GameBuilder {
     }
     pub fn set_roundid(mut self, val: Uuid) -> Self {
         self.roundid = val;
-        self
-    }
-    pub fn set_clientkey(mut self, val: String) -> Self {
-        self.clientkey = Some(val);
         self
     }
     pub fn set_ignore(mut self, val: bool) -> Self {
@@ -117,9 +110,6 @@ impl GameBuilder {
 
         if self.org.is_none() {
             errors.push("org is required".to_string());
-        }
-        if self.clientkey.is_none() {
-            errors.push("clientkey is required".to_string());
         }
         if self.ignore.is_none() {
             errors.push("ignore is required".to_string());
@@ -158,7 +148,6 @@ impl GameBuilder {
                         divisionid: self.divisionid,
                         roomid: self.roomid,
                         roundid: self.roundid,
-                        clientkey: self.clientkey.unwrap(),
                         ignore: self.ignore.unwrap(),
                         ruleset: self.ruleset.unwrap(),
                         leftteamid: self.leftteamid.unwrap(),
@@ -206,7 +195,6 @@ pub struct Game {
     pub divisionid: Uuid,
     pub roomid: Uuid,
     pub roundid: Uuid,
-    pub clientkey: String,
     pub ignore: bool,
     pub ruleset: String,
     pub leftteamid: Uuid,
@@ -232,7 +220,6 @@ pub struct NewGame {
     pub divisionid: Option<Uuid>,
     pub roomid: Uuid,
     pub roundid: Uuid,
-    pub clientkey: String,
     pub ignore: bool,
     pub ruleset: String,
     pub leftteamid: Uuid,
@@ -257,7 +244,6 @@ pub struct GameChangeset {
     pub divisionid: Option<Uuid>,
     pub roomid: Option<Uuid>,
     pub roundid: Option<Uuid>,
-    pub clientkey: Option<String>,
     pub ignore: Option<bool>,
     pub ruleset: Option<String>,
     pub leftteamid: Option<Uuid>,
@@ -274,7 +260,6 @@ pub struct GameChangeset {
 //         divisionid: None,
 //         roomid: None,
 //         roundid: None,
-//         clientkey: "".to_string(),
 //         ignore: false,
 //         ruleset: "".to_string()
 //     }

@@ -59,6 +59,8 @@ diesel::table! {
         has_usb_port -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        #[max_length = 64]
+        clientkey -> Varchar,
     }
 }
 
@@ -187,8 +189,6 @@ diesel::table! {
         divisionid -> Uuid,
         roomid -> Uuid,
         roundid -> Uuid,
-        #[max_length = 64]
-        clientkey -> Varchar,
         ignore -> Bool,
         #[max_length = 32]
         ruleset -> Varchar,
@@ -354,6 +354,8 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         tid -> Uuid,
+        #[max_length = 64]
+        clientkey -> Varchar,
     }
 }
 

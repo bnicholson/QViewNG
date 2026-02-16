@@ -70,7 +70,7 @@ async fn create_works() {
 }
 
 #[actix_web::test]
-async fn create_errors_when_team_is_found_more_than_once_in_a_game() {
+async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game() {
 
     // Arrange 1:
 

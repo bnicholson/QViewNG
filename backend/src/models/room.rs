@@ -13,7 +13,8 @@ pub struct RoomBuilder {
     name: Option<String>,                           // Name of the room (human readable)
     building: Option<String>,                       // What is the building this room is in
     comments: Option<String>,                       // Any comments about the room,
-    tid: Uuid                                       // id of the associated tournament
+    tid: Uuid,                                      // id of the associated tournament
+    clientkey: Option<String>
 }
 
 impl RoomBuilder {
@@ -22,7 +23,8 @@ impl RoomBuilder {
             name: Some(room_name.to_string()),
             building: None,
             comments: None,
-            tid: tid
+            tid: tid,
+            clientkey: None
         }
     }
     pub fn new_default(room_name: &str, tid: Uuid) -> Self {
@@ -30,7 +32,8 @@ impl RoomBuilder {
             name: Some(room_name.to_string()),
             building: Some("Building 451".to_string()),
             comments: Some("None at this time.".to_string()),
-            tid: tid
+            tid: tid,
+            clientkey: Some("".to_string())
         }
     }
     pub fn set_name(mut self, room_name: String) -> Self {
@@ -49,6 +52,10 @@ impl RoomBuilder {
         self.tid = tid;
         self
     }
+    pub fn set_clientkey(mut self, clientkey: Option<String>) -> Self {
+        self.clientkey = clientkey;
+        self
+    }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         if self.name.is_none() {
@@ -59,6 +66,9 @@ impl RoomBuilder {
         }
         if self.comments.is_none() {
             errors.push("comments is required".to_string());
+        }
+        if self.clientkey.is_none() {
+            errors.push("clientkey is required".to_string());
         }
         if !errors.is_empty() {
             return Err(errors);
@@ -76,7 +86,8 @@ impl RoomBuilder {
                         name: self.name.unwrap(),            // Name of the room (human readable)
                         building: self.building.unwrap(),    // What is the building this room is in
                         comments: self.comments.unwrap(),    // Any comments about the room,
-                        tid: self.tid                        // id of the associated tournament
+                        tid: self.tid,                       // id of the associated tournament
+                        clientkey: self.clientkey.unwrap()
                     }
                 )
             }
@@ -108,7 +119,8 @@ pub struct Room {
     pub comments: String,                       // Any comments about the room,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub tid: Uuid                               // id of the associated tournament
+    pub tid: Uuid,                              // id of the associated tournament
+    pub clientkey: String                       // registraiton key from the QuizMachine client, used here for ID
 }
 
 #[derive(
@@ -122,7 +134,8 @@ pub struct NewRoom {
     pub name: String,                           // Name of the room (human readable)
     pub building: String,                       // What is the building this room is in
     pub comments: String,                       // Any comments about the room,
-    pub tid: Uuid                               // id of the associated tournament
+    pub tid: Uuid,                              // id of the associated tournament
+    pub clientkey: String
 }
 
 // #[tsync::tsync]
@@ -132,7 +145,8 @@ pub struct NewRoom {
 pub struct RoomChangeset {   
     pub name: Option<String>,                   // Name of the room (human readable)
     pub building: Option<String>,               // What is the building this room is in
-    pub comments: Option<String>                // Any comments about the room
+    pub comments: Option<String>,               // Any comments about the room
+    pub clientkey: Option<String>
 }
 
 pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room> {
