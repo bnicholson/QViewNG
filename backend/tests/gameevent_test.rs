@@ -59,65 +59,65 @@ async fn create_works() {
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
-// #[actix_web::test]
-// async fn get_all_works() {
+#[actix_web::test]
+async fn get_all_works() {
 
-//     // Arrange:
+    // Arrange:
     
-//     clean_database();
-//     let db = Database::new(TEST_DB_URL);
-//     let mut conn = db.get_connection().expect("Failed to get connection.");
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
     
-//     let (gameevent_1, gameevent_2) = fixtures::gameevents::arrange_get_all_works_integration_test(&mut conn);
+    let (gameevent_1, gameevent_2) = fixtures::gameevents::arrange_get_all_works_integration_test(&mut conn);
 
-//     let app = test::init_service(
-//         App::new()
-//             .app_data(web::Data::new(db))
-//             .configure(configure_routes)
-//     ).await;
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
     
-//     let uri = format!("/api/gameevents?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-//     let req = test::TestRequest::get()
-//         .uri(&uri)
-//         .to_request();
+    let uri = format!("/api/gameevents?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
     
-//     // Act:
+    // Act:
     
-//     let resp = test::call_service(&app, req).await;
+    let resp = test::call_service(&app, req).await;
     
-//     // Assert:
+    // Assert:
     
-//     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-//     let body: Vec<GameEvent> = test::read_body_json(resp).await;
+    let body: Vec<GameEvent> = test::read_body_json(resp).await;
 
-//     let len = 2;
+    let len = 2;
 
-//     assert_eq!(body.len(), len);
+    assert_eq!(body.len(), len);
 
-//     let mut gameevent_1_interest_idx = 10;
-//     let mut gameevent_2_interest_idx = 10;
-//     for idx in 0..len {
-//         if body[idx].brand == gameevent_1.brand {
-//             gameevent_1_interest_idx = idx;
-//             continue;
-//         }
-//         if body[idx].brand == gameevent_2.brand {
-//             gameevent_2_interest_idx = idx;
-//             continue;
-//         }
-//     }
-//     assert_ne!(gameevent_1_interest_idx, 10);
-//     assert_ne!(gameevent_2_interest_idx, 10);
+    let mut gameevent_1_interest_idx = 10;
+    let mut gameevent_2_interest_idx = 10;
+    for idx in 0..len {
+        if body[idx].name == gameevent_1.name {
+            gameevent_1_interest_idx = idx;
+            continue;
+        }
+        if body[idx].name == gameevent_2.name {
+            gameevent_2_interest_idx = idx;
+            continue;
+        }
+    }
+    assert_ne!(gameevent_1_interest_idx, 10);
+    assert_ne!(gameevent_2_interest_idx, 10);
 
-//     // Check that ApiCalllog is recording API calls for this endpoint:
-//     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-//     assert!(apicalllog_get_result.is_ok());
-//     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-//     assert_eq!(apicalllog_records.iter().count(), 1);
-//     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-//     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
-// }
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
 
 // #[actix_web::test]
 // async fn get_by_id_works() {
