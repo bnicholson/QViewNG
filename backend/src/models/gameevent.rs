@@ -269,10 +269,10 @@ pub fn create(db: &mut database::Connection, item: &NewGameEvent) -> QueryResult
     insert_into(gameevents).values(item).get_result::<GameEvent>(db)
 }
 
-pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<GameEvent> {
-    use crate::schema::gameevents::dsl::*;
-    gameevents.filter(gid.eq(item_id)).first::<GameEvent>(db)
-}
+// pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<GameEvent> {
+//     use crate::schema::gameevents::dsl::*;
+//     gameevents.filter(gid.eq(item_id)).first::<GameEvent>(db)
+// }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<GameEvent>> {
     use crate::schema::gameevents::dsl::*;
@@ -281,6 +281,20 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let offset_val = pagination.page * page_size;
 
     gameevents
+        .order(gid)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<GameEvent>(db)
+}
+
+pub fn read_all_gameevents_of_game(db: &mut database::Connection, game_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<GameEvent>> {
+    use crate::schema::gameevents::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    gameevents
+        .filter(gid.eq(game_id))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)

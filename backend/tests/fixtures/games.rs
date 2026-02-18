@@ -1,4 +1,4 @@
-use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, gameevent::{GameEvent, GameEventBuilder}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::games;
@@ -986,4 +986,50 @@ pub fn arrange_get_all_statsgroups_of_game_works_integration_test(db: &mut datab
         .build_and_insert(db)
         .unwrap();
     (game, statsgroup_1, statsgroup_2)
+}
+
+pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::Connection) -> (Game, GameEvent, GameEvent) {
+    let (game_1, game_2, _, _, _, _, _) = seed_2_games_1_round_with_minimum_required_dependencies(db);
+
+    // Game 1 events:
+    let game1_event1 = GameEventBuilder::new_default(game_1.gid)
+        .set_question(Some(1))
+        .set_eventnum(Some(1))
+        .set_name(Some("Tori".to_string()))
+        .set_team(Some(0))
+        .set_quizzer(Some(2))
+        .set_event(Some("TC".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    let game1_event2 = GameEventBuilder::new_default(game_1.gid)
+        .set_question(Some(2))
+        .set_eventnum(Some(1))
+        .set_name(Some("Kevin".to_string()))
+        .set_team(Some(1))
+        .set_quizzer(Some(2))
+        .set_event(Some("TC".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    // Game 2 events:
+    GameEventBuilder::new_default(game_2.gid)
+        .set_question(Some(1))
+        .set_eventnum(Some(1))
+        .set_name(Some("Grace".to_string()))
+        .set_team(Some(0))
+        .set_quizzer(Some(2))
+        .set_event(Some("TC".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    GameEventBuilder::new_default(game_2.gid)
+        .set_question(Some(2))
+        .set_eventnum(Some(1))
+        .set_name(Some("Phillip".to_string()))
+        .set_team(Some(1))
+        .set_quizzer(Some(2))
+        .set_event(Some("TC".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    (game_1, game1_event1, game1_event2)
 }
