@@ -6,7 +6,7 @@ pub mod apicalllog;
 pub mod roominfo;
 pub mod eventlog;
 pub mod game;
-pub mod quizevent;
+pub mod gameevent;
 pub mod room;
 pub mod round;
 pub mod user;

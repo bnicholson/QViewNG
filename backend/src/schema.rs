@@ -181,6 +181,28 @@ diesel::table! {
 }
 
 diesel::table! {
+    gameevents (gid, question, eventnum) {
+        gid -> Uuid,
+        question -> Int4,
+        eventnum -> Int4,
+        #[max_length = 64]
+        name -> Varchar,
+        team -> Int4,
+        quizzer -> Int4,
+        #[max_length = 2]
+        event -> Varchar,
+        #[max_length = 8]
+        parm1 -> Varchar,
+        #[max_length = 8]
+        parm2 -> Varchar,
+        clientts -> Timestamptz,
+        serverts -> Timestamptz,
+        #[max_length = 32]
+        md5digest -> Varchar,
+    }
+}
+
+diesel::table! {
     games (gid) {
         gid -> Uuid,
         #[max_length = 48]
@@ -310,28 +332,6 @@ diesel::table! {
         updated_at -> Timestamptz,
         was_imported_from_ui -> Nullable<Bool>,
         is_quizstuff_authored_question -> Nullable<Bool>,
-    }
-}
-
-diesel::table! {
-    quizevents (gid, question, eventnum) {
-        gid -> Int8,
-        question -> Int4,
-        eventnum -> Int4,
-        #[max_length = 64]
-        name -> Varchar,
-        team -> Int4,
-        quizzer -> Int4,
-        #[max_length = 2]
-        event -> Varchar,
-        #[max_length = 8]
-        parm1 -> Varchar,
-        #[max_length = 8]
-        parm2 -> Varchar,
-        clientts -> Timestamptz,
-        serverts -> Timestamptz,
-        #[max_length = 32]
-        md5digest -> Varchar,
     }
 }
 
@@ -604,6 +604,7 @@ diesel::joinable!(equipmentregistrations -> equipment (equipmentid));
 diesel::joinable!(equipmentregistrations -> rooms (roomid));
 diesel::joinable!(equipmentregistrations -> tournaments (tournamentid));
 diesel::joinable!(equipmentsets -> users (equipmentownerid));
+diesel::joinable!(gameevents -> games (gid));
 diesel::joinable!(games -> divisions (divisionid));
 diesel::joinable!(games -> rooms (roomid));
 diesel::joinable!(games -> rounds (roundid));
@@ -637,6 +638,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     equipmentsets,
     eventlogs,
     extensioncords,
+    gameevents,
     games,
     games_statsgroups,
     interfaceboxes,
@@ -646,7 +648,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     powerstrips,
     projectors,
     questionsandanswers,
-    quizevents,
     role_permissions,
     rooms,
     rosters,

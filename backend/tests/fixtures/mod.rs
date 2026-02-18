@@ -6,6 +6,7 @@ pub mod rooms;
 pub mod rounds;
 pub mod teams;
 pub mod games;
+pub mod gameevents;
 pub mod tournamentgroups;
 pub mod statsgroups;
 pub mod rosters;
