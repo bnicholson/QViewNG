@@ -1,4 +1,4 @@
-use backend::{database, models::{game::Game, gameevent::{GameEvent, GameEventBuilder, NewGameEvent}}};
+use backend::{database, models::{game::Game, gameevent::{GameEvent, GameEventBuilder, GameEventCode, NewGameEvent}}};
 use crate::fixtures::games::{seed_1_game_with_minimum_required_dependencies, seed_2_games_1_round_with_minimum_required_dependencies};
 
 
@@ -10,7 +10,7 @@ pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> N
         .set_name(Some("Tori".to_string()))
         .set_team(Some(0))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build()
         .unwrap()
 }
@@ -23,7 +23,7 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
         .set_name(Some("Tori".to_string()))
         .set_team(Some(0))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
     let gameevent_2 = GameEventBuilder::new_default(game.gid)
@@ -32,7 +32,7 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
         .set_name(Some("Kevin".to_string()))
         .set_team(Some(1))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
     (gameevent_1, gameevent_2)
@@ -46,7 +46,7 @@ pub fn arrange_get_gameevent_by_id_works_integration_test(db: &mut database::Con
         .set_name(Some("Tori".to_string()))
         .set_team(Some(0))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
     GameEventBuilder::new_default(game.gid)
@@ -55,7 +55,7 @@ pub fn arrange_get_gameevent_by_id_works_integration_test(db: &mut database::Con
         .set_name(Some("Kevin".to_string()))
         .set_team(Some(1))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap()
 }

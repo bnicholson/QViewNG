@@ -1,4 +1,4 @@
-use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, gameevent::{GameEvent, GameEventBuilder}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, gameevent::{GameEvent, GameEventCode, GameEventBuilder}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::games;
@@ -998,7 +998,7 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
         .set_name(Some("Tori".to_string()))
         .set_team(Some(0))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
     let game1_event2 = GameEventBuilder::new_default(game_1.gid)
@@ -1007,7 +1007,7 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
         .set_name(Some("Kevin".to_string()))
         .set_team(Some(1))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
 
@@ -1018,7 +1018,7 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
         .set_name(Some("Grace".to_string()))
         .set_team(Some(0))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
     GameEventBuilder::new_default(game_2.gid)
@@ -1027,7 +1027,7 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
         .set_name(Some("Phillip".to_string()))
         .set_team(Some(1))
         .set_quizzer(Some(2))
-        .set_event(Some("TC".to_string()))
+        .set_event(Some(GameEventCode::TC))
         .build_and_insert(db)
         .unwrap();
 
