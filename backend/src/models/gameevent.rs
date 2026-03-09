@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{database, models::{common::PaginationParams}};
 use utoipa::ToSchema;
 
+const DEFAULT_QUESTIONS_PER_GAME: i32 = 20;
 const DEFAULT_SUBSTITUTION_SEAT: i32 = 4;
 const DEFAULT_INTERIM_SUBSTITUTION_SEAT: i32 = 1000;
 const DEFAULT_QUIZ_OUT: i32 = 4;
@@ -68,6 +69,7 @@ struct TeamForGameEventCalculator {
     captain: (i32, bool),  // i32 = idx of current seat number; bool means "can stil act as captain", and if false then cocaptain becomes operating captain but (data remains more static)
     cocaptain: (i32, bool),  // i32 = idx of current seat number; bool means "can stil act as cocaptain"; if this becomes false, it should also mean captain is false and new captain and cocaptain are about to be specified in the event stream
     substitutions: Vec<(i32, i32)>,  // Vec<(question_num, seat_num)>
+    rank: i32,  // 1st, 2nd or 3rd place team in the Game
 }
 impl TeamForGameEventCalculator {
     pub fn new() -> Self {
@@ -81,6 +83,7 @@ impl TeamForGameEventCalculator {
             captain: (-1, false),
             cocaptain: (-1, false),
             substitutions: vec![],
+            rank: -1,
         }
     }
     pub fn errors_result_in_team_point_deduction(self) -> bool {
@@ -125,6 +128,7 @@ struct OptionsForGameEventCalculator {
     overruled_challenge_point_deduction_amount: i32,
     foul_count_where_team_point_deductions_begin: i32,
     team_foul_deduction_amount: i32,
+    individual_error_begin_deduction_count: i32,
 }
 impl OptionsForGameEventCalculator {
     pub fn new() -> Self {
@@ -145,6 +149,7 @@ impl OptionsForGameEventCalculator {
             overruled_challenge_point_deduction_amount: DEFAULT_OVERRULED_CHALLENGE_POINT_DEDUCTION_AMOUNT,
             foul_count_where_team_point_deductions_begin: DEFAULT_FOUL_COUNT_WHERE_TEAM_POINT_DEDUCTIONS_BEGIN,
             team_foul_deduction_amount: DEFAULT_TEAM_FOUL_DEDUCTION_AMOUNT,
+            individual_error_begin_deduction_count: DEFAULT_INDIVIDUAL_ERROR_BEGIN_DEDUCTION_COUNT
         }
     }
 }
@@ -166,9 +171,6 @@ impl GameEventCalculator {
     ) -> Self {
 
         let mut teams: HashMap<i32, TeamForGameEventCalculator> = HashMap::new();
-        teams.insert(0, TeamForGameEventCalculator::new());
-        teams.insert(1, TeamForGameEventCalculator::new());
-        teams.insert(2, TeamForGameEventCalculator::new());
         
         Self {
             game_id,
@@ -195,7 +197,15 @@ impl GameEventCalculator {
         //     let clone_of_mut_self = mut_self.clone();
         //     mut_self.cache.push(clone_of_mut_self);
         // }
-        for game_event in self.game_events.iter() {
+        let mut game_events = self.game_events.clone();
+        game_events.sort();  // << VERY IMPORTANT
+        for game_event in game_events.iter() {
+            if mut_self.teams.contains_key(&0) && mut_self.teams.contains_key(&1) {
+                println!["TOP of Calc: Question: {}, Event Code: {}, Left Team: {}, Right Team: {}", &game_event.question, &game_event.event, mut_self.teams[&0].score, mut_self.teams[&1].score];
+            }
+            else {
+                println!["TOP of Calc: Question = {}, EventNum = {}, Event = {}", game_event.question, game_event.eventnum, game_event.event];
+            }
             // This was the validation that captain and cocaptain have been spepcified after originals became inelligible; 
             // (1) this validation should instead be in the validation fn (not this fn; TODO), and (2) QuizMachine currently 
             // doesn't save events to disk that specify replacement capatins and cocaptains; it is an in-memory only implementaiton currently.
@@ -261,9 +271,9 @@ impl GameEventCalculator {
                     }
                 },
                 GameEventCode::TN => {
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .name = game_event.name.to_string();
+                    let mut new_team = TeamForGameEventCalculator::new();
+                    new_team.name = game_event.name.to_string();
+                    mut_self.teams.insert(game_event.team, new_team);
                 },
                 GameEventCode::QN => {
                     // QN is used (1) during round initialization when the quizzer doesn't exist and (2) when 
@@ -323,6 +333,36 @@ impl GameEventCalculator {
                 GameEventCode::TC => {
                     let original_quizzers_with_at_least_one_correct_tossup = mut_self.teams[&game_event.team].clone().quizzers_with_at_least_one_correct_tossup();
                     
+                    if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
+
+                        let tie_exists = {
+                            let mut scores: Vec<i32> = mut_self.teams.values().map(|t: &TeamForGameEventCalculator| t.score).collect();
+                            scores.sort();
+                            scores.windows(2).any(|w| w[0] == w[1])
+                        };
+                        if !tie_exists {
+                            errors.push("In the absence of a tied score after regulation questions, a TC event was found which is invalid.".to_string());
+                            return Err(errors);
+                        }
+
+                        let award = mut_self.options.point_award_for_correct_tossup;
+                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                            team.score += award;
+                        }
+                        mut_self = mut_self.update_team_rankings_using_competitive_ranking();
+                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                            team.score -= award;  // remove so that rankings show not tied but score still shows as tied
+                        }
+                        
+                        mut_self
+                            .teams.get_mut(&game_event.team).unwrap()
+                            .quizzers.get_mut(&game_event.quizzer).unwrap()
+                            .correct_tossups
+                            .push(game_event.question);
+                        mut_self.current_question = game_event.question + 1;
+                        continue;
+                    }
+
                     // for quizzer:
                     mut_self
                         .teams.get_mut(&game_event.team).unwrap()
@@ -357,16 +397,54 @@ impl GameEventCalculator {
                     // }
                 },
                 GameEventCode::TE => {
+
+                    if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
+
+                        let tie_exists = {
+                            let mut scores: Vec<i32> = mut_self.teams.values().map(|t: &TeamForGameEventCalculator| t.score).collect();
+                            scores.sort();
+                            scores.windows(2).any(|w| w[0] == w[1])
+                        };
+                        if !tie_exists {
+                            errors.push("In the absence of a tied score after regulation questions, a TE event was found which is invalid.".to_string());
+                            return Err(errors);
+                        }
+
+                        let award = mut_self.options.point_deduction_for_error_on_tossup;
+                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                            team.score -= award;
+                        }
+                        mut_self = mut_self.update_team_rankings_using_competitive_ranking();
+                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                            team.score += award;  // remove so that rankings show not tied but score still shows as tied
+                        }
+
+                        mut_self
+                            .teams.get_mut(&game_event.team).unwrap()
+                            .quizzers.get_mut(&game_event.quizzer).unwrap()
+                            .errors_on_tossups
+                            .push(game_event.question);
+                        mut_self.current_question = game_event.question + 1;
+                        continue;
+                    }
+
                     // for quizzer:
                     mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .quizzers.get_mut(&game_event.quizzer).unwrap()
                         .errors_on_tossups
                         .push(game_event.question);
+                    let quizzer_error_count = mut_self
+                        .teams.get_mut(&game_event.team).unwrap()
+                        .quizzers.get_mut(&game_event.quizzer).unwrap()
+                        .errors_on_tossups
+                        .iter().count();
                     // EO will be handled by EO game_event; don't do anything for it here.
                     
                     // for team:
-                    if game_event.question >= self.options.start_error_zone_deductions || mut_self.teams[&game_event.team].clone().errors_result_in_team_point_deduction() {
+                    if game_event.question >= self.options.start_error_zone_deductions 
+                        || mut_self.teams[&game_event.team].clone().errors_result_in_team_point_deduction()
+                        || quizzer_error_count >= mut_self.options.individual_error_begin_deduction_count as usize {
                         let deduction = mut_self.options.point_deduction_for_error_on_tossup;
                         if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
                             team.score -= deduction;
@@ -374,8 +452,8 @@ impl GameEventCalculator {
                     }
 
                     // for game:
-
                     mut_self.current_question = game_event.question;
+
                     // if self.use_cache {
                     //     let clone_of_mut_self = mut_self.clone();
                     //     mut_self.cache.push(clone_of_mut_self);
@@ -486,9 +564,10 @@ impl GameEventCalculator {
                         .question_errored_out_on = game_event.question;
 
                     // for team:
-                    // Error-outs do not accrue any deductions beyond the regular individual error deduction
-                    // (which in a regular Tournament always happens on the third quesiton at minimum, 
-                    // which is also when the quizzer errors out)
+                    // Error-outs do not accrue any deductions beyond the regular individual error deduction.
+                    // Individual error point deduction starts on a certain number of errors received by the quizzer.
+                    // It is normally on error number 3 that the deducation is received.
+
                     let mut captain_seat_idx = mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .captain.0;
@@ -683,7 +762,6 @@ impl GameEventCalculator {
                     // do nothing/ignore these events (*they are now purely historical)
                 },
             }
-            println!["Question: {}, Event Code: {}, Left Team: {}, Right Team: {}", &game_event.question, &game_event.event, mut_self.teams[&0].score, mut_self.teams[&1].score];
         }
 
         if errors.len() > 0 {
@@ -691,6 +769,35 @@ impl GameEventCalculator {
         }
 
         Ok(mut_self)
+    }
+    fn update_team_rankings_using_competitive_ranking(mut self) -> Self {
+        let scores: Vec<i32> = self.teams.iter().map(| (_, t) | t.score).collect();
+        for (_, team) in self.teams.iter_mut() {
+            team.rank = (scores.iter().filter(|&&s| s > team.score).count() + 1) as i32;
+        }
+        self
+    }
+    fn update_team_rankings_using_dense_ranking(mut self) -> Self {
+        // alternative to competitive ranking = Dense ranking:
+        let mut teams: Vec<(i32, TeamForGameEventCalculator)> = self.teams
+            .iter()
+            .map(|(&k, v)| (k, v.clone()))
+            .collect();
+        teams.sort_by(|a, b| b.1.score.cmp(&a.1.score));
+            
+        let mut current_rank = 1;
+        for idx in 0..teams.len() {
+            if idx > 0 && teams[idx].1.score != teams[idx - 1].1.score {
+                current_rank += 1;
+            }
+            teams[idx].1.rank = current_rank;
+        }
+        for (idx, team) in &teams {
+            if let Some(original) = self.teams.get_mut(&idx) {
+                original.rank = team.rank;
+            }
+        }
+        self
     }
 }
 
@@ -747,12 +854,13 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_RM(self, name: &str) -> Self {
 
-        let last_event_option = self.events.last();
         let mut prev_question = 1;
         let mut prev_eventnum = -1;
-        if last_event_option.is_some() {
-            prev_question = last_event_option.unwrap().question;
-            prev_eventnum = last_event_option.unwrap().eventnum;
+        let prev_event_result = self.clone().get_last_event();
+        if prev_event_result.is_ok() {
+            let prev_event = prev_event_result.unwrap();
+            prev_question = prev_event.question;
+            prev_eventnum = prev_event.eventnum;
         }
 
         let mut new_events = self.events.clone();
@@ -773,8 +881,15 @@ impl GameEventStreamBuilder {
         }
     }
     pub fn then_add_QT(self, name: &str) -> Self {
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+
+        let mut prev_question = 1;
+        let mut prev_eventnum = -1;
+        let prev_event_result = self.clone().get_last_event();
+        if prev_event_result.is_ok() {
+            let prev_event = prev_event_result.unwrap();
+            prev_question = prev_event.question;
+            prev_eventnum = prev_event.eventnum;
+        }
 
         let mut new_events = self.events.clone();
         new_events.push(
@@ -795,8 +910,10 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_TN(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         // let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
 
         let mut new_events = self.events.clone();
         new_events.push(
@@ -823,8 +940,9 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_QN_plus_if_SC_or_SS(self, name: &str, team: i32, seat_number: i32, is_captain: bool, is_cocaptain: bool) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
 
         let mut new_events = self.events.clone();
         new_events.push(
@@ -956,9 +1074,10 @@ impl GameEventStreamBuilder {
     pub fn then_add_TC(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
         
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
-        let prev_event = self.events.last().unwrap().event.clone();
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
+        let prev_event = prev_event.event;
         let quizzer_seat_idx_result = self.teams[team as usize].clone().get_quizzer_seat(name);
         if quizzer_seat_idx_result.is_err() {
             errors.push(quizzer_seat_idx_result.unwrap_err());
@@ -1021,9 +1140,10 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_TE_and_bonuses(self, name: &str, team: i32, left_team_bonus_is_correct: bool, right_team_bonus_is_correct: bool) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
-        let prev_event = self.events.last().unwrap().event.clone();
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
+        let prev_event = prev_event.event;
         let quizzer_seat_idx_result = self.teams[team as usize].clone().get_quizzer_seat(name);
         if quizzer_seat_idx_result.is_err() {
             errors.push(quizzer_seat_idx_result.unwrap_err());
@@ -1145,9 +1265,10 @@ impl GameEventStreamBuilder {
         // read and 5-second timer ran out.
 
         let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
-        let prev_event = self.events.last().unwrap().event.clone();
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
+        let prev_event = prev_event.event;
 
         let mut new_question = prev_question + 1;
         let mut new_eventnum = 0;
@@ -1257,8 +1378,9 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_Cminus(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
         let quizzer_seat_idx_result = self.teams[team as usize].clone().get_quizzer_seat(name);
         if quizzer_seat_idx_result.is_err() {
             errors.push(quizzer_seat_idx_result.unwrap_err());
@@ -1341,8 +1463,9 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_Aminus(mut self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
         let quizzer_seat_idx_result = self.teams[team as usize].clone().get_quizzer_seat(name);
         if quizzer_seat_idx_result.is_err() {
             errors.push(quizzer_seat_idx_result.unwrap_err());
@@ -1379,7 +1502,8 @@ impl GameEventStreamBuilder {
         // where quizzer == 5 is a foul on the coach and quizzer == 6 is a foul on the team.
         
         let mut errors: Vec<String> = vec![];
-        let new_question = self.events.last().unwrap().question + 1;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let new_question = prev_event.question + 1;
         let new_eventnum = 0;
 
         let quizzer_val: i32 = if is_coach { 5 } else { 6 };
@@ -1408,8 +1532,9 @@ impl GameEventStreamBuilder {
     }
     pub fn then_add_Fminus(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
         let quizzer_seat_idx_result = self.teams[team as usize].clone().get_quizzer_seat(name);
         if quizzer_seat_idx_result.is_err() {
             errors.push(quizzer_seat_idx_result.unwrap_err());
@@ -1465,8 +1590,9 @@ impl GameEventStreamBuilder {
         // 2. Also add event "QN" for same subbed-in that quizzer to update the quizzer on the seat
         // 3. Lastly, add "QN" event for the quizzer subbed-out (*takes seat 5 (idx = 4) which subbed-in quizzer was in before)
 
-        let prev_question = self.events.last().unwrap().question;
-        let prev_eventnum = self.events.last().unwrap().eventnum;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let prev_question = prev_event.question;
+        let prev_eventnum = prev_event.eventnum;
 
         let mut new_question = prev_question + 1;
         let mut new_eventnum = 0;
@@ -1536,8 +1662,8 @@ impl GameEventStreamBuilder {
         
         let mut errors: Vec<String> = vec![];
         
-        let prev_question = self.events.last().unwrap().question;
-        let new_question = prev_question + 1;
+        let prev_event = self.clone().get_last_event().unwrap();
+        let new_question = prev_event.question + 1;
         let new_eventnum = 0;
 
         let mut team_count = 0;
@@ -1581,7 +1707,38 @@ impl GameEventStreamBuilder {
             }
         )
     }
+    pub fn then_remove_questions(self, question_to_return_to: i32) -> Result<Self, Vec<String>> {
+        let mut new_events = Vec::<NewGameEvent>::new();
+        for new_game_event in self.events.iter() {
+            if new_game_event.question >= question_to_return_to {
+                new_events.push(
+                    NewGameEvent {
+                        event: "DE".to_string(),
+                        ..new_game_event.clone()
+                    }
+                );
+                continue;
+            }
+            new_events.push(new_game_event.clone());
+        }
 
+        Ok(
+            Self {
+                events: new_events,
+                ..self
+            }
+        )
+    }
+    fn get_last_event(self) -> Result<NewGameEvent, String> {
+        // * event sort fn should be added here once it exists
+        for new_game_event in self.events.iter().rev() {
+            if new_game_event.event == "DE".to_string() {
+                continue;
+            }
+            return Ok(new_game_event.clone());
+        }
+        Err("Could not find valid previous event for getting last quesiton and eventnum.".to_string())
+    }
     pub fn to_game_events(self) -> (Vec<GameEvent>, Uuid) {
         let mut mut_game_events: Vec<GameEvent> = vec![];
         for new_game_event in self.events {
@@ -2244,6 +2401,18 @@ impl GameEvent {
     }
 }
 
+trait SortGameEvents {
+    fn sort(&mut self);
+}
+impl SortGameEvents for Vec<GameEvent> {
+    fn sort(&mut self) {
+        self.sort_by(|a,b| {
+            a.question.cmp(&b.question)
+                .then_with(|| a.eventnum.cmp(&b.eventnum))
+        })
+    }
+}
+
 #[derive(
     Insertable,
     Serialize,
@@ -2353,8 +2522,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn game_event_calculation_works() {
+    fn game_event_calculation_scenario_one_normal_quiz_works() {
 
+        // Scenario 1: Normal quiz (with as many miscellaneous scenarios included in it as possible)
+        
         // ARRANGE:
 
         let game_id = Uuid::new_v4();
@@ -2553,13 +2724,912 @@ mod tests {
         assert_eq![check_kenzie.fouls_received, Vec::<i32>::new()];
         assert_eq![check_kenzie.correct_bonuses, Vec::<i32>::new()];
         assert_eq![check_kenzie.errors_on_bonuses, vec![7]];
-
-
-        // Situations this test doesn't cover:
-        // - tie-breaking
-        // - when all quizzers quiz out before the final question and there is a tie
-        // - when both captain and cocaptain become inelligible and new ones need to be specified (needs to be bult into stream builder or else panic if next ruling happens before these are specified)
-        // - EOs and QOs for captain and cocaptain modify the respective captain and cocaptain fields at the right times (*it covers half of these 4 scenarios)
-        // - currently if QuizMachine's captain and cocaptain both become inelligible, then when an appeal by their team is accepted the 'quizzer' of the game event = -1 and QuizMachine asks the quizmaster to specify captain and cocaptain; QuizMachine doesn't record replacement captain and cocaptains other than in-memory, so this cannot currently be checked/validated
     }
+
+    #[test]
+    fn game_event_calculation_scenario_two_tiebreaker_works() {
+
+        // Scenario 2: Tie Breaker (with multiple OT questions)
+        // Two variations:
+        // (1) TC ends the Game and TC quizzer's team wins
+        // (2) TE ends the Game TE quizzer's team loses
+
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+
+        let left_team = 0;
+        let center_team = 1;
+
+        let jacob = ("Jacob", left_team);
+
+        let audrey = ("Audrey", center_team);
+
+        let base_game_event_stream_builder = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene")
+            
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+             
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
+            
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            // Red Team: 0 { jacob: 0/0 }, Blue Team: 20 { audrey: 1/0 }
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            // Red Team: 20 { jacob: 1/0 }, Blue Team: 20 { audrey: 1/0 }
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            // Red Team: 20 { jacob: 1/0 }, Blue Team: 20 { audrey: 1/0 }
+
+            // Sudden-death Tie breaker starts here:
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap();
+
+        let (game_events_TC_win, _) = base_game_event_stream_builder.clone()
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            // Red Team: 20 { jacob: 1/0 }, Blue Team: 20 { audrey: 2/0 } - scores don't change but winner is determined; last TC doesn't count toward individual score
+            .to_game_events();
+
+        let (game_events_TE_loss, _) = base_game_event_stream_builder
+            .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+            // Red Team: 20 { jacob: 1/0 }, Blue Team: 20 { audrey: 1/1 } - scores don't change but winner is determined; last TC doesn't count toward individual score
+            .to_game_events();
+
+        let mut counter = 0;
+        for event in game_events_TC_win.iter() {
+        // for event in game_events_TE_loss.iter() {
+            println!["{}: {:?}", counter, event];
+            counter += 1;
+        }
+
+        // ACT:
+
+        let calculated_game_events_for_TC_win = GameEventCalculator::new(game_id, game_events_TC_win)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_for_TE_loss = GameEventCalculator::new(game_id, game_events_TE_loss)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+        
+        // ASSERT:
+
+        // Variation 1:
+
+        let check_left_team_for_TC_win = calculated_game_events_for_TC_win.teams[&0].clone();
+        let check_center_team_for_TC_win = calculated_game_events_for_TC_win.teams[&1].clone();
+        
+        // Current Question is accurate:
+        assert_eq![calculated_game_events_for_TC_win.current_question, 24];
+
+        // Team Names are accurate (sanity check):
+        assert_eq![check_left_team_for_TC_win.name, "Red Team"];
+        assert_eq![check_center_team_for_TC_win.name, "Blue Team"];
+
+        // Team Scores are accurate:
+        assert_eq![check_left_team_for_TC_win.score, 20];
+        assert_eq![check_center_team_for_TC_win.score, 20];
+
+        // Ending positions for each team:
+        assert_eq![check_left_team_for_TC_win.rank, 2];
+        assert_eq![check_center_team_for_TC_win.rank, 1];
+
+        // Variation 2:
+
+        let check_left_team_for_TE_loss = calculated_game_events_for_TE_loss.teams[&0].clone();
+        let check_center_team_for_TE_loss = calculated_game_events_for_TE_loss.teams[&1].clone();
+        
+        // Current Question is accurate:
+        assert_eq![calculated_game_events_for_TE_loss.current_question, 24];
+
+        // Team Names are accurate (sanity check):
+        assert_eq![check_left_team_for_TE_loss.name, "Red Team"];
+        assert_eq![check_center_team_for_TE_loss.name, "Blue Team"];
+
+        // Team Scores are accurate:
+        assert_eq![check_left_team_for_TE_loss.score, 20];
+        assert_eq![check_center_team_for_TE_loss.score, 20];
+
+        // Ending positions for each team:
+        assert_eq![check_left_team_for_TE_loss.rank, 1];
+        assert_eq![check_center_team_for_TE_loss.rank, 2];
+    }
+
+    // #[test]
+    // fn game_event_calculation_scenario_three_works() {
+
+    //     // Scenario 3: All Quizzers become inelligible and there is a tie
+    //     // NOTE: Currently QuizMachine does not handle this situation; it is a manual process to resolve the tie and there are no rules for this from NYI either
+
+    //     // ARRANGE:
+
+    //     let game_id = Uuid::new_v4();
+
+    //     let seat_one = 0;
+    //     let seat_two = 1;
+
+    //     let left_team = 0;
+    //     let center_team = 1;
+
+    //     let jacob = ("Jacob", left_team);
+    //     let taran = ("Taran", left_team);
+
+    //     let audrey = ("Audrey", center_team);
+    //     let jesse = ("Jesse", center_team);
+
+    //     let (game_events, _) = GameEventStreamBuilder::new(game_id)
+    //         .then_add_RM("Tournament")
+    //         .then_add_QT("Nazarene")
+            
+    //         .then_add_TN("Red Team", left_team).unwrap()
+    //         .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+    //         .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+    //         .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_three, false, false).unwrap()
+             
+    //         .then_add_TN("Blue Team", center_team).unwrap()
+    //         .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
+    //         .then_add_QN_plus_if_SC_or_SS(jesse.0, jesse.1, seat_two, false, true).unwrap()
+    //         .then_add_QN_plus_if_SC_or_SS(kenzie.0, kenzie.1, seat_three, false, false).unwrap()
+            
+    //         .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            
+    //         .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
+            
+    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
+    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
+    //         .then_add_TC(audrey.0, audrey.1).unwrap()
+    //         // Red Team: 0 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+    //         .then_add_TC(jacob.0, jacob.1).unwrap()
+    //         // Red Team: 20 { total_fouls: 0, jacob: 1/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+    //         .then_add_TC(taran.0, taran.1).unwrap()
+    //         // Red Team: 40 { total_fouls: 0, jacob: 1/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+    //         .then_add_TC(jacob.0, jacob.1).unwrap()
+    //         // Red Team: 60 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+    //         .then_add_TE_and_bonuses(kenzie.0, kenzie.1, true, true).unwrap()
+    //         // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/1 }
+            
+    //         .then_add_TC(audrey.0, audrey.1).unwrap()
+    //         // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
+    //         .then_add_TE_and_bonuses(lily.0, lily.1, false, false).unwrap()
+    //         // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/1 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
+    //         .then_add_TC(taran.0, taran.1).unwrap()
+    //         .then_add_Cminus(audrey.0, audrey.1).unwrap()
+    //         .then_add_FC(true, left_team).unwrap()
+    //         // Red Team: 90 { total_fouls: 1, jacob: 2/0, taran: 2/0, lily: 0/1 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
+    //         .then_add_TC(jacob.0, jacob.1).unwrap()
+    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
+    //         .then_add_TC(audrey.0, audrey.1).unwrap()
+    //         .then_add_TO(center_team).unwrap()
+    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 0, audrey: 3/0, jesse: 0/0, kenzie: 0/1 }
+            
+    //         .then_add_NJ().unwrap()
+    //         .then_add_Fminus(jesse.0, jesse.1).unwrap()
+    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
+    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/1, kenzie: 0/1 }
+    //         .then_add_TE_and_bonuses(kenzie.0, kenzie.1, false, false).unwrap()
+    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/1, kenzie: 0/2 }
+    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
+    //         .then_add_TO(center_team).unwrap()
+    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/2, kenzie: 0/2 }
+    //         .then_add_TC(lily.0, lily.1).unwrap()
+    //         // Red Team: 140 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 1/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/2, kenzie: 0/2 }
+
+    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+    //         // Red Team: 140 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 1/1 }, Blue Team: 50 { total_fouls: 1, audrey: 3/1, jesse: 0/2, kenzie: 0/2 }
+    //         .then_add_TC(jacob.0, jacob.1).unwrap()
+    //         .then_add_TO(left_team).unwrap()
+    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 50 { total_fouls: 1, audrey: 3/0, jesse: 0/2, kenzie: 0/2 }
+    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 40 { total_fouls: 1, audrey: 3/1, jesse: 0/2, kenzie: 0/2 }
+    //         .then_challenge_accepted(audrey.0, audrey.1, false, false).unwrap()
+    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 70 { total_fouls: 1, audrey: 4/1, jesse: 0/2, kenzie: 0/2 }
+    //         .then_add_TC(jesse.0, jesse.1).unwrap()
+    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 90 { total_fouls: 1, audrey: 4/1, jesse: 1/2, kenzie: 0/2 }
+    //         .then_challenge_accepted(taran.0, taran.1, true, true).unwrap()
+    //         // Red Team: 180 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 60 { total_fouls: 1, audrey: 4/1, jesse: 0/3, kenzie: 0/2 }
+    //         .then_add_FC(false, center_team).unwrap()
+    //         // Red Team: 180 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 50 { total_fouls: 2, audrey: 4/1, jesse: 0/3, kenzie: 0/2 }
+    //         .then_add_TC(kenzie.0, kenzie.1).unwrap()
+    //         // Red Team: 180 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 70 { total_fouls: 1, audrey: 4/1, jesse: 0/3, kenzie: 1/2 }
+
+    //         .to_game_events();
+
+    //     let mut counter = 0;
+    //     for event in game_events.iter() {
+    //         println!["{}: {:?}", counter, event];
+    //         counter += 1;
+    //     }
+
+    //     // ACT:
+
+    //     let calculated_game_events = GameEventCalculator::new(game_id, game_events)
+    //         .calculate_current_game_scores_and_counts()
+    //         .unwrap();
+        
+    //     // ASSERT:
+
+    //     let check_left_team = calculated_game_events.teams[&(0)].clone();
+    //     let check_center_team = calculated_game_events.teams[&(1)].clone();
+        
+    //     // Current Question is accurate:
+    //     assert_eq![calculated_game_events.current_question, 21];
+
+    //     // Team Names are accurate:
+    //     assert_eq![check_left_team.name, "Red Team"];
+    //     assert_eq![check_center_team.name, "Blue Team"];
+
+    //     // Team Scores are accurate:
+    //     assert_eq![check_left_team.score, 180];
+    //     assert_eq![check_center_team.score, 70];
+
+    //     // Team Timeouts are accurate:
+    //     assert_eq![check_left_team.timeouts_taken, vec![18]];
+    //     assert_eq![check_center_team.timeouts_taken, vec![11, 15]];
+
+    //     // Team Challenges are accurate (what if this was a Vec of objects showing what question and if it was accepted or overruled?):
+    //     assert_eq![check_left_team.overruled_challenges, Vec::<i32>::new()];
+    //     assert_eq![check_center_team.overruled_challenges, vec![8]];  // question #
+    //     // Team Fouls is accurate
+    //     assert_eq![check_left_team.team_and_coach_fouls_received, vec![(9,true)]];  // ((question), (is_coach))
+    //     assert_eq![check_center_team.team_and_coach_fouls_received, vec![(20,false)]];
+
+    //     // Team Captain and CoCaptains (*for current question!) are correct:
+    //     assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+    //     assert_eq![check_left_team.cocaptain, (1,true)];
+    //     assert_eq![check_center_team.captain, (0,false)];
+    //     assert_eq![check_center_team.cocaptain, (1,false)];
+
+    //     // Quizzer Toss-up counts (TCs && TEs), Bonus counts (BCs && BEs), QOs and EOs are accurate and quizzer fouls are accurate:
+    //     // 0 Jacob
+    //     let check_jacob = check_left_team.quizzers[&(0)].clone();
+    //     assert_eq![check_jacob.correct_tossups, vec![2, 4, 9, 17]];
+    //     assert_eq![check_jacob.errors_on_tossups, Vec::<i32>::new()];
+    //     assert_eq![check_jacob.question_quizzed_out_on, 17];
+    //     assert_eq![check_jacob.question_errored_out_on, -1];
+    //     assert_eq![check_jacob.question_fouled_out_on, -1];
+    //     assert_eq![check_jacob.fouls_received, Vec::<i32>::new()];
+    //     assert_eq![check_jacob.correct_bonuses, Vec::<i32>::new()];
+    //     assert_eq![check_jacob.errors_on_bonuses, vec![16]];
+    //     // 1 Taran
+    //     let check_taran = check_left_team.quizzers[&(1)].clone();
+    //     assert_eq![check_taran.correct_tossups, vec![3, 8]];
+    //     assert_eq![check_taran.errors_on_tossups, Vec::<i32>::new()];
+    //     assert_eq![check_taran.question_quizzed_out_on, -1];
+    //     assert_eq![check_taran.question_errored_out_on, -1];
+    //     assert_eq![check_taran.question_fouled_out_on, -1];
+    //     assert_eq![check_taran.fouls_received, Vec::<i32>::new()];
+    //     assert_eq![check_taran.correct_bonuses, vec![19]];
+    //     assert_eq![check_taran.errors_on_bonuses, vec![12, 14]];
+    //     // 2 Lily
+    //     let check_lily = check_left_team.quizzers[&(2)].clone();
+    //     assert_eq![check_lily.correct_tossups, vec![15]];
+    //     assert_eq![check_lily.errors_on_tossups, vec![7]];
+    //     assert_eq![check_lily.question_quizzed_out_on, -1];
+    //     assert_eq![check_lily.question_errored_out_on, -1];
+    //     assert_eq![check_lily.question_fouled_out_on, -1];
+    //     assert_eq![check_lily.fouls_received, Vec::<i32>::new()];
+    //     assert_eq![check_lily.correct_bonuses, vec![5]];
+    //     assert_eq![check_lily.errors_on_bonuses, vec![13]];
+    //     // 0 Audrey
+    //     let check_audrey = check_center_team.quizzers[&(0)].clone();
+    //     assert_eq![check_audrey.correct_tossups, vec![1, 6, 10, 18]];
+    //     assert_eq![check_audrey.errors_on_tossups, vec![16]];
+    //     assert_eq![check_audrey.question_quizzed_out_on, 18];
+    //     assert_eq![check_audrey.question_errored_out_on, -1];
+    // assert_eq![check_audrey.question_fouled_out_on, -1];
+    //     assert_eq![check_audrey.fouls_received, Vec::<i32>::new()];
+    //     assert_eq![check_audrey.correct_bonuses, Vec::<i32>::new()];
+    //     assert_eq![check_audrey.errors_on_bonuses, Vec::<i32>::new()];
+    //     // 1 Jesse
+    //     let check_jesse = check_center_team.quizzers[&(1)].clone();
+    //     assert_eq![check_jesse.correct_tossups, Vec::<i32>::new()];
+    //     assert_eq![check_jesse.errors_on_tossups, vec![12, 14, 19]];
+    //     assert_eq![check_jesse.question_quizzed_out_on, -1];
+    //     assert_eq![check_jesse.question_errored_out_on, 19];
+    //     assert_eq![check_jesse.question_fouled_out_on, -1];
+    //     assert_eq![check_jesse.fouls_received, vec![12]];
+    //     assert_eq![check_jesse.correct_bonuses, Vec::<i32>::new()];
+    //     assert_eq![check_jesse.errors_on_bonuses, Vec::<i32>::new()];
+    //     // 2 Kenzie
+    //     let check_kenzie = check_center_team.quizzers[&(2)].clone();
+    //     assert_eq![check_kenzie.correct_tossups, vec![20]];
+    //     assert_eq![check_kenzie.errors_on_tossups, vec![5, 13]];
+    //     assert_eq![check_kenzie.question_quizzed_out_on, -1];
+    //     assert_eq![check_kenzie.question_errored_out_on, -1];
+    //     assert_eq![check_kenzie.question_fouled_out_on, -1];
+    //     assert_eq![check_kenzie.fouls_received, Vec::<i32>::new()];
+    //     assert_eq![check_kenzie.correct_bonuses, Vec::<i32>::new()];
+    //     assert_eq![check_kenzie.errors_on_bonuses, vec![7]];
+    // }
+
+    #[test]
+    fn game_event_calculation_scenario_four_captain_cocaptain_inelligibility_works() {
+
+        // Scenario 4: The following eight scenarios modify data correctly:
+        // A: Captain QO, then Cocaptain QO
+        // B: Captain QO, then Cocaptain EO
+        // C: Captain EO, then Cocaptain EO
+        // D: Captain EO, then Cocaptain QO
+        // E: Cocaptain QO, then Captain QO
+        // F: Cocaptain QO, then Captain EO
+        // G: Cocaptain EO, then Captain EO
+        // H: Cocaptain EO, then Captain QO
+        // I: Captain QO
+        // J: Captain EO
+        // K: Cocaptain QO
+        // L: Cocaptain EO
+
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+        let seat_two = 1;
+
+        let left_team = 0;
+        let center_team = 1;
+
+        // using these two as cap and cocap:
+        let jacob = ("Jacob", left_team);
+        let taran = ("Taran", left_team);
+
+        let audrey = ("Audrey", center_team);
+        let jesse = ("Jesse", center_team);
+
+        let base_game_event_stream_builder = GameEventStreamBuilder::new(game_id)
+        .then_add_RM("Tournament")
+        .then_add_QT("Nazarene")
+            
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+             
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jesse.0, jesse.1, seat_two, false, true).unwrap()
+            
+            // 12 No Jumps as base (leaving 8 modifiable questions (max = 2 QOs = 8 questions)):
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap();
+        
+        // A: Captain QO, then Cocaptain QO
+        let (game_events_cap_QO_then_cocap_QO, _) = base_game_event_stream_builder.clone()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .to_game_events();
+        
+        // B: Captain QO, then Cocaptain EO
+        let (game_events_cap_QO_then_cocap_EO, _) = base_game_event_stream_builder.clone()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_NJ().unwrap()
+            .to_game_events();
+        
+        // C: Captain EO, then Cocaptain EO
+        let (game_events_cap_EO_then_cocap_EO, _) = base_game_event_stream_builder.clone()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .to_game_events();
+        
+        // D: Captain EO, then Cocaptain QO
+        let (game_events_cap_EO_then_cocap_QO, _) = base_game_event_stream_builder.clone()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_NJ().unwrap()
+            .to_game_events();
+        
+        // E: Cocaptain QO, then Captain QO
+        let (game_events_cocap_QO_then_cap_QO, _) = base_game_event_stream_builder.clone()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .to_game_events();
+        
+        // F: Cocaptain QO, then Captain EO
+        let (game_events_cocap_QO_then_cap_EO, _) = base_game_event_stream_builder.clone()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_NJ().unwrap()
+            .to_game_events();
+        
+        // G: Cocaptain EO, then Captain EO
+        let (game_events_cocap_EO_then_cap_EO, _) = base_game_event_stream_builder.clone()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .to_game_events();
+        
+        // H: Cocaptain EO, then Captain QO
+        let (game_events_cocap_EO_then_cap_QO, _) = base_game_event_stream_builder.clone()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_NJ().unwrap()
+            .to_game_events();
+        
+        // I: Captain QO
+        let (game_events_cap_QO, _) = base_game_event_stream_builder.clone()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .to_game_events();
+        
+        // J: Captain EO
+        let (game_events_cap_EO, _) = base_game_event_stream_builder.clone()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .to_game_events();
+        
+        // K: Cocaptain QO
+        let (game_events_cocap_QO, _) = base_game_event_stream_builder.clone()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .then_add_TC(taran.0, taran.1).unwrap()
+            .to_game_events();
+        
+        // L: Cocaptain EO
+        let (game_events_cocap_EO, _) = base_game_event_stream_builder.clone()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_NJ().unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
+            .to_game_events();
+
+        // let mut counter = 0;
+        // for event in game_events.iter() {
+        //     println!["{}: {:?}", counter, event];
+        //     counter += 1;
+        // }
+
+        // ACT:
+
+        let calculated_game_events_A = GameEventCalculator::new(game_id, game_events_cap_QO_then_cocap_QO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_B = GameEventCalculator::new(game_id, game_events_cap_QO_then_cocap_EO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_C = GameEventCalculator::new(game_id, game_events_cap_EO_then_cocap_EO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_D = GameEventCalculator::new(game_id, game_events_cap_EO_then_cocap_QO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_E = GameEventCalculator::new(game_id, game_events_cocap_QO_then_cap_QO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_F = GameEventCalculator::new(game_id, game_events_cocap_QO_then_cap_EO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_G = GameEventCalculator::new(game_id, game_events_cocap_EO_then_cap_EO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_H = GameEventCalculator::new(game_id, game_events_cocap_EO_then_cap_QO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_I = GameEventCalculator::new(game_id, game_events_cap_QO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_J = GameEventCalculator::new(game_id, game_events_cap_EO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_K = GameEventCalculator::new(game_id, game_events_cocap_QO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+
+        let calculated_game_events_L = GameEventCalculator::new(game_id, game_events_cocap_EO)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+        
+        // ASSERT:
+
+        // A: Captain QO, then Cocaptain QO
+        let check_left_team = calculated_game_events_A.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, 16];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, 20];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // B: Captain QO, then Cocaptain EO
+        let check_left_team = calculated_game_events_B.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, 16];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, 19];
+
+        // C: Captain EO, then Cocaptain EO
+        let check_left_team = calculated_game_events_C.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, 15];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, 18];
+
+        // D: Captain EO, then Cocaptain QO
+        let check_left_team = calculated_game_events_D.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, 15];
+        assert_eq![check_taran.question_quizzed_out_on, 19];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // E: Cocaptain QO, then Captain QO
+        let check_left_team = calculated_game_events_E.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, 20];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, 16];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // F: Cocaptain QO, then Captain EO
+        let check_left_team = calculated_game_events_F.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, 19];
+        assert_eq![check_taran.question_quizzed_out_on, 16];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // G: Cocaptain EO, then Captain EO
+        let check_left_team = calculated_game_events_G.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, 18];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, 15];
+
+        // H: Cocaptain EO, then Captain QO
+        let check_left_team = calculated_game_events_H.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, 19];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, 15];
+
+        // I: Captain QO
+        let check_left_team = calculated_game_events_I.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,true)];
+        assert_eq![check_jacob.question_quizzed_out_on, 20];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // J: Captain EO
+        let check_left_team = calculated_game_events_J.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,true)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, 20];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // K: Cocaptain QO
+        let check_left_team = calculated_game_events_K.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,true)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, 20];
+        assert_eq![check_taran.question_errored_out_on, -1];
+
+        // L: Cocaptain EO
+        let check_left_team = calculated_game_events_L.teams[&(0)].clone();
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+
+        assert_eq![check_left_team.captain, (0,true)];  // ((seat number), (is currently operational captain))
+        assert_eq![check_left_team.cocaptain, (1,false)];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, 20];
+    }
+    #[test]
+    fn game_event_calculation_scenario_five_removing_questions_works() {
+
+        // Scenario 5: Questions are removed/fixed and events are correct
+
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+        let seat_two = 1;
+        let seat_three = 2;
+
+        let left_team = 0;
+        let center_team = 1;
+
+        let jacob = ("Jacob", left_team);
+        let taran = ("Taran", left_team);
+        let lily = ("Lily", left_team);
+
+        let audrey = ("Audrey", center_team);
+        let jesse = ("Jesse", center_team);
+        let kenzie = ("Kenzie", center_team);
+
+        let (game_events, _) = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene")
+            
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_three, false, false).unwrap()
+             
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jesse.0, jesse.1, seat_two, false, true).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(kenzie.0, kenzie.1, seat_three, false, false).unwrap()
+            
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            // Red Team: 0 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            // Red Team: 20 { total_fouls: 0, jacob: 1/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TC(taran.0, taran.1).unwrap()
+            // Red Team: 40 { total_fouls: 0, jacob: 1/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            // Red Team: 60 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TE_and_bonuses(kenzie.0, kenzie.1, true, true).unwrap()
+            // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/1 }
+            
+            .then_remove_questions(2).unwrap()
+            // Red Team: 0 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            
+            .then_add_TE_and_bonuses(lily.0, lily.1, false, false).unwrap()
+            // Red Team: 0 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/1 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TE_and_bonuses(lily.0, lily.1, false, false).unwrap()
+            // Red Team: 0 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/2 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TE_and_bonuses(lily.0, lily.1, false, false).unwrap()
+            // Red Team: -10 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/3 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            // Red Team: 10 { total_fouls: 0, jacob: 1/0, taran: 0/0, lily: 0/3 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/1, kenzie: 0/0 }
+            .to_game_events();
+            
+        let mut counter = 0;
+        for event in game_events.iter() {
+            println!["{}: {:?}", counter, event];
+            counter += 1;
+        }
+
+        // ACT:
+
+        let calculated_game_events = GameEventCalculator::new(game_id, game_events)
+            .calculate_current_game_scores_and_counts()
+            .unwrap();
+        
+        // ASSERT:
+
+        let check_left_team = calculated_game_events.teams[&(0)].clone();
+        let check_center_team = calculated_game_events.teams[&(1)].clone();
+        
+        // Current Question is accurate:
+        assert_eq![calculated_game_events.current_question, 6];
+
+        // Team Scores are accurate:
+        assert_eq![check_left_team.score, 10];
+        assert_eq![check_center_team.score, 20];
+
+        // Quizzer Toss-up counts (TCs && TEs), Bonus counts (BCs && BEs), QOs and EOs are accurate and quizzer fouls are accurate:
+        // 0 Jacob
+        let check_jacob = check_left_team.quizzers[&(0)].clone();
+        assert_eq![check_jacob.correct_tossups, vec![5]];
+        assert_eq![check_jacob.errors_on_tossups, Vec::<i32>::new()];
+        assert_eq![check_jacob.question_quizzed_out_on, -1];
+        assert_eq![check_jacob.question_errored_out_on, -1];
+        assert_eq![check_jacob.question_fouled_out_on, -1];
+        assert_eq![check_jacob.fouls_received, Vec::<i32>::new()];
+        assert_eq![check_jacob.correct_bonuses, Vec::<i32>::new()];
+        assert_eq![check_jacob.errors_on_bonuses, Vec::<i32>::new()];
+        // 1 Taran
+        let check_taran = check_left_team.quizzers[&(1)].clone();
+        assert_eq![check_taran.correct_tossups, Vec::<i32>::new()];
+        assert_eq![check_taran.errors_on_tossups, Vec::<i32>::new()];
+        assert_eq![check_taran.question_quizzed_out_on, -1];
+        assert_eq![check_taran.question_errored_out_on, -1];
+        assert_eq![check_taran.question_fouled_out_on, -1];
+        assert_eq![check_taran.fouls_received, Vec::<i32>::new()];
+        assert_eq![check_taran.correct_bonuses, Vec::<i32>::new()];
+        assert_eq![check_taran.errors_on_bonuses, Vec::<i32>::new()];
+        // 2 Lily
+        let check_lily = check_left_team.quizzers[&(2)].clone();
+        assert_eq![check_lily.correct_tossups, Vec::<i32>::new()];
+        assert_eq![check_lily.errors_on_tossups, vec![2, 3, 4]];
+        assert_eq![check_lily.question_quizzed_out_on, -1];
+        assert_eq![check_lily.question_errored_out_on, 4];
+        assert_eq![check_lily.question_fouled_out_on, -1];
+        assert_eq![check_lily.fouls_received, Vec::<i32>::new()];
+        assert_eq![check_lily.correct_bonuses, Vec::<i32>::new()];
+        assert_eq![check_lily.errors_on_bonuses, Vec::<i32>::new()];
+        // 0 Audrey
+        let check_audrey = check_center_team.quizzers[&(0)].clone();
+        assert_eq![check_audrey.correct_tossups, vec![1]];
+        assert_eq![check_audrey.errors_on_tossups, Vec::<i32>::new()];
+        assert_eq![check_audrey.question_quizzed_out_on, -1];
+        assert_eq![check_audrey.question_errored_out_on, -1];
+        assert_eq![check_audrey.question_fouled_out_on, -1];
+        assert_eq![check_audrey.fouls_received, Vec::<i32>::new()];
+        assert_eq![check_audrey.correct_bonuses, Vec::<i32>::new()];
+        assert_eq![check_audrey.errors_on_bonuses, Vec::<i32>::new()];
+        // 1 Jesse
+        let check_jesse = check_center_team.quizzers[&(1)].clone();
+        assert_eq![check_jesse.correct_tossups, Vec::<i32>::new()];
+        assert_eq![check_jesse.errors_on_tossups, Vec::<i32>::new()];
+        assert_eq![check_jesse.question_quizzed_out_on, -1];
+        assert_eq![check_jesse.question_errored_out_on, -1];
+        assert_eq![check_jesse.question_fouled_out_on, -1];
+        assert_eq![check_jesse.fouls_received, Vec::<i32>::new()];
+        assert_eq![check_jesse.correct_bonuses, Vec::<i32>::new()];
+        assert_eq![check_jesse.errors_on_bonuses, Vec::<i32>::new()];
+        // 2 Kenzie
+        let check_kenzie = check_center_team.quizzers[&(2)].clone();
+        assert_eq![check_kenzie.correct_tossups, Vec::<i32>::new()];
+        assert_eq![check_kenzie.errors_on_tossups, Vec::<i32>::new()];
+        assert_eq![check_kenzie.question_quizzed_out_on, -1];
+        assert_eq![check_kenzie.question_errored_out_on, -1];
+        assert_eq![check_kenzie.question_fouled_out_on, -1];
+        assert_eq![check_kenzie.fouls_received, Vec::<i32>::new()];
+        assert_eq![check_kenzie.correct_bonuses, Vec::<i32>::new()];
+        assert_eq![check_kenzie.errors_on_bonuses, vec![2, 3, 4]];
+    }
+
+    // Situation these tests don't cover:
+    // - when both captain and cocaptain become inelligible and new ones need to be specified (needs to be bult into stream builder or else panic if next ruling happens before these are specified)
+    //     currently if QuizMachine's captain and cocaptain both become inelligible, then when an appeal by their team is accepted the 'quizzer' of the game event = -1 and QuizMachine asks the quizmaster to specify captain and cocaptain; QuizMachine doesn't record replacement captain and cocaptains other than in-memory, so this cannot currently be checked/validated
+    
 }
