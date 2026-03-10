@@ -911,9 +911,14 @@ impl GameEventStreamBuilder {
     pub fn then_add_TN(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         // let mut errors: Vec<String> = vec![];
 
-        let prev_event = self.clone().get_last_event().unwrap();
-        let prev_question = prev_event.question;
-        let prev_eventnum = prev_event.eventnum;
+        let mut prev_question = 1;
+        let mut prev_eventnum = -1;
+        let prev_event_result = self.clone().get_last_event();
+        if prev_event_result.is_ok() {
+            let prev_event = prev_event_result.unwrap();
+            prev_question = prev_event.question;
+            prev_eventnum = prev_event.eventnum;
+        }
 
         let mut new_events = self.events.clone();
         new_events.push(
@@ -1737,7 +1742,7 @@ impl GameEventStreamBuilder {
             }
             return Ok(new_game_event.clone());
         }
-        Err("Could not find valid previous event for getting last quesiton and eventnum.".to_string())
+        Err("Could not find valid previous event for getting last question and eventnum.".to_string())
     }
     pub fn to_game_events(self) -> (Vec<GameEvent>, Uuid) {
         let mut mut_game_events: Vec<GameEvent> = vec![];
@@ -1765,7 +1770,8 @@ impl GameEventStreamBuilder {
 struct GameEventStreamValidator {
     events: Vec<GameEvent>,
     check_for_everything: bool,  // <- this overrides everything below by checking for everything in the 'validate' method
-    // check_for_has_RM_and_QT: bool,
+    check_for_sort_order: bool,
+    check_for_has_RM_and_QT: bool,
     // check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: bool,
     // check_for_each_question_has_minimum_of_one_record: bool,
     // check_for_eventnums_are_continuous_based_on_largest_eventnum_per_question: bool,
@@ -1784,11 +1790,12 @@ struct GameEventStreamValidator {
 }
 
 impl GameEventStreamValidator {
-    pub fn new(self) -> Self {
+    pub fn new(events: Vec<GameEvent>) -> Self {
         Self {
-            events: self.events,
+            events,
             check_for_everything: false,
-            // check_for_has_RM_and_QT: false,
+            check_for_sort_order: false,
+            check_for_has_RM_and_QT: false,
             // check_for_teams_do_not_have_quizzers_with_the_same_name: false,
             // check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: false,
             // check_for_each_question_has_minimum_of_one_record: false,
@@ -1816,13 +1823,21 @@ impl GameEventStreamValidator {
         }
     }
 
-    // pub fn check_for_has_RM_and_QT(self) -> Self {
-    // // validation rule: Game must have a "RM" and "QT"
-    //     Self {
-    //         check_for_has_RM_and_QT: true,
-    //         ..self
-    //     }
-    // }
+    pub fn check_for_sort_order(self) -> Self {
+    // validation rule: GameEvents must be in the right order to be interpreted correctly.
+        Self {
+            check_for_sort_order: true,
+            ..self
+        }
+    }
+
+    pub fn check_for_has_RM_and_QT(self) -> Self {
+    // validation rule: Game must have a "RM" and "QT"
+        Self {
+            check_for_has_RM_and_QT: true,
+            ..self
+        }
+    }
     
     // pub fn check_for_teams_do_not_have_quizzers_with_the_same_name(self) -> Self {
     // // this applied only before the first toss-up event is encountered; afterward this is acceptable only after SBs (but we're NOT checking for that here)
@@ -1952,70 +1967,102 @@ impl GameEventStreamValidator {
     //     }
     // }
 
-    pub fn validate(self) -> Result<(), Vec<String>> {
+    pub fn validate(mut self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
 
-        // if self.check_for_everything || self.check_for_has_RM_and_QT {
-        //     // Commented out because, after further consideration, '.is_config_event()' is not a valid category check.
-        //     // A somewhat different implementaiton will be needed for this reason.
-        //     // let mut has_rm = false;
-        //     // let mut has_qt = false;
-        //     // for game_event in self.events.iter() {
-        //     //     let game_event_code = string_to_gameeventcode(game_event.event.as_str());
-        //     //     if !game_event_code.clone().is_config_event() {
-        //     //         break;
-        //     //     }
-        //     //     if game_event_code.clone() == GameEventCode::RM {
-        //     //         has_rm = true;
-        //     //     }
-        //     //     if game_event_code == GameEventCode::QT {
-        //     //         has_qt = true;
-        //     //     }
-        //     // }
-        //     // if !has_rm {
-        //     //     errors.push("organization ('RM') not specified and is required".to_string());
-        //     // }
-        //     // if !has_qt {
-        //     //     errors.push("quiz_type ('QT') not specified and is required".to_string());
-        //     // }
+        self.events.sort();
+
+        if self.check_for_everything || self.check_for_sort_order {
+            // validation rule: GameEvents must be in the right order to be interpreted correctly.
+            let mut question = -1;
+            let mut eventnum = -1;
+            for game_event in self.events.iter() {
+                if question == -1 && eventnum == -1 {
+                    question = game_event.question;
+                    eventnum = game_event.eventnum;
+                    continue;
+                }
+                if question == game_event.question {
+                    if eventnum > game_event.eventnum {
+                        errors.push(format!["Non-sequential eventnums: Eventnum {} is less than next expected next eventnum {} for question {}.", game_event.eventnum, (eventnum + 1), game_event.question]);
+                    }
+                    if eventnum == game_event.eventnum {
+                        errors.push(format!["Non-sequential eventnums: Eventnum {} is equal to next expected next eventnum {} for question {}.", game_event.eventnum, (eventnum + 1), game_event.question]);
+                    }
+                    if eventnum + 1 != game_event.eventnum {
+                        errors.push(format!["Non-sequential eventnums: Eventnum {} was skipped/is missing for question {}.", (eventnum + 1), game_event.question]);
+                    }
+                }
+                println!["Q: {}, EN: {}", game_event.question,game_event.eventnum];
+                if question + 1 == game_event.question && game_event.eventnum != 0 {
+                    errors.push(format!["Non-sequential questions: Question {} is missing eventnum 0.", (question + 1)]);
+                }
+                if question > game_event.question {
+                    errors.push(format!["Non-sequential questions: Question {} is less than next expected next question {}.", game_event.question, (question + 1)]);
+                }
+                if game_event.eventnum == 0 && question + 1 != game_event.question {
+                    errors.push(format!["Non-sequential questions: Question {} was skipped/is missing.", (question + 1)]);
+                }
+                question = game_event.question;
+                eventnum = game_event.eventnum;
+            }
+        }
+
+        if self.check_for_everything || self.check_for_has_RM_and_QT {
+            let mut has_rm = false;
+            let mut has_qt = false;
+            for game_event in self.events.iter() {
+                let game_event_code = string_to_gameeventcode(game_event.event.as_str());
+                match game_event_code {
+                    GameEventCode::RM => { has_rm = true; },
+                    GameEventCode::QT =>  { has_qt = true; },
+                    _ => {}
+                }
+            }
+            if !has_rm {
+                errors.push("organization ('RM') not specified and is required".to_string());
+            }
+            if !has_qt {
+                errors.push("quiz_type ('QT') not specified and is required".to_string());
+            }
+        }
             
-        //     // Teams and Quizzers:
-        //     // let mut teams: HashMap<i32, i32> = HashMap::new();
-        
-        //     let mut team_names = ["", "", ""];
-        //     let mut quizzer_names_per_team = [["", "", "", "", "", ""], ["", "", "", "", "", ""], ["", "", "", "", "", ""]];
-        //     let mut has_captain_per_team = [false; 3];
-        //     let mut has_cocaptain_per_team = [false; 3];
-        
-        //     for game_event in self.events.iter() {
-        //         let game_event_code = string_to_gameeventcode(game_event.event.as_str());
-        
-        //         //   - Game must have at least one "TN" (team name)
-        //         if game_event_code == GameEventCode::TN {
-        //             // teams.entry(game_event.team).or_insert(0);
-        //             team_names[game_event.team as usize] = game_event.name.as_str();
-        //             break;
-        //         }
-        
-        //         //   - Each Team must have at least 1 "QN" (quizzer name)
-        //         if game_event_code == GameEventCode::QN {
-        //             let team_idx = game_event.team as usize;
-        //             let quizzer_idx = game_event.quizzer as usize;
-        //             quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.as_str();
-        //             // if let Some(count) = teams.get_mut(&game_event.team) {
-        //             //     *count += 1;
-        //             // }
-        //         }
-        
+        // // Teams and Quizzers:
+        // let mut teams: HashMap<i32, i32> = HashMap::new();
+    
+        // let mut team_names = ["", "", ""];
+        // let mut quizzer_names_per_team = [["", "", "", "", "", ""], ["", "", "", "", "", ""], ["", "", "", "", "", ""]];
+        // let mut has_captain_per_team = [false; 3];
+        // let mut has_cocaptain_per_team = [false; 3];
+    
+        // for game_event in self.events.iter() {
+        //     let game_event_code = string_to_gameeventcode(game_event.event.as_str());
+    
+        //     //   - Game must have at least one "TN" (team name)
+        //     if game_event_code == GameEventCode::TN {
+        //         // teams.entry(game_event.team).or_insert(0);
+        //         team_names[game_event.team as usize] = game_event.name.as_str();
+        //         break;
         //     }
-        //     if teams.len() < 1 {
-        //         errors.push("at least one team is required per Game".to_string());
+    
+        //     //   - Each Team must have at least 1 "QN" (quizzer name)
+        //     if game_event_code == GameEventCode::QN {
+        //         let team_idx = game_event.team as usize;
+        //         let quizzer_idx = game_event.quizzer as usize;
+        //         quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.as_str();
+        //         // if let Some(count) = teams.get_mut(&game_event.team) {
+        //         //     *count += 1;
+        //         // }
         //     }
-        //     else {
-        //         for (_team, quizzer_counDEFAULT_INDIVIDUAL_ERROR_BEGIN_DEDUCTION_COUNTt) in teams.iter() {
-        //             if (*quizzer_count) < 1 {
-        //                 errors.push("each team is required to have at least one quizzer".to_string());
-        //             }
+    
+        // }
+        // if teams.len() < 1 {
+        //     errors.push("at least one team is required per Game".to_string());
+        // }
+        // else {
+        //     for (_team, quizzer_counDEFAULT_INDIVIDUAL_ERROR_BEGIN_DEDUCTION_COUNTt) in teams.iter() {
+        //         if (*quizzer_count) < 1 {
+        //             errors.push("each team is required to have at least one quizzer".to_string());
         //         }
         //     }
         // }
@@ -3632,4 +3679,234 @@ mod tests {
     // - when both captain and cocaptain become inelligible and new ones need to be specified (needs to be bult into stream builder or else panic if next ruling happens before these are specified)
     //     currently if QuizMachine's captain and cocaptain both become inelligible, then when an appeal by their team is accepted the 'quizzer' of the game event = -1 and QuizMachine asks the quizmaster to specify captain and cocaptain; QuizMachine doesn't record replacement captain and cocaptains other than in-memory, so this cannot currently be checked/validated
     
+    // Begin Validations unit tests:
+    #[test]
+    fn validation_check_RM_and_QT_events_are_present_in_game_event_stream_works() {
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+
+        let left_team = 0;
+        let center_team = 1;
+
+        let jacob = ("Jacob", left_team);
+
+        let audrey = ("Audrey", center_team);
+
+        let base_game_event_stream_builder = GameEventStreamBuilder::new(game_id)
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+             
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
+            
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap();
+
+
+        let (game_events_with_RM, _) = base_game_event_stream_builder.clone()
+            .then_add_RM("Tournament")
+            .to_game_events();
+
+        let (game_events_with_QT, _) = base_game_event_stream_builder.clone()
+            .then_add_QT("Nazarene")
+            .to_game_events();
+
+        let (game_events_with_both_RM_and_QT, _) = base_game_event_stream_builder.clone()
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene")
+            .to_game_events();
+        
+        // ACT
+
+        let only_RM_specific = GameEventStreamValidator::new(game_events_with_RM.clone())
+            .check_for_has_RM_and_QT()
+            .validate();
+        let only_RM_everything_check = GameEventStreamValidator::new(game_events_with_RM)
+            .check_for_everything()
+            .validate();
+
+        let only_QT_specific = GameEventStreamValidator::new(game_events_with_QT.clone())
+            .check_for_has_RM_and_QT()
+            .validate();
+        let only_QT_everything_check = GameEventStreamValidator::new(game_events_with_QT)
+            .check_for_everything()
+            .validate();
+
+        let both_RM_and_QT_specific = GameEventStreamValidator::new(game_events_with_both_RM_and_QT.clone())
+            .check_for_has_RM_and_QT()
+            .validate();
+        let both_RM_and_QT_everything_check = GameEventStreamValidator::new(game_events_with_both_RM_and_QT)
+            .check_for_everything()
+            .validate();
+
+        // ASSERT
+
+        assert![only_RM_specific.is_err()];
+        assert![only_RM_everything_check.is_err()];
+
+        assert![only_QT_specific.is_err()];
+        assert![only_QT_everything_check.is_err()];
+
+        assert![both_RM_and_QT_specific.is_ok()];
+        assert![both_RM_and_QT_everything_check.is_ok()];
+    }
+
+    #[test]
+    fn validation_check_sort_order_works() {
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+
+        let left_team = 0;
+        let center_team = 1;
+
+        let jacob = ("Jacob", left_team);
+
+        let audrey = ("Audrey", center_team);
+
+        let (game_events, _) = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene")
+            
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+             
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
+            
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+
+            .then_add_TC(jacob.0, jacob.1).unwrap()
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+            .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
+            .then_add_TC(audrey.0, audrey.1).unwrap()
+
+            .to_game_events();
+        
+        let mut game_event_missing_eventnum: Vec<GameEvent> = game_events.clone();
+        game_event_missing_eventnum.retain(|e| e.question != 3 || e.eventnum != 0);
+        let game_event_missing_eventnum = game_event_missing_eventnum;
+
+        let game_event_missing_question: Vec<GameEvent> = game_events
+            .iter()
+            .filter(|e| e.question != 2)
+            .cloned()
+            .collect();
+        
+        let mut game_event_eventnum_out_of_order = game_events.clone();
+        for event in game_event_eventnum_out_of_order.iter_mut() {
+            if event.question == 3 && event.eventnum == 0 {
+                event.eventnum = 1;
+                continue;
+            }
+            if event.question == 3 && event.eventnum == 1 {
+                event.eventnum = 0;
+                break;
+            }
+        }
+        let game_event_eventnum_out_of_order = game_event_eventnum_out_of_order;
+
+        let mut game_event_question_out_of_order = game_events.clone();
+        for event in game_event_question_out_of_order.iter_mut() {
+            if event.question == 6 {
+                event.question = 7;
+                continue;
+            }
+            if event.question == 7 {
+                event.question = 6;
+                break;
+            }
+        }
+        let game_event_question_out_of_order = game_event_question_out_of_order;
+        
+        let mut game_event_question_eventnum_duplicate = game_events.clone();
+        for event in game_event_question_eventnum_duplicate.iter_mut() {
+            if event.question == 10 && event.eventnum == 0 {
+                event.question = 1;
+                break;
+            }
+        }
+        let game_event_question_eventnum_duplicate = game_event_question_eventnum_duplicate;
+
+        for event in game_event_eventnum_out_of_order.clone() {
+            println!["{:?}", event];
+        }
+        
+        // ACT
+
+        // control group:
+        let game_events_specific = GameEventStreamValidator::new(game_events.clone())
+            .check_for_sort_order()
+            .validate();
+        let game_events_everything = GameEventStreamValidator::new(game_events.clone())
+            .check_for_everything()
+            .validate();
+
+
+        let game_event_missing_eventnum_specific = GameEventStreamValidator::new(game_event_missing_eventnum.clone())
+            .check_for_sort_order()
+            .validate();
+        let game_event_missing_eventnum_everything = GameEventStreamValidator::new(game_event_missing_eventnum.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_event_missing_question_specific = GameEventStreamValidator::new(game_event_missing_question.clone())
+            .check_for_sort_order()
+            .validate();
+        let game_event_missing_question_everything = GameEventStreamValidator::new(game_event_missing_question.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_event_eventnum_out_of_order_specific = GameEventStreamValidator::new(game_event_eventnum_out_of_order.clone())
+            .check_for_sort_order()
+            .validate();
+        let game_event_eventnum_out_of_order_everything = GameEventStreamValidator::new(game_event_eventnum_out_of_order.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_event_question_out_of_order_specific = GameEventStreamValidator::new(game_event_question_out_of_order.clone())
+            .check_for_sort_order()
+            .validate();
+        let game_event_question_out_of_order_everything = GameEventStreamValidator::new(game_event_question_out_of_order.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_event_question_eventnum_duplicate_specific = GameEventStreamValidator::new(game_event_question_eventnum_duplicate.clone())
+            .check_for_sort_order()
+            .validate();
+        let game_event_question_eventnum_duplicate_everything = GameEventStreamValidator::new(game_event_question_eventnum_duplicate.clone())
+            .check_for_everything()
+            .validate();
+
+        // ASSERT
+
+        // control:
+        assert![game_events_specific.is_ok()];
+        assert![game_events_everything.is_ok()];
+
+        assert![game_event_missing_eventnum_specific.is_err()];
+        assert![game_event_missing_eventnum_everything.is_err()];
+
+        assert![game_event_missing_question_specific.is_err()];
+        assert![game_event_missing_question_everything.is_err()];
+
+        assert![game_event_eventnum_out_of_order_specific.is_ok()];
+        assert![game_event_eventnum_out_of_order_everything.is_ok()];
+
+        assert![game_event_question_out_of_order_specific.is_ok()];
+        assert![game_event_question_out_of_order_everything.is_ok()];
+
+        assert![game_event_question_eventnum_duplicate_specific.is_err()];
+        assert![game_event_question_eventnum_duplicate_everything.is_err()];
+    }
 }
