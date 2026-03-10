@@ -1772,17 +1772,14 @@ struct GameEventStreamValidator {
     check_for_everything: bool,  // <- this overrides everything below by checking for everything in the 'validate' method
     check_for_sort_order: bool,
     check_for_has_RM_and_QT: bool,
+    check_for_min_one_team_and_min_one_quizzer_per_team: bool,
     // check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: bool,
-    // check_for_each_question_has_minimum_of_one_record: bool,
-    // check_for_eventnums_are_continuous_based_on_largest_eventnum_per_question: bool,
     // check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: bool,
     // check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: bool,
     // check_for_quizzer_is_not_found_in_events_after_QO_or_EO: bool,
     // check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on: bool,
     // check_for_TO_and_SB_must_occur_between_questions_only: bool,
-    // check_for_allow_questions_past_twenty_only_if_score_is_tied: bool,
-    // check_for_question_plus_eventnum_match_timestamp_sequence_while_disregarding_DE_events: bool,
-    // check_for_all_all_events_have_correct_seat_assignments_for_quizzers_and_teams: bool,
+    // check_for_all_events_have_correct_seat_assignments_for_quizzers_and_teams: bool,
     // check_for_events_exist_only_for_associated_teams_and_quizzersjesse_of_those_teams: bool,
     // check_for_teams_do_not_exceed_maximum_timeouts: bool,
     // check_for_teams_do_not_exceed_maximum_challenges: bool,
@@ -1796,18 +1793,15 @@ impl GameEventStreamValidator {
             check_for_everything: false,
             check_for_sort_order: false,
             check_for_has_RM_and_QT: false,
+            check_for_min_one_team_and_min_one_quizzer_per_team: false,
             // check_for_teams_do_not_have_quizzers_with_the_same_name: false,
             // check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: false,
-            // check_for_each_question_has_minimum_of_one_record: false,
-            // check_for_eventnums_are_continuous_based_on_largest_eventnum_per_question: false,
             // check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: false,
             // check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: false,
             // check_for_quizzer_is_not_found_in_events_after_QO_or_EO: false,
             // check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on: false,
             // check_for_TO_and_SB_must_occur_between_questions_only: false,
-            // check_for_allow_questions_past_twenty_only_if_score_is_tied: false,
-            // check_for_question_plus_eventnum_match_timestamp_sequence_while_disregarding_DE_events: false,
-            // check_for_all_all_events_have_correct_seat_assignments_for_quizzers_and_teams: false,
+            // check_for_all_events_have_correct_seat_assignments_for_quizzers_and_teams: false,
             // check_for_events_exist_only_for_associated_teams_and_quizzers_of_those_teams: false,
             // check_for_teams_do_not_exceed_maximum_timeouts: false,
             // check_for_teams_do_not_exceed_maximum_challenges: false,
@@ -1839,6 +1833,13 @@ impl GameEventStreamValidator {
         }
     }
     
+    pub fn check_for_min_one_team_and_min_one_quizzer_per_team(self) -> Self {
+        Self {
+            check_for_min_one_team_and_min_one_quizzer_per_team: true,
+            ..self
+        }
+    }
+    
     // pub fn check_for_teams_do_not_have_quizzers_with_the_same_name(self) -> Self {
     // // this applied only before the first toss-up event is encountered; afterward this is acceptable only after SBs (but we're NOT checking for that here)
     //     Self {
@@ -1851,22 +1852,6 @@ impl GameEventStreamValidator {
     // // validation rule: Count the quizzers of a team: if only 1, must be captain, if 2 or more, captain and CC are needed
     //     Self {
     //         check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_each_question_has_minimum_of_one_record(self) -> Self {
-    // // validation rule: Each question must have at least one record, even if just "NJ" (no jump)
-    //     Self {
-    //         check_for_each_question_has_minimum_of_one_record: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_eventnums_are_continuous_based_on_largest_eventnum_per_question(self) -> Self {
-    // // validation rule: Example: If a question has an event that reaches a number 4, then events 1, 2, and 3 must exist for that question; otherwise an event is missing
-    //     Self {
-    //         check_for_eventnums_are_continuous_based_on_largest_eventnum_per_question: true,
     //         ..self
     //     }
     // }
@@ -1907,22 +1892,6 @@ impl GameEventStreamValidator {
     // // validation rule: "TO", "SB" must occur between questions only
     //     Self {
     //         check_for_TO_and_SB_must_occur_between_questions_only: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_allow_questions_past_twenty_only_if_score_is_tied(self) -> Self {
-    // // validation rule: After processing the events to get the team scores, every question after 20 is valid only if the team scores are tied
-    //     Self {
-    //         check_for_allow_questions_past_twenty_only_if_score_is_tied: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_question_plus_eventnum_match_timestamp_sequence_while_disregarding_DE_events(self) -> Self {
-    // // validation rule: Timestamps from client should be in chronological order when compared to question + sub-question sequence numbers except where 'DE' exists
-    //     Self {
-    //         check_for_question_plus_eventnum_match_timestamp_sequence_while_disregarding_DE_events: true,
     //         ..self
     //     }
     // }
@@ -1993,7 +1962,6 @@ impl GameEventStreamValidator {
                         errors.push(format!["Non-sequential eventnums: Eventnum {} was skipped/is missing for question {}.", (eventnum + 1), game_event.question]);
                     }
                 }
-                println!["Q: {}, EN: {}", game_event.question,game_event.eventnum];
                 if question + 1 == game_event.question && game_event.eventnum != 0 {
                     errors.push(format!["Non-sequential questions: Question {} is missing eventnum 0.", (question + 1)]);
                 }
@@ -2026,46 +1994,49 @@ impl GameEventStreamValidator {
                 errors.push("quiz_type ('QT') not specified and is required".to_string());
             }
         }
+
+        if self.check_for_everything || self.check_for_min_one_team_and_min_one_quizzer_per_team {
+            // Teams and Quizzers:
+            let mut team_names: [String; 3] = ["".to_string(), "".to_string(), "".to_string()];
+            let mut quizzer_names_per_team: [[String; 6]; 3] = [["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()], ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()], ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()]];
+
+            for game_event in self.events.iter() {
+                let game_event_code = string_to_gameeventcode(game_event.event.as_str());
+        
+                // - Game must have at least one "TN" (team name)
+                if game_event_code == GameEventCode::TN {
+                    team_names[game_event.team as usize] = game_event.name.clone();
+                }
+        
+                // - Each Team must have at least 1 "QN" (quizzer name)
+                if game_event_code == GameEventCode::QN {
+                    let team_idx = game_event.team as usize;
+                    let quizzer_idx = game_event.quizzer as usize;
+                    quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.clone();
+                }
+        
+            }
             
-        // // Teams and Quizzers:
-        // let mut teams: HashMap<i32, i32> = HashMap::new();
-    
-        // let mut team_names = ["", "", ""];
-        // let mut quizzer_names_per_team = [["", "", "", "", "", ""], ["", "", "", "", "", ""], ["", "", "", "", "", ""]];
-        // let mut has_captain_per_team = [false; 3];
-        // let mut has_cocaptain_per_team = [false; 3];
-    
-        // for game_event in self.events.iter() {
-        //     let game_event_code = string_to_gameeventcode(game_event.event.as_str());
-    
-        //     //   - Game must have at least one "TN" (team name)
-        //     if game_event_code == GameEventCode::TN {
-        //         // teams.entry(game_event.team).or_insert(0);
-        //         team_names[game_event.team as usize] = game_event.name.as_str();
-        //         break;
-        //     }
-    
-        //     //   - Each Team must have at least 1 "QN" (quizzer name)
-        //     if game_event_code == GameEventCode::QN {
-        //         let team_idx = game_event.team as usize;
-        //         let quizzer_idx = game_event.quizzer as usize;
-        //         quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.as_str();
-        //         // if let Some(count) = teams.get_mut(&game_event.team) {
-        //         //     *count += 1;
-        //         // }
-        //     }
-    
-        // }
-        // if teams.len() < 1 {
-        //     errors.push("at least one team is required per Game".to_string());
-        // }
-        // else {
-        //     for (_team, quizzer_counDEFAULT_INDIVIDUAL_ERROR_BEGIN_DEDUCTION_COUNTt) in teams.iter() {
-        //         if (*quizzer_count) < 1 {
-        //             errors.push("each team is required to have at least one quizzer".to_string());
-        //         }
-        //     }
-        // }
+            let mut at_least_one_team = false;
+            for (team_idx, team_name) in team_names.iter().enumerate() {
+                if *team_name != "" {
+                    at_least_one_team = true;
+                    let mut at_least_one_quizzer = false;
+                    for quizzer_name in quizzer_names_per_team[team_idx].iter() {
+                        if *quizzer_name != "" {
+                            at_least_one_quizzer = true;
+                        }
+                    }
+                    if !at_least_one_quizzer {
+                        errors.push("One or more teams have zero quizzers specified. A minimum of one quizzer is required per team.".to_string());
+                    }
+                }
+            }
+            if !at_least_one_team {
+                errors.push("Zero teams were found for this Game. At least one team is required per Game.".to_string());
+            }
+        }
+        
 
         // if self.check_for_everything || self.check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team {
 
@@ -3838,9 +3809,9 @@ mod tests {
         }
         let game_event_question_eventnum_duplicate = game_event_question_eventnum_duplicate;
 
-        for event in game_event_eventnum_out_of_order.clone() {
-            println!["{:?}", event];
-        }
+        // for event in game_event_eventnum_out_of_order.clone() {
+        //     println!["{:?}", event];
+        // }
         
         // ACT
 
@@ -3908,5 +3879,76 @@ mod tests {
 
         assert![game_event_question_eventnum_duplicate_specific.is_err()];
         assert![game_event_question_eventnum_duplicate_everything.is_err()];
+    }
+
+    #[test]
+    fn validation_check_check_for_min_one_team_and_min_one_quizzer_per_team_works() {
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+
+        let left_team = 0;
+        let center_team = 1;
+
+        let jacob = ("Jacob", left_team);
+
+        let base_game_events_stream = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene");
+
+        let (game_events_no_team_or_quizzers, _) = base_game_events_stream.clone()
+            .to_game_events();
+            
+        let (game_events_team_no_quizzers, _) = base_game_events_stream.clone()
+            .then_add_TN("Red Team", left_team).unwrap()
+            .to_game_events();
+
+        let (game_events_team_and_quizzer, _) = base_game_events_stream.clone()
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .to_game_events();
+
+        for event in game_events_team_and_quizzer.clone() {
+            println!["{:?}", event];
+        }
+        
+        // ACT
+
+        // control group:
+        let game_events_team_and_quizzer_specific = GameEventStreamValidator::new(game_events_team_and_quizzer.clone())
+            .check_for_min_one_team_and_min_one_quizzer_per_team()
+            .validate();
+        let game_events_team_and_quizzer_everything = GameEventStreamValidator::new(game_events_team_and_quizzer.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_no_team_or_quizzers_specific = GameEventStreamValidator::new(game_events_no_team_or_quizzers.clone())
+            .check_for_min_one_team_and_min_one_quizzer_per_team()
+            .validate();
+        let game_events_no_team_or_quizzers_everything = GameEventStreamValidator::new(game_events_no_team_or_quizzers.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_team_no_quizzers_specific = GameEventStreamValidator::new(game_events_team_no_quizzers.clone())
+            .check_for_min_one_team_and_min_one_quizzer_per_team()
+            .validate();
+        let game_events_team_no_quizzers_everything = GameEventStreamValidator::new(game_events_team_no_quizzers.clone())
+            .check_for_everything()
+            .validate();
+
+
+        // ASSERT
+
+        // control:
+        assert![game_events_team_and_quizzer_specific.is_ok()];
+        assert![game_events_team_and_quizzer_everything.is_ok()];
+
+        assert![game_events_no_team_or_quizzers_specific.is_err()];
+        assert![game_events_no_team_or_quizzers_everything.is_err()];
+
+        assert![game_events_team_no_quizzers_specific.is_err()];
+        assert![game_events_team_no_quizzers_everything.is_err()];
     }
 }
