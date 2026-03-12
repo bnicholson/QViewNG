@@ -2002,16 +2002,12 @@ impl GameEventStreamValidator {
                 }
             }
 
-            println!["Teams: {:?}", team_names];
-            println!["Quizzers: {:?}", quizzer_names_per_team];
-            
             for (team_idx, team_name) in team_names.iter().enumerate() {
                 if *team_name == "" { continue; }
                 for (i, quizzer_i) in quizzer_names_per_team[team_idx].iter().enumerate() {
                     if *quizzer_i == "" { continue; }
                     for (j, quizzer_j) in quizzer_names_per_team[team_idx].iter().enumerate() {
                         if i == j || *quizzer_j == "" { continue; }
-                        println!["Quizzer I: {}, Quizzer J: {}", quizzer_i, quizzer_j];
                         if quizzer_i == quizzer_j {
                             errors.push(format!["Team '{}' has more than 1 quizzer with the name '{}'. Quizzer names must be unique for each team.", team_names[team_idx], quizzer_j]);
                         }
