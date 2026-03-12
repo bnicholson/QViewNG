@@ -1695,10 +1695,12 @@ struct GameEventStreamValidator {
     check_for_has_RM_and_QT: bool,
     check_for_min_one_team_and_min_one_quizzer_per_team: bool,
     check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: bool,
+    check_for_no_team_name_duplicates: bool,
+    check_for_no_quizzer_name_duplicates_within_team: bool,
     // Ideas for Potential Validation Checks:
-        // check_for_no_team_name_duplicates: bool,
-        // check_for_no_quizzer_name_duplicates_within_team: bool,
         // check_for_captain_and_cocaptain_of_each_team_are_specified_before_first_question (TC,TE,NJ)
+        // check_for_team_name_redefined_after_round_began
+        // check_for_quizzer_name_redefined_after_round_began
         // check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: bool,
         // check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: bool,
         // check_for_quizzer_is_not_found_in_events_after_QO_or_EO: bool,
@@ -1720,6 +1722,8 @@ impl GameEventStreamValidator {
             check_for_has_RM_and_QT: false,
             check_for_min_one_team_and_min_one_quizzer_per_team: false,
             check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: false,
+            check_for_no_team_name_duplicates: false,
+            check_for_no_quizzer_name_duplicates_within_team: false,
         }
     }
 
@@ -1758,6 +1762,20 @@ impl GameEventStreamValidator {
     // validation rule: Count the quizzers of a team: if only 1, must be captain, if 2 or more, captain and CC are needed
         Self {
             check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: true,
+            ..self
+        }
+    }
+    
+    pub fn check_for_no_team_name_duplicates(self) -> Self {
+        Self {
+            check_for_no_team_name_duplicates: true,
+            ..self
+        }
+    }
+    
+    pub fn check_for_no_quizzer_name_duplicates_within_team(self) -> Self {
+        Self {
+            check_for_no_quizzer_name_duplicates_within_team: true,
             ..self
         }
     }
@@ -1942,6 +1960,61 @@ impl GameEventStreamValidator {
                     }
                     if !cocap_is_in_teams_quizzers {
                         errors.push(format!["Cocaptain is not listed as a quizzer of the team. Cocaptain: {}, Team: {}", cocap, team_name]);
+                    }
+                }
+            }
+        }
+
+        if self.check_for_everything || self.check_for_no_team_name_duplicates {
+            let mut team_names: [String; 3] = ["".to_string(), "".to_string(), "".to_string()];
+            for game_event in self.events.iter() {
+                let game_event_code = string_to_gameeventcode(game_event.event.as_str());
+        
+                if game_event_code == GameEventCode::TN {
+                    team_names[game_event.team as usize] = game_event.name.clone();
+                }
+            }
+            if team_names[0] == team_names[1] && team_names[0] != "".to_string() {
+                errors.push(format!["Team names are not unique. Left & Center Team name: {}", team_names[0]]);
+            }
+            if team_names[1] == team_names[2] && team_names[1] != "".to_string() {
+                errors.push(format!["Team names are not unique. Center & Right Team name: {}", team_names[1]]);
+            }
+            if team_names[0] == team_names[2] && team_names[0] != "".to_string() {
+                errors.push(format!["Team names are not unique. Left & Right Team name: {}", team_names[0]]);
+            }
+        }
+
+        if self.check_for_everything || self.check_for_no_quizzer_name_duplicates_within_team {
+            let mut team_names: [String; 3] = ["".to_string(), "".to_string(), "".to_string()];
+            let mut quizzer_names_per_team: [[String; 6]; 3] = [["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()], ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()], ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()]];
+            for game_event in self.events.iter() {
+                let game_event_code = string_to_gameeventcode(game_event.event.as_str());
+        
+                if game_event_code == GameEventCode::TN {
+                    team_names[game_event.team as usize] = game_event.name.clone();
+                }
+        
+                if game_event_code == GameEventCode::QN {
+                    let team_idx = game_event.team as usize;
+                    let quizzer_idx = game_event.quizzer as usize;
+                    quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.clone();
+                }
+            }
+
+            println!["Teams: {:?}", team_names];
+            println!["Quizzers: {:?}", quizzer_names_per_team];
+            
+            for (team_idx, team_name) in team_names.iter().enumerate() {
+                if *team_name == "" { continue; }
+                for (i, quizzer_i) in quizzer_names_per_team[team_idx].iter().enumerate() {
+                    if *quizzer_i == "" { continue; }
+                    for (j, quizzer_j) in quizzer_names_per_team[team_idx].iter().enumerate() {
+                        if i == j || *quizzer_j == "" { continue; }
+                        println!["Quizzer I: {}, Quizzer J: {}", quizzer_i, quizzer_j];
+                        if quizzer_i == quizzer_j {
+                            errors.push(format!["Team '{}' has more than 1 quizzer with the name '{}'. Quizzer names must be unique for each team.", team_names[team_idx], quizzer_j]);
+                        }
                     }
                 }
             }
@@ -3669,9 +3742,9 @@ mod tests {
         });
         let game_events_cocaptain_not_a_quizzer_on_team = game_events_cocaptain_not_a_quizzer_on_team;
 
-        // for event in game_events_team_and_quizzer.clone() {
-        //     println!["{:?}", event];
-        // }
+        for event in game_events_has_captain_and_cocaptain.clone() {
+            println!["{:?}", event];
+        }
         
         // ACT
 
@@ -3758,5 +3831,176 @@ mod tests {
 
         assert![game_events_cocaptain_not_a_quizzer_on_team_specific.is_err()];
         assert![game_events_cocaptain_not_a_quizzer_on_team_everything.is_err()];
+    }
+
+    #[test]
+    fn validation_check_no_team_name_duplicates() {
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+
+        let left_team = 0;
+        let center_team = 1;
+        let right_team = 2;
+
+        let jacob: (&str, i32) = ("Jacob", left_team);
+        let taran: (&str, i32) = ("Taran", center_team);
+        let lily: (&str, i32) = ("Lily", right_team);
+
+        let base_game_events_stream = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene");
+        
+        let (game_events_all_are_unique, _) = base_game_events_stream.clone()
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_one, true, false).unwrap()
+            .then_add_TN("Green Team", right_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_one, true, false).unwrap()
+            .to_game_events();
+        
+        let (game_events_left_and_center_match, _) = base_game_events_stream.clone()
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_TN("Red Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_one, true, false).unwrap()
+            .then_add_TN("Blue Team", right_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_one, true, false).unwrap()
+            .to_game_events();
+        
+        let (game_events_center_and_right_match, _) = base_game_events_stream.clone()
+            .then_add_TN("Blue Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_TN("Red Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_one, true, false).unwrap()
+            .then_add_TN("Red Team", right_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_one, true, false).unwrap()
+            .to_game_events();
+        
+        let (game_events_left_and_right_match, _) = base_game_events_stream.clone()
+            .then_add_TN("Blue Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_TN("Red Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_one, true, false).unwrap()
+            .then_add_TN("Blue Team", right_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_one, true, false).unwrap()
+            .to_game_events();
+
+        // for event in game_events_team_and_quizzer.clone() {
+        //     println!["{:?}", event];
+        // }
+        
+        // ACT
+
+        // control group:
+        let game_events_all_are_unique_specific = GameEventStreamValidator::new(game_events_all_are_unique.clone())
+            .check_for_no_team_name_duplicates()
+            .validate();
+        let game_events_all_are_unique_everything = GameEventStreamValidator::new(game_events_all_are_unique.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_left_and_center_match_specific = GameEventStreamValidator::new(game_events_left_and_center_match.clone())
+            .check_for_no_team_name_duplicates()
+            .validate();
+        let game_events_left_and_center_match_everything = GameEventStreamValidator::new(game_events_left_and_center_match.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_center_and_right_match_specific = GameEventStreamValidator::new(game_events_center_and_right_match.clone())
+            .check_for_no_team_name_duplicates()
+            .validate();
+        let game_events_center_and_right_match_everything = GameEventStreamValidator::new(game_events_center_and_right_match.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_left_and_right_match_specific = GameEventStreamValidator::new(game_events_left_and_right_match.clone())
+            .check_for_no_team_name_duplicates()
+            .validate();
+        let game_events_left_and_right_match_everything = GameEventStreamValidator::new(game_events_left_and_right_match.clone())
+            .check_for_everything()
+            .validate();
+
+        // ASSERT
+
+        // control:
+        assert![game_events_all_are_unique_specific.is_ok()];
+        assert![game_events_all_are_unique_everything.is_ok()];
+
+        assert![game_events_left_and_center_match_specific.is_err()];
+        assert![game_events_left_and_center_match_everything.is_err()];
+
+        assert![game_events_center_and_right_match_specific.is_err()];
+        assert![game_events_center_and_right_match_everything.is_err()];
+
+        assert![game_events_left_and_right_match_specific.is_err()];
+        assert![game_events_left_and_right_match_everything.is_err()];
+    }
+
+    #[test]
+    fn validation_check_no_quizzer_name_duplicates_within_team() {
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+        let seat_two = 1;
+        let seat_three = 2;
+
+        let left_team = 0;
+
+        let jacob: (&str, i32) = ("Jacob", left_team);
+        let taran: (&str, i32) = ("Taran", left_team);
+        let lily: (&str, i32) = ("Lily", left_team);
+
+        let base_game_events_stream = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene")
+            .then_add_TN("Red Team", left_team).unwrap();
+        
+        let (game_events_all_names_appear_once, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_three, false, false).unwrap()
+            .to_game_events();
+        
+        let (game_events_two_names_are_same, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_three, false, false).unwrap()
+            .to_game_events();
+
+        for event in game_events_two_names_are_same.clone() {
+            println!["{:?}", event];
+        }
+        
+        // ACT
+
+        // control group:
+        let game_events_all_names_appear_once_specific = GameEventStreamValidator::new(game_events_all_names_appear_once.clone())
+            .check_for_no_quizzer_name_duplicates_within_team()
+            .validate();
+        let game_events_all_names_appear_once_everything = GameEventStreamValidator::new(game_events_all_names_appear_once.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_two_names_are_same_specific = GameEventStreamValidator::new(game_events_two_names_are_same.clone())
+            .check_for_no_quizzer_name_duplicates_within_team()
+            .validate();
+        let game_events_two_names_are_same_everything = GameEventStreamValidator::new(game_events_two_names_are_same.clone())
+            .check_for_everything()
+            .validate();
+
+        // ASSERT
+
+        // control:
+        assert![game_events_all_names_appear_once_specific.is_ok()];
+        assert![game_events_all_names_appear_once_everything.is_ok()];
+
+        assert![game_events_two_names_are_same_specific.is_err()];
+        assert![game_events_two_names_are_same_everything.is_err()];
     }
 }
