@@ -169,12 +169,9 @@ impl GameEventCalculator {
         game_id: Uuid, 
         game_events: Vec<GameEvent>, 
     ) -> Self {
-
-        let mut teams: HashMap<i32, TeamForGameEventCalculator> = HashMap::new();
-        
         Self {
             game_id,
-            teams,
+            teams: HashMap::new(),
             current_question: 1,
             options: OptionsForGameEventCalculator::new(),
             // use_cache: false,
@@ -206,28 +203,6 @@ impl GameEventCalculator {
             else {
                 println!["TOP of Calc: Question = {}, EventNum = {}, Event = {}", game_event.question, game_event.eventnum, game_event.event];
             }
-            // This was the validation that captain and cocaptain have been spepcified after originals became inelligible; 
-            // (1) this validation should instead be in the validation fn (not this fn; TODO), and (2) QuizMachine currently 
-            // doesn't save events to disk that specify replacement capatins and cocaptains; it is an in-memory only implementaiton currently.
-            // let captain = mut_self
-            //     .teams.get_mut(&game_event.team).unwrap()
-            //     .captain;
-            // let cocaptain = mut_self
-            //     .teams.get_mut(&game_event.team).unwrap()
-            //     .cocaptain;
-            // if !captain.1 && !cocaptain.1 && (game_event.event == "TC".to_string() || game_event.event == "TE".to_string() || game_event.event == "NJ".to_string()) {
-            //     let which_team = match game_event.team {
-            //         0 => "left",
-            //         1 => "center",
-            //         2 => "right",
-            //         _ => {
-            //             errors.push("The team index that was provided is invalid input since it is not 0, 1, or 2.".to_string());
-            //             return Err(errors);
-            //         }
-            //     };
-            //     errors.push(format!["On start of question {} both captain and cocaptain of the {} team are currently inelligible and no replacements were specified before proceeding.", game_event.question, which_team]);
-            //     return Err(errors);
-            // }
             match string_to_gameeventcode(game_event.event.as_str()) {
                 GameEventCode::RM => {
                     // no impact
@@ -531,10 +506,10 @@ impl GameEventCalculator {
                     
                     // for team:
                     // substitutions are handled by SB events; do not handle SBs here
-                    let mut captain = mut_self
+                    let captain = mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .captain;
-                    let mut cocaptain = mut_self
+                    let cocaptain = mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .cocaptain;
                     if captain.0 == game_event.quizzer {
@@ -1010,72 +985,17 @@ impl GameEventStreamBuilder {
             }
         )
     }
+
     // *These two have been commented out because they were going to be re-introduced out of necessity 
     // for indicating new captains and cocaptains mid-game, however QuizMachine currently does not 
     // record replacement captains and cocaptains past the first ones. So, this code is not needed for
     // passing the "have at least one specified acting captain at all times" validation check.
+    
     // pub fn then_add_SC(self, name: &str, team: i32, seat_number: i32) -> Result<Self, Vec<String>> {
-    //     // SC = captain
-    //     let mut errors: Vec<String> = vec![];
-    //     let prev_question = self.events.last().unwrap().question;
-    //     let prev_eventnum = self.events.last().unwrap().eventnum;
-
-    //     let mut new_events = self.events.clone();
-
-    //     new_events.push(
-    //         GameEventBuilder::new_default(self.gid)
-    //         .set_event(Some(GameEventCode::SC))
-    //         .set_question(Some(prev_question))
-    //         .set_eventnum(Some(prev_eventnum + 1))
-    //         .set_name(Some(name.to_string()))
-    //         .set_team(Some(team))
-    //         .set_quizzer(Some(seat_number))
-    //         .build()
-    //         .unwrap()
-    //     );
-
-    //     if errors.len() > 0 {
-    //         return Err(errors);
-    //     }
-
-    //     Ok(
-    //         Self {
-    //             events: new_events,
-    //             ..self
-    //         }
-    //     )
     // }
     // pub fn then_add_SS(self, name: &str, team: i32, seat_number: i32) -> Result<Self, Vec<String>> {
-    //     // SS = cocaptain
-    //     let mut errors: Vec<String> = vec![];
-    //     let prev_question = self.events.last().unwrap().question;
-    //     let prev_eventnum = self.events.last().unwrap().eventnum;
-
-    //     let mut new_events = self.events.clone();
-
-    //     new_events.push(
-    //         GameEventBuilder::new_default(self.gid)
-    //         .set_event(Some(GameEventCode::SS))
-    //         .set_question(Some(prev_question))
-    //         .set_eventnum(Some(prev_eventnum + 2))
-    //         .set_name(Some(name.to_string()))
-    //         .set_team(Some(team))
-    //         .set_quizzer(Some(seat_number))
-    //         .build()
-    //         .unwrap()
-    //     );
-
-    //     if errors.len() > 0 {
-    //         return Err(errors);
-    //     }
-
-    //     Ok(
-    //         Self {
-    //             events: new_events,
-    //             ..self
-    //         }
-    //     )
     // }
+
     pub fn then_add_TC(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
         
@@ -1307,7 +1227,8 @@ impl GameEventStreamBuilder {
     pub fn then_challenge_accepted(mut self, name: &str, team: i32, left_team_bonus_is_correct: bool, right_team_bonus_is_correct: bool) -> Result<Self, Vec<String>> {
         // There is no GameEventCode for accepted challenges; instead we update past records and write new 
         // records that will be used inplace of the old records for score calculations.
-        // Challenges are ony applied to toss-up questions.
+        // Challenges are only applied to toss-up questions. (Challeneges on bonuses are currently modified using the fix questions feature of QuizMachine.)
+        
         // We update all events of the current question as having GameEventCode::DE,
         // then insert the toss-up rulling correction (TC if it was TE and TE if it was TC) and proceed as normal.
         
@@ -1773,17 +1694,21 @@ struct GameEventStreamValidator {
     check_for_sort_order: bool,
     check_for_has_RM_and_QT: bool,
     check_for_min_one_team_and_min_one_quizzer_per_team: bool,
-    // check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: bool,
-    // check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: bool,
-    // check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: bool,
-    // check_for_quizzer_is_not_found_in_events_after_QO_or_EO: bool,
-    // check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on: bool,
-    // check_for_TO_and_SB_must_occur_between_questions_only: bool,
-    // check_for_all_events_have_correct_seat_assignments_for_quizzers_and_teams: bool,
-    // check_for_events_exist_only_for_associated_teams_and_quizzersjesse_of_those_teams: bool,
-    // check_for_teams_do_not_exceed_maximum_timeouts: bool,
-    // check_for_teams_do_not_exceed_maximum_challenges: bool,
-    // check_for_each_quizzer_has_only_one_or_less_of_QO_EO_FO: false,
+    check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: bool,
+    // Ideas for Potential Validation Checks:
+        // check_for_no_team_name_duplicates: bool,
+        // check_for_no_quizzer_name_duplicates_within_team: bool,
+        // check_for_captain_and_cocaptain_of_each_team_are_specified_before_first_question (TC,TE,NJ)
+        // check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: bool,
+        // check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: bool,
+        // check_for_quizzer_is_not_found_in_events_after_QO_or_EO: bool,
+        // check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on: bool,
+        // check_for_TO_and_SB_must_occur_between_questions_only: bool,
+        // check_for_all_events_have_correct_seat_assignments_for_quizzers_and_teams: bool,
+        // check_for_events_exist_only_for_associated_teams_and_quizzersjesse_of_those_teams: bool,
+        // check_for_teams_do_not_exceed_maximum_timeouts: bool,
+        // check_for_teams_do_not_exceed_maximum_challenges: bool,
+        // check_for_each_quizzer_has_only_one_or_less_of_QO_EO_FO: false,
 }
 
 impl GameEventStreamValidator {
@@ -1794,18 +1719,7 @@ impl GameEventStreamValidator {
             check_for_sort_order: false,
             check_for_has_RM_and_QT: false,
             check_for_min_one_team_and_min_one_quizzer_per_team: false,
-            // check_for_teams_do_not_have_quizzers_with_the_same_name: false,
-            // check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: false,
-            // check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: false,
-            // check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: false,
-            // check_for_quizzer_is_not_found_in_events_after_QO_or_EO: false,
-            // check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on: false,
-            // check_for_TO_and_SB_must_occur_between_questions_only: false,
-            // check_for_all_events_have_correct_seat_assignments_for_quizzers_and_teams: false,
-            // check_for_events_exist_only_for_associated_teams_and_quizzers_of_those_teams: false,
-            // check_for_teams_do_not_exceed_maximum_timeouts: false,
-            // check_for_teams_do_not_exceed_maximum_challenges: false,
-            // check_for_each_quizzer_has_only_one_or_less_of_QO_EO_FO: false,
+            check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: false,
         }
     }
 
@@ -1840,101 +1754,13 @@ impl GameEventStreamValidator {
         }
     }
     
-    // pub fn check_for_teams_do_not_have_quizzers_with_the_same_name(self) -> Self {
-    // // this applied only before the first toss-up event is encountered; afterward this is acceptable only after SBs (but we're NOT checking for that here)
-    //     Self {
-    //         check_for_teams_do_not__have_quizzers_with_the_same_name: true,
-    //         ..self
-    //     }
-    // }
-
-    // pub fn check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team(self) -> Self {
-    // // validation rule: Count the quizzers of a team: if only 1, must be captain, if 2 or more, captain and CC are needed
-    //     Self {
-    //         check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met(self) -> Self {
-    // // validation rule: "QO" and "EO" happen only on the given count per quizzer
-    //     Self {
-    //         check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_QO_and_EO_occur_maximum_of_once_per_quizzer(self) -> Self {
-    // // validation rule: 'QO' and 'EO' are found only once for any quizzer
-    //     Self {
-    //         check_for_QO_and_EO_occur_maximum_of_once_per_quizzer: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_quizzer_is_not_found_in_events_after_QO_or_EO(self) -> Self {
-    // // validation rule: The quizzer's name should never appear for that team after they receive a "QO" or "EO"
-    //     Self {
-    //         check_for_quizzer_is_not_found_in_events_after_QO_or_EO: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on(self) -> Self {
-    // // validation rule: When "TE", if equivalent quizzer(s), must be exactly 1 bonus attempt for each quizzer
-    //     Self {
-    //         check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_TO_and_SB_must_occur_between_questions_only(self) -> Self {
-    // // validation rule: "TO", "SB" must occur between questions only
-    //     Self {
-    //         check_for_TO_and_SB_must_occur_between_questions_only: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_all_all_events_have_correct_seat_assignments_for_quizzers_and_teams(self) -> Self {
-    // // validation rule: Names of quizzer events should always match the seat they are currently assigned to based on 'QN' events (*even 'SB' events are follwed by 'QN' events)
-    //     Self {
-    //         check_for_all_all_events_have_correct_seat_assignments_for_quizzers_and_teams: true,
-    //         ..self
-    //     }
-    // }
-
-    // pub fn check_for_events_exist_only_for_associated_teams_and_quizzers_of_those_teams(self) -> Self {
-    // // validation rule: Names should exist only for quizzers that are on the Team
-    //     Self {
-    //         check_for_events_exist_only_for_associated_teams_and_quizzers_of_those_teams: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_teams_do_not_exceed_maximum_timeouts(self) -> Self {
-    // // validation rule: Teams can only call as many "TO"s as are given based on the provided values/rules
-    // // Nazarene rules currently state (2026.02.24) that for 2-team Games each team gets 3 timeouts while teams in 3-team Games get 2 timeouts each
-    //     Self {
-    //         check_for_teams_do_not_exceed_maximum_timeouts: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_teams_do_not_exceed_maximum_challenges(self) -> Self {
-    // // validation rule: Teams can only challenge as many times as they are allowed to based on given number
-    //     Self {
-    //         check_for_teams_do_not_exceed_maximum_challenges: true,
-    //         ..self
-    //     }
-    // }
-    
-    // pub fn check_for_each_quizzer_has_only_one_or_less_of_QO_EO_FO(self) -> Self {
-    //     Self {
-    //         check_for_each_quizzer_has_only_one_or_less_of_QO_EO_FO: true,
-    //         ..self
-    //     }
-    // }
+    pub fn check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team(self) -> Self {
+    // validation rule: Count the quizzers of a team: if only 1, must be captain, if 2 or more, captain and CC are needed
+        Self {
+            check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team: true,
+            ..self
+        }
+    }
 
     pub fn validate(mut self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
@@ -2014,7 +1840,6 @@ impl GameEventStreamValidator {
                     let quizzer_idx = game_event.quizzer as usize;
                     quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.clone();
                 }
-        
             }
             
             let mut at_least_one_team = false;
@@ -2036,63 +1861,91 @@ impl GameEventStreamValidator {
                 errors.push("Zero teams were found for this Game. At least one team is required per Game.".to_string());
             }
         }
+
+        if self.check_for_everything || self.check_for_has_RM_and_QT {
+            let mut has_rm = false;
+            let mut has_qt = false;
+            for game_event in self.events.iter() {
+                let game_event_code = string_to_gameeventcode(game_event.event.as_str());
+                match game_event_code {
+                    GameEventCode::RM => { has_rm = true; },
+                    GameEventCode::QT =>  { has_qt = true; },
+                    _ => {}
+                }
+            }
+            if !has_rm {
+                errors.push("organization ('RM') not specified and is required".to_string());
+            }
+            if !has_qt {
+                errors.push("quiz_type ('QT') not specified and is required".to_string());
+            }
+        }
+
+        if self.check_for_everything || self.check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team {
+            let mut team_names: [String; 3] = ["".to_string(), "".to_string(), "".to_string()];
+            let mut quizzer_names_per_team: [[String; 6]; 3] = [["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()], ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()], ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()]];
+            let mut captain_per_team: [String; 3] = ["".to_string(), "".to_string(), "".to_string()];
+            let mut cocaptain_per_team: [String; 3] = ["".to_string(), "".to_string(), "".to_string()];
+
+            for game_event in self.events.iter() {
+                let game_event_code = string_to_gameeventcode(game_event.event.as_str());
         
+                if game_event_code == GameEventCode::TN {
+                    team_names[game_event.team as usize] = game_event.name.clone();
+                }
+        
+                if game_event_code == GameEventCode::QN {
+                    let team_idx = game_event.team as usize;
+                    let quizzer_idx = game_event.quizzer as usize;
+                    quizzer_names_per_team[team_idx][quizzer_idx] = game_event.name.clone();
+                }
 
-        // if self.check_for_everything || self.check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team {
+                if game_event_code == GameEventCode::SC {
+                    if captain_per_team[game_event.team as usize] != "".to_string() {
+                        errors.push(format!["More than one captain specified. Each team can have only one starter captain. Team idx: {}", game_event.team]);
+                    }
+                    captain_per_team[game_event.team as usize] = game_event.name.clone();
+                }
 
-        // }
-
-        // if self.check_for_everything || self.check_for_each_question_has_minimum_of_one_record {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_eventnums_are_continuous_based_on_largest_eventnum_per_question {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_QO_and_EO_found_only_on_question_where_correct_amount_is_met {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_QO_and_EO_occur_maximum_of_once_per_quizzer {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_quizzer_is_not_found_in_events_after_QO_or_EO {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_after_TE_each_elligible_quizzer_has_one_bonus_event_before_moving_on {
-
-        // }DEFAULT_INDIVIDUAL_ERROR_BEGIN_DEDUCTION_COUNT
-
-        // if self.check_for_everything || self.check_for_TO_and_SB_must_occur_between_questions_only {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_allow_questions_past_twenty_only_if_score_is_tied {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_question_plus_eventnum_match_timestamp_sequence_while_disregarding_DE_events {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_all_all_events_have_correct_seat_assignments_for_quizzers_and_teams {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_events_exist_only_for_associated_teams_and_quizzers_of_those_teams {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_teams_do_not_exceed_maximum_timeouts {
-
-        // }
-
-        // if self.check_for_everything || self.check_for_teams_do_not_exceed_maximum_challenges {
-
-        // }
+                if game_event_code == GameEventCode::SS {
+                    if cocaptain_per_team[game_event.team as usize] != "".to_string() {
+                        errors.push(format!["More than one cocaptain specified. Each team can have only one starter cocaptain. Team idx: {}", game_event.team]);
+                    }
+                    cocaptain_per_team[game_event.team as usize] = game_event.name.clone();
+                }
+            }
+            
+            for (team_idx, team_name) in team_names.iter().enumerate() {
+                if *team_name != "" {
+                    let mut quizzers_count = 0;
+                    for quizzer_name in quizzer_names_per_team[team_idx].iter() {
+                        if *quizzer_name != "".to_string() {
+                            quizzers_count += 1;
+                        }
+                    }
+                    let requires_cocap_also = quizzers_count > 1;
+                    let cap = captain_per_team[team_idx].clone();
+                    let cocap = cocaptain_per_team[team_idx].clone();
+                    let cap_is_in_teams_quizzers = quizzer_names_per_team[team_idx].contains(&cap);
+                    let cocap_is_in_teams_quizzers = quizzer_names_per_team[team_idx].contains(&cocap);
+                    if cap == "".to_string() {
+                        errors.push(format!["Captain is not listed. Each team must have one starter captain. Team: {}", team_name]);
+                    }
+                    else if requires_cocap_also && cocap == "".to_string() {
+                        errors.push(format!["Cocaptain is not listed. Each team that has more than 1 quizzer must have one starter cocaptain. Team: {}", team_name]);
+                    }
+                    else if requires_cocap_also && cap == cocap {
+                        errors.push(format!["Captain is also listed as cocaptain. Quizzer cannot be both captain and cocaptain. Quizzer: {}, Team: {}", cap, team_name]);
+                    }
+                    if !cap_is_in_teams_quizzers {
+                        errors.push(format!["Captain is not listed as a quizzer of the team. Captain: {}, Team: {}", cap, team_name]);
+                    }
+                    if !cocap_is_in_teams_quizzers {
+                        errors.push(format!["Cocaptain is not listed as a quizzer of the team. Cocaptain: {}, Team: {}", cocap, team_name]);
+                    }
+                }
+            }
+        }
 
         if !errors.is_empty() {
             return Err(errors);
@@ -2134,8 +1987,7 @@ pub enum GameEventCode {
     TO,      // TimeOut ('Quizzer' = '-1' always; starts a new question with eventnum = '0' (zero); 'name' is always blank)
     DE,      // Data Entry (generic). Could also mean "Delete" based on current usage. Gets new question number with eventnnum set to zero (for A+; comes before A+ to modify previous data based on other matching col values with most previous even with those details). 
 
-    // Barry keeps the vents in memory, then when a "Fix" happens he deletes what he needs to and readds them as "DE" meaning keep this record but don't use it for calculating the score (essentially keep it as a log data entry).
-    // This also means he relies on the timestamp for sequence order, not the question + eventnum sequence. He only updates the disk when the next question's event takes place (lazy; might become a problem but seems as though it hasn't).
+    // QuizMachine keeps the events in memory, then when a "Fix" happens each event no longer used is overwritten/mutated to have event = "DE", meaning, keep this record but don't use it for calculating the score.
     // Could improve this by adding a col for "is_del" to indicate "don't count this toward score calculations". Current implementaiton results in data loss of the original event type.
 }
 
@@ -2883,212 +2735,8 @@ mod tests {
     //     // NOTE: Currently QuizMachine does not handle this situation; it is a manual process to resolve the tie and there are no rules for this from NYI either
 
     //     // ARRANGE:
-
-    //     let game_id = Uuid::new_v4();
-
-    //     let seat_one = 0;
-    //     let seat_two = 1;
-
-    //     let left_team = 0;
-    //     let center_team = 1;
-
-    //     let jacob = ("Jacob", left_team);
-    //     let taran = ("Taran", left_team);
-
-    //     let audrey = ("Audrey", center_team);
-    //     let jesse = ("Jesse", center_team);
-
-    //     let (game_events, _) = GameEventStreamBuilder::new(game_id)
-    //         .then_add_RM("Tournament")
-    //         .then_add_QT("Nazarene")
-            
-    //         .then_add_TN("Red Team", left_team).unwrap()
-    //         .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
-    //         .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
-    //         .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_three, false, false).unwrap()
-             
-    //         .then_add_TN("Blue Team", center_team).unwrap()
-    //         .then_add_QN_plus_if_SC_or_SS(audrey.0, audrey.1, seat_one, true, false).unwrap()
-    //         .then_add_QN_plus_if_SC_or_SS(jesse.0, jesse.1, seat_two, false, true).unwrap()
-    //         .then_add_QN_plus_if_SC_or_SS(kenzie.0, kenzie.1, seat_three, false, false).unwrap()
-            
-    //         .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(jacob.0, jacob.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
-            
-    //         .then_add_TE_and_bonuses(taran.0, taran.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
-            
-    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
-    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
-    //         .then_add_TC(audrey.0, audrey.1).unwrap()
-    //         // Red Team: 0 { total_fouls: 0, jacob: 0/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
-    //         .then_add_TC(jacob.0, jacob.1).unwrap()
-    //         // Red Team: 20 { total_fouls: 0, jacob: 1/0, taran: 0/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
-    //         .then_add_TC(taran.0, taran.1).unwrap()
-    //         // Red Team: 40 { total_fouls: 0, jacob: 1/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
-    //         .then_add_TC(jacob.0, jacob.1).unwrap()
-    //         // Red Team: 60 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/0 }
-    //         .then_add_TE_and_bonuses(kenzie.0, kenzie.1, true, true).unwrap()
-    //         // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 20 { total_fouls: 0, audrey: 1/0, jesse: 0/0, kenzie: 0/1 }
-            
-    //         .then_add_TC(audrey.0, audrey.1).unwrap()
-    //         // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/0 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
-    //         .then_add_TE_and_bonuses(lily.0, lily.1, false, false).unwrap()
-    //         // Red Team: 70 { total_fouls: 0, jacob: 2/0, taran: 1/0, lily: 0/1 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
-    //         .then_add_TC(taran.0, taran.1).unwrap()
-    //         .then_add_Cminus(audrey.0, audrey.1).unwrap()
-    //         .then_add_FC(true, left_team).unwrap()
-    //         // Red Team: 90 { total_fouls: 1, jacob: 2/0, taran: 2/0, lily: 0/1 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
-    //         .then_add_TC(jacob.0, jacob.1).unwrap()
-    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 40 { total_fouls: 0, audrey: 2/0, jesse: 0/0, kenzie: 0/1 }
-    //         .then_add_TC(audrey.0, audrey.1).unwrap()
-    //         .then_add_TO(center_team).unwrap()
-    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 0, audrey: 3/0, jesse: 0/0, kenzie: 0/1 }
-            
-    //         .then_add_NJ().unwrap()
-    //         .then_add_Fminus(jesse.0, jesse.1).unwrap()
-    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
-    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/1, kenzie: 0/1 }
-    //         .then_add_TE_and_bonuses(kenzie.0, kenzie.1, false, false).unwrap()
-    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/1, kenzie: 0/2 }
-    //         .then_add_TE_and_bonuses(jesse.0, jesse.1, false, false).unwrap()
-    //         .then_add_TO(center_team).unwrap()
-    //         // Red Team: 110 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 0/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/2, kenzie: 0/2 }
-    //         .then_add_TC(lily.0, lily.1).unwrap()
-    //         // Red Team: 140 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 1/1 }, Blue Team: 60 { total_fouls: 1, audrey: 3/0, jesse: 0/2, kenzie: 0/2 }
-
-    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
-    //         // Red Team: 140 { total_fouls: 1, jacob: 3/0, taran: 2/0, lily: 1/1 }, Blue Team: 50 { total_fouls: 1, audrey: 3/1, jesse: 0/2, kenzie: 0/2 }
-    //         .then_add_TC(jacob.0, jacob.1).unwrap()
-    //         .then_add_TO(left_team).unwrap()
-    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 50 { total_fouls: 1, audrey: 3/0, jesse: 0/2, kenzie: 0/2 }
-    //         .then_add_TE_and_bonuses(audrey.0, audrey.1, false, false).unwrap()
-    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 40 { total_fouls: 1, audrey: 3/1, jesse: 0/2, kenzie: 0/2 }
-    //         .then_challenge_accepted(audrey.0, audrey.1, false, false).unwrap()
-    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 70 { total_fouls: 1, audrey: 4/1, jesse: 0/2, kenzie: 0/2 }
-    //         .then_add_TC(jesse.0, jesse.1).unwrap()
-    //         // Red Team: 170 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 90 { total_fouls: 1, audrey: 4/1, jesse: 1/2, kenzie: 0/2 }
-    //         .then_challenge_accepted(taran.0, taran.1, true, true).unwrap()
-    //         // Red Team: 180 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 60 { total_fouls: 1, audrey: 4/1, jesse: 0/3, kenzie: 0/2 }
-    //         .then_add_FC(false, center_team).unwrap()
-    //         // Red Team: 180 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 50 { total_fouls: 2, audrey: 4/1, jesse: 0/3, kenzie: 0/2 }
-    //         .then_add_TC(kenzie.0, kenzie.1).unwrap()
-    //         // Red Team: 180 { total_fouls: 1, jacob: 4/0, taran: 2/0, lily: 1/1 }, Blue Team: 70 { total_fouls: 1, audrey: 4/1, jesse: 0/3, kenzie: 1/2 }
-
-    //         .to_game_events();
-
-    //     let mut counter = 0;
-    //     for event in game_events.iter() {
-    //         println!["{}: {:?}", counter, event];
-    //         counter += 1;
-    //     }
-
     //     // ACT:
-
-    //     let calculated_game_events = GameEventCalculator::new(game_id, game_events)
-    //         .calculate_current_game_scores_and_counts()
-    //         .unwrap();
-        
     //     // ASSERT:
-
-    //     let check_left_team = calculated_game_events.teams[&(0)].clone();
-    //     let check_center_team = calculated_game_events.teams[&(1)].clone();
-        
-    //     // Current Question is accurate:
-    //     assert_eq![calculated_game_events.current_question, 21];
-
-    //     // Team Names are accurate:
-    //     assert_eq![check_left_team.name, "Red Team"];
-    //     assert_eq![check_center_team.name, "Blue Team"];
-
-    //     // Team Scores are accurate:
-    //     assert_eq![check_left_team.score, 180];
-    //     assert_eq![check_center_team.score, 70];
-
-    //     // Team Timeouts are accurate:
-    //     assert_eq![check_left_team.timeouts_taken, vec![18]];
-    //     assert_eq![check_center_team.timeouts_taken, vec![11, 15]];
-
-    //     // Team Challenges are accurate (what if this was a Vec of objects showing what question and if it was accepted or overruled?):
-    //     assert_eq![check_left_team.overruled_challenges, Vec::<i32>::new()];
-    //     assert_eq![check_center_team.overruled_challenges, vec![8]];  // question #
-    //     // Team Fouls is accurate
-    //     assert_eq![check_left_team.team_and_coach_fouls_received, vec![(9,true)]];  // ((question), (is_coach))
-    //     assert_eq![check_center_team.team_and_coach_fouls_received, vec![(20,false)]];
-
-    //     // Team Captain and CoCaptains (*for current question!) are correct:
-    //     assert_eq![check_left_team.captain, (0,false)];  // ((seat number), (is currently operational captain))
-    //     assert_eq![check_left_team.cocaptain, (1,true)];
-    //     assert_eq![check_center_team.captain, (0,false)];
-    //     assert_eq![check_center_team.cocaptain, (1,false)];
-
-    //     // Quizzer Toss-up counts (TCs && TEs), Bonus counts (BCs && BEs), QOs and EOs are accurate and quizzer fouls are accurate:
-    //     // 0 Jacob
-    //     let check_jacob = check_left_team.quizzers[&(0)].clone();
-    //     assert_eq![check_jacob.correct_tossups, vec![2, 4, 9, 17]];
-    //     assert_eq![check_jacob.errors_on_tossups, Vec::<i32>::new()];
-    //     assert_eq![check_jacob.question_quizzed_out_on, 17];
-    //     assert_eq![check_jacob.question_errored_out_on, -1];
-    //     assert_eq![check_jacob.question_fouled_out_on, -1];
-    //     assert_eq![check_jacob.fouls_received, Vec::<i32>::new()];
-    //     assert_eq![check_jacob.correct_bonuses, Vec::<i32>::new()];
-    //     assert_eq![check_jacob.errors_on_bonuses, vec![16]];
-    //     // 1 Taran
-    //     let check_taran = check_left_team.quizzers[&(1)].clone();
-    //     assert_eq![check_taran.correct_tossups, vec![3, 8]];
-    //     assert_eq![check_taran.errors_on_tossups, Vec::<i32>::new()];
-    //     assert_eq![check_taran.question_quizzed_out_on, -1];
-    //     assert_eq![check_taran.question_errored_out_on, -1];
-    //     assert_eq![check_taran.question_fouled_out_on, -1];
-    //     assert_eq![check_taran.fouls_received, Vec::<i32>::new()];
-    //     assert_eq![check_taran.correct_bonuses, vec![19]];
-    //     assert_eq![check_taran.errors_on_bonuses, vec![12, 14]];
-    //     // 2 Lily
-    //     let check_lily = check_left_team.quizzers[&(2)].clone();
-    //     assert_eq![check_lily.correct_tossups, vec![15]];
-    //     assert_eq![check_lily.errors_on_tossups, vec![7]];
-    //     assert_eq![check_lily.question_quizzed_out_on, -1];
-    //     assert_eq![check_lily.question_errored_out_on, -1];
-    //     assert_eq![check_lily.question_fouled_out_on, -1];
-    //     assert_eq![check_lily.fouls_received, Vec::<i32>::new()];
-    //     assert_eq![check_lily.correct_bonuses, vec![5]];
-    //     assert_eq![check_lily.errors_on_bonuses, vec![13]];
-    //     // 0 Audrey
-    //     let check_audrey = check_center_team.quizzers[&(0)].clone();
-    //     assert_eq![check_audrey.correct_tossups, vec![1, 6, 10, 18]];
-    //     assert_eq![check_audrey.errors_on_tossups, vec![16]];
-    //     assert_eq![check_audrey.question_quizzed_out_on, 18];
-    //     assert_eq![check_audrey.question_errored_out_on, -1];
-    // assert_eq![check_audrey.question_fouled_out_on, -1];
-    //     assert_eq![check_audrey.fouls_received, Vec::<i32>::new()];
-    //     assert_eq![check_audrey.correct_bonuses, Vec::<i32>::new()];
-    //     assert_eq![check_audrey.errors_on_bonuses, Vec::<i32>::new()];
-    //     // 1 Jesse
-    //     let check_jesse = check_center_team.quizzers[&(1)].clone();
-    //     assert_eq![check_jesse.correct_tossups, Vec::<i32>::new()];
-    //     assert_eq![check_jesse.errors_on_tossups, vec![12, 14, 19]];
-    //     assert_eq![check_jesse.question_quizzed_out_on, -1];
-    //     assert_eq![check_jesse.question_errored_out_on, 19];
-    //     assert_eq![check_jesse.question_fouled_out_on, -1];
-    //     assert_eq![check_jesse.fouls_received, vec![12]];
-    //     assert_eq![check_jesse.correct_bonuses, Vec::<i32>::new()];
-    //     assert_eq![check_jesse.errors_on_bonuses, Vec::<i32>::new()];
-    //     // 2 Kenzie
-    //     let check_kenzie = check_center_team.quizzers[&(2)].clone();
-    //     assert_eq![check_kenzie.correct_tossups, vec![20]];
-    //     assert_eq![check_kenzie.errors_on_tossups, vec![5, 13]];
-    //     assert_eq![check_kenzie.question_quizzed_out_on, -1];
-    //     assert_eq![check_kenzie.question_errored_out_on, -1];
-    //     assert_eq![check_kenzie.question_fouled_out_on, -1];
-    //     assert_eq![check_kenzie.fouls_received, Vec::<i32>::new()];
-    //     assert_eq![check_kenzie.correct_bonuses, Vec::<i32>::new()];
-    //     assert_eq![check_kenzie.errors_on_bonuses, vec![7]];
     // }
 
     #[test]
@@ -3882,7 +3530,7 @@ mod tests {
     }
 
     #[test]
-    fn validation_check_check_for_min_one_team_and_min_one_quizzer_per_team_works() {
+    fn validation_check_min_one_team_and_min_one_quizzer_per_team_works() {
         // ARRANGE:
 
         let game_id = Uuid::new_v4();
@@ -3890,7 +3538,6 @@ mod tests {
         let seat_one = 0;
 
         let left_team = 0;
-        let center_team = 1;
 
         let jacob = ("Jacob", left_team);
 
@@ -3938,7 +3585,6 @@ mod tests {
             .check_for_everything()
             .validate();
 
-
         // ASSERT
 
         // control:
@@ -3950,5 +3596,167 @@ mod tests {
 
         assert![game_events_team_no_quizzers_specific.is_err()];
         assert![game_events_team_no_quizzers_everything.is_err()];
+    }
+
+    #[test]
+    fn validation_check_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team_works() {
+        // ARRANGE:
+
+        let game_id = Uuid::new_v4();
+
+        let seat_one = 0;
+        let seat_two = 1;
+        let seat_three = 2;
+
+        let left_team = 0;
+
+        let jacob = ("Jacob", left_team);
+        let taran: (&str, i32) = ("Taran", left_team);
+        let lily: (&str, i32) = ("Lily", left_team);
+
+        let base_game_events_stream = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("Nazarene")
+            .then_add_TN("Red Team", left_team).unwrap();
+
+        let (game_events_has_captain_and_cocaptain, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .to_game_events();
+
+        let (game_events_no_captain, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, false, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .to_game_events();
+
+        let (game_events_no_cocaptain, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, false).unwrap()
+            .to_game_events();
+
+        let (game_events_same_captain_as_cocaptain, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_two, true, false).unwrap()
+            .to_game_events();
+
+        let (game_events_multiple_captains, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_three, false, true).unwrap()
+            .to_game_events();
+
+        let (game_events_multiple_cocaptains, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(lily.0, lily.1, seat_three, false, true).unwrap()
+            .to_game_events();
+
+        let (mut game_events_captain_not_a_quizzer_on_team, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .to_game_events();
+        game_events_captain_not_a_quizzer_on_team.iter_mut().for_each(|e| {
+            if e.event == "SC".to_string() { e.name = "Sandy".to_string(); }
+        });
+        let game_events_captain_not_a_quizzer_on_team = game_events_captain_not_a_quizzer_on_team;
+
+        let (mut game_events_cocaptain_not_a_quizzer_on_team, _) = base_game_events_stream.clone()
+            .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS(taran.0, taran.1, seat_two, false, true).unwrap()
+            .to_game_events();
+        game_events_cocaptain_not_a_quizzer_on_team.iter_mut().for_each(|e| {
+            if e.event == "SS".to_string() { e.name = "Sandy".to_string(); }
+        });
+        let game_events_cocaptain_not_a_quizzer_on_team = game_events_cocaptain_not_a_quizzer_on_team;
+
+        // for event in game_events_team_and_quizzer.clone() {
+        //     println!["{:?}", event];
+        // }
+        
+        // ACT
+
+        // control group:
+        let game_events_has_captain_and_cocaptain_specific = GameEventStreamValidator::new(game_events_has_captain_and_cocaptain.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_has_captain_and_cocaptain_everything = GameEventStreamValidator::new(game_events_has_captain_and_cocaptain.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_no_captain_specific = GameEventStreamValidator::new(game_events_no_captain.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_no_captain_everything = GameEventStreamValidator::new(game_events_no_captain.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_no_cocaptain_specific = GameEventStreamValidator::new(game_events_no_cocaptain.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_no_cocaptain_everything = GameEventStreamValidator::new(game_events_no_cocaptain.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_same_captain_as_cocaptain_specific = GameEventStreamValidator::new(game_events_same_captain_as_cocaptain.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_same_captain_as_cocaptain_everything = GameEventStreamValidator::new(game_events_same_captain_as_cocaptain.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_multiple_captains_specific = GameEventStreamValidator::new(game_events_multiple_captains.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_multiple_captains_everything = GameEventStreamValidator::new(game_events_multiple_captains.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_multiple_cocaptains_specific = GameEventStreamValidator::new(game_events_multiple_cocaptains.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_multiple_cocaptains_everything = GameEventStreamValidator::new(game_events_multiple_cocaptains.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_captain_not_a_quizzer_on_team_specific = GameEventStreamValidator::new(game_events_captain_not_a_quizzer_on_team.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_captain_not_a_quizzer_on_team_everything = GameEventStreamValidator::new(game_events_captain_not_a_quizzer_on_team.clone())
+            .check_for_everything()
+            .validate();
+
+        let game_events_cocaptain_not_a_quizzer_on_team_specific = GameEventStreamValidator::new(game_events_cocaptain_not_a_quizzer_on_team.clone())
+            .check_for_captains_and_cocaptains_are_accurate_based_on_number_of_quizzers_on_team()
+            .validate();
+        let game_events_cocaptain_not_a_quizzer_on_team_everything = GameEventStreamValidator::new(game_events_cocaptain_not_a_quizzer_on_team.clone())
+            .check_for_everything()
+            .validate();
+
+        // ASSERT
+
+        // control:
+        assert![game_events_has_captain_and_cocaptain_specific.is_ok()];
+        assert![game_events_has_captain_and_cocaptain_everything.is_ok()];
+
+        assert![game_events_no_captain_specific.is_err()];
+        assert![game_events_no_captain_everything.is_err()];
+
+        assert![game_events_no_cocaptain_specific.is_err()];
+        assert![game_events_no_cocaptain_everything.is_err()];
+
+        assert![game_events_same_captain_as_cocaptain_specific.is_err()];
+        assert![game_events_same_captain_as_cocaptain_everything.is_err()];
+
+        assert![game_events_multiple_captains_specific.is_err()];
+        assert![game_events_multiple_captains_everything.is_err()];
+
+        assert![game_events_multiple_cocaptains_specific.is_err()];
+        assert![game_events_multiple_cocaptains_everything.is_err()];
+
+        assert![game_events_captain_not_a_quizzer_on_team_specific.is_err()];
+        assert![game_events_captain_not_a_quizzer_on_team_everything.is_err()];
+
+        assert![game_events_cocaptain_not_a_quizzer_on_team_specific.is_err()];
+        assert![game_events_cocaptain_not_a_quizzer_on_team_everything.is_err()];
     }
 }
