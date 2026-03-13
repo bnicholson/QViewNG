@@ -112,14 +112,16 @@ Note:  A beta/UAT development environment may be available for viewing at http:/
   ./run-backend.sh
   ```
   
-- To run integration tests, use:
+### Tests
+
+- To run unit tests use the usual command:
   ```
-  cd {root}/backend/
-  cargo test -- --test-threads=1
+  cargo test --lib
+  ```
   
-  OR (from {root}/backend:)
-  
-  ./run-tests.sh
+- To run integration tests, use file {root}/backend/run-tests.sh. It loads the .env.test config file and provides a quick way to switch between one file and all integration tests, reducing the amount of CLI typing needed to run integration tests. Just run:
+  ```
+  ./backend/run-test.sh
   ```
 
 # How It Works
