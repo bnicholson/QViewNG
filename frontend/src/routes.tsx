@@ -14,6 +14,7 @@ import { RoundsInProgress } from "./containers/RoundsInProgress";
 import { Files } from "./containers/Files";
 import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
+import { ManageUsers } from "./pages/ManageUsers";
 
 // NOTE: This component was created for ease-of-access and modularity, not reusability.
 //       ONLY the App.tsx file should use this component. 
@@ -43,6 +44,7 @@ export default function QViewRoutes() {
             {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />
+            <Route path="/admin/crm/users" element={<ManageUsers />} />
             <Route path="/files" element={<Files />} />
             <Route path="/swagger" element={<Swagger />} />
             <Route path="/404" element={<NotFound />} />
