@@ -11,6 +11,7 @@ import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import { Backdrop } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
+import Container from '@mui/material/Container';
 import QViewRoutes from './routes';
 import DrawerGlobal from './components/DrawerGlobal';
 import FooterGlobal from './components/FooterGlobal';
@@ -67,9 +68,9 @@ export default function App() {
             drawerIsOpen={drawerIsOpen}
             toggleDrawer={toggleDrawer}/>
         </Backdrop>
-        <div style={{ margin: '0 auto', maxWidth: '1200px' }}>
+        <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
           <QViewRoutes/>
-        </div>
+        </Container>
         <Box textAlign="center" pt={{ xs: 5, sm: 10 }} pb={{ xs: 5, sm: 0 }}>
         </Box>
         <FooterGlobal/>

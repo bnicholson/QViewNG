@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { BoolBadge, DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
-import { DivisionEditorDialog } from "../features/DivisionEditorDialog";
+import { DivisionEditorDialog } from "./DivisionEditorDialog";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";

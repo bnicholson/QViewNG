@@ -12,8 +12,8 @@ import { setTid, setTournament } from '../breadcrumb';
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI';
 import { makeCancellable } from '../features/makeCancellable';
 import { states } from '../features/states';
-import { TournamentCardContent } from '../features/TournamentCardContent';
-import { TournamentEditorDialog } from '../features/TournamentEditorDialog';
+import { TournamentCardContent } from '../components/TournamentCardContent';
+import { TournamentEditorDialog } from '../components/TournamentEditorDialog';
 
 /**
  * This renders a tournament finder and tournament editor and serves as the main component for the

@@ -37,8 +37,6 @@ async fn index(
 
     let result = models::division::read_all(&mut db, &info);
    
-    println!("Divisions: {:?}",result);
-    
     if result.is_ok() {
         HttpResponse::Ok().json(result.unwrap())
     } else {

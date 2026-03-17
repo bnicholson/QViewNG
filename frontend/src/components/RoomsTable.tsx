@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { RoomAPI, type RoomTS } from "../features/RoomAPI";
-import { RoomEditorDialog } from "../features/RoomEditorDialog";
+import { RoomEditorDialog } from "./RoomEditorDialog";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";

@@ -19,8 +19,8 @@ import TextField from '@mui/material/TextField'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
-import { ConfirmDialog, confirmDialogDefaultState } from '../components/ConfirmDialog'
-import { DivisionAPI, type DivisionTS, type NewDivisionPayload } from './DivisionAPI'
+import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
+import { DivisionAPI, type DivisionTS, type NewDivisionPayload } from '../features/DivisionAPI'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },

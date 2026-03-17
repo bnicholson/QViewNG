@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { RoundAPI, type RoundTS } from "../features/RoundAPI";
-import { RoundEditorDialog } from "../features/RoundEditorDialog";
+import { RoundEditorDialog } from "./RoundEditorDialog";
 import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
 
 function formatDateTime(iso: string | null | undefined): string {

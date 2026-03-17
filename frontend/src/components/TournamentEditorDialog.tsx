@@ -24,7 +24,7 @@ import List from '@mui/material/List';
 import TextareaAutosize from '@mui/material/TextareaAutosize';
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
-import { ConfirmDialog, confirmDialogDefaultState } from '../components/ConfirmDialog'
+import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 
