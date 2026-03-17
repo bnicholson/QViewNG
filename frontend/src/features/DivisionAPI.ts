@@ -21,6 +21,11 @@ export interface NewDivisionPayload {
 export const DivisionAPI = {
   get: async (page: number, size: number): Promise<DivisionTS[]> =>
     (await fetch(`/api/divisions?page=${page}&page_size=${size}`)).json(),
+  getById: async (id: string): Promise<DivisionTS> => {
+    const response = await fetch(`/api/divisions/${id}`);
+    if (!response.ok) throw new Error(`Division not found (${response.status})`);
+    return response.json();
+  },
   create: async (division: NewDivisionPayload): Promise<DivisionTS> => {
     const response = await fetch('/api/divisions', {
       method: 'POST',

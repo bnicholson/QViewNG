@@ -16,6 +16,7 @@ import DivisionsTable from '../components/DivisionsTable'
 import TournamentTabBar from '../components/TournamentTabBar'
 import RoomsTable from '../components/RoomsTable'
 import RoundsTable from '../components/RoundsTable'
+import TeamsTable from '../components/TeamsTable'
 import AdminsTable from '../components/AdminsTable'
 import QuizzersTable from '../components/QuizzersTable'
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
@@ -148,7 +149,7 @@ export const TournamentProfile = (props: { tab: string }) => {
           {props.tab === 'divisions'    && <DivisionsTable tid={String(tournament?.tid)}/>}
           {props.tab === 'rooms'        && <RoomsTable tid={String(tournament?.tid)}/>}
           {props.tab === 'rounds'       && <RoundsTable tid={String(tournament?.tid)}/>}
-          {props.tab === 'teams'        && <Typography color="text.secondary">Teams coming soon.</Typography>}
+          {props.tab === 'teams'        && <TeamsTable tid={String(tournament?.tid)}/>}
           {props.tab === 'quizzers'     && <QuizzersTable tid={String(tournament?.tid)}/>}
           {props.tab === 'games'        && <Typography color="text.secondary">Games coming soon.</Typography>}
           {props.tab === 'admins'       && <AdminsTable tid={String(tournament?.tid)}/>}

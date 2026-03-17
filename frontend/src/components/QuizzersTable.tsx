@@ -16,10 +16,6 @@ const quizzerColumns: ColumnDef<UserTS>[] = [
     render: (u) => `${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`,
   },
   {
-    header: 'Username',
-    render: (u) => u.username,
-  },
-  {
     header: 'Email',
     render: (u) => u.email,
   },
@@ -44,15 +40,28 @@ const quizzerColumns: ColumnDef<UserTS>[] = [
 const QUIZZERS_PAGE = 0;
 const QUIZZERS_PAGE_SIZE = 30;
 
+interface Props {
+  tid?: string;
+  /** If provided, skips internal fetch and displays these rows directly. */
+  externalRows?: UserTS[];
+  /** Overrides the create button action. When omitted, opens QuizzerEditorDialog. */
+  onAdd?: () => void;
+  /** Overrides the delete handler. When omitted, throws (quizzers managed via rosters). */
+  onDelete?: (user: UserTS) => Promise<void>;
+  /** Overrides the create button label. */
+  createLabel?: string;
+}
+
 // Note: quizzers are associated with tournaments through rosters (roster → rosters_quizzers → user).
 // There is no direct tournament-level quizzer endpoint in the backend. This table shows all
 // registered users in the system. Quizzer-to-roster associations are managed separately.
-export default function QuizzersTable({ tid: _tid }: { tid: string }) {
+export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete, createLabel }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
 
   const loadQuizzers = () => {
+    if (externalRows !== undefined) return;
     setIsLoading(true);
     UserAPI.get(QUIZZERS_PAGE, QUIZZERS_PAGE_SIZE)
       .then(setQuizzers)
@@ -60,12 +69,17 @@ export default function QuizzersTable({ tid: _tid }: { tid: string }) {
       .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { loadQuizzers(); }, []);
-
-  // Quizzers are not directly deletable from a tournament — they are managed via rosters.
-  const handleDelete = useCallback(async (_row: UserTS): Promise<void> => {
-    throw new Error('Quizzer-tournament associations are managed through rosters.');
+  useEffect(() => {
+    if (externalRows !== undefined) return;
+    loadQuizzers();
   }, []);
+
+  const rows = externalRows ?? quizzers;
+
+  const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
+    if (onDelete) return onDelete(row);
+    throw new Error('Quizzer-tournament associations are managed through rosters.');
+  }, [onDelete]);
 
   const handleSave = useCallback((_user: UserTS): void => {
     setEditorIsOpen(false);
@@ -78,17 +92,20 @@ export default function QuizzersTable({ tid: _tid }: { tid: string }) {
     <>
       <DataTableTemplate<UserTS>
         entityLabel="Quizzer"
-        onCreate={() => setEditorIsOpen(true)}
+        createLabel={createLabel}
+        onCreate={onAdd ?? (() => setEditorIsOpen(true))}
         columns={quizzerColumns}
-        rows={quizzers}
+        rows={rows}
         getId={(u) => u.id}
         onDelete={handleDelete}
       />
-      <QuizzerEditorDialog
-        isOpen={editorIsOpen}
-        onCancel={() => setEditorIsOpen(false)}
-        onSave={handleSave}
-      />
+      {!onAdd && (
+        <QuizzerEditorDialog
+          isOpen={editorIsOpen}
+          onCancel={() => setEditorIsOpen(false)}
+          onSave={handleSave}
+        />
+      )}
     </>
   );
 }

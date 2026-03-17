@@ -100,6 +100,8 @@ export interface ColumnDef<T> {
 export interface DataTableProps<T> {
   /** Singular entity name used in the toolbar ("Division", "Room", "Round") */
   entityLabel: string;
+  /** Overrides the full text of the create button (default: "Create <entityLabel>") */
+  createLabel?: string;
   /** href for the "Create <entityLabel>" button — use this OR onCreate, not both */
   createHref?: string;
   /** onClick handler for the "Create <entityLabel>" button — use this OR createHref, not both */
@@ -116,6 +118,7 @@ export interface DataTableProps<T> {
 
 export function DataTableTemplate<T>({
   entityLabel,
+  createLabel,
   createHref,
   onCreate,
   columns,
@@ -123,6 +126,7 @@ export function DataTableTemplate<T>({
   getId,
   onDelete,
 }: DataTableProps<T>) {
+  const btnLabel = createLabel ?? `Create ${entityLabel}`;
   // +1 for the delete column
   const colSpan = columns.length + 1;
 
@@ -171,7 +175,7 @@ export function DataTableTemplate<T>({
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v12M1 7h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
             </svg>
-            Create {entityLabel}
+            {btnLabel}
           </button>
         ) : (
           <a
@@ -196,7 +200,7 @@ export function DataTableTemplate<T>({
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v12M1 7h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
             </svg>
-            Create {entityLabel}
+            {btnLabel}
           </a>
         )}
       </div>

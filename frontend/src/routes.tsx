@@ -9,6 +9,7 @@ import { AccountPage } from "./pages/AccountPage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import TournamentRedirect from "./pages/TournamentRedirect";
 import { TournamentProfile } from "./pages/TournamentProfile";
+import { TeamProfile } from "./pages/TeamProfile";
 import { TDEditor } from "./containers/TDEditor";
 import { RoundsInProgress } from "./containers/RoundsInProgress";
 import { Files } from "./containers/Files";
@@ -36,6 +37,7 @@ export default function QViewRoutes() {
             {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}
             <Route path="/tournament/:tid/rooms" element={<TournamentProfile tab="rooms" />} />
             <Route path="/tournament/:tid/teams" element={<TournamentProfile tab="teams" />} />
+            <Route path="/tournament/:tid/team/:teamid" element={<TeamProfile />} />
             <Route path="/tournament/:tid/rounds" element={<TournamentProfile tab="rounds" />} />
             <Route path="/tournament/:tid/quizzers" element={<TournamentProfile tab="quizzers" />} />
             <Route path="/tournament/:tid/games" element={<TournamentProfile tab="games" />} />
