@@ -14,7 +14,7 @@ export function TournamentsPage() {
   const createTournament = async (tournament: string) => {
     setProcessing(true)
     await TournamentAPI.create(tournament as any)
-    setTournaments(await TournamentAPI.get(page, pageSize))
+    setTournaments(await TournamentAPI.get(page, String(pageSize)))
     setText('')
     setProcessing(false)
   }
@@ -22,7 +22,7 @@ export function TournamentsPage() {
   const updateTournament = async (tournament: Tournament) => {
     setProcessing(true)
     await TournamentAPI.update(tournament.tid, {} as any)
-    setTournaments(await TournamentAPI.get(page, pageSize))
+    setTournaments(await TournamentAPI.get(page, String(pageSize)))
     setText('')
     editTournament(null)
     setProcessing(false)
@@ -31,7 +31,7 @@ export function TournamentsPage() {
   const deleteTournament = async (tournament: Tournament) => {
     setProcessing(true)
     await TournamentAPI.delete(tournament.tid)
-    setTournaments(await TournamentAPI.get(page, pageSize))
+    setTournaments(await TournamentAPI.get(page, String(pageSize)))
     setProcessing(false)
   }
 
@@ -41,7 +41,7 @@ export function TournamentsPage() {
 
   useEffect(() => {
     setProcessing(true)
-    TournamentAPI.get(page, pageSize).then((tournaments) => {
+    TournamentAPI.get(page, String(pageSize)).then((tournaments) => {
       setTournaments(tournaments)
       setProcessing(false)
     })
@@ -96,8 +96,8 @@ export function TournamentsPage() {
                 Tournament: {tournament.tname} 
               </div>
               <div>
-                Dates: {tournament.fromdate.format('YYYY-MM-DD')} - {tournament.todate.format('YYYY-MM-DD')}
-                &nbsp;&nbsp;|&nbsp;&nbsp;
+                {/* Dates: {tournament.fromdate.format('YYYY-MM-DD')} - {tournament.todate.format('YYYY-MM-DD')}
+                &nbsp;&nbsp;|&nbsp;&nbsp; */}
                 At: {tournament.venue}, {tournament.city}, {tournament.region}, {tournament.country}
               </div>
               <div>
@@ -105,7 +105,7 @@ export function TournamentsPage() {
                 &nbsp;&nbsp;|&nbsp;&nbsp;
                 {tournament.contactemail}
                 &nbsp;&nbsp;|&nbsp;&nbsp;
-                Hide: {tournament.hide.toString()}
+                IsPublic: {tournament.is_public.toString()}
                 &nbsp;&nbsp;|&nbsp;&nbsp;
                 More Info: {tournament.info}
               </div>

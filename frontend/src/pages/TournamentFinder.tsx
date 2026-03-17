@@ -5,7 +5,7 @@ import {
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../app/hooks';
 import { setTid, setTournament } from '../breadcrumb';
@@ -186,13 +186,14 @@ export const TournamentFinder = () => {
             tournaments.map(tournament => (
               <Card key={tournament.tid}>
                 <TournamentCardContent onClick={() => openTournament(tournament)} tournament={tournament} />
+                {/* Make the user view the profile first before editing:
                 {isUserAdmin && (
                   <CardActions sx={{ justifyContent: "flex-end" }}>
                     <Button onClick={() => setTournamentEditor({ isOpen: true, tournament })} size="small">
                       Edit
                     </Button>
                   </CardActions>
-                )}
+                )} */}
               </Card>
             ))
           )}

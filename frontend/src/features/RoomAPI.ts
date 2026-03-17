@@ -1,0 +1,54 @@
+export interface RoomTS {
+  roomid: string;
+  tid: string;
+  name: string;
+  building: string;
+  comments: string;
+  clientkey: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewRoomPayload {
+  tid: string;
+  name: string;
+  building: string;
+  comments: string;
+  clientkey: string;
+}
+
+export const RoomAPI = {
+  get: async (page: number, size: number): Promise<RoomTS[]> =>
+    (await fetch(`/api/rooms?page=${page}&page_size=${size}`)).json(),
+  create: async (room: NewRoomPayload): Promise<RoomTS> => {
+    const response = await fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(room),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to create room (${response.status}): ${text}`);
+    }
+    return response.json();
+  },
+  delete: async (id: string): Promise<void> => {
+    const response = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to delete room (${response.status}): ${text}`);
+    }
+  },
+  update: async (id: string, room: Partial<NewRoomPayload>): Promise<RoomTS> => {
+    const response = await fetch(`/api/rooms/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(room),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to update room (${response.status}): ${text}`);
+    }
+    return response.json();
+  },
+}

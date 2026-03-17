@@ -22,14 +22,14 @@ export default function QViewRoutes() {
     return (
         <Routes>
             <Route path="/" element={<TournamentFinder />} />
+            <Route path="/tournaments" element={<TournamentFinder />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/recovery" element={<RecoveryPage />} />
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/account" element={<AccountPage />} />
-            {/* <Route path="/tournament" element={<Tournaments />} /> */}
-            <Route path="/tournaments" element={<TournamentsPage />} />
+            <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentRedirect />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile tab="divisions" />} />
             {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}

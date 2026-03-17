@@ -17,6 +17,14 @@ interface Props {
   title: string;
 }
 
+export const confirmDialogDefaultState: Props = {
+  isOpen: false,
+  message: "",
+  onCancel: () => {},
+  onConfirm: () => {},
+  title: ""
+};
+
 /**
  * This renders a confirmation dialog to confirm an action.
  */

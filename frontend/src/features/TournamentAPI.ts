@@ -52,7 +52,7 @@ export const TournamentAPI = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const result = await response.json();
-    return result;
+    return dateStringToDayjs(result);
   },
   create: async (tournament: TournamentChangesetTS): Promise<TournamentCreateUpdateResult> => {
     let nquery = JSON.stringify(tournament);

@@ -1,53 +1,34 @@
-import React, { useState } from 'react'
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate, useParams } from 'react-router'
 import Card from "@mui/material/Card"
-import CardHeader from '@mui/material/CardHeader'
+// import CardHeader from '@mui/material/CardHeader'
 import CardContent from "@mui/material/CardContent"
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
-import IconButton from '@mui/material/IconButton'
 import { Breadcrumbs } from '@mui/material'
 // import { Breadcrumbs, Link } from '@mui/material'
 import { Link } from 'react-router-dom'
-import SettingsIcon from '@mui/icons-material/Settings'
-import AppBar from '@mui/material/AppBar'
-import Dialog from '@mui/material/Dialog'
-import Toolbar from '@mui/material/Toolbar'
-import CloseIcon from '@mui/icons-material/Close'
-import Slide from '@mui/material/Slide'
-import { type TransitionProps } from '@mui/material/transitions'
+// import SettingsIcon from '@mui/icons-material/Settings'
 import Button from '@mui/material/Button';
-import ListItemText from '@mui/material/ListItemText';
-import ListItem from '@mui/material/ListItem';
-import List from '@mui/material/List';
-import Divider from '@mui/material/Divider';
-import Fab from '@mui/material/Fab'
-import AddIcon from "@mui/icons-material/Add"
 // import { selectDisplayDate, selectTournament, setDisplayDate, setTournament, toggleIsOn, setTid } from '../breadcrumb'
 // import { useAppSelector } from '../app/hooks';
-import Tooltip from '@mui/material/Tooltip';
+// import Tooltip from '@mui/material/Tooltip';
+// import { TournamentAPI, type Tournament } from '../features/TournamentAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { makeCancellable } from '../features/makeCancellable'
-import { DivisionAPI } from '../features/DivisionAPI'
+import DivisionsTable from '../components/DivisionsTable'
+import TournamentTabBar from '../components/TournamentTabBar'
+import RoomsTable from '../components/RoomsTable'
+import RoundsTable from '../components/RoundsTable'
+import { TournamentEditorDialog } from '../features/TournamentEditorDialog'
 // import {createRoot} from 'react-dom/client'
 // import Markdown from 'react-markdown'
 // import remarkGfm from 'remark-gfm'
 // import MDEditor from '@uiw/react-md-editor';
 
-const Transition = React.forwardRef(function Transition(
-  props: TransitionProps & {
-    children: React.ReactElement;
-  },
-  ref: React.Ref<unknown>,
-) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
-
-const DIVISIONS_PAGE = 0
-const DIVISIONS_PAGE_SIZE = 30
-
 export const TournamentProfile = (props: { tab: string }) => {
+
+  const isUserAdmin = true;
 
   // const tid = useAppSelector((state) => state.breadCrumb.tid)
   const { tid } = useParams();
@@ -66,15 +47,12 @@ export const TournamentProfile = (props: { tab: string }) => {
   const [notFound, setNotFound] = useState<boolean>(false)
   // const tournament = useAppSelector((state) => state.breadCrumb.tournament);
   const [tournament, setTournament] = useState<TournamentTS>()
-  const [divisions, setDivisions] = useState<Division[]>([])
-  const [openDivisionEditor, setDivisionEditorOpen] = useState(false);
+  // const [divisionEditorIsOpen, setDivisionEditorIsOpen] = useState(false);
+  const [tournamentEditorIsOpen, setTournamentEditorIsOpen] = useState(false);
 
   // let displayDate = useAppSelector((state) => state.breadCrumb.displayDate);
   // const division = useAppSelector((state) => state.breadCrumb.division);
   // const did = useAppSelector((state) => state.breadCrumb.did);
-  const handleEditorClickOpen = () => {
-    setDivisionEditorOpen(true);
-  };
 
   useEffect(() => {
     setIsLoading(true)
@@ -83,7 +61,7 @@ export const TournamentProfile = (props: { tab: string }) => {
       cancellable.promise
         .then((returnedTournament: TournamentTS) => {
           setTournament(returnedTournament)
-          // setIsLoading(false)
+          setIsLoading(false)
         })
         .catch((error) => {
           if (error.isCancelled) {
@@ -101,14 +79,6 @@ export const TournamentProfile = (props: { tab: string }) => {
         setNotFound(true)
       }
     }
-      
-    DivisionAPI.get(DIVISIONS_PAGE, DIVISIONS_PAGE_SIZE)
-      .then((divisions: Division[]) => {
-        setDivisions(divisions)
-      })
-      .catch(() => {
-        setNotFound(true)
-      })
     console.log("In useeffect - pulling from api")
 
     setIsLoading(false)
@@ -154,102 +124,53 @@ export const TournamentProfile = (props: { tab: string }) => {
               <Typography color="text.primary" >{tournament?.tname} (tournament)</Typography>
             </Link>
           </Breadcrumbs>
-          {/* <Typography>Tournament ID: {tournament} {tid} </Typography> */}
-          <br/>
-          <Box sx={{ border: 1 }} style={{ textAlign: 'left', borderRadius: '20px', padding: '12px'}}>
-            <div>*Project Planning Note: The breadcrumb path above could alternatively be a list like the following
-              (with links to each level for quick access):</div>
-            <ul>
-              <li><Link color="inherit" to={`/tournament/${tid}`}>Tournament: {tournament?.tname}</Link></li>
-              <li>
-                Division: division_name
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                // this would be visible to children entities of the Division entity.</li>
-              <li>
-                Round: round_number
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                // this would be visible to children entities of the Round entity, namely Games.</li>
-              <li>
-                Room: room_number/name
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                // this would be visible to children entities of the Room entity, namely Games.</li>
-            </ul>
+        </Box> 
+        { tournament != undefined && 
+          <Box style={{ textAlign: "left" }}>
+            <br/>
+            <div style={{ flex: 1 }}>
+              <h1>
+                {tournament.tname}
+                &nbsp;&nbsp;
+                {isUserAdmin && (
+                  <Button onClick={() => setTournamentEditorIsOpen(true)}>
+                    Edit
+                  </Button>
+                )}
+              </h1>
+              <h4>
+                General Info:
+              </h4>
+              <div>
+                ID: {tournament.tid}
+              </div><div>
+              </div><div>
+                Org: {tournament.organization}
+              </div><div>
+                At: {tournament.venue}, {tournament.city}, {tournament.region}, {tournament.country}
+              </div><div>
+                Contacts: {tournament.contact}
+              </div><div>
+                Contact Email: {tournament.contactemail}
+              </div><div>
+              </div><div>
+                IsPublic: {tournament.is_public.toString()}
+              </div><div>
+                Short Info: {tournament.shortinfo}
+              </div><div>
+                More Info: {tournament.info}
+              </div>
+            </div>
           </Box>
-        </Box>
+        }
         <div className="Form">
-          <Card>
-            {/* <CardHeader></CardHeader> */}
-            <Box sx={{ display: 'flex' }}>
-              <CardContent>
-                <Typography align="left" variant="h5" color="primary" >
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/divisions`}
-                  >
-                    Divisions
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/rooms`}
-                  >
-                    Rooms
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/teams`}
-                  >
-                    Teams
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/rounds`}
-                  >
-                    Rounds
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/quizzers`}
-                  >
-                    Quizzers
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/games`}
-                  >
-                    Games
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/Admins`}
-                  >
-                    Admins
-                  </Link>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <Link
-                    color="inherit"
-                    to={`/tournament/${tid}/stats-groups`}
-                  >
-                    Stats Groups
-                  </Link>
-                </Typography>
-              </CardContent>
-            </Box>
-          </Card>
           {/* {divisions.map((division) => */}
-            {/* <Card key={division.dname}> */}
-            <Card>
+          {/* <Card key={division.dname}> */}
+          <Card>
               {/* <CardHeader
                 action={
                   <Tooltip title="Edit this division" arrow>
-                    <IconButton onClick={() => handleEditorClickOpen()} aria-label="settings">
+                    <IconButton onClick={() => openTournamentEditor()} aria-label="settings">
                       <SettingsIcon />
                     </IconButton>
                   </Tooltip>
@@ -262,12 +183,14 @@ export const TournamentProfile = (props: { tab: string }) => {
                 </Typography>}
                 subheader={<Typography variant="h6"> Need to put something here for now nothing. </Typography>}
               /> */}
+              <TournamentTabBar tid={String(tournament?.tid)}/>
               <Box sx={{ display: 'flex' }}>
                 <CardContent>
-                  {props.tab === 'divisions' && <div>***where the DIVISIONS data grid will go***</div>}
-                  {props.tab === 'rooms' && <div>***where the ROOMS data grid will go***</div>}
+                  {/* {props.tab === 'divisions' && <div>***where the DIVISIONS data grid will go***</div>} */}
+                  {props.tab === 'divisions' && <DivisionsTable tid={String(tournament?.tid)}/>}
+                  {props.tab === 'rooms' && <RoomsTable tid={String(tournament?.tid)}/>}
                   {props.tab === 'teams' && <div>***where the TEAMS data grid will go***</div>}
-                  {props.tab === 'rounds' && <div>***where the ROUNDS data grid will go***</div>}
+                  {props.tab === 'rounds' && <RoundsTable tid={String(tournament?.tid)}/>}
                   {props.tab === 'quizzers' && <div>***where the QUIZZERS data grid will go***</div>}
                   {props.tab === 'games' && <div>***where the GAMES data grid will go***</div>}
                   {props.tab === 'admins' && <div>***where the ADMINS data grid will go***</div>}
@@ -333,12 +256,12 @@ export const TournamentProfile = (props: { tab: string }) => {
               </CardContent>
             </Box>
           </Card>
-          {divisions.map((division) =>
+          {/* {divisions.map((division) =>
             <Card key={division.dname}>
               <CardHeader
                 action={
                   <Tooltip title="Edit this division" arrow>
-                    <IconButton onClick={() => handleEditorClickOpen()} aria-label="settings">
+                    <IconButton onClick={() => openTournamentEditor()} aria-label="settings">
                       <SettingsIcon />
                     </IconButton>
                   </Tooltip>
@@ -377,18 +300,26 @@ export const TournamentProfile = (props: { tab: string }) => {
                   </Typography>
                   {/* <Typography align="left" variant="body1" color="text.primary" >
                   Created: {division.created_at} - Last Update: {division.updated_at}
-                </Typography> */}
+                </Typography> 
                 </CardContent>
               </Box>
             </Card>
-          )}
-          {DivisionEditor(openDivisionEditor, setDivisionEditorOpen)}
+          )} */}
         </div>
-        <br/>
-        <Fab color="primary" onClick={() => handleEditorClickOpen()} aria-label="Add Tournament">
+        {/* <br/>
+        <Fab color="primary" onClick={() => setTournamentEditorIsOpen(true)} aria-label="Add Tournament">
           <AddIcon />
-        </Fab>
+        </Fab> */}
       </div >
+      <TournamentEditorDialog
+        initialTournament={tournament}
+        isOpen={tournamentEditorIsOpen}
+        onCancel={() => setTournamentEditorIsOpen(false)}
+        onSave={tournament => {
+          setTournament(tournament);
+          setTournamentEditorIsOpen(false);
+        }}
+      />
     </div>
   )
 }
@@ -404,52 +335,3 @@ export const TournamentProfile = (props: { tab: string }) => {
 //     </ListItem>
 //   )
 // }
-const DivisionEditor = (openDivisionEditor: boolean, setDivisionEditorOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
-  const handleDivisionEditorClose = () => {
-    setDivisionEditorOpen(false);
-  };
-
-  return (
-    <Dialog
-      fullScreen
-      open={openDivisionEditor}
-      onClose={handleDivisionEditorClose}
-      TransitionComponent={Transition}
-    >
-      <AppBar sx={{ position: 'relative' }}>
-        <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={handleDivisionEditorClose}
-            aria-label="close"
-          >
-            <CloseIcon />
-          </IconButton>
-          <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Division Settings
-          </Typography>
-          <Button autoFocus color="inherit" onClick={handleDivisionEditorClose}>
-            save
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Box sx={{ width: '100%' }}>
-        <List>
-          <ListItem>
-            {/* <ListItem button> */}
-            <ListItemText primary="Phone ringtone" secondary="Titania" />
-          </ListItem>
-          <Divider />
-          <ListItem>
-            {/* <ListItem button> */}
-            <ListItemText
-              primary="Default notification ringtone"
-              secondary="Tethys"
-            />
-          </ListItem>
-        </List>
-      </Box>
-    </Dialog>
-  )
-}

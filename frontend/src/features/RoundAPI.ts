@@ -1,0 +1,36 @@
+export interface RoundTS {
+  roundid: string;
+  did: string;
+  scheduled_start_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewRoundPayload {
+  did: string;
+  scheduled_start_time: string; // ISO 8601 datetime string
+}
+
+export const RoundAPI = {
+  get: async (page: number, size: number): Promise<RoundTS[]> =>
+    (await fetch(`/api/rounds?page=${page}&page_size=${size}`)).json(),
+  create: async (round: NewRoundPayload): Promise<RoundTS> => {
+    const response = await fetch('/api/rounds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(round),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to create round (${response.status}): ${text}`);
+    }
+    return response.json();
+  },
+  delete: async (id: string): Promise<void> => {
+    const response = await fetch(`/api/rounds/${id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to delete round (${response.status}): ${text}`);
+    }
+  },
+}

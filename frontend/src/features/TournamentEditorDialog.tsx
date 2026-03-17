@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { styled } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
@@ -11,7 +11,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import InputLabel from '@mui/material/InputLabel'
 import TextField from '@mui/material/TextField'
-import { Dayjs } from 'dayjs'
+import dayjs, { Dayjs } from 'dayjs'
 import AppBar from '@mui/material/AppBar'
 import Dialog from '@mui/material/Dialog'
 import Toolbar from '@mui/material/Toolbar'
@@ -24,7 +24,7 @@ import List from '@mui/material/List';
 import TextareaAutosize from '@mui/material/TextareaAutosize';
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
-import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ConfirmDialog, confirmDialogDefaultState } from '../components/ConfirmDialog'
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 
@@ -36,14 +36,6 @@ const Transition = React.forwardRef(function Transition(
 ) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
-
-const confirmDialogDefaultState = {
-  isOpen: false,
-  message: "",
-  handleCancel: () => {},
-  handleConfirm: () => {},
-  title: ""
-};
 
 interface TournamentChangesetTS extends Omit<TournamentChangeset, "fromdate" | "todate"> {
   fromdate: Dayjs | null;
@@ -84,10 +76,10 @@ interface Props {
 
 export const TournamentEditorDialog = (props: Props) => {
   const { initialTournament, isOpen, onCancel, onSave } = props;
-  const [tournament, setTournament] = React.useState<TournamentChangesetTS>(initialTournament ? initialTournament : tournamentEmptyState);
-  const [alertopened, setAlertOpened] = React.useState(false);
-  const [errormsg, setErrorMsg] = React.useState<string>("Simple error message");
-  const [confirmDialog, setConfirmDialog] = React.useState(confirmDialogDefaultState);
+  const [tournament, setTournament] = useState<TournamentChangesetTS>(initialTournament ? initialTournament : tournamentEmptyState);
+  const [alertopened, setAlertOpened] = useState(false);
+  const [errormsg, setErrorMsg] = useState<string>("Simple error message");
+  const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   /** Call this whenever the tournament editor is closed. */
   const resetState = () => {
@@ -96,14 +88,15 @@ export const TournamentEditorDialog = (props: Props) => {
     setErrorMsg("Simple error message");
   };
 
-  // If the initial tournament changes, set or clear the initial fields.
-  React.useEffect(() => {
+  // If the initial tournament changes or the dialog opens, set or clear the initial fields.
+  useEffect(() => {
+    if (!isOpen) return;
     if (initialTournament !== undefined) {
       setTournament(initialTournament);
     } else {
       setTournament(tournamentEmptyState);
     }
-  }, [initialTournament])
+  }, [initialTournament, isOpen])
 
   const openCancelDialog = () => {
     if (tournament == initialTournament || tournament == tournamentEmptyState) {
@@ -113,8 +106,8 @@ export const TournamentEditorDialog = (props: Props) => {
       setConfirmDialog({
         isOpen: true,
         message: "Any changes you've made to the tournament will be lost.",
-        handleCancel: () => setConfirmDialog(confirmDialogDefaultState),
-        handleConfirm: () => { onCancel(); resetState(); },
+        onCancel: () => setConfirmDialog(confirmDialogDefaultState),
+        onConfirm: () => { onCancel(); resetState(); },
         title: "Are you sure you want to cancel tournament edit?"
       })
     }
@@ -156,7 +149,7 @@ export const TournamentEditorDialog = (props: Props) => {
           return;
     }
 
-    // make sure we had a successful
+    // confirm operation success:
     if ((result.code < 200) || (result.code > 209)) {
       setErrorMsg(result.message + " " + result.code);
       setAlertOpened(true);
@@ -170,8 +163,8 @@ export const TournamentEditorDialog = (props: Props) => {
   const openSaveDialog = () => setConfirmDialog({
     isOpen: true,
     message: "Cancel if you want to make more changes.",
-    handleCancel: () => setConfirmDialog(confirmDialogDefaultState),
-    handleConfirm: () => { handleTournamentEditorSave(); resetState(); },
+    onCancel: () => setConfirmDialog(confirmDialogDefaultState),
+    onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleTournamentEditorSave(); },
     title: "Save changes to the tournament?"
   });
 
@@ -180,7 +173,7 @@ export const TournamentEditorDialog = (props: Props) => {
       fullScreen
       open={isOpen}
       onClose={openCancelDialog}
-      TransitionComponent={Transition}
+      slots={{ transition: Transition }}
     >
       <AppBar sx={{ position: 'relative' }}>
         <Toolbar>
@@ -193,7 +186,7 @@ export const TournamentEditorDialog = (props: Props) => {
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Tournament Settings
+            Edit Tournament
           </Typography>
           <Button autoFocus color="inherit" onClick={openSaveDialog}>
             Save
@@ -225,12 +218,23 @@ export const TournamentEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container>
+              <Grid item xs={6}>
+                <InputLabel>Name (*must be unique)</InputLabel>
+                <TextField
+                  variant="outlined"
+                  placeholder="Tournament Name"
+                  value={tournament.tname}
+                  onChange={(event) => {
+                    setTournament(state => ({ ...state, tname: event.target.value as string }));
+                  }}
+                />
+              </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={6} >
                 <InputLabel>Organization</InputLabel>
                 <Select
                   labelId='demo-simple-select-label55'
                   id="select-organization"
-                  // label="Organization"
                   value={tournament.organization}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, organization: event.target.value as string }));
@@ -240,53 +244,37 @@ export const TournamentEditorDialog = (props: Props) => {
                   <MenuItem value={"Other"}>Other</MenuItem>
                 </Select>
               </Grid>
-              <Grid item xs={6}>
-                <InputLabel>Tournament Name ( must be unique)</InputLabel>
-                <TextField
-                  variant="outlined"
-                  // label="Tournament Name"
-                  placeholder="Tournament Name"
-                  value={tournament.tname}
-                  onChange={(event) => {
-                    setTournament(state => ({ ...state, tname: event.target.value as string }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-
-              </Grid>
             </Grid>
           </ListItem>
           <ListItem>
             <Grid container>
               <Grid item xs={6} md={4}>
-                <InputLabel>Tournament Start Date</InputLabel>
+                <InputLabel>Start Date</InputLabel>
                 <Item>
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DesktopDatePicker
                       enableAccessibleFieldDOMStructure={false}
                       label=""
                       format="MM/DD/YYYY"
-                      value={tournament.fromdate}
+                      value={dayjs(tournament.fromdate)}
                       onChange={fromdate => setTournament(state => ({ ...state, fromdate }))}
                       slots={{textField: TextField}}
-                      // slotProps={{ textField: { /* props */ } }}
                     />
                   </LocalizationProvider>
                 </Item>
               </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={6}>
-                <InputLabel>Tournament End Date</InputLabel>
+                <InputLabel>End Date</InputLabel>
                 <Item >
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DesktopDatePicker
                       enableAccessibleFieldDOMStructure={false}
                       label=""
                       format="MM/DD/YYYY"
-                      value={tournament.todate}
+                      value={dayjs(tournament.todate)}
                       onChange={todate => setTournament(state => ({ ...state, todate }))}
                       slots={{textField: TextField}}
-                      // slotProps={{ textField: { /* props */ } }}
                     />
                   </LocalizationProvider>
                 </Item>
@@ -299,7 +287,6 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Venue</InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="Venue"
                   placeholder="Venue"
                   value={tournament.venue}
                   onChange={(event) => {
@@ -307,12 +294,12 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={4}>
                 <InputLabel>Visbility</InputLabel>
                 <Select
                   labelId='demo-simple-select-label55'
                   id="select-organization"
-                  // label="Hide"
                   value={tournament.is_public ? "True" : "False"}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, is_public: event.target.value === "True" }));
@@ -322,6 +309,7 @@ export const TournamentEditorDialog = (props: Props) => {
                   <MenuItem value={"False"}>Private</MenuItem>
                 </Select>
               </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={4}>
                 <InputLabel>Breadcrumb (short url name)</InputLabel>
                 <TextField
@@ -334,7 +322,6 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
-
             </Grid>
           </ListItem>
           <ListItem>
@@ -343,7 +330,6 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>City</InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="City"
                   placeholder="City"
                   value={tournament.city}
                   onChange={(event) => {
@@ -351,11 +337,11 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={4}>
                 <InputLabel>Region/State/Province</InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="Region/State/Province:"
                   placeholder="Region/State/Province:"
                   value={tournament.region}
                   onChange={(event) => {
@@ -363,11 +349,11 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={4}>
                 <InputLabel>Country</InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="Country"
                   placeholder="Country"
                   value={tournament.country}
                   onChange={(event) => {
@@ -375,12 +361,14 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
-
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
               <Grid item xs={6}>
                 <InputLabel>Contact </InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="Contact"
                   placeholder="Contact"
                   value={tournament.contact}
                   onChange={(event) => {
@@ -388,11 +376,11 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
+              &nbsp;&nbsp;
               <Grid item xs={6}>
                 <InputLabel>Contact Email</InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="Contact Email"
                   placeholder="Contact Email"
                   value={tournament.contactemail}
                   onChange={(event) => {
@@ -400,12 +388,14 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
-
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
               <Grid item xs={12}>
                 <InputLabel>One line of information about the tournament</InputLabel>
                 <TextField
                   variant="outlined"
-                  // label="Short Information"
                   placeholder="Short Information"
                   value={tournament.shortinfo}
                   style={{ width: 900 }}
@@ -414,9 +404,13 @@ export const TournamentEditorDialog = (props: Props) => {
                   }}
                 />
               </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
               <Grid item xs={12}>
                 <Box>
-                  <InputLabel>Detailed Information.</InputLabel>
+                  <InputLabel>Detailed Information</InputLabel>
                   <TextareaAutosize
                     aria-label="minimum height"
                     minRows={12}
@@ -436,8 +430,8 @@ export const TournamentEditorDialog = (props: Props) => {
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         message={confirmDialog.message}
-        onCancel={confirmDialog.handleCancel}
-        onConfirm={confirmDialog.handleConfirm}
+        onCancel={confirmDialog.onCancel}
+        onConfirm={confirmDialog.onConfirm}
         title={confirmDialog.title}
       />
     </Dialog >
