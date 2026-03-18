@@ -68,7 +68,7 @@ export const AdminEditorDialog = (props: Props) => {
     if (!isOpen) return;
     resetState();
     UserAPI.get(0, 200)
-      .then(setUsers)
+      .then(result => setUsers(result.items))
       .catch(() => console.error('Failed to load users for admin form'));
   }, [isOpen]);
 

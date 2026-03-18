@@ -14,7 +14,7 @@ export function TournamentsPage() {
   const createTournament = async (tournament: string) => {
     setProcessing(true)
     await TournamentAPI.create(tournament as any)
-    setTournaments(await TournamentAPI.get(page, String(pageSize)))
+    setTournaments((await TournamentAPI.get(page, String(pageSize))).items)
     setText('')
     setProcessing(false)
   }
@@ -22,7 +22,7 @@ export function TournamentsPage() {
   const updateTournament = async (tournament: Tournament) => {
     setProcessing(true)
     await TournamentAPI.update(tournament.tid, {} as any)
-    setTournaments(await TournamentAPI.get(page, String(pageSize)))
+    setTournaments((await TournamentAPI.get(page, String(pageSize))).items)
     setText('')
     editTournament(null)
     setProcessing(false)
@@ -31,7 +31,7 @@ export function TournamentsPage() {
   const deleteTournament = async (tournament: Tournament) => {
     setProcessing(true)
     await TournamentAPI.delete(tournament.tid)
-    setTournaments(await TournamentAPI.get(page, String(pageSize)))
+    setTournaments((await TournamentAPI.get(page, String(pageSize))).items)
     setProcessing(false)
   }
 
@@ -41,8 +41,8 @@ export function TournamentsPage() {
 
   useEffect(() => {
     setProcessing(true)
-    TournamentAPI.get(page, String(pageSize)).then((tournaments) => {
-      setTournaments(tournaments)
+    TournamentAPI.get(page, String(pageSize)).then((result) => {
+      setTournaments(result.items)
       setProcessing(false)
     })
   }, [page])

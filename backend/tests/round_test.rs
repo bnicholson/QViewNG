@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}, services::common::PagedResponse};
 use backend::models::round::Round;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -96,13 +96,14 @@ async fn get_all_works() {
     
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: Vec<Round> = test::read_body_json(resp).await;
+    let body: PagedResponse<Round> = test::read_body_json(resp).await;
 
-    assert_eq!(body.len(), 3);
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
 
     let mut round_or_interest_idx = 10;
     for idx in 0..3 {
-        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2045, 5, 23, 00, 00, 0).unwrap() {
+        if body.items[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2045, 5, 23, 00, 00, 0).unwrap() {
             round_or_interest_idx = idx;
             break;
         }

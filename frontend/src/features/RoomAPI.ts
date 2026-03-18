@@ -17,8 +17,13 @@ export interface NewRoomPayload {
   clientkey: string;
 }
 
+export interface PagedRooms {
+  count: number;
+  items: RoomTS[];
+}
+
 export const RoomAPI = {
-  get: async (page: number, size: number): Promise<RoomTS[]> =>
+  get: async (page: number, size: number): Promise<PagedRooms> =>
     (await fetch(`/api/rooms?page=${page}&page_size=${size}`)).json(),
   create: async (room: NewRoomPayload): Promise<RoomTS> => {
     const response = await fetch('/api/rooms', {

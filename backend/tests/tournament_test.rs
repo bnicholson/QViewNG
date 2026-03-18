@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
-use backend::{models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::Room, round::Round, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::common::EntityResponse};
+use backend::{models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::Room, round::Round, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::common::{EntityResponse, PagedResponse}};
 use backend::models::{division::Division,tournament::Tournament};
 use backend::database::Database;
 use serde_json::json;
@@ -39,21 +39,22 @@ async fn get_all_works() {
 
     // Assert:
 
-    let body: Vec<Tournament> = test::read_body_json(resp).await;
+    let body: PagedResponse<Tournament> = test::read_body_json(resp).await;
 
     let len = 3;
 
-    assert_eq!(body.len(), len);
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
 
     let mut tour_or_interest_idx = 10;
     for idx in 0..len {
-        if body[idx].tname == "Tour 2" {
+        if body.items[idx].tname == "Tour 2" {
             tour_or_interest_idx = idx;
             break;
         }
     }
 
-    let tour_of_interest = &body[tour_or_interest_idx];
+    let tour_of_interest = &body.items[tour_or_interest_idx];
     assert_eq!(tour_of_interest.organization,"Nazarene");
     assert_ne!(tour_of_interest.tid.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
     assert_eq!(tour_of_interest.breadcrumb,"/test/bread/crumb");

@@ -56,6 +56,7 @@ function roomColumns(tid: string): ColumnDef<RoomTS>[] {
 
 export default function RoomsTable({ tid }: { tid: string }) {
   const [rooms, setRooms] = useState<RoomTS[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -64,10 +65,11 @@ export default function RoomsTable({ tid }: { tid: string }) {
 
   const loadRooms = useCallback((p: number, ps: number) => {
     RoomAPI.get(p, ps)
-      .then((result: RoomTS[]) => {
+      .then((result) => {
         setPage(p);
         setPageSize(ps);
-        setRooms(result);
+        setTotalCount(result.count);
+        setRooms(result.items);
       })
       .catch(() => console.error("Failed to load rooms"));
   }, [tid]);
@@ -98,10 +100,6 @@ export default function RoomsTable({ tid }: { tid: string }) {
     setEditorIsOpen(false);
     loadRooms(page, pageSize);
   }, [loadRooms, page, pageSize]);
-
-  const totalCount = rooms.length < pageSize
-    ? page * pageSize + rooms.length
-    : (page + 2) * pageSize;
 
   return (
     <>

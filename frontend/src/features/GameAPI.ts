@@ -31,8 +31,13 @@ export interface NewGamePayload {
   contentjudgeid?: string | null;
 }
 
+export interface PagedGames {
+  count: number;
+  items: GameTS[];
+}
+
 export const GameAPI = {
-  get: async (page: number, size: number): Promise<GameTS[]> =>
+  get: async (page: number, size: number): Promise<PagedGames> =>
     (await fetch(`/api/games?page=${page}&page_size=${size}`)).json(),
   create: async (game: NewGamePayload): Promise<GameTS> => {
     const response = await fetch('/api/games', {

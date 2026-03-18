@@ -2,7 +2,7 @@ use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result
 use serde_json::json;
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, round::{NewRound, Round, RoundChangeset}};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -35,9 +35,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::round::read_all(&mut db, &url_params) {
-        Ok(round) => HttpResponse::Ok().json(round),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::round::read_all(&mut db, &url_params), models::round::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

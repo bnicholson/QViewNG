@@ -179,6 +179,11 @@ pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Divisio
     divisions.filter(did.eq(item_id)).first::<Division>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::divisions::dsl::*;
+    divisions.count().get_result(db)
+}
+
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Division>> {
     use crate::schema::divisions::dsl::*;
     

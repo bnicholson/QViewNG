@@ -5,6 +5,12 @@ use serde::{Deserialize, Serialize};
 use diesel::result::Error as DBError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PagedResponse<T> {
+    pub count: i64,
+    pub items: Vec<T>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EntityResponse<T> {
     pub code : i32,
     pub message: String,

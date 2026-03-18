@@ -3,7 +3,7 @@ use crate::models::{self, tournament_admin::{NewTournamentAdmin, TournamentAdmin
 use crate::models::tournament::{NewTournament, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use chrono::Utc;
 use utoipa::OpenApi;
 use diesel::{QueryResult};
@@ -65,9 +65,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::tournament::read_all(&mut db, &url_params) {
-        Ok(tournament) => HttpResponse::Ok().json(tournament),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::tournament::read_all(&mut db, &url_params), models::tournament::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

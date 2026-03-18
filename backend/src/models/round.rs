@@ -214,6 +214,11 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangese
         .get_result(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::rounds::dsl::*;
+    rounds.count().get_result(db)
+}
+
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::rounds::dsl::*;
     diesel::delete(rounds.filter(roundid.eq(item_id))).execute(db)

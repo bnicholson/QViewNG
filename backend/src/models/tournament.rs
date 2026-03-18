@@ -303,6 +303,11 @@ pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Tournam
     tournaments.filter(tid.eq(item_id)).first::<Tournament>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::tournaments::dsl::*;
+    tournaments.count().get_result(db)
+}
+
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
     use crate::schema::tournaments::dsl::*;
     let values = tournaments

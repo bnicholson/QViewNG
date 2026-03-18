@@ -352,6 +352,11 @@ pub fn read(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<Ga
     games.filter(gid.eq(item_id)).first::<Game>(db_conn)
 }
 
+pub fn count(db_conn: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::games::dsl::*;
+    games.count().get_result(db_conn)
+}
+
 pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     use crate::schema::games::dsl::*;
 

@@ -63,8 +63,8 @@ export const TDEditor = () => {
 
   useEffect(() => {
     setProcessing(true)
-    DivisionAPI.get(0, 25).then((divisions: Division[]) => {
-      setDivisions(divisions)
+    DivisionAPI.get(0, 25).then(result => {
+      setDivisions(result.items)
       setProcessing(false)
     })
     console.log("In useeffect - pulling from api")

@@ -74,8 +74,8 @@ export const TeamEditorDialog = (props: Props) => {
       UserAPI.get(0, 200),
     ])
       .then(([divResult, userResult]) => {
-        setDivisions(divResult);
-        setUsers(userResult);
+        setDivisions(divResult.items);
+        setUsers(userResult.items);
       })
       .catch(() => console.error('Failed to load form data for team editor'));
   }, [isOpen]);

@@ -11,8 +11,13 @@ export interface NewRoundPayload {
   scheduled_start_time: string; // ISO 8601 datetime string
 }
 
+export interface PagedRounds {
+  count: number;
+  items: RoundTS[];
+}
+
 export const RoundAPI = {
-  get: async (page: number, size: number): Promise<RoundTS[]> =>
+  get: async (page: number, size: number): Promise<PagedRounds> =>
     (await fetch(`/api/rounds?page=${page}&page_size=${size}`)).json(),
   create: async (round: NewRoundPayload): Promise<RoundTS> => {
     const response = await fetch('/api/rounds', {

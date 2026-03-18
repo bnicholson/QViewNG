@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { TeamAPI, type TeamTS } from '../features/TeamAPI';
-import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI';
-import { UserAPI, type UserTS } from '../features/UserAPI';
+import { DivisionAPI } from '../features/DivisionAPI';
+import { UserAPI } from '../features/UserAPI';
 import { TeamEditorDialog } from './TeamEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
@@ -56,6 +56,7 @@ function teamColumns(
 
 export default function TeamsTable({ tid }: { tid: string }) {
   const [teams, setTeams] = useState<TeamTS[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
   const [coachMap, setCoachMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
@@ -70,12 +71,13 @@ export default function TeamsTable({ tid }: { tid: string }) {
       DivisionAPI.get(0, 100),
       UserAPI.get(0, 200),
     ])
-      .then(([teamResult, divisionResult, userResult]: [TeamTS[], DivisionTS[], UserTS[]]) => {
+      .then(([teamResult, divisionResult, userResult]) => {
         setPage(p);
         setPageSize(ps);
-        setTeams(teamResult);
-        setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
-        setCoachMap(new Map(userResult.map(u => [
+        setTotalCount(teamResult.count);
+        setTeams(teamResult.items);
+        setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
+        setCoachMap(new Map(userResult.items.map(u => [
           u.id,
           [u.fname, u.mname, u.lname].filter(Boolean).join(' '),
         ])));
@@ -109,10 +111,6 @@ export default function TeamsTable({ tid }: { tid: string }) {
     setEditorIsOpen(false);
     loadTeams(page, pageSize);
   }, [loadTeams, page, pageSize]);
-
-  const totalCount = teams.length < pageSize
-    ? page * pageSize + teams.length
-    : (page + 2) * pageSize;
 
   return (
     <>

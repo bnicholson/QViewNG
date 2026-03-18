@@ -29,8 +29,13 @@ export interface UserChangeset {
   activated?: boolean;
 }
 
+export interface PagedUsers {
+  count: number;
+  items: UserTS[];
+}
+
 export const UserAPI = {
-  get: async (page: number, size: number): Promise<UserTS[]> =>
+  get: async (page: number, size: number): Promise<PagedUsers> =>
     (await fetch(`/api/users?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<UserTS> => {
     const response = await fetch(`/api/users/${id}`);

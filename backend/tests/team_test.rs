@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}, services::common::PagedResponse};
 use backend::models::team::Team;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -97,19 +97,20 @@ async fn get_all_works() {
     
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: Vec<Team> = test::read_body_json(resp).await;
+    let body: PagedResponse<Team> = test::read_body_json(resp).await;
 
-    assert_eq!(body.len(), 3);
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
 
     let mut team_of_interest_idx = 10;
     for idx in 0..3 {
-        if body[idx].name == "Luke Found a Frog" {
+        if body.items[idx].name == "Luke Found a Frog" {
             team_of_interest_idx = idx;
             break;
         }
     }
     assert_ne!(team_of_interest_idx, 10);
-    assert_eq!(body[team_of_interest_idx].did, division.did);
+    assert_eq!(body.items[team_of_interest_idx].did, division.did);
     
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);

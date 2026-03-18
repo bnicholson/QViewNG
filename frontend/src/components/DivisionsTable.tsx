@@ -56,6 +56,7 @@ function divisionColumns(tid: string): ColumnDef<DivisionTS>[] {
 
 export default function DivisionsTable({ tid }: { tid: string }) {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -64,10 +65,11 @@ export default function DivisionsTable({ tid }: { tid: string }) {
 
   const loadDivisions = useCallback((p: number, ps: number) => {
     DivisionAPI.get(p, ps)
-      .then((result: DivisionTS[]) => {
+      .then(result => {
         setPage(p);
         setPageSize(ps);
-        setDivisions(result);
+        setTotalCount(result.count);
+        setDivisions(result.items);
       })
       .catch(() => console.error("Failed to load divisions"));
   }, [tid]);
@@ -99,9 +101,6 @@ export default function DivisionsTable({ tid }: { tid: string }) {
     loadDivisions(page, pageSize);
   }, [loadDivisions, page, pageSize]);
 
-  const totalCount = divisions.length < pageSize
-    ? page * pageSize + divisions.length
-    : (page + 2) * pageSize;
 
   return (
     <>

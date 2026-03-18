@@ -54,7 +54,7 @@ export const TeamProfile = () => {
       .then(([t, tm, u]) => {
         setTournament(t);
         setTeam(tm);
-        setUsers(u);
+        setUsers(u.items);
         setSlots(slotsFromTeam(tm));
         return DivisionAPI.getById(tm.did);
       })

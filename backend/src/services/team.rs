@@ -3,7 +3,7 @@ use serde_json::json;
 use crate::{database::Database, models::division::Division};
 use crate::models::{self, common::PaginationParams, team::{NewTeam, Team, TeamChangeset}};
 use crate::schema::divisions::dsl::{divisions as divisions_table};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl};
 use uuid::Uuid;
@@ -36,9 +36,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::team::read_all(&mut db, &url_params) {
-        Ok(team) => HttpResponse::Ok().json(team),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::team::read_all(&mut db, &url_params), models::team::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

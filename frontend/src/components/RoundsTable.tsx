@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoundAPI, type RoundTS } from "../features/RoundAPI";
 import { RoundEditorDialog } from "./RoundEditorDialog";
-import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
+import { DivisionAPI } from "../features/DivisionAPI";
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -60,6 +60,7 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
 
 export default function RoundsTable({ tid }: { tid: string }) {
   const [rounds, setRounds] = useState<RoundTS[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -72,11 +73,12 @@ export default function RoundsTable({ tid }: { tid: string }) {
       RoundAPI.get(p, ps),
       DivisionAPI.get(0, 100),
     ])
-      .then(([roundResult, divisionResult]: [RoundTS[], DivisionTS[]]) => {
+      .then(([roundResult, divisionResult]) => {
         setPage(p);
         setPageSize(ps);
-        setRounds(roundResult);
-        setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
+        setTotalCount(roundResult.count);
+        setRounds(roundResult.items);
+        setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
       })
       .catch(() => console.error("Failed to load rounds"));
   }, [tid]);
@@ -107,10 +109,6 @@ export default function RoundsTable({ tid }: { tid: string }) {
     setEditorIsOpen(false);
     loadRounds(page, pageSize);
   }, [loadRounds, page, pageSize]);
-
-  const totalCount = rounds.length < pageSize
-    ? page * pageSize + rounds.length
-    : (page + 2) * pageSize;
 
   return (
     <>

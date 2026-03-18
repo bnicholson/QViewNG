@@ -68,7 +68,7 @@ export const RoundEditorDialog = (props: Props) => {
     if (!isOpen) return;
     resetState();
     DivisionAPI.get(0, 100)
-      .then(setDivisions)
+      .then(result => setDivisions(result.items))
       .catch(() => console.error("Failed to load divisions for round form"));
   }, [isOpen]);
 

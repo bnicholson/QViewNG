@@ -18,8 +18,13 @@ export interface NewDivisionPayload {
   shortinfo: string;
 }
 
+export interface PagedDivisions {
+  count: number;
+  items: DivisionTS[];
+}
+
 export const DivisionAPI = {
-  get: async (page: number, size: number): Promise<DivisionTS[]> =>
+  get: async (page: number, size: number): Promise<PagedDivisions> =>
     (await fetch(`/api/divisions?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<DivisionTS> => {
     const response = await fetch(`/api/divisions/${id}`);

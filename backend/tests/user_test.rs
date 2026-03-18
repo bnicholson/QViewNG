@@ -4,10 +4,9 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
-use bcrypt::verify;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -94,19 +93,20 @@ async fn get_all_works() {
 
     // Assert:
 
-    let body: Vec<User> = test::read_body_json(resp).await;
+    let body: PagedResponse<User> = test::read_body_json(resp).await;
 
-    assert_eq!(body.len(), 3);
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
 
     let mut user_or_interest_idx = 10;
     for idx in 0..3 {
-        if body[idx].fname == "Test User 9078" {
+        if body.items[idx].fname == "Test User 9078" {
             user_or_interest_idx = idx;
             break;
         }
     }
 
-    let user_or_interest = &body[user_or_interest_idx];
+    let user_or_interest = &body.items[user_or_interest_idx];
     assert_ne!(user_or_interest.id.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
     assert_eq!(user_or_interest.mname, "Eugene");
     assert_eq!(user_or_interest.username, Some("edbashful".to_string()));

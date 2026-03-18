@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game}, services::common::PagedResponse};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -95,19 +95,20 @@ async fn get_all_works() {
     
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: Vec<Room> = test::read_body_json(resp).await;
+    let body: PagedResponse<Room> = test::read_body_json(resp).await;
 
-    assert_eq!(body.len(), 3);
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
 
     let mut room_or_interest_idx = 10;
     for idx in 0..3 {
-        if body[idx].name == "Test Room 9078" {
+        if body.items[idx].name == "Test Room 9078" {
             room_or_interest_idx = idx;
             break;
         }
     }
 
-    let room_of_interest = &body[room_or_interest_idx];
+    let room_of_interest = &body.items[room_or_interest_idx];
     assert_eq!(room_of_interest.tid, parent_tournament.tid);
     assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
     assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");

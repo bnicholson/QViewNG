@@ -205,13 +205,14 @@ pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Team> {
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Team>> {
     use crate::schema::teams::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
     teams
         .order(created_at)
-        .limit(pagination.page_size)
-        .offset(
-            pagination.page
-                * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
-        )
+        .limit(page_size)
+        .offset(offset_val)
         .load::<Team>(db)
 }
 
@@ -284,6 +285,11 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset
             updated_at.eq(diesel::dsl::now),
         ))
         .get_result(db)
+}
+
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::teams::dsl::*;
+    teams.count().get_result(db)
 }
 
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {

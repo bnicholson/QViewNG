@@ -31,8 +31,13 @@ export interface TeamChangeset {
   quizzer_six_id?: string | null;
 }
 
+export interface PagedTeams {
+  count: number;
+  items: TeamTS[];
+}
+
 export const TeamAPI = {
-  get: async (page: number, size: number): Promise<TeamTS[]> =>
+  get: async (page: number, size: number): Promise<PagedTeams> =>
     (await fetch(`/api/teams?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<TeamTS> => {
     const response = await fetch(`/api/teams/${id}`);

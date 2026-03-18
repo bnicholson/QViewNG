@@ -3,7 +3,7 @@ use serde_json::json;
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, room::{NewRoom, Room, RoomChangeset}, tournament::Tournament};
 use crate::schema::tournaments::dsl::{tournaments as tournaments_table};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl};
 use uuid::Uuid;
@@ -36,9 +36,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::room::read_all(&mut db, &url_params) {
-        Ok(room) => HttpResponse::Ok().json(room),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::room::read_all(&mut db, &url_params), models::room::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

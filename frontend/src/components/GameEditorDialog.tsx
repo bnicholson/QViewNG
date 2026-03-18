@@ -109,11 +109,11 @@ export const GameEditorDialog = (props: Props) => {
       UserAPI.get(0, 200),
     ])
       .then(([divs, rms, rnds, tms, usrs]) => {
-        setDivisions(divs);
-        setRooms(rms);
-        setRounds(rnds);
-        setTeams(tms);
-        setUsers(usrs);
+        setDivisions(divs.items);
+        setRooms(rms.items);
+        setRounds(rnds.items);
+        setTeams(tms.items);
+        setUsers(usrs.items);
       })
       .catch(() => console.error('Failed to load form data for game editor'));
   }, [isOpen]);

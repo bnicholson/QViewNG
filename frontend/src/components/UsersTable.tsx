@@ -58,6 +58,7 @@ function userColumns(onEdit: (user: UserTS) => void): ColumnDef<UserTS>[] {
 
 export default function UsersTable() {
   const [users, setUsers] = useState<UserTS[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [createOpen, setCreateOpen] = useState(false);
@@ -68,7 +69,8 @@ export default function UsersTable() {
       .then(result => {
         setPage(p);
         setPageSize(ps);
-        setUsers(result);
+        setTotalCount(result.count);
+        setUsers(result.items);
       })
       .catch(() => console.error('Failed to load users'));
   }, []);
@@ -102,10 +104,6 @@ export default function UsersTable() {
     setEditingUser(undefined);
     setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
   }, []);
-
-  const totalCount = users.length < pageSize
-    ? page * pageSize + users.length
-    : (page + 2) * pageSize;
 
   return (
     <>

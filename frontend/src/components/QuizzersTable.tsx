@@ -60,13 +60,16 @@ export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
+  const [apiTotalCount, setApiTotalCount] = useState(0);
+
   const loadQuizzers = useCallback((p: number, ps: number) => {
     if (externalRows !== undefined) return;
     UserAPI.get(p, ps)
       .then(result => {
         setPage(p);
         setPageSize(ps);
-        setQuizzers(result);
+        setApiTotalCount(result.count);
+        setQuizzers(result.items);
       })
       .catch(() => console.error('Failed to load quizzers'));
   }, [externalRows]);
@@ -102,11 +105,7 @@ export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete
     loadQuizzers(page, pageSize);
   }, [loadQuizzers, page, pageSize]);
 
-  const totalCount = externalRows !== undefined
-    ? externalRows.length
-    : quizzers.length < pageSize
-      ? page * pageSize + quizzers.length
-      : (page + 2) * pageSize;
+  const totalCount = externalRows !== undefined ? externalRows.length : apiTotalCount;
 
   return (
     <>

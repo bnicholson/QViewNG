@@ -49,7 +49,7 @@ export const QuizzerPickerDialog = (props: Props) => {
     setSearch('');
     setSelected(new Set());
     UserAPI.get(0, 200)
-      .then(setUsers)
+      .then(result => setUsers(result.items))
       .catch(() => console.error('Failed to load users for quizzer picker'));
   }, [isOpen]);
 

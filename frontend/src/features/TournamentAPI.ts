@@ -22,6 +22,11 @@ export interface TournamentCreateUpdateResult {
   data: TournamentTS;
 }
 
+export interface PagedTournaments {
+  count: number;
+  items: TournamentTS[];
+}
+
 /** Return a `TournamentTS` created from the given `Tournament`. */
 const dateStringToDayjs = (tournament: Tournament): TournamentTS => {
   const { fromdate, todate, ...rest } = tournament;
@@ -33,10 +38,13 @@ const dateStringToDayjs = (tournament: Tournament): TournamentTS => {
 };
 
 export const TournamentAPI = {
-  get: async (page: number, size: string) => {
+  get: async (page: number, size: string): Promise<PagedTournaments> => {
     const response = await fetch(`/api/tournaments?page=${page}&page_size=${size}`);
     const result = await response.json();
-    return result.map((tournament: Tournament) => dateStringToDayjs(tournament));
+    return {
+      count: result.count,
+      items: result.items.map((tournament: Tournament) => dateStringToDayjs(tournament)),
+    };
   },
   getByDate: async (fromDate: number, toDate: number): Promise<TournamentTS[]> => {
     const response = await fetch(`/api/tournaments/filter?from_date=${fromDate}&to_date=${toDate}`);

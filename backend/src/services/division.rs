@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{models::{self, division::{Division, DivisionChangeset, NewDivision}}, services::common::{EntityResponse, process_response}};
+use crate::{models::{self, division::{Division, DivisionChangeset, NewDivision}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
 use utoipa::OpenApi;
@@ -35,12 +35,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let result = models::division::read_all(&mut db, &info);
-   
-    if result.is_ok() {
-        HttpResponse::Ok().json(result.unwrap())
-    } else {
-        HttpResponse::InternalServerError().finish()
+    match (models::division::read_all(&mut db, &info), models::division::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

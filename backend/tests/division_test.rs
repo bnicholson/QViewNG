@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}, services::common::PagedResponse};
 use backend::models::{division::Division,round::Round,team::Team};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -96,23 +96,24 @@ async fn get_all_works() {
 
     // Assert:
 
-    let body: Vec<Division> = test::read_body_json(resp).await;
+    let body: PagedResponse<Division> = test::read_body_json(resp).await;
 
-    assert_eq!(body.len(), 3);
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
 
     let mut div_1_idx = 10;
     let mut div_2_idx = 10;
     let mut div_3_idx = 10;
     for idx in 0..3 {
-        if body[idx].dname == "Test Div 3276" {
+        if body.items[idx].dname == "Test Div 3276" {
             div_1_idx = idx;
             continue;
         }
-        if body[idx].dname == "Test Div 9078" {
+        if body.items[idx].dname == "Test Div 9078" {
             div_2_idx = idx;
             continue;
         }
-        if body[idx].dname == "Test Div 4611" {
+        if body.items[idx].dname == "Test Div 4611" {
             div_3_idx = idx;
             continue;
         }

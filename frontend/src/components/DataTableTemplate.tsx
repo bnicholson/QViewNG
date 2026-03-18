@@ -267,6 +267,7 @@ export function DataTableTemplate<T>({
   onPageChange,
   onPageSizeChange,
 }: DataTableProps<T>) {
+  const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
   const colSpan = columns.length + 1;
 
@@ -371,7 +372,7 @@ export function DataTableTemplate<T>({
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {safeRows.length === 0 ? (
               <tr>
                 <td
                   colSpan={colSpan}
@@ -381,7 +382,7 @@ export function DataTableTemplate<T>({
                 </td>
               </tr>
             ) : (
-              rows.map((row, i) => (
+              safeRows.map((row, i) => (
                 <tr
                   key={getId(row)}
                   style={{

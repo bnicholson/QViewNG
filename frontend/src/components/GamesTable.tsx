@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { GameAPI, type GameTS } from '../features/GameAPI';
-import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI';
-import { RoomAPI, type RoomTS } from '../features/RoomAPI';
-import { RoundAPI, type RoundTS } from '../features/RoundAPI';
-import { TeamAPI, type TeamTS } from '../features/TeamAPI';
+import { DivisionAPI } from '../features/DivisionAPI';
+import { RoomAPI } from '../features/RoomAPI';
+import { RoundAPI } from '../features/RoundAPI';
+import { TeamAPI } from '../features/TeamAPI';
 import { GameEditorDialog } from './GameEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
@@ -89,6 +89,7 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
 
 export default function GamesTable({ tid }: { tid: string }) {
   const [games, setGames] = useState<GameTS[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
     divisions: new Map(),
     rooms: new Map(),
@@ -109,16 +110,16 @@ export default function GamesTable({ tid }: { tid: string }) {
       RoundAPI.get(0, 200),
       TeamAPI.get(0, 200),
     ])
-      .then(([gameResult, divResult, roomResult, roundResult, teamResult]:
-        [GameTS[], DivisionTS[], RoomTS[], RoundTS[], TeamTS[]]) => {
+      .then(([gameResult, divResult, roomResult, roundResult, teamResult]) => {
         setPage(p);
         setPageSize(ps);
-        setGames(gameResult);
+        setTotalCount(gameResult.count);
+        setGames(gameResult.items);
         setMaps({
-          divisions: new Map(divResult.map(d => [d.did, d.dname])),
-          rooms: new Map(roomResult.map(r => [r.roomid, r.name])),
-          rounds: new Map(roundResult.map(r => [r.roundid, r.scheduled_start_time])),
-          teams: new Map(teamResult.map(t => [t.teamid, t.name])),
+          divisions: new Map(divResult.items.map(d => [d.did, d.dname])),
+          rooms: new Map(roomResult.items.map(r => [r.roomid, r.name])),
+          rounds: new Map(roundResult.items.map(r => [r.roundid, r.scheduled_start_time])),
+          teams: new Map(teamResult.items.map(t => [t.teamid, t.name])),
         });
       })
       .catch(() => console.error('Failed to load games'));
@@ -151,9 +152,6 @@ export default function GamesTable({ tid }: { tid: string }) {
     loadGames(page, pageSize);
   }, [loadGames, page, pageSize]);
 
-  const totalCount = games.length < pageSize
-    ? page * pageSize + games.length
-    : (page + 2) * pageSize;
 
   return (
     <>
