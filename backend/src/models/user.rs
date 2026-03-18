@@ -74,9 +74,9 @@ impl UserBuilder {
         if self.email.is_none() {
             errors.push("email is required".to_string());
         }
-        if self.hash_password.is_none() {
-            errors.push("hash_password is required".to_string());
-        }
+        // if self.hash_password.is_none() {
+        //     errors.push("hash_password is required".to_string());
+        // }
         if self.activated.is_none() {
             errors.push("set_activated is required".to_string());
         }
@@ -86,9 +86,9 @@ impl UserBuilder {
         if self.lname.is_none() {
             errors.push("lname is required".to_string());
         }
-        if self.username.is_none() {
-            errors.push("username is required".to_string());
-        }
+        // if self.username.is_none() {
+        //     errors.push("username is required".to_string());
+        // }
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -134,7 +134,6 @@ impl UserBuilder {
 #[diesel(primary_key(id))]
 pub struct User {
     pub email: String,
-    pub hash_password: String,     
     pub activated: bool,            
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -142,9 +141,10 @@ pub struct User {
     pub mname: String,            
     pub lname: String,            
     pub id: Uuid,            
-    pub username: String,
     pub is_merged_user_id: Option<Uuid>,
-    pub when_merged: Option<DateTime<Utc>>
+    pub when_merged: Option<DateTime<Utc>>,
+    pub username: Option<String>,
+    pub hash_password: Option<String>,
 }
 
 #[derive(

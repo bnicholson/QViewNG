@@ -572,7 +572,6 @@ diesel::table! {
 diesel::table! {
     users (id) {
         email -> Text,
-        hash_password -> Text,
         activated -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
@@ -583,10 +582,11 @@ diesel::table! {
         #[max_length = 64]
         lname -> Varchar,
         id -> Uuid,
-        #[max_length = 32]
-        username -> Varchar,
         is_merged_user_id -> Nullable<Uuid>,
         when_merged -> Nullable<Timestamptz>,
+        #[max_length = 32]
+        username -> Nullable<Varchar>,
+        hash_password -> Nullable<Text>,
     }
 }
 
