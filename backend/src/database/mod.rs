@@ -1,3 +1,6 @@
+pub mod seed_data;
+pub mod clean_db;
+
 use std::time::{Instant,Duration};
 use diesel::r2d2::{self, ConnectionManager, PoolError, PooledConnection};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};

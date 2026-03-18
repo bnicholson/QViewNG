@@ -1,11 +1,11 @@
 
 use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
+use backend::database;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use dotenvy::dotenv;
 use backend::routes::configure_routes;
-use backend::database::Database;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -45,18 +45,27 @@ async fn main() -> std::io::Result<()> {
     };
     let host_and_port = format!("{host}:{port}");
 
+    let db = database::Database::new("DATABASE_URL");
+    
+    // Change commented/uncommented if you want to populate your DB with data:
+    // let mut conn = db.get_connection().expect("Failed to get connection.");
+    // database::clean_db::clean_database(&mut conn);
+    // database::seed_data::seed_one::seed_data_one(&mut conn);
+    // let conn = conn;
+    // drop(conn);
+    
     log::info!("Server listening on http://{host_and_port} ...");
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
-            .wrap(Compress::default())
-            .wrap(NormalizePath::trim())
-            .wrap(Logger::default())
-            .app_data(actix_web::web::Data::new(Database::new("DATABASE_URL")))
-            // .app_data(Data::new(app_data.mailer.clone()))
-            // .app_data(Data::new(schema.clone()))
-            // .app_data(Data::new(storage.clone()))
-            .configure(configure_routes)
+        .wrap(Compress::default())
+        .wrap(NormalizePath::trim())
+        .wrap(Logger::default())
+        .app_data(actix_web::web::Data::new(db.clone()))
+        // .app_data(Data::new(app_data.mailer.clone()))
+        // .app_data(Data::new(schema.clone()))
+        // .app_data(Data::new(storage.clone()))
+        .configure(configure_routes)
     })
     .bind(host_and_port)?
     .run()

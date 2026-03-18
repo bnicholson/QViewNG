@@ -206,10 +206,10 @@ export function DataTableTemplate<T>({
       </div>
 
       {/* ── Table ── */}
-      <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "75vh", borderRadius: 10, border: "1px solid #e5e7eb" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
-            <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+            <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
               {columns.map((col) => (
                 <th
                   key={col.header}

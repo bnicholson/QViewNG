@@ -1,31 +1,31 @@
 use backend::database::Database;
-use backend::schema::{
-    divisions, 
-    games, 
-    rooms, 
-    rounds, 
-    statsgroups, 
-    teams, 
-    tournamentgroups, 
-    tournamentgroups_tournaments, 
-    tournaments, 
-    tournaments_admins, 
-    users, 
-    rosters,
-    rosters_quizzers,
-    rosters_coaches,
-    equipmentsets,
-    equipment,
-    computers,
-    jumppads,
-    interfaceboxes,
-    microphonerecorders,
-    projectors,
-    extensioncords,
-    equipmentregistrations,
-    apicalllog,
-    gameevents
-};
+// use backend::schema::{
+//     divisions, 
+//     games, 
+//     rooms, 
+//     rounds, 
+//     statsgroups, 
+//     teams, 
+//     tournamentgroups, 
+//     tournamentgroups_tournaments, 
+//     tournaments, 
+//     tournaments_admins, 
+//     users, 
+//     rosters,
+//     rosters_quizzers,
+//     rosters_coaches,
+//     equipmentsets,
+//     equipment,
+//     computers,
+//     jumppads,
+//     interfaceboxes,
+//     microphonerecorders,
+//     projectors,
+//     extensioncords,
+//     equipmentregistrations,
+//     apicalllog,
+//     gameevents
+// };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 // use pgtemp::PgTempDB;
@@ -55,105 +55,106 @@ pub fn clean_database() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    diesel::delete(gameevents::table)
-        .execute(&mut conn)
-        .expect("Failed to clean gameevents");
+    backend::database::clean_db::clean_database(&mut conn);
+    // diesel::delete(gameevents::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean gameevents");
 
-    diesel::delete(apicalllog::table)
-        .execute(&mut conn)
-        .expect("Failed to clean apicalllog");
+    // diesel::delete(apicalllog::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean apicalllog");
 
-    diesel::delete(equipmentregistrations::table)
-        .execute(&mut conn)
-        .expect("Failed to clean equipmentregistrations");
+    // diesel::delete(equipmentregistrations::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean equipmentregistrations");
 
-    diesel::delete(equipment::table)
-        .execute(&mut conn)
-        .expect("Failed to clean equipment");
+    // diesel::delete(equipment::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean equipment");
 
-    diesel::delete(extensioncords::table)
-        .execute(&mut conn)
-        .expect("Failed to clean extensioncords");
+    // diesel::delete(extensioncords::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean extensioncords");
 
-    diesel::delete(projectors::table)
-        .execute(&mut conn)
-        .expect("Failed to clean projectors");
+    // diesel::delete(projectors::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean projectors");
 
-    diesel::delete(microphonerecorders::table)
-        .execute(&mut conn)
-        .expect("Failed to clean microphonerecorders");
+    // diesel::delete(microphonerecorders::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean microphonerecorders");
 
-    diesel::delete(interfaceboxes::table)
-        .execute(&mut conn)
-        .expect("Failed to clean interfaceboxes");
+    // diesel::delete(interfaceboxes::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean interfaceboxes");
 
-    diesel::delete(jumppads::table)
-        .execute(&mut conn)
-        .expect("Failed to clean jumppads");
+    // diesel::delete(jumppads::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean jumppads");
 
-    diesel::delete(computers::table)
-        .execute(&mut conn)
-        .expect("Failed to clean computers");
+    // diesel::delete(computers::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean computers");
 
-    diesel::delete(equipmentsets::table)
-        .execute(&mut conn)
-        .expect("Failed to clean equipmentsets");
+    // diesel::delete(equipmentsets::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean equipmentsets");
 
-    diesel::delete(rosters_coaches::table)
-        .execute(&mut conn)
-        .expect("Failed to clean rosters_coaches");
+    // diesel::delete(rosters_coaches::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean rosters_coaches");
 
-    diesel::delete(rosters_quizzers::table)
-        .execute(&mut conn)
-        .expect("Failed to clean rosters_quizzers");
+    // diesel::delete(rosters_quizzers::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean rosters_quizzers");
 
-    diesel::delete(rosters::table)
-        .execute(&mut conn)
-        .expect("Failed to clean rosters");
+    // diesel::delete(rosters::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean rosters");
 
-    diesel::delete(statsgroups::table)
-        .execute(&mut conn)
-        .expect("Failed to clean statsgroups");
+    // diesel::delete(statsgroups::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean statsgroups");
 
-    diesel::delete(tournamentgroups_tournaments::table)
-        .execute(&mut conn)
-        .expect("Failed to clean tournamentgroups_tournaments");
+    // diesel::delete(tournamentgroups_tournaments::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean tournamentgroups_tournaments");
 
-    diesel::delete(tournamentgroups::table)
-        .execute(&mut conn)
-        .expect("Failed to clean tournamentgroups");
+    // diesel::delete(tournamentgroups::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean tournamentgroups");
 
-    diesel::delete(games::table)
-        .execute(&mut conn)
-        .expect("Failed to clean games");
+    // diesel::delete(games::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean games");
 
-    diesel::delete(teams::table)
-        .execute(&mut conn)
-        .expect("Failed to clean teams");
+    // diesel::delete(teams::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean teams");
 
-    diesel::delete(rounds::table)
-        .execute(&mut conn)
-        .expect("Failed to clean rounds");
+    // diesel::delete(rounds::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean rounds");
 
-    diesel::delete(rooms::table)
-        .execute(&mut conn)
-        .expect("Failed to clean rooms");
+    // diesel::delete(rooms::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean rooms");
 
-    diesel::delete(tournaments_admins::table)
-        .execute(&mut conn)
-        .expect("Failed to clean admins of tournaments");
+    // diesel::delete(tournaments_admins::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean admins of tournaments");
 
-    diesel::delete(users::table)
-        .execute(&mut conn)
-        .expect("Failed to clean users");
+    // diesel::delete(users::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean users");
 
-    diesel::delete(divisions::table)
-        .execute(&mut conn)
-        .expect("Failed to clean divisions");
+    // diesel::delete(divisions::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean divisions");
 
-    diesel::delete(tournaments::table)
-        .execute(&mut conn)
-        .expect("Failed to clean tournaments");
+    // diesel::delete(tournaments::table)
+    //     .execute(&mut conn)
+    //     .expect("Failed to clean tournaments");
 }
 
 // pub fn prepare_database() -> {

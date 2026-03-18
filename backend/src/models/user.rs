@@ -103,12 +103,12 @@ impl UserBuilder {
                 Ok(
                     NewUser {
                         email: self.email.unwrap(),
-                        hash_password: self.hash_password.unwrap(),     
+                        hash_password: self.hash_password.unwrap_or("".to_string()),     
                         activated: self.activated.unwrap(),            
                         fname: self.fname,            
                         mname: self.mname.unwrap(),           
                         lname: self.lname.unwrap(),         
-                        username: self.username.unwrap()
+                        username: self.username.unwrap_or("".to_string())
                     }
                 )
             }

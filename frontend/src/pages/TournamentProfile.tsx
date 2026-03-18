@@ -19,6 +19,7 @@ import RoundsTable from '../components/RoundsTable'
 import TeamsTable from '../components/TeamsTable'
 import AdminsTable from '../components/AdminsTable'
 import QuizzersTable from '../components/QuizzersTable'
+import GamesTable from '../components/GamesTable'
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
 
 export const TournamentProfile = (props: { tab: string }) => {
@@ -151,7 +152,7 @@ export const TournamentProfile = (props: { tab: string }) => {
           {props.tab === 'rounds'       && <RoundsTable tid={String(tournament?.tid)}/>}
           {props.tab === 'teams'        && <TeamsTable tid={String(tournament?.tid)}/>}
           {props.tab === 'quizzers'     && <QuizzersTable tid={String(tournament?.tid)}/>}
-          {props.tab === 'games'        && <Typography color="text.secondary">Games coming soon.</Typography>}
+          {props.tab === 'games'        && <GamesTable tid={String(tournament?.tid)}/>}
           {props.tab === 'admins'       && <AdminsTable tid={String(tournament?.tid)}/>}
           {props.tab === 'stats-groups' && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
         </CardContent>
