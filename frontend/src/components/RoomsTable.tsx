@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoomAPI, type RoomTS } from "../features/RoomAPI";
 import { RoomEditorDialog } from "./RoomEditorDialog";
 
@@ -54,21 +54,40 @@ function roomColumns(tid: string): ColumnDef<RoomTS>[] {
   ];
 }
 
-const ROOMS_PAGE = 0;
-const ROOMS_PAGE_SIZE = 30;
-
 export default function RoomsTable({ tid }: { tid: string }) {
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [rooms, setRooms] = useState<RoomTS[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
+
+  const loadRooms = useCallback((p: number, ps: number) => {
+    RoomAPI.get(p, ps)
+      .then((result: RoomTS[]) => {
+        setPage(p);
+        setPageSize(ps);
+        setRooms(result);
+      })
+      .catch(() => console.error("Failed to load rooms"));
+  }, [tid]);
 
   useEffect(() => {
-    setIsLoading(true);
-    RoomAPI.get(ROOMS_PAGE, ROOMS_PAGE_SIZE)
-      .then((result: RoomTS[]) => setRooms(result))
-      .catch(() => console.error("Failed to load rooms"))
-      .finally(() => setIsLoading(false));
+    loadRooms(0, pageSizeRef.current);
   }, [tid]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadRooms(newPage, pageSize);
+  }, [pageSize, loadRooms]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setRooms(prev => prev.slice(0, newSize));
+    } else {
+      loadRooms(0, newSize);
+    }
+  }, [pageSize, page, loadRooms]);
 
   const handleDelete = useCallback(async (row: RoomTS): Promise<void> => {
     await RoomAPI.delete(row.roomid);
@@ -77,24 +96,28 @@ export default function RoomsTable({ tid }: { tid: string }) {
 
   const handleSave = useCallback((_room: RoomTS): void => {
     setEditorIsOpen(false);
-    setIsLoading(true);
-    RoomAPI.get(ROOMS_PAGE, ROOMS_PAGE_SIZE)
-      .then((result: RoomTS[]) => setRooms(result))
-      .catch(() => console.error("Failed to reload rooms"))
-      .finally(() => setIsLoading(false));
-  }, []);
+    loadRooms(page, pageSize);
+  }, [loadRooms, page, pageSize]);
 
-  if (isLoading) return <div>Loading rooms...</div>;
+  const totalCount = rooms.length < pageSize
+    ? page * pageSize + rooms.length
+    : (page + 2) * pageSize;
 
   return (
     <>
       <DataTableTemplate<RoomTS>
+        key={tid}
         entityLabel="Room"
         onCreate={() => setEditorIsOpen(true)}
         columns={roomColumns(tid)}
         rows={rooms}
+        totalCount={totalCount}
         getId={(r) => r.roomid}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
       <RoomEditorDialog
         tid={tid}

@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { BoolBadge, DataTableTemplate, type ColumnDef } from './DataTableTemplate';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
 import { QuizzerEditorDialog } from './QuizzerEditorDialog';
 
@@ -37,9 +37,6 @@ const quizzerColumns: ColumnDef<UserTS>[] = [
   },
 ];
 
-const QUIZZERS_PAGE = 0;
-const QUIZZERS_PAGE_SIZE = 30;
-
 interface Props {
   tid?: string;
   /** If provided, skips internal fetch and displays these rows directly. */
@@ -56,25 +53,44 @@ interface Props {
 // There is no direct tournament-level quizzer endpoint in the backend. This table shows all
 // registered users in the system. Quizzer-to-roster associations are managed separately.
 export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete, createLabel }: Props) {
-  const [isLoading, setIsLoading] = useState(false);
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
 
-  const loadQuizzers = () => {
+  const loadQuizzers = useCallback((p: number, ps: number) => {
     if (externalRows !== undefined) return;
-    setIsLoading(true);
-    UserAPI.get(QUIZZERS_PAGE, QUIZZERS_PAGE_SIZE)
-      .then(setQuizzers)
-      .catch(() => console.error('Failed to load quizzers'))
-      .finally(() => setIsLoading(false));
-  };
+    UserAPI.get(p, ps)
+      .then(result => {
+        setPage(p);
+        setPageSize(ps);
+        setQuizzers(result);
+      })
+      .catch(() => console.error('Failed to load quizzers'));
+  }, [externalRows]);
 
   useEffect(() => {
     if (externalRows !== undefined) return;
-    loadQuizzers();
+    loadQuizzers(0, pageSizeRef.current);
   }, []);
 
   const rows = externalRows ?? quizzers;
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadQuizzers(newPage, pageSize);
+  }, [pageSize, loadQuizzers]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (externalRows !== undefined) return;
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setQuizzers(prev => prev.slice(0, newSize));
+    } else {
+      loadQuizzers(0, newSize);
+    }
+  }, [pageSize, page, externalRows, loadQuizzers]);
 
   const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
     if (onDelete) return onDelete(row);
@@ -83,10 +99,14 @@ export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete
 
   const handleSave = useCallback((_user: UserTS): void => {
     setEditorIsOpen(false);
-    loadQuizzers();
-  }, []);
+    loadQuizzers(page, pageSize);
+  }, [loadQuizzers, page, pageSize]);
 
-  if (isLoading) return <div>Loading quizzers...</div>;
+  const totalCount = externalRows !== undefined
+    ? externalRows.length
+    : quizzers.length < pageSize
+      ? page * pageSize + quizzers.length
+      : (page + 2) * pageSize;
 
   return (
     <>
@@ -96,8 +116,13 @@ export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete
         onCreate={onAdd ?? (() => setEditorIsOpen(true))}
         columns={quizzerColumns}
         rows={rows}
+        totalCount={totalCount}
         getId={(u) => u.id}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
       {!onAdd && (
         <QuizzerEditorDialog

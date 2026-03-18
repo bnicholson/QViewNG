@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { DataTableTemplate, type ColumnDef } from './DataTableTemplate';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { TeamAPI, type TeamTS } from '../features/TeamAPI';
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI';
 import { UserAPI, type UserTS } from '../features/UserAPI';
@@ -54,24 +54,25 @@ function teamColumns(
   ];
 }
 
-const TEAMS_PAGE = 0;
-const TEAMS_PAGE_SIZE = 50;
-
 export default function TeamsTable({ tid }: { tid: string }) {
-  const [isLoading, setIsLoading] = useState(false);
   const [teams, setTeams] = useState<TeamTS[]>([]);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
   const [coachMap, setCoachMap] = useState<Map<string, string>>(new Map());
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
 
-  const loadTeams = () => {
-    setIsLoading(true);
+  const loadTeams = useCallback((p: number, ps: number) => {
     Promise.all([
-      TeamAPI.get(TEAMS_PAGE, TEAMS_PAGE_SIZE),
+      TeamAPI.get(p, ps),
       DivisionAPI.get(0, 100),
       UserAPI.get(0, 200),
     ])
       .then(([teamResult, divisionResult, userResult]: [TeamTS[], DivisionTS[], UserTS[]]) => {
+        setPage(p);
+        setPageSize(ps);
         setTeams(teamResult);
         setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
         setCoachMap(new Map(userResult.map(u => [
@@ -79,11 +80,25 @@ export default function TeamsTable({ tid }: { tid: string }) {
           [u.fname, u.mname, u.lname].filter(Boolean).join(' '),
         ])));
       })
-      .catch(() => console.error('Failed to load teams'))
-      .finally(() => setIsLoading(false));
-  };
+      .catch(() => console.error('Failed to load teams'));
+  }, [tid]);
 
-  useEffect(() => { loadTeams(); }, [tid]);
+  useEffect(() => {
+    loadTeams(0, pageSizeRef.current);
+  }, [tid]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadTeams(newPage, pageSize);
+  }, [pageSize, loadTeams]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setTeams(prev => prev.slice(0, newSize));
+    } else {
+      loadTeams(0, newSize);
+    }
+  }, [pageSize, page, loadTeams]);
 
   const handleDelete = useCallback(async (row: TeamTS): Promise<void> => {
     await TeamAPI.delete(row.teamid);
@@ -92,20 +107,28 @@ export default function TeamsTable({ tid }: { tid: string }) {
 
   const handleSave = useCallback((_team: TeamTS): void => {
     setEditorIsOpen(false);
-    loadTeams();
-  }, []);
+    loadTeams(page, pageSize);
+  }, [loadTeams, page, pageSize]);
 
-  if (isLoading) return <div>Loading teams...</div>;
+  const totalCount = teams.length < pageSize
+    ? page * pageSize + teams.length
+    : (page + 2) * pageSize;
 
   return (
     <>
       <DataTableTemplate<TeamTS>
+        key={tid}
         entityLabel="Team"
         onCreate={() => setEditorIsOpen(true)}
         columns={teamColumns(tid, divisionMap, coachMap)}
         rows={teams}
+        totalCount={totalCount}
         getId={(t) => t.teamid}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
       <TeamEditorDialog
         tid={tid}

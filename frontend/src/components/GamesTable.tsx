@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { BoolBadge, DataTableTemplate, type ColumnDef } from './DataTableTemplate';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { GameAPI, type GameTS } from '../features/GameAPI';
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI';
 import { RoomAPI, type RoomTS } from '../features/RoomAPI';
@@ -87,11 +87,7 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
   ];
 }
 
-const GAMES_PAGE = 0;
-const GAMES_PAGE_SIZE = 50;
-
 export default function GamesTable({ tid }: { tid: string }) {
-  const [isLoading, setIsLoading] = useState(false);
   const [games, setGames] = useState<GameTS[]>([]);
   const [maps, setMaps] = useState<LookupMaps>({
     divisions: new Map(),
@@ -99,12 +95,15 @@ export default function GamesTable({ tid }: { tid: string }) {
     rounds: new Map(),
     teams: new Map(),
   });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
 
-  const loadGames = () => {
-    setIsLoading(true);
+  const loadGames = useCallback((p: number, ps: number) => {
     Promise.all([
-      GameAPI.get(GAMES_PAGE, GAMES_PAGE_SIZE),
+      GameAPI.get(p, ps),
       DivisionAPI.get(0, 100),
       RoomAPI.get(0, 100),
       RoundAPI.get(0, 200),
@@ -112,6 +111,8 @@ export default function GamesTable({ tid }: { tid: string }) {
     ])
       .then(([gameResult, divResult, roomResult, roundResult, teamResult]:
         [GameTS[], DivisionTS[], RoomTS[], RoundTS[], TeamTS[]]) => {
+        setPage(p);
+        setPageSize(ps);
         setGames(gameResult);
         setMaps({
           divisions: new Map(divResult.map(d => [d.did, d.dname])),
@@ -120,11 +121,25 @@ export default function GamesTable({ tid }: { tid: string }) {
           teams: new Map(teamResult.map(t => [t.teamid, t.name])),
         });
       })
-      .catch(() => console.error('Failed to load games'))
-      .finally(() => setIsLoading(false));
-  };
+      .catch(() => console.error('Failed to load games'));
+  }, [tid]);
 
-  useEffect(() => { loadGames(); }, [tid]);
+  useEffect(() => {
+    loadGames(0, pageSizeRef.current);
+  }, [tid]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadGames(newPage, pageSize);
+  }, [pageSize, loadGames]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setGames(prev => prev.slice(0, newSize));
+    } else {
+      loadGames(0, newSize);
+    }
+  }, [pageSize, page, loadGames]);
 
   const handleDelete = useCallback(async (row: GameTS): Promise<void> => {
     await GameAPI.delete(row.gid);
@@ -133,20 +148,28 @@ export default function GamesTable({ tid }: { tid: string }) {
 
   const handleSave = useCallback((_game: GameTS): void => {
     setEditorIsOpen(false);
-    loadGames();
-  }, []);
+    loadGames(page, pageSize);
+  }, [loadGames, page, pageSize]);
 
-  if (isLoading) return <div>Loading games...</div>;
+  const totalCount = games.length < pageSize
+    ? page * pageSize + games.length
+    : (page + 2) * pageSize;
 
   return (
     <>
       <DataTableTemplate<GameTS>
+        key={tid}
         entityLabel="Game"
         onCreate={() => setEditorIsOpen(true)}
         columns={gameColumns(tid, maps)}
         rows={games}
+        totalCount={totalCount}
         getId={(g) => g.gid}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
       <GameEditorDialog
         tid={tid}

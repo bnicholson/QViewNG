@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
-import { BoolBadge, DataTableTemplate, type ColumnDef } from './DataTableTemplate';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { AdminAPI } from '../features/AdminAPI';
-import { UserAPI, type UserTS } from '../features/UserAPI';
+import { type UserTS } from '../features/UserAPI';
 import { AdminEditorDialog } from './AdminEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
@@ -42,23 +42,40 @@ const adminColumns: ColumnDef<UserTS>[] = [
   },
 ];
 
-const ADMINS_PAGE = 0;
-const ADMINS_PAGE_SIZE = 30;
-
 export default function AdminsTable({ tid }: { tid: string }) {
-  const [isLoading, setIsLoading] = useState(false);
   const [admins, setAdmins] = useState<UserTS[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
 
-  const loadAdmins = () => {
-    setIsLoading(true);
-    AdminAPI.getByTournament(tid, ADMINS_PAGE, ADMINS_PAGE_SIZE)
-      .then(setAdmins)
-      .catch(() => console.error('Failed to load admins'))
-      .finally(() => setIsLoading(false));
-  };
+  const loadAdmins = useCallback((p: number, ps: number) => {
+    AdminAPI.getByTournament(tid, p, ps)
+      .then(result => {
+        setPage(p);
+        setPageSize(ps);
+        setAdmins(result);
+      })
+      .catch(() => console.error('Failed to load admins'));
+  }, [tid]);
 
-  useEffect(() => { loadAdmins(); }, [tid]);
+  useEffect(() => {
+    loadAdmins(0, pageSizeRef.current);
+  }, [tid]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadAdmins(newPage, pageSize);
+  }, [pageSize, loadAdmins]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setAdmins(prev => prev.slice(0, newSize));
+    } else {
+      loadAdmins(0, newSize);
+    }
+  }, [pageSize, page, loadAdmins]);
 
   const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
     await AdminAPI.delete(tid, row.id);
@@ -67,20 +84,28 @@ export default function AdminsTable({ tid }: { tid: string }) {
 
   const handleSave = useCallback((_admin: UserTS): void => {
     setEditorIsOpen(false);
-    loadAdmins();
-  }, []);
+    loadAdmins(page, pageSize);
+  }, [loadAdmins, page, pageSize]);
 
-  if (isLoading) return <div>Loading admins...</div>;
+  const totalCount = admins.length < pageSize
+    ? page * pageSize + admins.length
+    : (page + 2) * pageSize;
 
   return (
     <>
       <DataTableTemplate<UserTS>
+        key={tid}
         entityLabel="Admin"
         onCreate={() => setEditorIsOpen(true)}
         columns={adminColumns}
         rows={admins}
+        totalCount={totalCount}
         getId={(u) => u.id}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
       <AdminEditorDialog
         tid={tid}

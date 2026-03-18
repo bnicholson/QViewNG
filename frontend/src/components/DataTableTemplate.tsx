@@ -88,6 +88,132 @@ function DeleteButton({ onDelete }: { onDelete: () => Promise<void> }) {
   );
 }
 
+// ─── Pagination ───────────────────────────────────────────────────────────────
+
+const PAGE_SIZE_OPTIONS = [15, 30, 50, 100] as const;
+export const DEFAULT_PAGE_SIZE = 30;
+
+function navBtnStyle(disabled: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    border: "1px solid #e0e0e0",
+    background: disabled ? "#f9fafb" : "#fff",
+    color: disabled ? "#d1d5db" : "#374151",
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+    transition: "background .1s, border-color .1s",
+  };
+}
+
+interface PaginationProps {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}
+
+function Pagination({ page, pageSize, totalCount, onPageChange, onPageSizeChange }: PaginationProps) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const isFirst = page === 0;
+  const isLast = page >= totalPages - 1;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginTop: 12,
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      {/* Page size selector */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 13, color: "#6b7280" }}>Rows per page:</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          style={{
+            padding: "4px 8px",
+            borderRadius: 6,
+            border: "1px solid #e0e0e0",
+            fontSize: 13,
+            color: "#374151",
+            background: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          {PAGE_SIZE_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Navigation */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {/* First page */}
+        <button
+          disabled={isFirst}
+          onClick={() => onPageChange(0)}
+          style={navBtnStyle(isFirst)}
+          title="First page"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M9 2L5 6l4 4M3 2v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {/* Previous page */}
+        <button
+          disabled={isFirst}
+          onClick={() => onPageChange(page - 1)}
+          style={navBtnStyle(isFirst)}
+          title="Previous page"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {/* Page indicator */}
+        <span style={{ fontSize: 13, color: "#374151", whiteSpace: "nowrap", padding: "0 6px" }}>
+          Page <strong>{page + 1}</strong> of <strong>{totalPages}</strong>
+        </span>
+
+        {/* Next page */}
+        <button
+          disabled={isLast}
+          onClick={() => onPageChange(page + 1)}
+          style={navBtnStyle(isLast)}
+          title="Next page"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {/* Last page */}
+        <button
+          disabled={isLast}
+          onClick={() => onPageChange(totalPages - 1)}
+          style={navBtnStyle(isLast)}
+          title="Last page"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M3 2l4 4-4 4M9 2v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── DataTable ────────────────────────────────────────────────────────────────
 
 export interface ColumnDef<T> {
@@ -108,12 +234,22 @@ export interface DataTableProps<T> {
   onCreate?: () => void;
   /** Column definitions (header + cell renderer). Do NOT include the delete column — it is added automatically. */
   columns: ColumnDef<T>[];
-  /** Current row data */
+  /** Current row data (the current page of results) */
   rows: T[];
+  /** Total number of rows across all pages — used to calculate page count */
+  totalCount: number;
   /** Extracts a stable React key from each row */
   getId: (row: T) => string | number;
   /** Called with the row whose deletion was confirmed. Should call the API and update state; may throw on failure. */
   onDelete: (row: T) => Promise<void>;
+  /** Current page index (0-based) — controlled by the parent */
+  page: number;
+  /** Current page size — controlled by the parent */
+  pageSize: number;
+  /** Called when the user navigates to a different page */
+  onPageChange: (page: number) => void;
+  /** Called when the user selects a different page size */
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 export function DataTableTemplate<T>({
@@ -123,11 +259,15 @@ export function DataTableTemplate<T>({
   onCreate,
   columns,
   rows,
+  totalCount,
   getId,
   onDelete,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }: DataTableProps<T>) {
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
-  // +1 for the delete column
   const colSpan = columns.length + 1;
 
   return (
@@ -146,8 +286,8 @@ export function DataTableTemplate<T>({
             {entityLabel}s
           </h2>
           <p style={{ margin: "2px 0 0", fontSize: 13, color: "#666" }}>
-            {rows.length} {entityLabel.toLowerCase()}
-            {rows.length !== 1 ? "s" : ""}
+            {totalCount} {entityLabel.toLowerCase()}
+            {totalCount !== 1 ? "s" : ""}
           </p>
         </div>
 
@@ -227,7 +367,6 @@ export function DataTableTemplate<T>({
                   {col.header}
                 </th>
               ))}
-              {/* Empty header for the delete column */}
               <th style={{ padding: "10px 14px" }} />
             </tr>
           </thead>
@@ -269,6 +408,15 @@ export function DataTableTemplate<T>({
           </tbody>
         </table>
       </div>
+
+      {/* ── Pagination ── */}
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        totalCount={totalCount}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoundAPI, type RoundTS } from "../features/RoundAPI";
 import { RoundEditorDialog } from "./RoundEditorDialog";
 import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
@@ -58,32 +58,45 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
   ];
 }
 
-const ROUNDS_PAGE = 0;
-const ROUNDS_PAGE_SIZE = 30;
-
 export default function RoundsTable({ tid }: { tid: string }) {
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [rounds, setRounds] = useState<RoundTS[]>([]);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
 
-  const loadRounds = () => {
-    setIsLoading(true);
+  const loadRounds = useCallback((p: number, ps: number) => {
     Promise.all([
-      RoundAPI.get(ROUNDS_PAGE, ROUNDS_PAGE_SIZE),
+      RoundAPI.get(p, ps),
       DivisionAPI.get(0, 100),
     ])
       .then(([roundResult, divisionResult]: [RoundTS[], DivisionTS[]]) => {
+        setPage(p);
+        setPageSize(ps);
         setRounds(roundResult);
         setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
       })
-      .catch(() => console.error("Failed to load rounds"))
-      .finally(() => setIsLoading(false));
-  };
+      .catch(() => console.error("Failed to load rounds"));
+  }, [tid]);
 
   useEffect(() => {
-    loadRounds();
+    loadRounds(0, pageSizeRef.current);
   }, [tid]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadRounds(newPage, pageSize);
+  }, [pageSize, loadRounds]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setRounds(prev => prev.slice(0, newSize));
+    } else {
+      loadRounds(0, newSize);
+    }
+  }, [pageSize, page, loadRounds]);
 
   const handleDelete = useCallback(async (row: RoundTS): Promise<void> => {
     await RoundAPI.delete(row.roundid);
@@ -92,20 +105,28 @@ export default function RoundsTable({ tid }: { tid: string }) {
 
   const handleSave = useCallback((_round: RoundTS): void => {
     setEditorIsOpen(false);
-    loadRounds();
-  }, []);
+    loadRounds(page, pageSize);
+  }, [loadRounds, page, pageSize]);
 
-  if (isLoading) return <div>Loading rounds...</div>;
+  const totalCount = rounds.length < pageSize
+    ? page * pageSize + rounds.length
+    : (page + 2) * pageSize;
 
   return (
     <>
       <DataTableTemplate<RoundTS>
+        key={tid}
         entityLabel="Round"
         onCreate={() => setEditorIsOpen(true)}
         columns={roundColumns(tid, divisionMap)}
         rows={rounds}
+        totalCount={totalCount}
         getId={(r) => r.roundid}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
       <RoundEditorDialog
         isOpen={editorIsOpen}

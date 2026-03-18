@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { BoolBadge, DataTableTemplate, type ColumnDef } from './DataTableTemplate';
+import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
 import { UserEditorDialog } from './UserEditorDialog';
 
@@ -56,24 +56,37 @@ function userColumns(onEdit: (user: UserTS) => void): ColumnDef<UserTS>[] {
   ];
 }
 
-const USERS_PAGE = 0;
-const USERS_PAGE_SIZE = 50;
-
 export default function UsersTable() {
-  const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState<UserTS[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserTS | undefined>(undefined);
 
-  const loadUsers = () => {
-    setIsLoading(true);
-    UserAPI.get(USERS_PAGE, USERS_PAGE_SIZE)
-      .then(setUsers)
-      .catch(() => console.error('Failed to load users'))
-      .finally(() => setIsLoading(false));
-  };
+  const loadUsers = useCallback((p: number, ps: number) => {
+    UserAPI.get(p, ps)
+      .then(result => {
+        setPage(p);
+        setPageSize(ps);
+        setUsers(result);
+      })
+      .catch(() => console.error('Failed to load users'));
+  }, []);
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadUsers(0, 15); }, []);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    loadUsers(newPage, pageSize);
+  }, [pageSize, loadUsers]);
+
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    if (newSize < pageSize && page === 0) {
+      setPageSize(newSize);
+      setUsers(prev => prev.slice(0, newSize));
+    } else {
+      loadUsers(0, newSize);
+    }
+  }, [pageSize, page, loadUsers]);
 
   const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
     await UserAPI.delete(row.id);
@@ -82,15 +95,17 @@ export default function UsersTable() {
 
   const handleCreateSave = useCallback((_user: UserTS): void => {
     setCreateOpen(false);
-    loadUsers();
-  }, []);
+    loadUsers(page, pageSize);
+  }, [loadUsers, page, pageSize]);
 
   const handleEditSave = useCallback((updated: UserTS): void => {
     setEditingUser(undefined);
     setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
   }, []);
 
-  if (isLoading) return <div>Loading users...</div>;
+  const totalCount = users.length < pageSize
+    ? page * pageSize + users.length
+    : (page + 2) * pageSize;
 
   return (
     <>
@@ -99,8 +114,13 @@ export default function UsersTable() {
         onCreate={() => setCreateOpen(true)}
         columns={userColumns((u) => setEditingUser(u))}
         rows={users}
+        totalCount={totalCount}
         getId={(u) => u.id}
         onDelete={handleDelete}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
       />
 
       {/* Create dialog */}
