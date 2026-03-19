@@ -39,6 +39,8 @@ export interface PagedGames {
 export const GameAPI = {
   get: async (page: number, size: number): Promise<PagedGames> =>
     (await fetch(`/api/games?page=${page}&page_size=${size}`)).json(),
+  getByTournament: async (tid: string, page: number, size: number): Promise<PagedGames> =>
+    (await fetch(`/api/tournaments/${tid}/games?page=${page}&page_size=${size}`)).json(),
   create: async (game: NewGamePayload): Promise<GameTS> => {
     const response = await fetch('/api/games', {
       method: 'POST',

@@ -31,14 +31,25 @@ export interface TeamChangeset {
   quizzer_six_id?: string | null;
 }
 
+export interface TeamWithCoachTS extends TeamTS {
+  coach_name: string;
+}
+
 export interface PagedTeams {
   count: number;
   items: TeamTS[];
 }
 
+export interface PagedTeamsWithCoach {
+  count: number;
+  items: TeamWithCoachTS[];
+}
+
 export const TeamAPI = {
   get: async (page: number, size: number): Promise<PagedTeams> =>
     (await fetch(`/api/teams?page=${page}&page_size=${size}`)).json(),
+  getByTournament: async (tid: string, page: number, size: number): Promise<PagedTeamsWithCoach> =>
+    (await fetch(`/api/tournaments/${tid}/teams?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<TeamTS> => {
     const response = await fetch(`/api/teams/${id}`);
     if (!response.ok) throw new Error(`Team not found (${response.status})`);

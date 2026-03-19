@@ -104,7 +104,7 @@ export default function GamesTable({ tid }: { tid: string }) {
 
   const loadGames = useCallback((p: number, ps: number) => {
     Promise.all([
-      GameAPI.get(p, ps),
+      GameAPI.getByTournament(tid, p, ps),
       DivisionAPI.get(0, 100),
       RoomAPI.get(0, 100),
       RoundAPI.get(0, 200),

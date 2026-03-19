@@ -225,6 +225,28 @@ async fn read_rounds(
     }
 }
 
+#[get("/{id}/teams")]
+async fn read_teams(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let tid = item_id.into_inner();
+    match (
+        models::team::read_all_teams_of_tournament(&mut conn, tid, &params),
+        models::team::count_by_tournament(&mut conn, tid),
+    ) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/games")]
 async fn read_games(
     db: Data<Database>,
@@ -237,9 +259,13 @@ async fn read_games(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::game::read_all_games_of_tournament(&mut conn, tour_id.into_inner(), &params) {
-        Ok(rounds) => HttpResponse::Ok().json(rounds),
-        Err(_) => HttpResponse::NotFound().finish(),
+    let tid = tour_id.into_inner();
+    match (
+        models::game::read_all_games_of_tournament(&mut conn, tid, &params),
+        models::game::count_by_tournament(&mut conn, tid),
+    ) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 
@@ -449,6 +475,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_rooms)
         .service(read_rounds)
         .service(read_divisions)
+        .service(read_teams)
         .service(read_games)
         .service(read_admins)
         .service(read_tournamentgroups)

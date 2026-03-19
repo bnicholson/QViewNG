@@ -70,14 +70,14 @@ export default function RoundsTable({ tid }: { tid: string }) {
 
   const loadRounds = useCallback((p: number, ps: number) => {
     Promise.all([
-      RoundAPI.get(p, ps),
+      RoundAPI.getByTournament(tid, p, ps),
       DivisionAPI.get(0, 100),
     ])
       .then(([roundResult, divisionResult]) => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(roundResult.count);
-        setRounds(roundResult.items);
+        setTotalCount(roundResult.length < ps ? p * ps + roundResult.length : (p + 2) * ps);
+        setRounds(roundResult);
         setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
       })
       .catch(() => console.error("Failed to load rounds"));

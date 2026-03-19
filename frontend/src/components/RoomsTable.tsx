@@ -64,12 +64,12 @@ export default function RoomsTable({ tid }: { tid: string }) {
   pageSizeRef.current = pageSize;
 
   const loadRooms = useCallback((p: number, ps: number) => {
-    RoomAPI.get(p, ps)
+    RoomAPI.getByTournament(tid, p, ps)
       .then((result) => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(result.count);
-        setRooms(result.items);
+        setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
+        setRooms(result);
       })
       .catch(() => console.error("Failed to load rooms"));
   }, [tid]);

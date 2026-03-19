@@ -5,6 +5,7 @@ use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{Utc,DateTime};
@@ -151,6 +152,23 @@ pub struct Team {
     pub quizzer_six_id: Option<Uuid>
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TeamWithCoach {
+    pub teamid: Uuid,
+    pub did: Uuid,
+    pub coachid: Uuid,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub quizzer_one_id: Option<Uuid>,
+    pub quizzer_two_id: Option<Uuid>,
+    pub quizzer_three_id: Option<Uuid>,
+    pub quizzer_four_id: Option<Uuid>,
+    pub quizzer_five_id: Option<Uuid>,
+    pub quizzer_six_id: Option<Uuid>,
+    pub coach_name: String,
+}
+
 #[derive(
     Insertable,
     Serialize,
@@ -295,4 +313,89 @@ pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::teams::dsl::*;
     diesel::delete(teams.filter(teamid.eq(item_id))).execute(db)
+}
+
+pub fn count_by_tournament(db: &mut database::Connection, tournament_id: Uuid) -> QueryResult<i64> {
+    let division_ids: Vec<Uuid> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(tid.eq(tournament_id))
+            .select(did)
+            .load::<Uuid>(db)?
+    };
+
+    if division_ids.is_empty() {
+        return Ok(0);
+    }
+
+    use crate::schema::teams::dsl::*;
+    teams.filter(did.eq_any(&division_ids)).count().get_result(db)
+}
+
+pub fn read_all_teams_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<TeamWithCoach>> {
+    let division_ids: Vec<Uuid> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(tid.eq(tournament_id))
+            .select(did)
+            .load::<Uuid>(db)?
+    };
+
+    if division_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(did.eq_any(&division_ids))
+            .order(name.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Team>(db)?
+    };
+
+    if team_list.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let coach_ids: Vec<Uuid> = team_list.iter().map(|t| t.coachid).collect();
+    let coach_map: HashMap<Uuid, String> = {
+        use crate::schema::users::dsl::*;
+        users
+            .filter(id.eq_any(&coach_ids))
+            .load::<crate::models::user::User>(db)?
+            .into_iter()
+            .map(|u| (u.id, format!("{} {} {}", u.fname, u.mname, u.lname)))
+            .collect()
+    };
+
+    Ok(team_list
+        .into_iter()
+        .map(|t| {
+            let coach_name = coach_map.get(&t.coachid).cloned().unwrap_or_default();
+            TeamWithCoach {
+                teamid: t.teamid,
+                did: t.did,
+                coachid: t.coachid,
+                name: t.name,
+                created_at: t.created_at,
+                updated_at: t.updated_at,
+                quizzer_one_id: t.quizzer_one_id,
+                quizzer_two_id: t.quizzer_two_id,
+                quizzer_three_id: t.quizzer_three_id,
+                quizzer_four_id: t.quizzer_four_id,
+                quizzer_five_id: t.quizzer_five_id,
+                quizzer_six_id: t.quizzer_six_id,
+                coach_name,
+            }
+        })
+        .collect())
 }

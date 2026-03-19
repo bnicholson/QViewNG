@@ -19,6 +19,8 @@ export interface PagedRounds {
 export const RoundAPI = {
   get: async (page: number, size: number): Promise<PagedRounds> =>
     (await fetch(`/api/rounds?page=${page}&page_size=${size}`)).json(),
+  getByTournament: async (tid: string, page: number, size: number): Promise<RoundTS[]> =>
+    (await fetch(`/api/tournaments/${tid}/rounds?page=${page}&page_size=${size}`)).json(),
   create: async (round: NewRoundPayload): Promise<RoundTS> => {
     const response = await fetch('/api/rounds', {
       method: 'POST',

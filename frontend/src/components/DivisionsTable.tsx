@@ -64,12 +64,12 @@ export default function DivisionsTable({ tid }: { tid: string }) {
   pageSizeRef.current = pageSize;
 
   const loadDivisions = useCallback((p: number, ps: number) => {
-    DivisionAPI.get(p, ps)
+    DivisionAPI.getByTournament(tid, p, ps)
       .then(result => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(result.count);
-        setDivisions(result.items);
+        setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
+        setDivisions(result);
       })
       .catch(() => console.error("Failed to load divisions"));
   }, [tid]);

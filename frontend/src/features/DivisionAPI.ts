@@ -26,6 +26,8 @@ export interface PagedDivisions {
 export const DivisionAPI = {
   get: async (page: number, size: number): Promise<PagedDivisions> =>
     (await fetch(`/api/divisions?page=${page}&page_size=${size}`)).json(),
+  getByTournament: async (tid: string, page: number, size: number): Promise<DivisionTS[]> =>
+    (await fetch(`/api/tournaments/${tid}/divisions?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<DivisionTS> => {
     const response = await fetch(`/api/divisions/${id}`);
     if (!response.ok) throw new Error(`Division not found (${response.status})`);

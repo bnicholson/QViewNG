@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
-import { TeamAPI, type TeamTS } from '../features/TeamAPI';
+import { TeamAPI, type TeamTS, type TeamWithCoachTS } from '../features/TeamAPI';
 import { DivisionAPI } from '../features/DivisionAPI';
-import { UserAPI } from '../features/UserAPI';
 import { TeamEditorDialog } from './TeamEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
@@ -15,8 +14,7 @@ function formatDate(iso: string | null | undefined): string {
 function teamColumns(
   tid: string,
   divisionMap: Map<string, string>,
-  coachMap: Map<string, string>,
-): ColumnDef<TeamTS>[] {
+): ColumnDef<TeamWithCoachTS>[] {
   return [
     {
       header: 'Name',
@@ -37,7 +35,7 @@ function teamColumns(
     },
     {
       header: 'Coach',
-      render: (t) => coachMap.get(t.coachid) ?? t.coachid,
+      render: (t) => t.coach_name,
     },
     {
       header: 'Created',
@@ -55,10 +53,9 @@ function teamColumns(
 }
 
 export default function TeamsTable({ tid }: { tid: string }) {
-  const [teams, setTeams] = useState<TeamTS[]>([]);
+  const [teams, setTeams] = useState<TeamWithCoachTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
-  const [coachMap, setCoachMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -67,20 +64,15 @@ export default function TeamsTable({ tid }: { tid: string }) {
 
   const loadTeams = useCallback((p: number, ps: number) => {
     Promise.all([
-      TeamAPI.get(p, ps),
-      DivisionAPI.get(0, 100),
-      UserAPI.get(0, 200),
+      TeamAPI.getByTournament(tid, p, ps),
+      DivisionAPI.getByTournament(tid, 0, 100),
     ])
-      .then(([teamResult, divisionResult, userResult]) => {
+      .then(([teamResult, divisionResult]) => {
         setPage(p);
         setPageSize(ps);
         setTotalCount(teamResult.count);
         setTeams(teamResult.items);
-        setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
-        setCoachMap(new Map(userResult.items.map(u => [
-          u.id,
-          [u.fname, u.mname, u.lname].filter(Boolean).join(' '),
-        ])));
+        setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
       })
       .catch(() => console.error('Failed to load teams'));
   }, [tid]);
@@ -102,7 +94,7 @@ export default function TeamsTable({ tid }: { tid: string }) {
     }
   }, [pageSize, page, loadTeams]);
 
-  const handleDelete = useCallback(async (row: TeamTS): Promise<void> => {
+  const handleDelete = useCallback(async (row: TeamWithCoachTS): Promise<void> => {
     await TeamAPI.delete(row.teamid);
     setTeams((prev) => prev.filter((t) => t.teamid !== row.teamid));
   }, []);
@@ -114,11 +106,11 @@ export default function TeamsTable({ tid }: { tid: string }) {
 
   return (
     <>
-      <DataTableTemplate<TeamTS>
+      <DataTableTemplate<TeamWithCoachTS>
         key={tid}
         entityLabel="Team"
         onCreate={() => setEditorIsOpen(true)}
-        columns={teamColumns(tid, divisionMap, coachMap)}
+        columns={teamColumns(tid, divisionMap)}
         rows={teams}
         totalCount={totalCount}
         getId={(t) => t.teamid}

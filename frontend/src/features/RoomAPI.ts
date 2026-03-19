@@ -25,6 +25,8 @@ export interface PagedRooms {
 export const RoomAPI = {
   get: async (page: number, size: number): Promise<PagedRooms> =>
     (await fetch(`/api/rooms?page=${page}&page_size=${size}`)).json(),
+  getByTournament: async (tid: string, page: number, size: number): Promise<RoomTS[]> =>
+    (await fetch(`/api/tournaments/${tid}/rooms?page=${page}&page_size=${size}`)).json(),
   create: async (room: NewRoomPayload): Promise<RoomTS> => {
     const response = await fetch('/api/rooms', {
       method: 'POST',

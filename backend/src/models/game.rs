@@ -357,6 +357,11 @@ pub fn count(db_conn: &mut database::Connection) -> QueryResult<i64> {
     games.count().get_result(db_conn)
 }
 
+pub fn count_by_tournament(db_conn: &mut database::Connection, tournament_id: Uuid) -> QueryResult<i64> {
+    use crate::schema::games::dsl::*;
+    games.filter(tournamentid.eq(tournament_id)).count().get_result(db_conn)
+}
+
 pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     use crate::schema::games::dsl::*;
 
