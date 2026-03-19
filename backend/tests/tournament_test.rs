@@ -1104,3 +1104,56 @@ async fn get_all_teams_of_tournament_works() {
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
+
+#[actix_web::test]
+async fn get_all_quizzers_of_tournament_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+
+    // seed_teams creates 3 teams: Team 1 (0 quizzers), Come Get Some (2), Luke Found a Frog (6)
+    fixtures::teams::seed_teams(&mut conn, division.did);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/tournaments/{}/quizzers", tournament.tid);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: PagedResponse<User> = test::read_body_json(resp).await;
+
+    assert_eq!(body.count, 8);
+    assert_eq!(body.items.len(), 8);
+
+    // Verify a specific quizzer is present
+    let tyler = body.items.iter().find(|u| u.fname == "Tyler");
+    assert!(tyler.is_some());
+    assert_eq!(tyler.unwrap().lname, "Den");
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}

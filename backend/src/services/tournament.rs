@@ -247,6 +247,27 @@ async fn read_teams(
     }
 }
 
+#[get("/{id}/quizzers")]
+async fn read_quizzers(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let tid = item_id.into_inner();
+    match models::team::read_all_quizzers_of_tournament(&mut conn, tid) {
+        Ok(items) => {
+            let count = items.len() as i64;
+            HttpResponse::Ok().json(PagedResponse { count, items })
+        },
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/games")]
 async fn read_games(
     db: Data<Database>,
@@ -476,6 +497,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_rounds)
         .service(read_divisions)
         .service(read_teams)
+        .service(read_quizzers)
         .service(read_games)
         .service(read_admins)
         .service(read_tournamentgroups)

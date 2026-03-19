@@ -37,6 +37,8 @@ export interface PagedUsers {
 export const UserAPI = {
   get: async (page: number, size: number): Promise<PagedUsers> =>
     (await fetch(`/api/users?page=${page}&page_size=${size}`)).json(),
+  getByTournament: async (tid: string): Promise<PagedUsers> =>
+    (await fetch(`/api/tournaments/${tid}/quizzers`)).json(),
   getById: async (id: string): Promise<UserTS> => {
     const response = await fetch(`/api/users/${id}`);
     if (!response.ok) throw new Error(`User not found (${response.status})`);

@@ -49,21 +49,32 @@ interface Props {
   createLabel?: string;
 }
 
-// Note: quizzers are associated with tournaments through rosters (roster → rosters_quizzers → user).
-// There is no direct tournament-level quizzer endpoint in the backend. This table shows all
-// registered users in the system. Quizzer-to-roster associations are managed separately.
-export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete, createLabel }: Props) {
+export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, createLabel }: Props) {
+  // All items for client-side pagination (tid or externalRows mode)
+  const [allTournamentQuizzers, setAllTournamentQuizzers] = useState<UserTS[] | undefined>(undefined);
+  // Current-page items for server-side pagination (no tid, no externalRows)
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
+  const [apiTotalCount, setApiTotalCount] = useState(0);
+
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
-  const [apiTotalCount, setApiTotalCount] = useState(0);
+  // Fetch all quizzers for the tournament once; re-fetch when tid changes
+  useEffect(() => {
+    if (tid === undefined) return;
+    setPage(0);
+    setAllTournamentQuizzers(undefined);
+    UserAPI.getByTournament(tid)
+      .then(result => setAllTournamentQuizzers(result.items))
+      .catch(() => console.error('Failed to load quizzers'));
+  }, [tid]);
 
+  // Server-side pagination fetch (only used when no tid and no externalRows)
   const loadQuizzers = useCallback((p: number, ps: number) => {
-    if (externalRows !== undefined) return;
+    if (externalRows !== undefined || tid !== undefined) return;
     UserAPI.get(p, ps)
       .then(result => {
         setPage(p);
@@ -72,28 +83,37 @@ export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete
         setQuizzers(result.items);
       })
       .catch(() => console.error('Failed to load quizzers'));
-  }, [externalRows]);
+  }, [externalRows, tid]);
 
   useEffect(() => {
-    if (externalRows !== undefined) return;
     loadQuizzers(0, pageSizeRef.current);
   }, []);
 
-  const rows = externalRows ?? quizzers;
+  // Client-side data: externalRows takes priority, then tournament quizzers
+  const clientItems = externalRows ?? allTournamentQuizzers;
+
+  // Slice for the current page when all data is loaded; otherwise use the server-fetched page
+  const rows = clientItems !== undefined
+    ? clientItems.slice(page * pageSize, (page + 1) * pageSize)
+    : quizzers;
+
+  const totalCount = clientItems !== undefined ? clientItems.length : apiTotalCount;
 
   const handlePageChange = useCallback((newPage: number) => {
-    loadQuizzers(newPage, pageSize);
-  }, [pageSize, loadQuizzers]);
+    if (externalRows !== undefined || allTournamentQuizzers !== undefined) {
+      setPage(newPage);
+    } else {
+      loadQuizzers(newPage, pageSize);
+    }
+  }, [externalRows, allTournamentQuizzers, pageSize, loadQuizzers]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    if (externalRows !== undefined) return;
-    if (newSize < pageSize && page === 0) {
-      setPageSize(newSize);
-      setQuizzers(prev => prev.slice(0, newSize));
-    } else {
+    setPage(0);
+    setPageSize(newSize);
+    if (externalRows === undefined && allTournamentQuizzers === undefined) {
       loadQuizzers(0, newSize);
     }
-  }, [pageSize, page, externalRows, loadQuizzers]);
+  }, [externalRows, allTournamentQuizzers, loadQuizzers]);
 
   const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
     if (onDelete) return onDelete(row);
@@ -102,10 +122,14 @@ export default function QuizzersTable({ tid: _tid, externalRows, onAdd, onDelete
 
   const handleSave = useCallback((_user: UserTS): void => {
     setEditorIsOpen(false);
-    loadQuizzers(page, pageSize);
-  }, [loadQuizzers, page, pageSize]);
-
-  const totalCount = externalRows !== undefined ? externalRows.length : apiTotalCount;
+    if (tid !== undefined) {
+      UserAPI.getByTournament(tid)
+        .then(result => { setPage(0); setAllTournamentQuizzers(result.items); })
+        .catch(() => console.error('Failed to reload quizzers'));
+    } else {
+      loadQuizzers(page, pageSize);
+    }
+  }, [tid, loadQuizzers, page, pageSize]);
 
   return (
     <>

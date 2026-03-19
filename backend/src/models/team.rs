@@ -399,3 +399,54 @@ pub fn read_all_teams_of_tournament(
         })
         .collect())
 }
+
+pub fn read_all_quizzers_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+) -> QueryResult<Vec<crate::models::user::User>> {
+    let division_ids: Vec<Uuid> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(tid.eq(tournament_id))
+            .select(did)
+            .load::<Uuid>(db)?
+    };
+
+    if division_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(did.eq_any(&division_ids))
+            .load::<Team>(db)?
+    };
+
+    if team_list.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let quizzer_ids: Vec<Uuid> = team_list
+        .iter()
+        .flat_map(|t| {
+            [
+                t.quizzer_one_id,
+                t.quizzer_two_id,
+                t.quizzer_three_id,
+                t.quizzer_four_id,
+                t.quizzer_five_id,
+                t.quizzer_six_id,
+            ]
+            .into_iter()
+            .flatten()
+        })
+        .collect();
+
+    if quizzer_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    use crate::schema::users::dsl::*;
+    users.filter(id.eq_any(&quizzer_ids)).load::<crate::models::user::User>(db)
+}
