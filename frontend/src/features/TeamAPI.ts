@@ -77,7 +77,7 @@ export const TeamAPI = {
       const text = await response.text();
       throw new Error(`Failed to update team (${response.status}): ${text}`);
     }
-    return response.json();
+    return (await response.json()).data;
   },
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/teams/${id}`, { method: 'DELETE' });

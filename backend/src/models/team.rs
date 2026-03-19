@@ -4,11 +4,23 @@ use crate::models::common::PaginationParams;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{Utc,DateTime};
+
+/// Deserializes an optional nullable field so that:
+/// - key absent in JSON  → `None`           → Diesel skips the column
+/// - key present, `null` → `Some(None)`     → Diesel sets the column to NULL
+/// - key present, value  → `Some(Some(v))`  → Diesel sets the column to v
+fn deserialize_optional_option<'de, T, D>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Ok(Some(Option::deserialize(d)?))
+}
 
 pub struct TeamBuilder {
     did: Uuid,
@@ -195,12 +207,18 @@ pub struct NewTeam {
 pub struct TeamChangeset {
     pub coachid: Option<Uuid>,
     pub name: Option<String>,           // Name of the team (human readable)
-    pub quizzer_one_id: Option<Uuid>,
-    pub quizzer_two_id: Option<Uuid>,
-    pub quizzer_three_id: Option<Uuid>,
-    pub quizzer_four_id: Option<Uuid>,
-    pub quizzer_five_id: Option<Uuid>,
-    pub quizzer_six_id: Option<Uuid>
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizzer_one_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizzer_two_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizzer_three_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizzer_four_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizzer_five_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizzer_six_id: Option<Option<Uuid>>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTeam) -> QueryResult<Team> {

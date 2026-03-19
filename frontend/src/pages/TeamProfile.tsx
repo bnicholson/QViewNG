@@ -7,7 +7,7 @@ import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import QuizzersTable from '../components/QuizzersTable'
+import TeamQuizzersTable from '../components/TeamQuizzersTable'
 import { QuizzerPickerDialog } from '../components/QuizzerPickerDialog'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
@@ -66,24 +66,22 @@ export const TeamProfile = () => {
       .finally(() => setIsLoading(false));
   }, [tid, teamid]);
 
-  const handlePickerConfirm = (selected: UserTS[]) => {
+  const handlePickerConfirm = async (selected: UserTS[]) => {
     setPickerOpen(false);
-    setSlots(prev => {
-      const next = [...prev];
-      let si = 0;
-      for (let i = 0; i < next.length && si < selected.length; i++) {
-        if (!next[i]) next[i] = selected[si++].id;
-      }
-      return next;
-    });
-  };
-
-  const handleRemoveQuizzer = async (user: UserTS): Promise<void> => {
-    const newSlots = slots.map(s => s === user.id ? null : s);
+    const next = [...slots];
+    let si = 0;
+    for (let i = 0; i < next.length && si < selected.length; i++) {
+      if (!next[i]) next[i] = selected[si++].id;
+    }
     const changeset: TeamChangeset = {};
-    SLOT_FIELDS.forEach((f, i) => { changeset[f] = newSlots[i] || null; });
-    await TeamAPI.update(teamid!, changeset);
-    setSlots(newSlots);
+    SLOT_FIELDS.forEach((f, i) => { changeset[f] = next[i] ?? null; });
+    try {
+      const updatedTeam = await TeamAPI.update(teamid!, changeset);
+      setTeam(updatedTeam);
+      setSlots(slotsFromTeam(updatedTeam));
+    } catch (err) {
+      console.error('Failed to save quizzer assignments:', err);
+    }
   };
 
   if (!tid || !teamid) return <></>;
@@ -145,11 +143,15 @@ export const TeamProfile = () => {
         </Box>
         <Divider sx={{ mb: 2 }} />
 
-        <QuizzersTable
-          externalRows={assignedUsers}
+        <TeamQuizzersTable
+          team={team}
+          teamId={teamid}
+          assignedUsers={assignedUsers}
           onAdd={() => setPickerOpen(true)}
-          onDelete={handleRemoveQuizzer}
-          createLabel="Add Quizzers"
+          onRemoved={(updatedTeam) => {
+            setTeam(updatedTeam);
+            setSlots(slotsFromTeam(updatedTeam));
+          }}
         />
 
       </Box>
