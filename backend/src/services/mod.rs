@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod tournament;
 pub mod division;
 pub mod user;

@@ -328,3 +328,24 @@ pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize
     use crate::schema::users::dsl::*;
     diesel::delete(users.filter(id.eq(item_id))).execute(db)
 }
+
+pub fn find_by_email_or_username(db: &mut database::Connection, identifier: &str) -> QueryResult<User> {
+    use crate::schema::users::dsl::*;
+    users
+        .filter(email.eq(identifier).or(username.eq(identifier)))
+        .first::<User>(db)
+}
+
+pub fn change_password(db: &mut database::Connection, user_id: Uuid, new_hash: &str) -> QueryResult<User> {
+    use crate::schema::users::dsl::*;
+    diesel::update(users.filter(id.eq(user_id)))
+        .set((hash_password.eq(new_hash), updated_at.eq(diesel::dsl::now)))
+        .get_result(db)
+}
+
+pub fn activate_user(db: &mut database::Connection, user_id: Uuid) -> QueryResult<User> {
+    use crate::schema::users::dsl::*;
+    diesel::update(users.filter(id.eq(user_id)))
+        .set((activated.eq(true), updated_at.eq(diesel::dsl::now)))
+        .get_result(db)
+}

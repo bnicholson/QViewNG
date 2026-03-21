@@ -16,6 +16,7 @@ import { Files } from "./containers/Files";
 import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
 import { ManageUsers } from "./pages/ManageUsers";
+import { AuthStatusPage } from "./pages/AuthStatusPage";
 
 // NOTE: This component was created for ease-of-access and modularity, not reusability.
 //       ONLY the App.tsx file should use this component. 
@@ -31,6 +32,8 @@ export default function QViewRoutes() {
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/auth-status" element={<AuthStatusPage />} />
+            <Route path="/admin/crm/users" element={<ManageUsers />} />
             <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentRedirect />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile tab="divisions" />} />
@@ -46,7 +49,6 @@ export default function QViewRoutes() {
             {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />
-            <Route path="/admin/crm/users" element={<ManageUsers />} />
             <Route path="/files" element={<Files />} />
             <Route path="/swagger" element={<Swagger />} />
             <Route path="/404" element={<NotFound />} />

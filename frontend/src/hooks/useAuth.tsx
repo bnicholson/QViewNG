@@ -1,5 +1,29 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 
+type ID = string
+
+interface Permission {
+  permission: string
+}
+
+interface AccessTokenClaims {
+  sub: string
+  exp: number
+  roles: string[]
+  permissions: Permission[]
+}
+
+export interface UserSessionResponse {
+  sessions: Array<{
+    id: number
+    device: string | null
+    created_at: string
+    refresh_token: string
+    user_id: string
+  }>
+  num_pages: number
+}
+
 const MILLISECONDS_UNTIL_EXPIRY_CHECK = 10 * 1000 // check expiry every 10 seconds
 const REMAINING_TOKEN_EXPIRY_TIME_ALLOWED = 60 * 1000 // 1 minute before token should be refreshed
 
@@ -84,13 +108,13 @@ export const AuthProvider = (props: AuthWrapperProps) => {
 export const useAuth = () => {
   const context = useContext(Context)
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<string | null> => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier: email, password }),
     })
 
     if (response.ok) {
@@ -106,11 +130,13 @@ export const useAuth = () => {
         hasPermission: permissions.hasPermission,
         hasRole: permissions.hasRole,
       })
-      return true
+      localStorage.setItem('qview_session', '1')
+      return null
     } else {
       context.setAccessToken(undefined)
       context.setSession(undefined)
-      return false
+      const body = await response.json().catch(() => ({}))
+      return body.error ?? 'Login failed. Please try again.'
     }
   }
 
@@ -122,6 +148,7 @@ export const useAuth = () => {
     if (response.ok) {
       context.setAccessToken(undefined)
       context.setSession(undefined)
+      localStorage.removeItem('qview_session')
       return true
     } else {
       return false
@@ -156,7 +183,11 @@ export const useAuthCheck = () => {
     }
 
     if (!context.accessToken || isExpiringSoon()) {
-      // console.log('Restoring session')
+      if (!localStorage.getItem('qview_session')) {
+        context.setCheckingAuth(false)
+        return
+      }
+
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
       })
@@ -178,6 +209,7 @@ export const useAuthCheck = () => {
       } else {
         context.setAccessToken(undefined)
         context.setSession(undefined)
+        localStorage.removeItem('qview_session')
       }
     } else {
       // console.log(`${context.accessToken ? 'access token' : ''} ${isExpiringSoon() ? ' is not expiring' : ''}`)

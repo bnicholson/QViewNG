@@ -33,15 +33,17 @@ export const RecoveryPage = () => {
     <div className="Form" style={{ textAlign: 'left' }}>
       <h1>Account Recovery</h1>
       <br />
-      <div style={{ display: 'flex', flexFlow: 'column' }}>
-        <label>Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} />
-      </div>
-      <div style={{ display: 'flex', flexFlow: 'column' }}>
-        <button disabled={processing} onClick={recover}>
-          Recover
-        </button>
-      </div>
+      <form onSubmit={(e) => { e.preventDefault(); recover() }}>
+        <div style={{ display: 'flex', flexFlow: 'column' }}>
+          <label>Email</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', flexFlow: 'column' }}>
+          <button type="submit" disabled={processing}>
+            Recover
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

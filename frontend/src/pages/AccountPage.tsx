@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
+const validatePassword = (password: string): string | null => {
+  if (password.length < 8) return 'Password must be at least 8 characters long.'
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.'
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.'
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number.'
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Password must contain at least one special character.'
+  return null
+}
+
 export const AccountPage = () => {
   const auth = useAuth()
   const navigate = useNavigate()
@@ -9,6 +18,9 @@ export const AccountPage = () => {
   const [processing, setProcessing] = useState<boolean>(false)
   const [originalPassword, setOriginalPassword] = useState<string>('')
   const [password, setPassword] = useState<string>('')
+  const [oldPasswordError, setOldPasswordError] = useState<string | null>(null)
+  const [newPasswordError, setNewPasswordError] = useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
 
   const [page, setPage] = useState<number>(0)
   const [pageSize, setPageSize] = useState<number>(10)
@@ -26,7 +38,7 @@ export const AccountPage = () => {
     const response = await fetch(`/api/auth/sessions/${id}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `${auth.accessToken}`,
+        Authorization: `Bearer ${auth.accessToken}`,
       },
     })
 
@@ -46,7 +58,7 @@ export const AccountPage = () => {
     const response = await fetch(`/api/auth/sessions`, {
       method: 'DELETE',
       headers: {
-        Authorization: `${auth.accessToken}`,
+        Authorization: `Bearer ${auth.accessToken}`,
       },
     })
 
@@ -71,7 +83,7 @@ export const AccountPage = () => {
       await fetch(`/api/auth/sessions?page=${page}&page_size=${pageSize}`, {
         method: 'GET',
         headers: {
-          Authorization: `${auth.accessToken}`,
+          Authorization: `Bearer ${auth.accessToken}`,
         },
       })
     ).json()
@@ -85,24 +97,40 @@ export const AccountPage = () => {
   }, [auth.isAuthenticated, page, pageSize])
 
   const changePassword = async () => {
+    setOldPasswordError(null)
+    setNewPasswordError(null)
+    setPasswordSuccess(null)
+
+    const pwdErr = validatePassword(password)
+    if (pwdErr) {
+      setNewPasswordError(pwdErr)
+      return
+    }
+
     setProcessing(true)
-    const response = await (
-      await fetch('/api/auth/change', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `${auth.accessToken}`,
-        },
-        body: JSON.stringify({
-          old_password: originalPassword,
-          new_password: password,
-        }),
-      })
-    ).json()
-    console.log(response)
-    setOriginalPassword('')
-    setPassword('')
+    const response = await fetch('/api/auth/change', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({
+        old_password: originalPassword,
+        new_password: password,
+      }),
+    })
+    const body = await response.json().catch(() => ({}))
     setProcessing(false)
+
+    if (response.ok) {
+      setOriginalPassword('')
+      setPassword('')
+      setPasswordSuccess('Password changed successfully.')
+    } else if (response.status === 401) {
+      setOldPasswordError(body.error ?? 'Current password is incorrect.')
+    } else {
+      setNewPasswordError(body.error ?? 'Failed to change password.')
+    }
   }
 
   return (
@@ -130,21 +158,25 @@ export const AccountPage = () => {
             <h1>Change password</h1>
             <br />
             <div style={{ display: 'flex', flexFlow: 'column' }}>
-              <label>Original Password</label>
+              <label>Current Password</label>
               <input
                 type="password"
                 value={originalPassword}
-                onChange={(e) => setOriginalPassword(e.target.value)}
+                onChange={(e) => { setOriginalPassword(e.target.value); setOldPasswordError(null) }}
               />
+              {oldPasswordError && <span style={{ color: 'red', fontSize: '0.85em', marginTop: '4px' }}>{oldPasswordError}</span>}
             </div>
             <div style={{ display: 'flex', flexFlow: 'column' }}>
               <label>New Password</label>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setNewPasswordError(null) }}
+                onBlur={() => setNewPasswordError(password ? validatePassword(password) : null)}
               />
+              {newPasswordError && <span style={{ color: 'red', fontSize: '0.85em', marginTop: '4px' }}>{newPasswordError}</span>}
             </div>
+            {passwordSuccess && <span style={{ color: 'green', fontSize: '0.85em', marginTop: '4px' }}>{passwordSuccess}</span>}
             <div style={{ display: 'flex', flexFlow: 'column' }}>
               <button disabled={processing} onClick={changePassword}>
                 Change Password
@@ -157,7 +189,7 @@ export const AccountPage = () => {
               Delete All
             </button>
             {sessions.sessions.map((session) => (
-              <div>
+              <div key={session.id}>
                 {JSON.stringify(session, null, 2)}
                 <button
                   disabled={isDeleting}
@@ -187,7 +219,7 @@ export const AccountPage = () => {
       {!auth.isAuthenticated && (
         <div>
           <a href="#" onClick={() => navigate('/login')}>
-            Login to view your account detials
+            Login to view your account details
           </a>
         </div>
       )}

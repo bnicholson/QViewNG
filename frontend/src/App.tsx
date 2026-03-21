@@ -1,4 +1,4 @@
-// import { useAuth, useAuthCheck } from './hooks/useAuth';
+import { useAuth, useAuthCheck } from './hooks/useAuth';
 import React from 'react';
 import './App.css';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
-import { Backdrop } from '@mui/material';
+import { Backdrop, Button } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
 import QViewRoutes from './routes';
@@ -22,8 +22,8 @@ const drawerWidth = 240;
 
 export default function App() {
   const navigate = useNavigate()
-  // useAuthCheck()
-  // const auth = useAuth()
+  useAuthCheck()
+  const auth = useAuth()
 
   const [drawerIsOpen, setDrawerIsOpen] = React.useState(false);
 
@@ -49,12 +49,18 @@ export default function App() {
               <Typography variant="h6" component="div" onClick={() => { navigate("/") }} style={{ cursor: 'pointer' }}>QView</Typography>
               <Typography variant="h6" component="div" sx={{ flexGrow: 2 }} onClick={() => toggleDrawer()}>
               </Typography>
-              {/* <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                {/* CRA: right-aligned nav buttons *
-                {auth.isAuthenticated && <a onClick={() => { auth.logout(); apollo.resetStore(); }}>Logout</a>}
-                {!auth.isAuthenticated && <button onClick={() => navigate('/login')}>Login/Register</button>}
-              </Typography> */}
-              {/* {auth.isAuthenticated && <IconButton onClick={() => navigate('/account')}> <AccountCircle /></IconButton>} */}
+              <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                {auth.isAuthenticated && (
+                  <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => auth.logout()}>
+                    Logout
+                  </Button>
+                )}
+                {!auth.isAuthenticated && (
+                  <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/login')}>
+                    Login / Register
+                  </Button>
+                )}
+              </Box>
             </Toolbar>
           </AppBar>
         </Box>

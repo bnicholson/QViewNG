@@ -284,6 +284,26 @@ diesel::table! {
 }
 
 diesel::table! {
+    activation_tokens (token) {
+        token -> Text,
+        user_id -> Uuid,
+        expires_at -> Timestamptz,
+        used -> Bool,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    password_reset_tokens (token) {
+        token -> Text,
+        user_id -> Uuid,
+        expires_at -> Timestamptz,
+        used -> Bool,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     powerstrips (id) {
         id -> Int8,
         #[max_length = 64]
@@ -611,6 +631,8 @@ diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
+diesel::joinable!(activation_tokens -> users (user_id));
+diesel::joinable!(password_reset_tokens -> users (user_id));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters -> users (created_by_userid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
@@ -628,6 +650,7 @@ diesel::joinable!(user_roles -> users (user_id));
 diesel::joinable!(user_sessions -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    activation_tokens,
     apicalllog,
     attachment_blobs,
     attachments,
@@ -645,6 +668,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     jumppads,
     microphonerecorders,
     monitors,
+    password_reset_tokens,
     powerstrips,
     projectors,
     questionsandanswers,

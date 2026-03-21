@@ -24,7 +24,10 @@ use crate::schema::{
     extensioncords,
     equipmentregistrations,
     apicalllog,
-    gameevents
+    gameevents,
+    user_sessions,
+    password_reset_tokens,
+    activation_tokens
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};  // , MigrationHarness};
@@ -143,6 +146,18 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(tournaments_admins::table)
         .execute(conn)
         .expect("Failed to clean admins of tournaments");
+
+    diesel::delete(user_sessions::table)
+        .execute(conn)
+        .expect("Failed to clean user sessions");
+
+    diesel::delete(password_reset_tokens::table)
+        .execute(conn)
+        .expect("Failed to clean password reset tokens");
+
+    diesel::delete(activation_tokens::table)
+        .execute(conn)
+        .expect("Failed to clean activation tokens");
 
     diesel::delete(users::table)
         .execute(conn)
