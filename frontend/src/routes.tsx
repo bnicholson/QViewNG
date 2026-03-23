@@ -5,9 +5,8 @@ import { RecoveryPage } from "./pages/RecoveryPage";
 import { ResetPage } from "./containers/ResetPage";
 import { ActivationPage } from "./pages/ActivationPage";
 import { RegistrationPage } from "./pages/RegistrationPage";
-import { AccountPage } from "./pages/AccountPage";
+import { MyProfilePage } from "./pages/MyProfilePage";
 import { TournamentsPage } from "./pages/TournamentsPage";
-import TournamentRedirect from "./pages/TournamentRedirect";
 import { TournamentProfile } from "./pages/TournamentProfile";
 import { TeamProfile } from "./pages/TeamProfile";
 import { TDEditor } from "./containers/TDEditor";
@@ -30,20 +29,22 @@ export default function QViewRoutes() {
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
-            <Route path="/my-profile" element={<AccountPage />} />
+            <Route path="/my-profile" element={<MyProfilePage/>} />
+            <Route path="/my-profile/overview" element={<MyProfilePage childRoute="overview" />} />
+            <Route path="/my-profile/permissions" element={<MyProfilePage childRoute="permissions" />} />
             <Route path="/admin/crm/users" element={<ManageUsers />} />
             <Route path="/tournaments-page" element={<TournamentsPage />} />
-            <Route path="/tournament/:tid" element={<TournamentRedirect />} />
-            <Route path="/tournament/:tid/divisions" element={<TournamentProfile tab="divisions" />} />
-            {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile tab="" />} />  // <- future */}
-            <Route path="/tournament/:tid/rooms" element={<TournamentProfile tab="rooms" />} />
-            <Route path="/tournament/:tid/teams" element={<TournamentProfile tab="teams" />} />
+            <Route path="/tournament/:tid" element={<TournamentProfile/>} />
+            <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
+            {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile childRoute="" />} />  // <- future */}
+            <Route path="/tournament/:tid/rooms" element={<TournamentProfile childRoute="rooms" />} />
+            <Route path="/tournament/:tid/teams" element={<TournamentProfile childRoute="teams" />} />
             <Route path="/tournament/:tid/team/:teamid" element={<TeamProfile />} />
-            <Route path="/tournament/:tid/rounds" element={<TournamentProfile tab="rounds" />} />
-            <Route path="/tournament/:tid/quizzers" element={<TournamentProfile tab="quizzers" />} />
-            <Route path="/tournament/:tid/games" element={<TournamentProfile tab="games" />} />
-            <Route path="/tournament/:tid/admins" element={<TournamentProfile tab="admins" />} />
-            <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile tab="stats-groups" />} />
+            <Route path="/tournament/:tid/rounds" element={<TournamentProfile childRoute="rounds" />} />
+            <Route path="/tournament/:tid/quizzers" element={<TournamentProfile childRoute="quizzers" />} />
+            <Route path="/tournament/:tid/games" element={<TournamentProfile childRoute="games" />} />
+            <Route path="/tournament/:tid/admins" element={<TournamentProfile childRoute="admins" />} />
+            <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile childRoute="stats-groups" />} />
             {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />

@@ -51,7 +51,7 @@ export default function App() {
               </Typography>
               <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                 {auth.isAuthenticated && (
-                  <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/my-profile')}>
+                  <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/my-profile/overview')}>
                     My Profile
                   </Button>
                 )}
