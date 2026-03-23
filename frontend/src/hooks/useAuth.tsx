@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 
 type ID = string
 
@@ -114,7 +115,12 @@ export const useAuth = () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ identifier: email, password }),
+      body: JSON.stringify({
+        identifier: email,
+        password,
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+      }),
     })
 
     if (response.ok) {
@@ -167,6 +173,7 @@ export const useAuth = () => {
 
 export const useAuthCheck = () => {
   const context = useContext(Context)
+  const location = useLocation()
 
   const refreshIfNecessary = useCallback(async () => {
     context.setCheckingAuth(true)
@@ -231,6 +238,20 @@ export const useAuthCheck = () => {
     return () => {
       if (intervalId) clearInterval(intervalId)
     }
+  }, [refreshIfNecessary])
+
+  // Re-check on every client-side navigation
+  useEffect(() => {
+    refreshIfNecessary()
+  }, [location.pathname])
+
+  // Re-check when the user returns to this tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshIfNecessary()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [refreshIfNecessary])
 }
 

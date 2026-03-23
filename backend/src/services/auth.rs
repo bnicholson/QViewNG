@@ -67,6 +67,10 @@ struct LoginRequest {
     #[serde(alias = "email")]
     identifier: String,
     password: String,
+    #[serde(default)]
+    screen_width: Option<u32>,
+    #[serde(default)]
+    screen_height: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -103,8 +107,30 @@ async fn login(db: Data<Database>, Json(body): Json<LoginRequest>, req: HttpRequ
     };
 
     let refresh_token = Uuid::new_v4().to_string();
-    let device = req.headers().get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-    if models::user_session::create(&mut conn, user.id, &refresh_token, device.as_deref()).is_err() {
+    let user_agent = req.headers().get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("Unknown")
+        .to_string();
+
+    let ip = req.headers()
+        .get("X-Forwarded-For")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .or_else(|| req.peer_addr().map(|a| a.ip().to_string()))
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    let screen = match (body.screen_width, body.screen_height) {
+        (Some(w), Some(h)) => {
+            let category = if w < 768 { "Mobile" } else if w < 1024 { "Tablet" } else { "Desktop" };
+            format!("{} ({}x{})", category, w, h)
+        }
+        _ => "Unknown resolution".to_string(),
+    };
+
+    let device = format!("{} | IP: {} | {}", user_agent, ip, screen);
+
+    if models::user_session::create(&mut conn, user.id, &refresh_token, Some(&device)).is_err() {
         return HttpResponse::InternalServerError().finish();
     }
 
