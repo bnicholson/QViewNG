@@ -14,18 +14,17 @@ interface TournamentOverviewPageProps {
 export const TournamentOverviewPage = ({ tournament, isUserAdmin, onEdit }: TournamentOverviewPageProps) => {
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
           {tournament.tname}
         </Typography>
-        &nbsp;&nbsp;
         {isUserAdmin && (
-          <Button variant="outlined" size="small" onClick={onEdit}>
+          <Button variant="outlined" size="small" onClick={onEdit} sx={{ mt: 1 }}>
             Edit
           </Button>
         )}
       </Box>
-
+      <br/>
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
         Tournament: General Info
       </Typography>
