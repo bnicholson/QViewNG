@@ -49,7 +49,12 @@ export default function App() {
               <Typography variant="h6" component="div" onClick={() => { navigate("/") }} style={{ cursor: 'pointer' }}>QView</Typography>
               <Typography variant="h6" component="div" sx={{ flexGrow: 2 }} onClick={() => toggleDrawer()}>
               </Typography>
-              <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                {auth.isAuthenticated && (
+                  <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/my-profile')}>
+                    My Profile
+                  </Button>
+                )}
                 {auth.isAuthenticated && (
                   <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => auth.logout()}>
                     Logout

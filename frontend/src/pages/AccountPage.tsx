@@ -141,13 +141,22 @@ export const AccountPage = () => {
         <div>
           User # {auth.session?.userId}
           <div className="Form" style={{ textAlign: 'left' }}>
+            <h1>Roles</h1>
+            <pre>
+              {auth.session?.roles?.length
+                ? auth.session.roles.map((role) => <div key={role}>{role}</div>)
+                : <div>No roles assigned.</div>
+              }
+            </pre>
+          </div>
+          <div className="Form" style={{ textAlign: 'left' }}>
             <h1>Permissions</h1>
             <pre>
               {!auth.session && (
                 <div>Error: No auth session present.</div>
               )}
               {auth.session?.permissions?.map((perm) => {
-                return <div>{JSON.stringify(perm)}</div>
+                return <div key={perm}>{perm}</div>
               })}
               {auth.session?.permissions?.length === 0 && (
                 <div>No permissions granted.</div>
