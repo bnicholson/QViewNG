@@ -2,9 +2,25 @@ use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, roo
     use chrono::{Local, NaiveDate, Duration};
 
 pub fn seed_data_one(db: &mut database::Connection) {
+    add_super_user(db);
+    add_tour_1_demo(db);
+}
+
+pub fn add_super_user(db: &mut database::Connection) {
+    UserBuilder::new("Super")
+        .set_lname("User")
+        .set_username("goqview")
+        .set_hash_password("Password123!")
+        .set_email("goqview@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+}
+
+pub fn add_tour_1_demo(db: &mut database::Connection) {
     let today: NaiveDate = Local::now().date_naive();
     let five_days_later: NaiveDate = today + Duration::days(5);
-    let tour = TournamentBuilder::new_default("Tour 1")
+    let tour = TournamentBuilder::new_default("Tournament One (Demo)")
         .set_fromdate(today)
         .set_todate(five_days_later)
         .set_venue("TNU")
@@ -12,8 +28,8 @@ pub fn seed_data_one(db: &mut database::Connection) {
         .set_country("USA")
         .set_contact("Skipper Jets")
         .set_contactemail("skippyjets@yahoo.com")
-        .set_shortinfo("Best Test Tour")
-        .set_info("How good it is to have data.")
+        .set_shortinfo("Display standard data")
+        .set_info("This Tournament is intended to show the visitor what a fully data-entered Tournament would look like.")
         .build_and_insert(db)
         .unwrap();
 

@@ -32,6 +32,8 @@ export default function QViewRoutes() {
             <Route path="/my-profile" element={<MyProfilePage/>} />
             <Route path="/my-profile/overview" element={<MyProfilePage childRoute="overview" />} />
             <Route path="/my-profile/permissions" element={<MyProfilePage childRoute="permissions" />} />
+            <Route path="/my-profile/change-password" element={<MyProfilePage childRoute="change-password" />} />
+            <Route path="/my-profile/sessions" element={<MyProfilePage childRoute="sessions" />} />
             <Route path="/admin/crm/users" element={<ManageUsers />} />
             <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />

@@ -80,9 +80,6 @@ impl UserBuilder {
         if self.activated.is_none() {
             errors.push("set_activated is required".to_string());
         }
-        if self.mname.is_none() {
-            errors.push("set_mname is required".to_string());
-        }
         if self.lname.is_none() {
             errors.push("lname is required".to_string());
         }
@@ -106,7 +103,7 @@ impl UserBuilder {
                         hash_password: self.hash_password.unwrap_or("".to_string()),     
                         activated: self.activated.unwrap(),            
                         fname: self.fname,            
-                        mname: self.mname.unwrap(),           
+                        mname: self.mname.unwrap_or("".to_string()),           
                         lname: self.lname.unwrap(),         
                         username: self.username.unwrap_or("".to_string())
                     }
