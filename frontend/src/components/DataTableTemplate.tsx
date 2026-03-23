@@ -347,7 +347,7 @@ export function DataTableTemplate<T>({
       </div>
 
       {/* ── Table ── */}
-      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "75vh", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "60vh", borderRadius: 10, border: "1px solid #e5e7eb" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
             <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
@@ -355,7 +355,7 @@ export function DataTableTemplate<T>({
                 <th
                   key={col.header}
                   style={{
-                    padding: "10px 14px",
+                    padding: "8px 14px",
                     textAlign: "center",
                     fontWeight: 600,
                     fontSize: 12,
@@ -368,7 +368,7 @@ export function DataTableTemplate<T>({
                   {col.header}
                 </th>
               ))}
-              <th style={{ padding: "10px 14px" }} />
+              <th style={{ padding: "8px 14px" }} />
             </tr>
           </thead>
           <tbody>
@@ -396,11 +396,11 @@ export function DataTableTemplate<T>({
                   }
                 >
                   {columns.map((col) => (
-                    <td key={col.header} style={{ padding: "12px 14px", color: "#374151" }}>
+                    <td key={col.header} style={{ padding: "8px 14px", color: "#374151" }}>
                       {col.render(row)}
                     </td>
                   ))}
-                  <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "8px 14px", whiteSpace: "nowrap" }}>
                     <DeleteButton onDelete={() => onDelete(row)} />
                   </td>
                 </tr>
