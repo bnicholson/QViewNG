@@ -356,9 +356,17 @@ diesel::table! {
 }
 
 diesel::table! {
-    role_permissions (role, permission) {
-        role -> Text,
-        permission -> Text,
+    roles_permissions (role_id, permission_id) {
+        role_id -> Int4,
+        permission_id -> Int4,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    users_roles (user_id, role_id) {
+        user_id -> Uuid,
+        role_id -> Int4,
         created_at -> Timestamptz,
     }
 }
@@ -563,18 +571,28 @@ diesel::table! {
 }
 
 diesel::table! {
-    user_permissions (user_id, permission) {
-        permission -> Text,
+    permissions (id) {
+        id -> Int4,
+        #[max_length = 100]
+        name -> Varchar,
+        #[max_length = 100]
+        resource -> Nullable<Varchar>,
+        #[max_length = 50]
+        action -> Nullable<Varchar>,
         created_at -> Timestamptz,
-        user_id -> Uuid,
+        updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
-    user_roles (user_id, role) {
-        role -> Text,
+    roles (id) {
+        id -> Int4,
+        #[max_length = 100]
+        name -> Varchar,
+        #[max_length = 500]
+        description -> Nullable<Varchar>,
         created_at -> Timestamptz,
-        user_id -> Uuid,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -645,8 +663,10 @@ diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgr
 diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
-diesel::joinable!(user_permissions -> users (user_id));
-diesel::joinable!(user_roles -> users (user_id));
+diesel::joinable!(roles_permissions -> roles (role_id));
+diesel::joinable!(roles_permissions -> permissions (permission_id));
+diesel::joinable!(users_roles -> users (user_id));
+diesel::joinable!(users_roles -> roles (role_id));
 diesel::joinable!(user_sessions -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
@@ -672,7 +692,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     powerstrips,
     projectors,
     questionsandanswers,
-    role_permissions,
     rooms,
     rosters,
     rosters_coaches,
@@ -685,8 +704,10 @@ diesel::allow_tables_to_appear_in_same_query!(
     tournamentgroups_tournaments,
     tournaments,
     tournaments_admins,
-    user_permissions,
-    user_roles,
+    permissions,
+    roles,
+    roles_permissions,
+    users_roles,
     user_sessions,
     users,
 );

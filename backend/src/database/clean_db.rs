@@ -1,33 +1,6 @@
 use crate::database;
 use crate::schema::{
-    divisions, 
-    games, 
-    rooms, 
-    rounds, 
-    statsgroups, 
-    teams, 
-    tournamentgroups, 
-    tournamentgroups_tournaments, 
-    tournaments, 
-    tournaments_admins, 
-    users, 
-    rosters,
-    rosters_quizzers,
-    rosters_coaches,
-    equipmentsets,
-    equipment,
-    computers,
-    jumppads,
-    interfaceboxes,
-    microphonerecorders,
-    projectors,
-    extensioncords,
-    equipmentregistrations,
-    apicalllog,
-    gameevents,
-    user_sessions,
-    password_reset_tokens,
-    activation_tokens
+    activation_tokens, apicalllog, computers, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, projectors, roles, roles_permissions, rooms, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};  // , MigrationHarness};
@@ -59,9 +32,25 @@ pub fn clean_database(conn: &mut database::Connection) {
     // let db = Database::new(TEST_DB_URL);
     // let mut conn = db.get_connection().expect("Failed to get connection.");
 
+    diesel::delete(roles_permissions::table)
+        .execute(conn)
+        .expect("Failed to clean roles_permissions");
+
+    diesel::delete(users_roles::table)
+        .execute(conn)
+        .expect("Failed to clean users_roles");
+
     diesel::delete(gameevents::table)
         .execute(conn)
         .expect("Failed to clean gameevents");
+
+    diesel::delete(permissions::table)
+        .execute(conn)
+        .expect("Failed to clean permissions");
+
+    diesel::delete(roles::table)
+        .execute(conn)
+        .expect("Failed to clean roles");
 
     diesel::delete(apicalllog::table)
         .execute(conn)

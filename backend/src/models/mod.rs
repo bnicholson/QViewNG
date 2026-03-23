@@ -33,3 +33,7 @@ pub mod projector;
 pub mod powerstrip;
 pub mod extensioncord;
 pub mod equipmentregistration;
+pub mod role;
+pub mod permission;
+pub mod role_permission;
+pub mod users_roles;
