@@ -24,7 +24,8 @@ pub struct TournamentBuilder {
     contact: Option<String>,
     contactemail: Option<String>,
     shortinfo : Option<String>,
-    info: Option<String>
+    info: Option<String>,
+    owner_id: Option<Uuid>,
 }
 
 impl TournamentBuilder {
@@ -42,7 +43,8 @@ impl TournamentBuilder {
             contact: None,
             contactemail: None,
             shortinfo: None,
-            info: None
+            info: None,
+            owner_id: None,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -60,7 +62,8 @@ impl TournamentBuilder {
             contact: Some("primemin".to_string()),
             contactemail: Some("primemin@fakeemail.com".to_string()),
             shortinfo: Some("Winter Olympics".to_string()),
-            info: Some("Shawn White did excellent in the halfpipe.".to_string())
+            info: Some("Shawn White did excellent in the halfpipe.".to_string()),
+            owner_id: None,
         }
     }
     
@@ -114,6 +117,10 @@ impl TournamentBuilder {
     }
     pub fn set_info(mut self, info: &str) -> Self {
         self.info = Some(info.to_string());
+        self
+    }
+    pub fn set_owner_id(mut self, owner_id: Uuid) -> Self {
+        self.owner_id = Some(owner_id);
         self
     }
     fn validate_all_are_some(&self) -> Result<bool, Vec<String>> {
@@ -182,7 +189,8 @@ impl TournamentBuilder {
                     contact: self.contact.unwrap(),
                     contactemail: self.contactemail.unwrap(),
                     shortinfo: self.shortinfo.unwrap(),
-                    info: self.info.unwrap()
+                    info: self.info.unwrap(),
+                    owner_id: self.owner_id,
                 })
             }
         }
@@ -234,7 +242,8 @@ pub struct Tournament {
     pub shortinfo : String,
     pub info: String,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>
+    pub updated_at: DateTime<Utc>,
+    pub owner_id: Option<Uuid>,
 }
 
 #[derive(
@@ -259,7 +268,8 @@ pub struct NewTournament {
     pub contact: String,
     pub contactemail: String,
     pub shortinfo : String,
-    pub info: String
+    pub info: String,
+    pub owner_id: Option<Uuid>,
 }
 
 // #[tsync::tsync]

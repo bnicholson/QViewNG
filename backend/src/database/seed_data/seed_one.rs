@@ -143,6 +143,24 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
 }
 
 pub fn add_tour_1_demo(db: &mut database::Connection) {
+    let tour_owner = crate::models::user::UserBuilder::new("Alex")
+        .set_lname("Rivera")
+        .set_username("arivera")
+        .set_hash_password("Alex@Riv3ra!")
+        .set_email("arivera@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+
+    let member_role             = crate::models::role::read_by_name(db, "member").unwrap();
+    let tournament_manager_role = crate::models::role::read_by_name(db, "tournament_manager").unwrap();
+
+    crate::models::users_roles::UsersRolesBuilder::new(tour_owner.id)
+        .assign(member_role.id)
+        .assign(tournament_manager_role.id)
+        .build_and_insert(db)
+        .unwrap();
+
     let today: NaiveDate = Local::now().date_naive();
     let five_days_later: NaiveDate = today + Duration::days(5);
     let tour = TournamentBuilder::new_default("Tournament One (Demo)")
@@ -155,6 +173,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_contactemail("skippyjets@yahoo.com")
         .set_shortinfo("Display standard data")
         .set_info("This Tournament is intended to show the visitor what a fully data-entered Tournament would look like.")
+        .set_owner_id(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
 

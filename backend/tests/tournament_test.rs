@@ -874,19 +874,20 @@ async fn get_all_games_of_tournament_works() {
 
     // Assert:
 
-    let body: Vec<Game> = test::read_body_json(resp).await;
+    let body: PagedResponse<Game> = test::read_body_json(resp).await;
 
     let len = 2;
 
-    assert_eq!(body.len(), len);
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
 
     let mut game_1_idx = 10;
     let mut game_2_idx = 10;
     for idx in 0..len {
-        if body[idx].gid == game_1_of_tour_2.gid {
+        if body.items[idx].gid == game_1_of_tour_2.gid {
             game_1_idx = idx;
         }
-        if body[idx].gid == game_2_of_tour_2.gid {
+        if body.items[idx].gid == game_2_of_tour_2.gid {
             game_2_idx = idx;
         }
     }
