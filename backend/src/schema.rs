@@ -1,6 +1,16 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    activation_tokens (token) {
+        token -> Text,
+        user_id -> Uuid,
+        expires_at -> Timestamptz,
+        used -> Bool,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     apicalllog (apicallid) {
         created_at -> Timestamptz,
         apicallid -> Int8,
@@ -284,7 +294,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    activation_tokens (token) {
+    password_reset_tokens (token) {
         token -> Text,
         user_id -> Uuid,
         expires_at -> Timestamptz,
@@ -294,12 +304,16 @@ diesel::table! {
 }
 
 diesel::table! {
-    password_reset_tokens (token) {
-        token -> Text,
-        user_id -> Uuid,
-        expires_at -> Timestamptz,
-        used -> Bool,
+    permissions (id) {
+        id -> Int4,
+        #[max_length = 100]
+        name -> Varchar,
+        #[max_length = 100]
+        resource -> Nullable<Varchar>,
+        #[max_length = 50]
+        action -> Nullable<Varchar>,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -356,17 +370,21 @@ diesel::table! {
 }
 
 diesel::table! {
-    roles_permissions (role_id, permission_id) {
-        role_id -> Int4,
-        permission_id -> Int4,
+    roles (id) {
+        id -> Int4,
+        #[max_length = 100]
+        name -> Varchar,
+        #[max_length = 500]
+        description -> Nullable<Varchar>,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
-    users_roles (user_id, role_id) {
-        user_id -> Uuid,
+    roles_permissions (role_id, permission_id) {
         role_id -> Int4,
+        permission_id -> Int4,
         created_at -> Timestamptz,
     }
 }
@@ -571,32 +589,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    permissions (id) {
-        id -> Int4,
-        #[max_length = 100]
-        name -> Varchar,
-        #[max_length = 100]
-        resource -> Nullable<Varchar>,
-        #[max_length = 50]
-        action -> Nullable<Varchar>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    roles (id) {
-        id -> Int4,
-        #[max_length = 100]
-        name -> Varchar,
-        #[max_length = 500]
-        description -> Nullable<Varchar>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     user_sessions (id) {
         id -> Int8,
         refresh_token -> Text,
@@ -628,6 +620,15 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    users_roles (user_id, role_id) {
+        user_id -> Uuid,
+        role_id -> Int4,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::joinable!(activation_tokens -> users (user_id));
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
 diesel::joinable!(equipment -> computers (computerid));
 diesel::joinable!(equipment -> equipmentsets (equipmentsetid));
@@ -649,8 +650,9 @@ diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
-diesel::joinable!(activation_tokens -> users (user_id));
 diesel::joinable!(password_reset_tokens -> users (user_id));
+diesel::joinable!(roles_permissions -> permissions (permission_id));
+diesel::joinable!(roles_permissions -> roles (role_id));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters -> users (created_by_userid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
@@ -663,11 +665,9 @@ diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgr
 diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
-diesel::joinable!(roles_permissions -> roles (role_id));
-diesel::joinable!(roles_permissions -> permissions (permission_id));
-diesel::joinable!(users_roles -> users (user_id));
-diesel::joinable!(users_roles -> roles (role_id));
 diesel::joinable!(user_sessions -> users (user_id));
+diesel::joinable!(users_roles -> roles (role_id));
+diesel::joinable!(users_roles -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     activation_tokens,
@@ -689,9 +689,12 @@ diesel::allow_tables_to_appear_in_same_query!(
     microphonerecorders,
     monitors,
     password_reset_tokens,
+    permissions,
     powerstrips,
     projectors,
     questionsandanswers,
+    roles,
+    roles_permissions,
     rooms,
     rosters,
     rosters_coaches,
@@ -704,10 +707,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     tournamentgroups_tournaments,
     tournaments,
     tournaments_admins,
-    permissions,
-    roles,
-    roles_permissions,
-    users_roles,
     user_sessions,
     users,
+    users_roles,
 );
