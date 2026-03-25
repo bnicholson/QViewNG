@@ -20,7 +20,6 @@ impl UserContext {
 }
 
 pub trait Policy<Resource> {
-    fn can_create(&self, resource: &Resource) -> bool;
     fn can_edit(&self, resource: &Resource) -> bool;
     fn can_delete(&self, resource: &Resource) -> bool;
     fn can_view(&self, resource: &Resource) -> bool;

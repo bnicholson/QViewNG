@@ -6,7 +6,7 @@ use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey}
 use chrono::{Utc, Duration};
 use uuid::Uuid;
 
-use crate::{auth::policies::{Policy, PolicyContext}, errors::AppError, models::permission::Permission};
+use crate::{auth::policies::{Policy, PolicyContext}, errors::AppError, models::{permission::Permission, role::AppRole}};
 
 pub(crate) const REFRESH_COOKIE: &str = "refresh_token";
 pub(crate) const ACCESS_EXPIRY_HOURS: i64 = 1;
@@ -20,11 +20,6 @@ pub(crate) struct Claims {
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
 }
-
-// #[derive(Serialize, Deserialize, Clone)]
-// pub(crate) struct PermissionClaim {
-//     pub permission: String,
-// }
 
 #[derive(Deserialize)]
 pub(crate) struct LoginRequest {
@@ -109,6 +104,11 @@ pub(crate) fn is_abac_authorized<R>(ctx: &PolicyContext<R>, permission: &str, re
 where
     PolicyContext<R>: Policy<R>
 {
+    // Super users bypass all authorization checks.
+    if ctx.user.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
+        return Ok(());
+    }
+
     // RBAC gate
     if !ctx.user.permissions.contains(&permission.to_string()) {
         return Err(AppError::Forbidden);
@@ -126,4 +126,53 @@ where
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::policies::{Policy, PolicyContext, UserContext};
+    use uuid::Uuid;
+
+    struct DummyResource;
+
+    impl Policy<DummyResource> for PolicyContext<DummyResource> {
+        fn can_edit(&self, _: &DummyResource) -> bool { false }
+        fn can_delete(&self, _: &DummyResource) -> bool { false }
+        fn can_view(&self, _: &DummyResource) -> bool { false }
+    }
+
+    fn make_ctx(roles: Vec<&str>, permissions: Vec<&str>) -> PolicyContext<DummyResource> {
+        PolicyContext {
+            user: UserContext::new(
+                Uuid::new_v4(),
+                roles.into_iter().map(str::to_string).collect(),
+                permissions.into_iter().map(str::to_string).collect(),
+            ),
+            resource: DummyResource,
+        }
+    }
+
+    #[test]
+    fn super_user_bypasses_rbac_and_abac() {
+        let ctx = make_ctx(vec![AppRole::SuperUser.as_str()], vec![]);
+        // No permissions in the token, yet every check must pass.
+        assert!(is_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
+        assert!(is_abac_authorized(&ctx, "tournament:edit",   "tournament").is_ok());
+        assert!(is_abac_authorized(&ctx, "tournament:delete", "tournament").is_ok());
+        assert!(is_abac_authorized(&ctx, "user:delete",       "user").is_ok());
+        assert!(is_abac_authorized(&ctx, "anything:unknown",  "anything").is_ok());
+    }
+
+    #[test]
+    fn non_super_user_without_permission_is_forbidden() {
+        let ctx = make_ctx(vec!["member"], vec![]);
+        assert!(is_abac_authorized(&ctx, "tournament:create", "tournament").is_err());
+    }
+
+    #[test]
+    fn non_super_user_with_permission_is_allowed() {
+        let ctx = make_ctx(vec!["tournament_manager"], vec!["tournament:create"]);
+        assert!(is_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
+    }
 }

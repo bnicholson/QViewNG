@@ -1,7 +1,6 @@
 pub mod auth;
 pub mod middleware;
 pub mod errors;
-pub mod constants;
 pub mod routes;
 pub mod database;
 pub mod schema;
