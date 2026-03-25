@@ -1,4 +1,5 @@
-use crate::{constants::SUPER_USER, database, models::{division::DivisionBuilder, game::GameBuilder, permission::PermissionBuilder, role::RoleBuilder, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use strum::IntoEnumIterator;
 use chrono::{Local, NaiveDate, Duration};
 
 pub fn seed_data_one(db: &mut database::Connection) {
@@ -19,8 +20,8 @@ pub fn add_super_user(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    let member_role    = crate::models::role::read_by_name(db, "member").unwrap();
-    let super_user_role = crate::models::role::read_by_name(db, SUPER_USER).unwrap();
+    let member_role    = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
+    let super_user_role = crate::models::role::read_by_name(db, AppRole::SuperUser.as_str()).unwrap();
 
     UsersRolesBuilder::new(super_user.id)
         .assign(member_role.id)
@@ -39,8 +40,8 @@ pub fn add_tournament_manager_user(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    let member_role             = crate::models::role::read_by_name(db, "member").unwrap();
-    let tournament_manager_role = crate::models::role::read_by_name(db, "tournament_manager").unwrap();
+    let member_role             = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
+    let tournament_manager_role = crate::models::role::read_by_name(db, AppRole::TournamentManager.as_str()).unwrap();
 
     UsersRolesBuilder::new(user.id)
         .assign(member_role.id)
@@ -59,7 +60,7 @@ pub fn add_member_user(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    let member_role = crate::models::role::read_by_name(db, "member").unwrap();
+    let member_role = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
 
     UsersRolesBuilder::new(user.id)
         .assign(member_role.id)
@@ -77,69 +78,55 @@ pub fn add_member_user(db: &mut database::Connection) {
 ///  tournament_manager → tournament:create/update/delete only (member covers :read)
 ///  super_user         → full CRUD on every resource
 pub fn init_roles_and_permissions(db: &mut database::Connection) {
-    let resources = ["tournament", "division", "round", "room", "game", "team", "user"];
-    let actions   = ["create", "read", "update", "delete"];
+    use std::collections::HashMap;
 
-    // ── Build permissions ──────────────────────────────────────────────
-    //
-    // Stored as a 2-D array indexed [resource][action] matching the order above
-    // so we can reference individual cells when composing role trees below.
+    // ── Build one permission row per AppResource × AppAction variant ──────────
+    let mut perm_ids: HashMap<(&str, &str), i32> = HashMap::new();
 
-    let perms: Vec<Vec<_>> = resources.iter().map(|resource| {
-        actions.iter().map(|action| {
-            PermissionBuilder::new(&format!("{}:{}", resource, action))
-                .resource(resource)
-                .action(action)
+    for resource in AppResource::iter() {
+        for action in AppAction::iter() {
+            let perm = PermissionBuilder::new(&format!("{}:{}", resource.as_str(), action.as_str()))
+                .resource(resource.as_str())
+                .action(action.as_str())
                 .build_and_insert(db)
-                .unwrap()
-        }).collect()
-    }).collect();
+                .unwrap();
+            perm_ids.insert((resource.as_str(), action.as_str()), perm.id);
+        }
+    }
 
-    // Convenience closures: find permission IDs for a resource by action index.
-    // actions: 0=create, 1=read, 2=update, 3=delete
-    let read_ids: Vec<i32> = perms.iter().map(|r| r[1].id).collect();
-
-    let all_ids: Vec<i32> = perms.iter()
-        .flat_map(|r| r.iter().map(|p| p.id))
+    let read_ids: Vec<i32> = AppResource::iter()
+        .map(|r| *perm_ids.get(&(r.as_str(), AppAction::Read.as_str())).unwrap())
         .collect();
 
-    // ── member: read-only on everything ──────────────────────────────────────
-    let member = RoleBuilder::new("member")
-        .description("View all resources; no write access")
-        .build_and_insert(db)
-        .unwrap();
+    let all_ids: Vec<i32> = perm_ids.values().copied().collect();
 
-    RolePermissionBuilder::new(member.id)
-        .add_many(read_ids.iter().copied())
-        .build_and_insert(db)
-        .unwrap();
+    // ── Build one role row per AppRole variant ────────────────────────────────
+    for app_role in AppRole::iter() {
+        let role = RoleBuilder::new(app_role.as_str())
+            .description(app_role.description())
+            .build_and_insert(db)
+            .unwrap();
 
-    // ── tournament_manager: write access on tournaments only ──────────────────
-    // :read on all resources is already granted by member, so this role carries
-    // only the three additional permissions that member does not have.
-    // actions: 0=create, 1=read, 2=update, 3=delete  (perms[0] = tournament)
-    let tournament_manager = RoleBuilder::new("tournament_manager")
-        .description("Create, update, and delete tournaments (assign alongside member)")
-        .build_and_insert(db)
-        .unwrap();
+        let role_perm_ids: Vec<i32> = match app_role {
+            // member: read-only on every resource
+            AppRole::Member => read_ids.clone(),
+            // tournament_manager: create/update/delete on tournaments only
+            AppRole::TournamentManager => [
+                AppAction::Create.as_str(),
+                AppAction::Update.as_str(),
+                AppAction::Delete.as_str(),
+            ].iter().filter_map(|action| {
+                perm_ids.get(&(AppResource::Tournament.as_str(), *action)).copied()
+            }).collect(),
+            // super_user: full CRUD on everything
+            AppRole::SuperUser => all_ids.clone(),
+        };
 
-    RolePermissionBuilder::new(tournament_manager.id)
-        .add(perms[0][0].id)  // tournament:create
-        .add(perms[0][2].id)  // tournament:update
-        .add(perms[0][3].id)  // tournament:delete
-        .build_and_insert(db)
-        .unwrap();
-
-    // ── super_user: full CRUD on everything ──────────────────────────────────
-    let super_user = RoleBuilder::new(SUPER_USER)
-        .description("Unrestricted access to all resources and actions")
-        .build_and_insert(db)
-        .unwrap();
-
-    RolePermissionBuilder::new(super_user.id)
-        .add_many(all_ids)
-        .build_and_insert(db)
-        .unwrap();
+        RolePermissionBuilder::new(role.id)
+            .add_many(role_perm_ids)
+            .build_and_insert(db)
+            .unwrap();
+    }
 }
 
 pub fn add_tour_1_demo(db: &mut database::Connection) {
@@ -152,8 +139,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    let member_role             = crate::models::role::read_by_name(db, "member").unwrap();
-    let tournament_manager_role = crate::models::role::read_by_name(db, "tournament_manager").unwrap();
+    let member_role             = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
+    let tournament_manager_role = crate::models::role::read_by_name(db, AppRole::TournamentManager.as_str()).unwrap();
 
     crate::models::users_roles::UsersRolesBuilder::new(tour_owner.id)
         .assign(member_role.id)

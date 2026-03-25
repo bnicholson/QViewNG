@@ -42,6 +42,8 @@ pgtemp = "0.7.1"
 jsonwebtoken = "9"
 lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder"] }
 actix-web-httpauth = "0.8.2"
+strum = "0.28.0"
+strum_macros = "0.28.0"
 
 [print_schema]
 file = "src/schema.rs"

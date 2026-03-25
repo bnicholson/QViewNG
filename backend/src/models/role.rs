@@ -3,8 +3,36 @@ use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult, Insertable, Identifiable};
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
+
+/// Canonical application roles. Every role inserted into the `roles` table
+/// must correspond to a variant here.
+#[derive(EnumIter)]
+pub enum AppRole {
+    Member,
+    TournamentManager,
+    SuperUser,
+}
+
+impl AppRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AppRole::Member            => "member",
+            AppRole::TournamentManager => "tournament_manager",
+            AppRole::SuperUser         => "super_user",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            AppRole::Member            => "View all resources; no write access",
+            AppRole::TournamentManager => "Create, update, and delete tournaments (assign alongside member)",
+            AppRole::SuperUser         => "Unrestricted access to all resources and actions",
+        }
+    }
+}
 
 /// Builder for a `Role`. Supports composing a permission tree by accumulating
 /// permission IDs that will be associated via `roles_permissions` on insert.

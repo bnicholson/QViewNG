@@ -3,8 +3,55 @@ use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult, Insertable, Identifiable};
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
+
+/// Resources that can be the subject of a permission.
+#[derive(EnumIter)]
+pub enum AppResource {
+    Tournament,
+    Division,
+    Round,
+    Room,
+    Game,
+    Team,
+    User,
+}
+
+impl AppResource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AppResource::Tournament => "tournament",
+            AppResource::Division   => "division",
+            AppResource::Round      => "round",
+            AppResource::Room       => "room",
+            AppResource::Game       => "game",
+            AppResource::Team       => "team",
+            AppResource::User       => "user",
+        }
+    }
+}
+
+/// CRUD actions that can be applied to an `AppResource`.
+#[derive(EnumIter)]
+pub enum AppAction {
+    Create,
+    Read,
+    Update,
+    Delete,
+}
+
+impl AppAction {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AppAction::Create => "create",
+            AppAction::Read   => "read",
+            AppAction::Update => "update",
+            AppAction::Delete => "delete",
+        }
+    }
+}
 
 /// Builder for a `Permission`. The `resource` + `action` fields provide
 /// structured decomposition of the `name` (e.g. `name="post:create"`,
