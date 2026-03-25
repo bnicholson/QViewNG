@@ -1,6 +1,6 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::models::{self, tournament_admin::{NewTournamentAdmin, TournamentAdmin}};
-use crate::models::tournament::{NewTournament, Tournament, TournamentChangeset};
+use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
+use crate::{auth::{policies::UserContext}, constants::SUPER_USER, models::{self, tournament_admin::{NewTournamentAdmin, TournamentAdmin}}};
+use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
@@ -319,15 +319,45 @@ async fn read_tournamentgroups(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewTournament>,
-    req: HttpRequest  
+    Json(payload): Json<NewTournamentPayload>,
+    req: HttpRequest
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
 
-    tracing::debug!("{} Tournament model create {:?}", line!(), item);
+    tracing::debug!("Line {}, Tournament model create: {:?}", line!(), payload);
+    
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish())
+    };
+
+    tracing::debug!("Line {}, User Context: {:?}", line!(), user_ctx);
+    
+    if !user_ctx.roles.iter().any(|r| r == "tournament_manager" || r == SUPER_USER) {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let item = NewTournament {
+        organization: payload.organization,
+        tname: payload.tname,
+        breadcrumb: payload.breadcrumb,
+        fromdate: payload.fromdate,
+        todate: payload.todate,
+        venue: payload.venue,
+        city: payload.city,
+        region: payload.region,
+        country: payload.country,
+        contact: payload.contact,
+        contactemail: payload.contactemail,
+        shortinfo: payload.shortinfo,
+        info: payload.info,
+        owner_id: user_ctx.user_id,
+    };
+
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
 
     let response: EntityResponse<Tournament> = process_response(result, "post");

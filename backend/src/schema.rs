@@ -573,7 +573,7 @@ diesel::table! {
         info -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        owner_id -> Nullable<Uuid>,
+        owner_id -> Uuid,
     }
 }
 

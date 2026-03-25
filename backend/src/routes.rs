@@ -1,13 +1,14 @@
 
-use actix_web::web;
+use actix_web::{web, middleware::from_fn};
 use utoipa_swagger_ui::SwaggerUi;
 // use services::tournament::TournamentDoc;
 // use services::division::DivisionDoc;
-use crate::services;
+use crate::{services, middleware::add_user_context_to_extensions_from_access_token_middleware};
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/api")
+            .wrap(from_fn(add_user_context_to_extensions_from_access_token_middleware))
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}")
                     // When you add a new scoped service, add its docs path here (*some other configuration required):

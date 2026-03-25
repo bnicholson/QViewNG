@@ -1,4 +1,4 @@
-use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::PermissionBuilder, role::RoleBuilder, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{constants::SUPER_USER, database, models::{division::DivisionBuilder, game::GameBuilder, permission::PermissionBuilder, role::RoleBuilder, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration};
 
 pub fn seed_data_one(db: &mut database::Connection) {
@@ -20,7 +20,7 @@ pub fn add_super_user(db: &mut database::Connection) {
         .unwrap();
 
     let member_role    = crate::models::role::read_by_name(db, "member").unwrap();
-    let super_user_role = crate::models::role::read_by_name(db, "super_user").unwrap();
+    let super_user_role = crate::models::role::read_by_name(db, SUPER_USER).unwrap();
 
     UsersRolesBuilder::new(super_user.id)
         .assign(member_role.id)
@@ -32,8 +32,8 @@ pub fn add_super_user(db: &mut database::Connection) {
 pub fn add_tournament_manager_user(db: &mut database::Connection) {
     let user = UserBuilder::new("Taylor")
         .set_lname("Morgan")
-        .set_username("tmorgan")
-        .set_hash_password("Taylor#M4rg")
+        .set_username("tourmanager")
+        .set_hash_password("Password123!")
         .set_email("tmorgan@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -52,8 +52,8 @@ pub fn add_tournament_manager_user(db: &mut database::Connection) {
 pub fn add_member_user(db: &mut database::Connection) {
     let user = UserBuilder::new("Jordan")
         .set_lname("Ellis")
-        .set_username("jellis")
-        .set_hash_password("Jord@nEl1is")
+        .set_username("member")
+        .set_hash_password("Password123!")
         .set_email("jellis@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -131,7 +131,7 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
         .unwrap();
 
     // ── super_user: full CRUD on everything ──────────────────────────────────
-    let super_user = RoleBuilder::new("super_user")
+    let super_user = RoleBuilder::new(SUPER_USER)
         .description("Unrestricted access to all resources and actions")
         .build_and_insert(db)
         .unwrap();

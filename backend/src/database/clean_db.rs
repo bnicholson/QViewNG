@@ -147,11 +147,7 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(activation_tokens::table)
         .execute(conn)
         .expect("Failed to clean activation tokens");
-
-    diesel::delete(users::table)
-        .execute(conn)
-        .expect("Failed to clean users");
-
+    
     diesel::delete(divisions::table)
         .execute(conn)
         .expect("Failed to clean divisions");
@@ -159,6 +155,10 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(tournaments::table)
         .execute(conn)
         .expect("Failed to clean tournaments");
+    
+    diesel::delete(users::table)
+        .execute(conn)
+        .expect("Failed to clean users");
 }
 
 // pub fn prepare_database() -> {

@@ -62,15 +62,19 @@ export const TournamentAPI = {
     const result = await response.json();
     return dateStringToDayjs(result);
   },
-  create: async (tournament: TournamentChangesetTS): Promise<TournamentCreateUpdateResult> => {
+  create: async (tournament: TournamentChangesetTS, accessToken?: string): Promise<TournamentCreateUpdateResult> => {
     let nquery = JSON.stringify(tournament);
     let response = await fetch('/api/tournaments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
         body: nquery,
       });
+      if (response.status === 401) {
+        throw new Error("401");
+      }
       const result = await response.json();
       console.log(result);
       const { data, ...rest } = result;
@@ -81,15 +85,19 @@ export const TournamentAPI = {
     },
   delete: async (id: number) =>
     await fetch(`/api/tournaments/${id}`, { method: 'DELETE' }),
-  update: async (id: number, tournament: TournamentChangesetTS): Promise<TournamentCreateUpdateResult> => {
+  update: async (id: number, tournament: TournamentChangesetTS, accessToken?: string): Promise<TournamentCreateUpdateResult> => {
     const response = await fetch(`/api/tournaments/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify(tournament),
     });
     console.log({ response });
+    if (response.status === 401) {
+      throw new Error("401");
+    }
     const result = await response.json();
     console.log({ result });
     const { data, ...rest } = result;

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import { styled } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
@@ -76,6 +77,7 @@ interface Props {
 
 export const TournamentEditorDialog = (props: Props) => {
   const { initialTournament, isOpen, onCancel, onSave } = props;
+  const { accessToken } = useAuth();
   const [tournament, setTournament] = useState<TournamentChangesetTS>(initialTournament ? initialTournament : tournamentEmptyState);
   const [alertopened, setAlertOpened] = useState(false);
   const [errormsg, setErrorMsg] = useState<string>("Simple error message");
@@ -141,12 +143,15 @@ export const TournamentEditorDialog = (props: Props) => {
     let result: TournamentCreateUpdateResult;
     try {
       result = initialTournament
-        ? await TournamentAPI.update(initialTournament.tid, tournamentCS)
-        : await TournamentAPI.create(tournamentCS);
+        ? await TournamentAPI.update(initialTournament.tid, tournamentCS, accessToken)
+        : await TournamentAPI.create(tournamentCS, accessToken);
     } catch(err: any) {
-      setErrorMsg("Didn't save 1st - " + err);
-          setAlertOpened(true);
-          return;
+      const msg = err?.message === "401"
+        ? "You don't have permission to create or edit tournaments. Please contact an administrator."
+        : "Something went wrong and the tournament could not be saved. Please try again.";
+      setErrorMsg(msg);
+      setAlertOpened(true);
+      return;
     }
 
     // confirm operation success:
@@ -186,7 +191,7 @@ export const TournamentEditorDialog = (props: Props) => {
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Edit Tournament
+            Create / Edit Tournament
           </Typography>
           <Button autoFocus color="inherit" onClick={openSaveDialog}>
             Save
@@ -212,7 +217,7 @@ export const TournamentEditorDialog = (props: Props) => {
             sx={{ mb: 2 }}
           >
             <AlertTitle>Error</AlertTitle>
-            {errormsg} Close me!
+            {errormsg}
           </Alert>
         </Collapse>
         <List>

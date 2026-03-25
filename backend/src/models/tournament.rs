@@ -163,7 +163,10 @@ impl TournamentBuilder {
         if self.info.is_none() {
             errors.push("info is required".to_string());
         }
-        
+        if self.owner_id.is_none() {
+            errors.push("owner_id is required".to_string());
+        }
+
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -190,7 +193,7 @@ impl TournamentBuilder {
                     contactemail: self.contactemail.unwrap(),
                     shortinfo: self.shortinfo.unwrap(),
                     info: self.info.unwrap(),
-                    owner_id: self.owner_id,
+                    owner_id: self.owner_id.unwrap(),
                 })
             }
         }
@@ -243,7 +246,7 @@ pub struct Tournament {
     pub info: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub owner_id: Option<Uuid>,
+    pub owner_id: Uuid,
 }
 
 #[derive(
@@ -269,7 +272,26 @@ pub struct NewTournament {
     pub contactemail: String,
     pub shortinfo : String,
     pub info: String,
-    pub owner_id: Option<Uuid>,
+    pub owner_id: Uuid,
+}
+
+/// Payload accepted from the frontend for tournament creation (no owner_id — that is
+/// populated server-side from the authenticated user's context).
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct NewTournamentPayload {
+    pub organization: String,
+    pub tname: String,
+    pub breadcrumb: String,
+    pub fromdate: chrono::naive::NaiveDate,
+    pub todate: chrono::naive::NaiveDate,
+    pub venue: String,
+    pub city: String,
+    pub region: String,
+    pub country: String,
+    pub contact: String,
+    pub contactemail: String,
+    pub shortinfo: String,
+    pub info: String,
 }
 
 // #[tsync::tsync]

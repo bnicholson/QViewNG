@@ -10,7 +10,7 @@ version = "0.1.0"
 path = "utils/src/replay.rs"
 
 [dependencies]
-actix-web = "4"
+actix-web = "4.4"
 base64 = "0.22.1"
 diesel = { version = "2", features = ["postgres", "chrono", "r2d2", "uuid"] }
 log = "0.4.29"
@@ -41,6 +41,7 @@ bcrypt = "0.18.0"
 pgtemp = "0.7.1"
 jsonwebtoken = "9"
 lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder"] }
+actix-web-httpauth = "0.8.2"
 
 [print_schema]
 file = "src/schema.rs"

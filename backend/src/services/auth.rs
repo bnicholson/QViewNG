@@ -1,82 +1,14 @@
-use actix_web::{cookie, delete, get, post, HttpRequest, HttpResponse, web::{Data, Json, Path, Query}};
+use actix_web::{delete, get, post, HttpRequest, HttpResponse, web::{Data, Json, Path, Query}};
 use serde::{Deserialize, Serialize};
-use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey};
 use chrono::{Utc, Duration};
 use uuid::Uuid;
 use crate::database::Database;
 use crate::models;
-
-const REFRESH_COOKIE: &str = "refresh_token";
-const ACCESS_EXPIRY_HOURS: i64 = 1;
-const REFRESH_EXPIRY_DAYS: i64 = 30;
-const RESET_EXPIRY_HOURS: i64 = 24;
-
-#[derive(Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
-    roles: Vec<String>,
-    permissions: Vec<PermissionClaim>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct PermissionClaim {
-    permission: String,
-}
-
-fn jwt_secret() -> String {
-    std::env::var("JWT_SECRET").unwrap_or_else(|_| "qview_dev_secret_changeme".to_string())
-}
-
-fn make_access_token(user_id: Uuid) -> Result<String, jsonwebtoken::errors::Error> {
-    let exp = (Utc::now() + Duration::hours(ACCESS_EXPIRY_HOURS)).timestamp() as usize;
-    encode(
-        &Header::default(),
-        &Claims { sub: user_id.to_string(), exp, roles: vec!["user".to_string()], permissions: vec![] },
-        &EncodingKey::from_secret(jwt_secret().as_bytes()),
-    )
-}
-
-fn verify_access_token(token: &str) -> Option<Claims> {
-    decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(jwt_secret().as_bytes()),
-        &Validation::default(),
-    ).ok().map(|d| d.claims)
-}
-
-fn make_refresh_cookie(token: String, days: i64) -> cookie::Cookie<'static> {
-    cookie::Cookie::build(REFRESH_COOKIE, token)
-        .http_only(true)
-        .secure(false)
-        .path("/api/auth")
-        .max_age(cookie::time::Duration::days(days))
-        .finish()
-}
-
-fn clear_refresh_cookie() -> cookie::Cookie<'static> {
-    cookie::Cookie::build(REFRESH_COOKIE, "")
-        .http_only(true)
-        .path("/api/auth")
-        .max_age(cookie::time::Duration::seconds(0))
-        .finish()
-}
-
-#[derive(Deserialize)]
-struct LoginRequest {
-    #[serde(alias = "email")]
-    identifier: String,
-    password: String,
-    #[serde(default)]
-    screen_width: Option<u32>,
-    #[serde(default)]
-    screen_height: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct TokenResponse {
-    access_token: String,
-}
+use crate::auth::{
+    REFRESH_COOKIE, REFRESH_EXPIRY_DAYS, RESET_EXPIRY_HOURS,
+    LoginRequest, TokenResponse,
+    make_access_token, verify_access_token, make_refresh_cookie, clear_refresh_cookie,
+};
 
 #[post("/login")]
 async fn login(db: Data<Database>, Json(body): Json<LoginRequest>, req: HttpRequest) -> HttpResponse {
@@ -101,7 +33,7 @@ async fn login(db: Data<Database>, Json(body): Json<LoginRequest>, req: HttpRequ
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Account not activated. Please check your email for the activation link."}));
     }
 
-    let access_token = match make_access_token(user.id) {
+    let access_token = match make_access_token(user.id, &mut conn) {
         Ok(t) => t,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
@@ -227,7 +159,7 @@ async fn refresh(req: HttpRequest, db: Data<Database>) -> HttpResponse {
         Err(_) => return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Invalid session"})),
     };
 
-    let access_token = match make_access_token(session.user_id) {
+    let access_token = match make_access_token(session.user_id, &mut conn) {
         Ok(t) => t,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
