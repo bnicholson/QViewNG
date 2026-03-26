@@ -87,7 +87,7 @@ export default function ProfileLayout({ title, subtitle, navItems, children }: P
           width: 148,
           flexShrink: 0,
           position: 'sticky',
-          top: 16,
+          top: 'calc(74px + 16px)',
           display: { xs: 'none', md: 'block' },
         }}
       >
