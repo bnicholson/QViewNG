@@ -8,7 +8,7 @@ use crate::services::common::{EntityResponse, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
 
-/// GET /users_roles/users/{user_id} — list all roles assigned to a user
+/// GET /usersroles/users/{user_id} — list all roles assigned to a user
 #[get("/users/{user_id}")]
 async fn read_for_user(
     db: Data<Database>,
@@ -23,7 +23,7 @@ async fn read_for_user(
     }
 }
 
-/// GET /users_roles/roles/{role_id} — list all users assigned to a role
+/// GET /usersroles/roles/{role_id} — list all users assigned to a role
 #[get("/roles/{role_id}")]
 async fn read_for_role(
     db: Data<Database>,
@@ -38,7 +38,7 @@ async fn read_for_role(
     }
 }
 
-/// POST /users_roles/users/{user_id}/roles/{role_id} — assign a role to a user
+/// POST /usersroles/users/{user_id}/roles/{role_id} — assign a role to a user
 #[post("/users/{user_id}/roles/{role_id}")]
 async fn assign(
     db: Data<Database>,
@@ -61,7 +61,7 @@ async fn assign(
     }
 }
 
-/// DELETE /users_roles/users/{user_id}/roles/{role_id} — revoke a role from a user
+/// DELETE /usersroles/users/{user_id}/roles/{role_id} — revoke a role from a user
 #[delete("/users/{user_id}/roles/{role_id}")]
 async fn revoke(
     db: Data<Database>,
@@ -78,7 +78,7 @@ async fn revoke(
     }
 }
 
-/// DELETE /users_roles/users/{user_id} — revoke all roles from a user
+/// DELETE /usersroles/users/{user_id} — revoke all roles from a user
 #[delete("/users/{user_id}")]
 async fn revoke_all(
     db: Data<Database>,

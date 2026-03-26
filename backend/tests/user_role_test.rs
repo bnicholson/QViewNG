@@ -11,7 +11,7 @@ use backend::{
 };
 use crate::common::{TEST_DB_URL, clean_database};
 
-// ── POST /api/users_roles/users/{user_id}/roles/{role_id} ────────────────────
+// ── POST /api/usersroles/users/{user_id}/roles/{role_id} ────────────────────
 
 #[actix_web::test]
 async fn assign_role_to_user_works() {
@@ -28,7 +28,7 @@ async fn assign_role_to_user_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/users_roles/users/{}/roles/{}", user.id, role.id);
+    let uri = format!("/api/usersroles/users/{}/roles/{}", user.id, role.id);
     let resp = test::call_service(
         &app,
         test::TestRequest::post().uri(&uri).to_request(),
@@ -63,14 +63,14 @@ async fn assign_same_role_twice_returns_conflict() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/users_roles/users/{}/roles/{}", user.id, role.id);
+    let uri = format!("/api/usersroles/users/{}/roles/{}", user.id, role.id);
     test::call_service(&app, test::TestRequest::post().uri(&uri).to_request()).await;
     let resp = test::call_service(&app, test::TestRequest::post().uri(&uri).to_request()).await;
 
     assert_eq!(resp.status(), StatusCode::CONFLICT);
 }
 
-// ── GET /api/users_roles/users/{user_id} ─────────────────────────────────────
+// ── GET /api/usersroles/users/{user_id} ─────────────────────────────────────
 
 #[actix_web::test]
 async fn get_roles_for_user_works() {
@@ -97,7 +97,7 @@ async fn get_roles_for_user_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/users_roles/users/{}", user.id);
+    let uri = format!("/api/usersroles/users/{}", user.id);
     let resp = test::call_service(
         &app,
         test::TestRequest::get().uri(&uri).to_request(),
@@ -110,7 +110,7 @@ async fn get_roles_for_user_works() {
     assert!(body.iter().all(|r| r.user_id == user.id));
 }
 
-// ── GET /api/users_roles/roles/{role_id} ─────────────────────────────────────
+// ── GET /api/usersroles/roles/{role_id} ─────────────────────────────────────
 
 #[actix_web::test]
 async fn get_users_for_role_works() {
@@ -137,7 +137,7 @@ async fn get_users_for_role_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/users_roles/roles/{}", role.id);
+    let uri = format!("/api/usersroles/roles/{}", role.id);
     let resp = test::call_service(
         &app,
         test::TestRequest::get().uri(&uri).to_request(),
@@ -150,7 +150,7 @@ async fn get_users_for_role_works() {
     assert!(body.iter().all(|r| r.role_id == role.id));
 }
 
-// ── DELETE /api/users_roles/users/{user_id}/roles/{role_id} ─────────────────
+// ── DELETE /api/usersroles/users/{user_id}/roles/{role_id} ─────────────────
 
 #[actix_web::test]
 async fn revoke_role_from_user_works() {
@@ -171,7 +171,7 @@ async fn revoke_role_from_user_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/users_roles/users/{}/roles/{}", user.id, role.id);
+    let uri = format!("/api/usersroles/users/{}/roles/{}", user.id, role.id);
     let resp = test::call_service(
         &app,
         test::TestRequest::delete().uri(&uri).to_request(),
@@ -182,7 +182,7 @@ async fn revoke_role_from_user_works() {
     assert!(remaining.is_empty());
 }
 
-// ── DELETE /api/users_roles/users/{user_id} ───────────────────────────────────
+// ── DELETE /api/usersroles/users/{user_id} ───────────────────────────────────
 
 #[actix_web::test]
 async fn revoke_all_roles_from_user_works() {
@@ -206,7 +206,7 @@ async fn revoke_all_roles_from_user_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/users_roles/users/{}", user.id);
+    let uri = format!("/api/usersroles/users/{}", user.id);
     let resp = test::call_service(
         &app,
         test::TestRequest::delete().uri(&uri).to_request(),
