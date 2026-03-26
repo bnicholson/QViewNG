@@ -90,7 +90,7 @@ export const QuizzerPickerDialog = (props: Props) => {
       onClose={onCancel}
       slots={{ transition: Transition }}
     >
-      <AppBar sx={{ position: 'relative' }}>
+      <AppBar sx={{ position: 'sticky' }}>
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={onCancel} aria-label="close">
             <CloseIcon />

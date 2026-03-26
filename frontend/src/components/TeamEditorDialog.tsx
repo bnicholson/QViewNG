@@ -149,7 +149,7 @@ export const TeamEditorDialog = (props: Props) => {
       onClose={openCancelDialog}
       slots={{ transition: Transition }}
     >
-      <AppBar sx={{ position: 'relative' }}>
+      <AppBar sx={{ position: 'sticky' }}>
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={openCancelDialog} aria-label="close">
             <CloseIcon />
