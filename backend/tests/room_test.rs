@@ -241,10 +241,9 @@ async fn update_works() {
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
 
-    let room: Room = fixtures::rooms::seed_room(&mut conn, parent_tournament.tid);
+    let (tournament, room, owner, admin_user, unrelated_user) =
+        fixtures::rooms::arrange_room_update_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
@@ -252,42 +251,42 @@ async fn update_works() {
             .configure(configure_routes)
     ).await;
 
-    let new_name = "Test Room NEW".to_string();
-    let new_building = "Johnson NEW".to_string();
-    let new_comments = "I can't tell who this building was named after, it's such a common last name.".to_string();
-
-    let put_payload = json!({
-        "name": &new_name,
-        "building": new_building,
-        "comments": &new_comments
-    });
-    
     let put_uri = format!("/api/rooms/{}", room.roomid);
-    let put_req = test::TestRequest::put()
+
+    // ── Success: tournament owner with room:update ───────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["room:update".to_string()],
+    );
+
+    let owner_payload = json!({
+        "name": "Test Room NEW",
+        "building": "Johnson NEW",
+        "comments": "I can't tell who this building was named after, it's such a common last name."
+    });
+    let owner_req = test::TestRequest::put()
         .uri(&put_uri)
-        .set_json(&put_payload)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
         .to_request();
 
-    // Act:
-    
-    let put_resp = test::call_service(&app, put_req).await;
+    let owner_resp = test::call_service(&app, owner_req).await;
 
-    // Assert:
-    
-    assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(owner_resp.status(), StatusCode::OK);
 
-    let put_resp_body: EntityResponse<Room> = test::read_body_json(put_resp).await;
-    assert_eq!(put_resp_body.code, 200);
-    assert_eq!(put_resp_body.message, "");
+    let owner_resp_body: EntityResponse<Room> = test::read_body_json(owner_resp).await;
+    assert_eq!(owner_resp_body.code, 200);
+    assert_eq!(owner_resp_body.message, "");
 
-    let new_room = put_resp_body.data.unwrap();
-    assert_eq!(new_room.tid, parent_tournament.tid);
-    assert_eq!(new_room.roomid, room.roomid);
-    assert_eq!(new_room.name.as_str(), new_name);
-    assert_eq!(new_room.building.as_str(), new_building);
-    assert_eq!(new_room.comments.as_str(), new_comments);
-    assert_ne!(new_room.created_at, new_room.updated_at);
-    
+    let updated_room = owner_resp_body.data.unwrap();
+    assert_eq!(updated_room.tid, tournament.tid);
+    assert_eq!(updated_room.roomid, room.roomid);
+    assert_eq!(updated_room.name.as_str(), "Test Room NEW");
+    assert_eq!(updated_room.building.as_str(), "Johnson NEW");
+    assert_ne!(updated_room.created_at, updated_room.updated_at);
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -295,6 +294,75 @@ async fn update_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
     assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
+
+    // ── Success: tournament admin with room:update ───────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["room:update".to_string()],
+    );
+
+    let admin_payload = json!({
+        "name": "Test Room ADMIN UPDATE",
+        "building": "Admin Building",
+        "comments": "Updated by admin."
+    });
+    let admin_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    // ── Fail: has room:update but is neither owner nor tournament admin ───────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["room:update".to_string()],
+    );
+
+    let unrelated_payload = json!({
+        "name": "Unauthorized Update",
+        "building": "No Entry",
+        "comments": "Should not succeed."
+    });
+    let unrelated_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&unrelated_payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no room:update permission at all ───────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["room:read".to_string()],
+    );
+
+    let no_perm_payload = json!({
+        "name": "No Permission Update",
+        "building": "Blocked Building",
+        "comments": "This should also not succeed."
+    });
+    let no_perm_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&no_perm_payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]

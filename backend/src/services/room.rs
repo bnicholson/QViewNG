@@ -155,17 +155,45 @@ async fn update(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.pool.get().unwrap();
+    let mut conn = db.get_connection().expect("Failed to get connection");
 
-    tracing::debug!("{} Room model update {:?} {:?}", line!(), item_id, item); 
+    let room_id = item_id.into_inner();
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let room = match models::room::read(&mut conn, room_id) {
+        Ok(r) => r,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, room.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: RoomPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let room_update_permission = format!("{}:{}", AppResource::Room.as_str(), AppAction::Update.as_str());
+    if is_abac_authorized(&policy_ctx, &room_update_permission, AppResource::Room.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    tracing::debug!("{} Room model update {:?} {:?}", line!(), room_id, item);
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
+    models::apicalllog::create(&mut conn, &req);
 
-    let result = models::room::update(&mut db, item_id.into_inner(), &item);
+    let result = models::room::update(&mut conn, room_id, &item);
 
     let response = process_response(result, "put");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         200 => Ok(HttpResponse::Ok().json(response)),

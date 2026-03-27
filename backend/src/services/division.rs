@@ -179,17 +179,45 @@ async fn update(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.pool.get().unwrap();
+    let mut conn = db.pool.get().unwrap();
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
+    models::apicalllog::create(&mut conn, &req);
 
-    tracing::debug!("{} Division model update {:?} {:?}", line!(), item_id, item); 
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
 
-    let result = models::division::update(&mut db, item_id.into_inner(), &item);
+    let division_id = item_id.into_inner();
+
+    let division = match models::division::read(&mut conn, division_id) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let div_update_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Update.as_str());
+    if is_abac_authorized(&policy_ctx, &div_update_permission, AppResource::Division.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    tracing::debug!("{} Division model update {:?} {:?}", line!(), division_id, item);
+
+    let result = models::division::update(&mut conn, division_id, &item);
 
     let response = process_response(result, "put");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         200 => Ok(HttpResponse::Ok().json(response)),
