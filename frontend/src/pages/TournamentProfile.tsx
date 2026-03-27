@@ -6,6 +6,7 @@ import Box from '@mui/material/Box'
 import { Breadcrumbs } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
+import { AdminAPI } from '../features/AdminAPI'
 import { makeCancellable } from '../features/makeCancellable'
 import DivisionsTable from '../components/DivisionsTable'
 import RoomsTable from '../components/RoomsTable'
@@ -33,6 +34,8 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
   const [notFound, setNotFound] = useState<boolean>(false)
   const [tournament, setTournament] = useState<TournamentTS>()
   const [tournamentEditorIsOpen, setTournamentEditorIsOpen] = useState(false);
+  // null = check in-flight, true/false = resolved
+  const [canViewAdmins, setCanViewAdmins] = useState<boolean | null>(null);
 
   useEffect(() => {
     setIsLoading(true)
@@ -62,10 +65,32 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     setIsLoading(false)
   }, [tid])
 
+  useEffect(() => {
+    if (!tournament || !session) {
+      setCanViewAdmins(false);
+      return;
+    }
+    // Superuser bypass
+    if (session.hasRole('super_user')) {
+      setCanViewAdmins(true);
+      return;
+    }
+    // Owner check — no API call needed
+    if (session.userId === tournament.owner_id) {
+      setCanViewAdmins(true);
+      return;
+    }
+    // Admin check — fetch the admin list and look for the current user
+    setCanViewAdmins(null);
+    AdminAPI.getByTournament(String(tournament.tid), 0, 500)
+      .then(admins => setCanViewAdmins(admins.some(a => a.id === session.userId)))
+      .catch(() => setCanViewAdmins(false));
+  }, [tournament?.tid, session?.userId])
+
   if (notFound) return <Navigate to="/404" replace />
   if (stillLoading()) return <div>Loading Tournament...</div>
 
-  const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string }> = [
+  const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string; visible?: boolean }> = [
     { kind: 'route', label: 'Overview',     to: `/tournament/${tid}/overview`     },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
     { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
@@ -74,13 +99,16 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Quizzers',     to: `/tournament/${tid}/quizzers`     },
     { kind: 'route', label: 'Rounds',       to: `/tournament/${tid}/rounds`       },
     { kind: 'route', label: 'Games',        to: `/tournament/${tid}/games`        },
-    { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`       },
+    { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`,       visible: canViewAdmins === true },
     { kind: 'route', label: 'Stats Groups', to: `/tournament/${tid}/stats-groups` },
   ]
 
   const navItems = allNavItems
-    .filter(({ requiredPermission }) => !requiredPermission || (session?.hasPermission(requiredPermission) ?? false))
-    .map(({ requiredPermission: _rp, ...item }) => item)
+    .filter(({ requiredPermission, visible }) =>
+      (visible !== false) &&
+      (!requiredPermission || (session?.hasPermission(requiredPermission) ?? false))
+    )
+    .map(({ requiredPermission: _rp, visible: _v, ...item }) => item)
 
   return (
     <ProfileLayout title={tournament!.tname} navItems={navItems}>
@@ -101,7 +129,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'teams'        && <TeamsTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'quizzers'     && <QuizzersTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'games'        && <GamesTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'admins'       && <AdminsTable tid={String(tournament?.tid)}/>}
+          {props.childRoute === 'admins'       && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'stats-groups'  && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
           {props.childRoute === 'room-monitor'  && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>

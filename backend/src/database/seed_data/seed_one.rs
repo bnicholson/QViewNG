@@ -1,6 +1,6 @@
-use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use strum::IntoEnumIterator;
-use chrono::{Local, NaiveDate, Duration};
+use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 
 pub fn seed_data_one(db: &mut database::Connection) {
     init_roles_and_permissions(db);
@@ -130,11 +130,12 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
 }
 
 pub fn add_tour_1_demo(db: &mut database::Connection) {
-    let tour_owner = crate::models::user::UserBuilder::new("Alex")
-        .set_lname("Rivera")
-        .set_username("arivera")
-        .set_hash_password("Alex@Riv3ra!")
-        .set_email("arivera@fakeemail.com")
+    let tour_owner = crate::models::user::UserBuilder::new("Tour")
+        .set_mname("One")
+        .set_lname("Owner")
+        .set_username("touroneowner")
+        .set_hash_password("Password123!")
+        .set_email("touroneowner@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -161,6 +162,55 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_shortinfo("Display standard data")
         .set_info("This Tournament is intended to show the visitor what a fully data-entered Tournament would look like.")
         .set_owner_id(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    // Tournament admins
+    let admin_1 = UserBuilder::new("Alice")
+        .set_lname("Hartwell")
+        .set_username("ahartwell")
+        .set_hash_password("Password123!")
+        .set_email("ahartwell@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    UsersRolesBuilder::new(admin_1.id)
+        .assign(member_role.id)
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tour.tid, admin_1.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_2 = UserBuilder::new("Ben")
+        .set_lname("Castillo")
+        .set_username("bcastillo")
+        .set_hash_password("Password123!")
+        .set_email("bcastillo@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    UsersRolesBuilder::new(admin_2.id)
+        .assign(member_role.id)
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tour.tid, admin_2.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_3 = UserBuilder::new("Clara")
+        .set_lname("Voss")
+        .set_username("cvoss")
+        .set_hash_password("Password123!")
+        .set_email("cvoss@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    UsersRolesBuilder::new(admin_3.id)
+        .assign(member_role.id)
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tour.tid, admin_3.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -425,18 +475,23 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     let round_1_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_2_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_3_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_4_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_5_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
 
@@ -582,12 +637,15 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     let round_1_novice = RoundBuilder::new_default(division_novice.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_2_novice = RoundBuilder::new_default(division_novice.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_3_novice = RoundBuilder::new_default(division_novice.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
 
@@ -733,12 +791,15 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     let round_1_decades = RoundBuilder::new_default(division_decades.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_2_decades = RoundBuilder::new_default(division_decades.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_3_decades = RoundBuilder::new_default(division_decades.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
 

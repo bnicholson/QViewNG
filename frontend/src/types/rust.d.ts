@@ -230,6 +230,7 @@ interface Tournament {
   info: string;
   created_at: UTC;
   updated_at: UTC;
+  owner_id: string;
 }
 
 interface TournamentChangeset {

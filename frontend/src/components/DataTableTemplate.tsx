@@ -232,6 +232,8 @@ export interface DataTableProps<T> {
   createHref?: string;
   /** onClick handler for the "Create <entityLabel>" button — use this OR createHref, not both */
   onCreate?: () => void;
+  /** Controls visibility of the create button. Defaults to true. */
+  showCreateButton?: boolean;
   /** Column definitions (header + cell renderer). Do NOT include the delete column — it is added automatically. */
   columns: ColumnDef<T>[];
   /** Current row data (the current page of results) */
@@ -257,6 +259,7 @@ export function DataTableTemplate<T>({
   createLabel,
   createHref,
   onCreate,
+  showCreateButton = true,
   columns,
   rows,
   totalCount,
@@ -292,7 +295,7 @@ export function DataTableTemplate<T>({
           </p>
         </div>
 
-        {onCreate ? (
+        {showCreateButton && onCreate ? (
           <button
             onClick={onCreate}
             style={{
@@ -318,7 +321,7 @@ export function DataTableTemplate<T>({
             </svg>
             {btnLabel}
           </button>
-        ) : (
+        ) : showCreateButton ? (
           <a
             href={createHref}
             style={{
@@ -343,7 +346,7 @@ export function DataTableTemplate<T>({
             </svg>
             {btnLabel}
           </a>
-        )}
+        ) : null}
       </div>
 
       {/* ── Table ── */}

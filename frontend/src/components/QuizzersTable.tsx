@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
-import { QuizzerEditorDialog } from './QuizzerEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -41,11 +40,11 @@ interface Props {
   tid?: string;
   /** If provided, skips internal fetch and displays these rows directly. */
   externalRows?: UserTS[];
-  /** Overrides the create button action. When omitted, opens QuizzerEditorDialog. */
+  /** When provided, shows a create button that calls this. Omit to hide the button entirely. */
   onAdd?: () => void;
   /** Overrides the delete handler. When omitted, throws (quizzers managed via rosters). */
   onDelete?: (user: UserTS) => Promise<void>;
-  /** Overrides the create button label. */
+  /** Overrides the create button label. Only meaningful when onAdd is provided. */
   createLabel?: string;
 }
 
@@ -58,7 +57,6 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const [editorIsOpen, setEditorIsOpen] = useState(false);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
@@ -120,40 +118,21 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
     throw new Error('Quizzer-tournament associations are managed through rosters.');
   }, [onDelete]);
 
-  const handleSave = useCallback((_user: UserTS): void => {
-    setEditorIsOpen(false);
-    if (tid !== undefined) {
-      UserAPI.getByTournament(tid)
-        .then(result => { setPage(0); setAllTournamentQuizzers(result.items); })
-        .catch(() => console.error('Failed to reload quizzers'));
-    } else {
-      loadQuizzers(page, pageSize);
-    }
-  }, [tid, loadQuizzers, page, pageSize]);
-
   return (
-    <>
-      <DataTableTemplate<UserTS>
-        entityLabel="Quizzer"
-        createLabel={createLabel}
-        onCreate={onAdd ?? (() => setEditorIsOpen(true))}
-        columns={quizzerColumns}
-        rows={rows}
-        totalCount={totalCount}
-        getId={(u) => u.id}
-        onDelete={handleDelete}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-      />
-      {!onAdd && (
-        <QuizzerEditorDialog
-          isOpen={editorIsOpen}
-          onCancel={() => setEditorIsOpen(false)}
-          onSave={handleSave}
-        />
-      )}
-    </>
+    <DataTableTemplate<UserTS>
+      entityLabel="Quizzer"
+      createLabel={createLabel}
+      onCreate={onAdd}
+      showCreateButton={false}
+      columns={quizzerColumns}
+      rows={rows}
+      totalCount={totalCount}
+      getId={(u) => u.id}
+      onDelete={handleDelete}
+      page={page}
+      pageSize={pageSize}
+      onPageChange={handlePageChange}
+      onPageSizeChange={handlePageSizeChange}
+    />
   );
 }
