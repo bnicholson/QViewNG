@@ -637,8 +637,13 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
 
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 

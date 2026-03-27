@@ -1,6 +1,7 @@
 
 pub mod tournament;
 pub mod division;
+pub mod room;
 
 use uuid::Uuid;
 

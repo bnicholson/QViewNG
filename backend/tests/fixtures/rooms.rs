@@ -1,7 +1,38 @@
-use backend::{database, models::{computer::ComputerBuilder, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder}, equipmentset::EquipmentSetBuilder, monitor::MonitorBuilder, room::{NewRoom, Room, RoomBuilder}, tournament::{Tournament, TournamentBuilder}, user::UserBuilder}};
+use backend::{database, models::{computer::ComputerBuilder, equipmentregistration::{EquipmentRegistration, EquipmentRegistrationBuilder}, equipmentset::EquipmentSetBuilder, monitor::MonitorBuilder, room::{NewRoom, Room, RoomBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::rooms;
+
+/// Returns `(tournament, owner, admin_user, unrelated_user)` for testing
+/// room create ABAC: owner and admin should be allowed, unrelated user should not.
+pub fn arrange_room_create_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, owner, admin_user, unrelated_user)
+}
 
 pub fn seed_1_room_with_minimum_required_dependencies(db: &mut database::Connection) 
     -> (Room, Tournament) {
@@ -93,7 +124,12 @@ pub fn arrange_get_all_equipmentregistrations_of_room_works_integration_test(db:
         .build_and_insert(db)
         .unwrap();
     
+    let tour_owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
     let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)

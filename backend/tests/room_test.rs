@@ -4,12 +4,12 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game}, services::common::PagedResponse};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::common::PagedResponse};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn create_works() {
@@ -20,40 +20,47 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let (tournament, owner, admin_user, unrelated_user) =
+        fixtures::rooms::arrange_room_create_works_integration_test(&mut conn);
 
-    let payload = fixtures::rooms::get_room_payload(parent_tournament.tid);
+    let mut payload = fixtures::rooms::get_room_payload(tournament.tid);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
+
     let uri = "/api/rooms";
-    let req = test::TestRequest::post()
-        .uri(&uri)
+
+    // ── Success: tournament owner with room:create ───────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["room:create".to_string()],
+    );
+
+    let owner_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
         .set_json(&payload)
         .to_request();
 
-    // Act:
+    let owner_resp = test::call_service(&app, owner_req).await;
 
-    let resp = test::call_service(&app, req).await;
-    
-    // Assert:
-    
-    assert_eq!(resp.status(), StatusCode::CREATED);
+    assert_eq!(owner_resp.status(), StatusCode::CREATED);
 
-    let body: EntityResponse<Room> = test::read_body_json(resp).await;
+    let body: EntityResponse<Room> = test::read_body_json(owner_resp).await;
     assert_eq!(body.code, 201);
     assert_eq!(body.message, "");
 
     let room = body.data.unwrap();
-    assert_eq!(room.tid, parent_tournament.tid);
+    assert_eq!(room.tid, tournament.tid);
     assert_eq!(room.name.as_str(), "Test Room 2217");
     assert_eq!(room.building.as_str(), "Building 451");
     assert_eq!(room.comments.as_str(), "None at this time.");
-    
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -61,6 +68,63 @@ async fn create_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+
+    // ── Success: tournament admin with room:create ───────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["room:create".to_string()],
+    );
+
+    payload = RoomBuilder::new_default("Test Room 4000", tournament.tid).build().unwrap();
+    let admin_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::CREATED);
+
+    // ── Fail: has room:create but is neither owner nor tournament admin ───────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["room:create".to_string()],
+    );
+
+    payload = RoomBuilder::new_default("Test Room 4001", tournament.tid).build().unwrap();
+    let unrelated_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no room:create permission at all ───────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["room:read".to_string()],
+    );
+
+    payload = RoomBuilder::new_default("Test Room 4002", tournament.tid).build().unwrap();
+    let no_perm_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]

@@ -1,11 +1,11 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
+use crate::auth::{is_abac_authorized, policies::{room::RoomPolicyResource, PolicyContext, UserContext}};
 use crate::database::Database;
-use crate::models::{self, common::PaginationParams, room::{NewRoom, Room, RoomChangeset}, tournament::Tournament};
-use crate::schema::tournaments::dsl::{tournaments as tournaments_table};
+use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, room::{NewRoom, Room, RoomChangeset}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
-use diesel::{QueryDsl, QueryResult, RunQueryDsl};
+use diesel::QueryResult;
 use uuid::Uuid;
 
 // #[derive(OpenApi)]
@@ -102,29 +102,43 @@ async fn create(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.get_connection().expect("Failed to get connection");
+    let mut conn = db.get_connection().expect("Failed to get connection");
 
-    let tournament_exists: bool = tournaments_table
-        .find(item.tid)
-        .get_result::<Tournament>(&mut db)
-        .is_ok();
-    
-    if !tournament_exists {
-        println!("Could not find Tournament by ID={}", &item.tid);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Tournament with ID {} does not exist", item.tid)
-        })));
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, item.tid) {
+        Ok(t) => t,
+        Err(_) => {
+            println!("Could not find Tournament by ID={}", &item.tid);
+            return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Tournament with ID {} does not exist", item.tid)
+            })));
+        }
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: RoomPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let room_create_permission = format!("{}:{}", AppResource::Room.as_str(), AppAction::Create.as_str());
+    if is_abac_authorized(&policy_ctx, &room_create_permission, AppResource::Room.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
     }
 
     tracing::debug!("{} Room model create {:?}", line!(), item);
 
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    let result: QueryResult<Room> = models::room::create(&mut db, &item);
+    let result: QueryResult<Room> = models::room::create(&mut conn, &item);
 
     let response: EntityResponse<Room> = process_response(result, "post");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         201 => Ok(HttpResponse::Created().json(response)),
