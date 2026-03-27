@@ -2,10 +2,15 @@ use backend::{database, models::{computer::{Computer, ComputerBuilder}, equipmen
 
 use crate::fixtures::{equipment::seed_1_of_each_equipment_piece_type, rooms::seed_1_room_with_minimum_required_dependencies};
 
-pub fn seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies(db: &mut database::Connection) 
+pub fn seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies(db: &mut database::Connection)
     -> (Tournament, EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,
         EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
     let (computer, jumppad, interfacebox, monitor, microphonerecorder, projector, powerstrip, extensioncord) = 
@@ -39,7 +44,7 @@ pub fn seed_1_equipmentregistration_for_each_equipment_type_with_minimum_require
     )   
 }
 
-pub fn seed_1_equipmentregistration_with_minimum_required_dependencies(db: &mut database::Connection) 
+pub fn seed_1_equipmentregistration_with_minimum_required_dependencies(db: &mut database::Connection)
     -> (EquipmentRegistration, Tournament, Computer, EquipmentSet, User) {
     let user = UserBuilder::new_default("User 1")
         .set_hash_password("SOmeTHinGSeCUre!23")
@@ -59,6 +64,7 @@ pub fn seed_1_equipmentregistration_with_minimum_required_dependencies(db: &mut 
         .unwrap();
 
     let tour = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(user.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -88,6 +94,7 @@ pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> N
         .unwrap();
 
     let tour = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(user.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -121,6 +128,7 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
         .unwrap();
 
     let tour = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(user.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -159,6 +167,7 @@ pub fn arrange_get_by_id_works_integration_test(db: &mut database::Connection) -
         .unwrap();
 
     let tour = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(user.id)
         .build_and_insert(db)
         .unwrap();
 

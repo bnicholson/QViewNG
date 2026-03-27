@@ -1,6 +1,8 @@
 use backend::database::Database;
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use jsonwebtoken::{encode, EncodingKey, Header};
+use uuid::Uuid;
 // use pgtemp::PgTempDB;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -21,6 +23,25 @@ pub fn establish_test_connection() -> PgConnection {
         .expect("Failed to run migrations");
     
     conn
+}
+
+/// Mint a signed JWT using the default dev secret, with the given roles and
+/// permissions embedded in the claims. The token is valid for 1 hour.
+/// Use this to supply an `Authorization: Bearer <token>` header in tests that
+/// hit auth-gated endpoints.
+pub fn make_token(user_id: Uuid, roles: Vec<String>, permissions: Vec<String>) -> String {
+    let exp = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize;
+    let claims = serde_json::json!({
+        "sub": user_id.to_string(),
+        "exp": exp,
+        "roles": roles,
+        "permissions": permissions,
+    });
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(b"qview_dev_secret_changeme"),
+    ).expect("Failed to encode test JWT")
 }
 
 pub fn clean_database() {

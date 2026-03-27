@@ -13,7 +13,7 @@ pub fn seed_data_one(db: &mut database::Connection) {
 pub fn add_super_user(db: &mut database::Connection) {
     let super_user = UserBuilder::new("Super")
         .set_lname("User")
-        .set_username("goqview")
+        .set_username("superuser")
         .set_hash_password("Password123!")
         .set_email("goqview@fakeemail.com")
         .set_activated(true)
@@ -33,7 +33,7 @@ pub fn add_super_user(db: &mut database::Connection) {
 pub fn add_tournament_manager_user(db: &mut database::Connection) {
     let user = UserBuilder::new("Taylor")
         .set_lname("Morgan")
-        .set_username("tourmanager")
+        .set_username("tournamentmanager")
         .set_hash_password("Password123!")
         .set_email("tmorgan@fakeemail.com")
         .set_activated(true)

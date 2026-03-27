@@ -1,5 +1,5 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
-use crate::{auth::{policies::UserContext}, models::{self, role::AppRole, tournament_admin::{NewTournamentAdmin, TournamentAdmin}}};
+use crate::{auth::policies::UserContext, models::{self, permission::{AppAction, AppResource}, role::AppRole, tournament_admin::{NewTournamentAdmin, TournamentAdmin}}};
 use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
@@ -337,7 +337,9 @@ async fn create(
 
     tracing::debug!("Line {}, User Context: {:?}", line!(), user_ctx);
     
-    if !user_ctx.roles.iter().any(|r| r == AppRole::TournamentManager.as_str() || r == AppRole::SuperUser.as_str()) {
+    let tour_create_permission = format!["{}:{}", AppResource::Tournament.as_str(), AppAction::Create.as_str()];
+    if !user_ctx.permissions.contains(&tour_create_permission)
+        && !user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

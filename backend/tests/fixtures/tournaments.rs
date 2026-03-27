@@ -2,15 +2,34 @@ use backend::{database, models::{equipmentregistration::EquipmentRegistration, t
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
 use crate::fixtures::{self,divisions::{seed_division_with_name, seed_divisions_with_names}, equipmentregistrations::seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
 
-pub fn get_tournament_payload() -> NewTournament {
-    TournamentBuilder::new_default("Test Tour").build().unwrap()
+pub fn get_tournament_payload(db: &mut database::Connection) -> NewTournament {
+    let owner = UserBuilder::new_default("Tour Payload Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build()
+        .unwrap()
 }
-    
+
 pub fn seed_tournament(db: &mut database::Connection, tname: &str) -> Tournament {
-    TournamentBuilder::new_default(tname).build_and_insert(db).unwrap()
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentBuilder::new_default(tname)
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap()
 }
 
 pub fn seed_tournaments_with_names(db: &mut database::Connection, tname_1: &str, tname_2: &str, tname_3: &str) -> Vec<Tournament> {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let tour_builder = TournamentBuilder::new_default(tname_1)
         .set_venue("Olivet Nazarene University")
         .set_city("Bourbonnais")
@@ -19,8 +38,9 @@ pub fn seed_tournaments_with_names(db: &mut database::Connection, tname_1: &str,
         .set_contact("Jason Morton")
         .set_contactemail("jasonmorton@fakeemail.com")
         .set_shortinfo("NYI International quiz meet of 2025.")
-        .set_info("If I wanted a longer description I would have provided it here.");
-    
+        .set_info("If I wanted a longer description I would have provided it here.")
+        .set_owner_id(owner.id);
+
     let tour_1 = tour_builder
         .clone()
         .build_and_insert(db)
@@ -46,6 +66,11 @@ pub fn seed_tournaments(db: &mut database::Connection) -> Vec<Tournament> {
 }
 
 pub fn seed_tournaments_for_get_today(db: &mut database::Connection) -> Vec<Tournament> {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let today = Local::now().date_naive();
     let two_months_from_today: NaiveDate = today.checked_add_months(Months::new(2)).unwrap();
     let days_10_past: NaiveDate = today - Duration::days(10);
@@ -55,24 +80,28 @@ pub fn seed_tournaments_for_get_today(db: &mut database::Connection) -> Vec<Tour
     let tour_1 = TournamentBuilder::new_default("2 months in the future exactly")
         .set_fromdate(two_months_from_today)
         .set_todate(two_months_from_today)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("20 Days, Including Today")
         .set_fromdate(days_10_past)
         .set_todate(days_10_future)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_3 = TournamentBuilder::new_default("Today Exactly")
         .set_fromdate(today)
         .set_todate(today)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_4 = TournamentBuilder::new_default("1 month ago exactly")
         .set_fromdate(one_month_before_today)
         .set_todate(one_month_before_today)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -80,6 +109,11 @@ pub fn seed_tournaments_for_get_today(db: &mut database::Connection) -> Vec<Tour
 }
 
 pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection) -> Vec<Tournament> {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let today = Local::now().date_naive();
     let days_8_past: NaiveDate = today - Duration::days(8);
     let days_8_future: NaiveDate = today + Duration::days(8);
@@ -90,30 +124,35 @@ pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection)
     let tour_1 = TournamentBuilder::new_default("2 months in the future exactly")
         .set_fromdate(two_months_from_today)
         .set_todate(two_months_from_today)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("eight days past exactly")
         .set_fromdate(days_8_past)
         .set_todate(days_8_past)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_3 = TournamentBuilder::new_default("eight to twelve days future")
         .set_fromdate(days_8_future)
         .set_todate(days_12_future)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_4 = TournamentBuilder::new_default("Today Exactly")
         .set_fromdate(today)
         .set_todate(today)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_5 = TournamentBuilder::new_default("1 month ago exactly")
         .set_fromdate(one_month_before_today)
         .set_todate(one_month_before_today)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -184,11 +223,18 @@ pub fn seed_get_rounds_by_tournament(db: &mut database::Connection) -> Tournamen
 }
 
 pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db: &mut database::Connection) -> (Tournament, TournamentGroup, TournamentGroup) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -196,7 +242,7 @@ pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db:
         .set_description(Some("This is TourGroup 1 testing.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    
+
     let tg_2 = TournamentGroupBuilder::new_default("Test TourGroup 2")
         .set_description(Some("This is TourGroup 2 testing.".to_string()))
         .build_and_insert(db)
@@ -206,7 +252,7 @@ pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db:
         .set_description(Some("This is TourGroup 3 testing.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    
+
     let tg_4 = TournamentGroupBuilder::new_default("Test TourGroup 4")
         .set_description(Some("This is TourGroup 4 testing.".to_string()))
         .build_and_insert(db)
@@ -228,19 +274,25 @@ pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db:
     (tour_1, tg_1, tg_2)
 }
 
-pub fn arrange_get_all_equipmentregistrations_of_tournament_works_integration_test(db: &mut database::Connection) 
+pub fn arrange_get_all_equipmentregistrations_of_tournament_works_integration_test(db: &mut database::Connection)
     -> (Tournament,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,
         EquipmentRegistration,EquipmentRegistration,EquipmentRegistration,EquipmentRegistration) {
     seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies(db)
 }
 
-pub fn arrange_get_all_admins_of_tournament_works_integration_test(db: &mut database::Connection) 
+pub fn arrange_get_all_admins_of_tournament_works_integration_test(db: &mut database::Connection)
     -> (Tournament, TournamentAdmin, TournamentAdmin) {
-    let tour = TournamentBuilder::new_default("Test Tour")
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
         .build_and_insert(db)
         .unwrap();
 
-    let user_1 = 
+    let tour = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let user_1 =
         UserBuilder::new_default("Test User 3")
             .set_hash_password("Some pwd&7")
             .build_and_insert(db)
@@ -249,7 +301,7 @@ pub fn arrange_get_all_admins_of_tournament_works_integration_test(db: &mut data
         .build_and_insert(db)
         .unwrap();
 
-    let user_2 = 
+    let user_2 =
         UserBuilder::new_default("Test User 9")
             .set_email("edbashful@fakeemail.com")
             .set_hash_password("Grace_abundantly90")
@@ -270,18 +322,20 @@ pub fn arrange_get_all_admins_of_tournament_works_integration_test(db: &mut data
 }
 
 pub fn arrange_delete_admin_works_integration_test(db: &mut database::Connection) -> (Tournament, User, TournamentAdmin) {
-    
-    let tournament = TournamentBuilder::new_default("Test Tour")
-        .build_and_insert(db)
-        .unwrap();
     let user = UserBuilder::new_default("Test User 3276")
         .set_hash_password("phunkeypazwurd")
         .build_and_insert(db)
         .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(user.id)
+        .build_and_insert(db)
+        .unwrap();
+
     let tour_admin = TournamentAdminBuilder::new_default(tournament.tid, user.id)
         .set_role_description("default role (test id 334)")
         .build_and_insert(db)
         .unwrap();
-    
+
     (tournament, user, tour_admin)
 }

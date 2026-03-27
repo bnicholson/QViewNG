@@ -445,16 +445,6 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .build_and_insert(db)
         .unwrap();
 
-    let qm_3 = UserBuilder::new_default("Jasmine")
-        .set_hash_password("fun")
-        .build_and_insert(db)
-        .unwrap();
-
-    let qm_4 = UserBuilder::new_default("Stephanie")
-        .set_hash_password("777787787")
-        .build_and_insert(db)
-        .unwrap();
-
     let coach_1 = UserBuilder::new_default("James")
         .set_hash_password("gfj5fkhfkjhkgggh")
         .build_and_insert(db)
@@ -475,12 +465,18 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
 
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 

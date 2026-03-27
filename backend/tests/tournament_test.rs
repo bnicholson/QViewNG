@@ -259,8 +259,26 @@ async fn get_all_in_date_range_works() {
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
+fn tournament_create_payload() -> serde_json::Value {
+    serde_json::json!({
+        "organization": "Nazarene",
+        "tname": "Test Tour",
+        "breadcrumb": "/test/post",
+        "fromdate": "2025-05-23",
+        "todate": "2025-05-27",
+        "venue": "Vancouver University",
+        "city": "Vancouver",
+        "region": "North America",
+        "country": "Canada",
+        "contact": "primemin",
+        "contactemail": "primemin@fakeemail.com",
+        "shortinfo": "Winter Olympics",
+        "info": "Shawn White did excellent in the halfpipe."
+    })
+}
+
 #[actix_web::test]
-async fn create_works() {
+async fn create_with_tournament_create_permission_works() {
 
     // Arrange:
 
@@ -268,25 +286,33 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let payload = fixtures::tournaments::get_tournament_payload();
+    // A real user is required because the endpoint sets owner_id = user_ctx.user_id,
+    // which is a FK to users.id.
+    let user = fixtures::users::seed_user(&mut conn);
+    let token = common::make_token(
+        user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["tournament:create".to_string()],
+    );
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
-        let req = test::TestRequest::post()
-            .uri("/api/tournaments")
-            .set_json(&payload)
-            .to_request();
-    
+
+    let req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&tournament_create_payload())
+        .to_request();
+
     // Act:
 
     let resp = test::call_service(&app, req).await;
-    
+
     // Assert:
-    
+
     assert_eq!(resp.status(), StatusCode::CREATED);
 
     let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
@@ -297,14 +323,94 @@ async fn create_works() {
     assert_ne!(tournament.tid.to_string().as_str(), "");
     assert_eq!(tournament.organization.as_str(), "Nazarene");
     assert_eq!(tournament.tname.as_str(), "Test Tour");
+    assert_eq!(tournament.owner_id, user.id);
 
     // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
-    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), "/api/tournaments");
+    let logs: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
+    assert_eq!(logs.iter().count(), 1);
+    assert_eq!(logs.first().unwrap().method.as_str(), "POST");
+    assert_eq!(logs.first().unwrap().uri.as_str(), "/api/tournaments");
+}
+
+#[actix_web::test]
+async fn create_as_super_user_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user = fixtures::users::seed_user(&mut conn);
+    // super_user role with no explicit permissions — should bypass the permission check.
+    let token = common::make_token(
+        user.id,
+        vec!["super_user".to_string()],
+        vec![],
+    );
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&tournament_create_payload())
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    let tournament = body.data.unwrap();
+    assert_eq!(tournament.owner_id, user.id);
+}
+
+#[actix_web::test]
+async fn create_with_insufficient_permissions_returns_401() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user = fixtures::users::seed_user(&mut conn);
+    // member role with only read access — no tournament:create permission.
+    let token = common::make_token(
+        user.id,
+        vec!["member".to_string()],
+        vec!["tournament:read".to_string()],
+    );
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&tournament_create_payload())
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]
