@@ -1,9 +1,7 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
+use crate::{auth::{is_abac_authorized, policies::{round::RoundPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, permission::{AppAction, AppResource}, round::{NewRound, Round, RoundChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
-use crate::models::{self, common::PaginationParams, round::{NewRound, Round, RoundChangeset}};
-use crate::services::common::{EntityResponse, PagedResponse, process_response};
-// use utoipa::OpenApi;
 use diesel::QueryResult;
 use uuid::Uuid;
 
@@ -83,24 +81,52 @@ async fn create(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.get_connection().expect("Failed to get connection");
+    let mut conn = db.get_connection().expect("Failed to get connection");
 
-    if !models::division::exists(&mut db, item.did) {
-        println!("Could not find Division by ID={}", &item.did);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Division with ID {} does not exist", item.did)
-        })));
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let division = match models::division::read(&mut conn, item.did) {
+        Ok(d) => d,
+        Err(_) => {
+            println!("Could not find Division by ID={}", &item.did);
+            return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Division with ID {} does not exist", item.did)
+            })));
+        }
+    };
+
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => {
+            return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Tournament with ID {} does not exist", division.tid)
+            })));
+        }
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: RoundPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let round_create_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Create.as_str());
+    if is_abac_authorized(&policy_ctx, &round_create_permission, AppResource::Round.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
     }
 
     tracing::debug!("{} Round model create {:?}", line!(), item);
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    let result: QueryResult<Round> = models::round::create(&mut db, &item);
+    models::apicalllog::create(&mut conn, &req);
+
+    let result: QueryResult<Round> = models::round::create(&mut conn, &item);
 
     let response: EntityResponse<Round> = process_response(result, "post");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         201 => Ok(HttpResponse::Created().json(response)),

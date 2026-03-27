@@ -1,8 +1,9 @@
-use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, gameevent::{GameEvent, GameEventCode, GameEventBuilder}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, user::{User, UserBuilder}}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, gameevent::{GameEvent, GameEventCode, GameEventBuilder}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::games;
 use crate::fixtures;
+
 
 pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connection)
     -> (Game, Tournament, Division, Round, Room, Team, Team, User, User, User) {
@@ -141,19 +142,22 @@ pub fn seed_games(db: &mut database::Connection) -> Vec<Game> {
     vec![game_1, game_2]
 }
 
-pub fn duplicate_team_in_game_case_one_payload(db: &mut database::Connection) -> NewGame {
+pub fn duplicate_team_in_game_case_one_payload(db: &mut database::Connection) -> (NewGame, Uuid) {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 1");
-    get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,None,deps_1.4,deps_1.7)
+    let tournament = backend::models::tournament::read(db, deps_1.0).unwrap();
+    (get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,None,deps_1.4,deps_1.7), tournament.owner_id)
 }
 
-pub fn duplicate_team_in_game_case_two_payload(db: &mut database::Connection) -> NewGame {
+pub fn duplicate_team_in_game_case_two_payload(db: &mut database::Connection) -> (NewGame, Uuid) {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 2");
-    get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.4),deps_1.6,deps_1.7)
+    let tournament = backend::models::tournament::read(db, deps_1.0).unwrap();
+    (get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.4),deps_1.6,deps_1.7), tournament.owner_id)
 }
 
-pub fn duplicate_team_in_game_case_three_payload(db: &mut database::Connection) -> NewGame {
+pub fn duplicate_team_in_game_case_three_payload(db: &mut database::Connection) -> (NewGame, Uuid) {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 3");
-    get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.6),deps_1.6,deps_1.7)
+    let tournament = backend::models::tournament::read(db, deps_1.0).unwrap();
+    (get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.6),deps_1.6,deps_1.7), tournament.owner_id)
 }
 
 pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) {  // return Game because it contains gid and roundid (and roomid)
@@ -1058,4 +1062,50 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
         .unwrap();
 
     (game_1, game1_event1, game1_event2)
+}
+
+/// Returns `(tournament, owner, admin_user, unrelated_user, round_id, room_id, division_id, left_team_id, center_team_id, right_team_id, quizmaster_id)`
+/// for testing game create ABAC: owner and admin should be allowed, unrelated user should not.
+pub fn arrange_game_create_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, User, User, User, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Div 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let round = RoundBuilder::new_default(division.did)
+        .build_and_insert(db)
+        .unwrap();
+    let room = RoomBuilder::new_default("Room 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let quizmaster = UserBuilder::new_default("Quizmaster")
+        .set_hash_password("QuizmasterPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
+
+    (tournament, owner, admin_user, unrelated_user, round.roundid, room.roomid, division.did, teams.0.teamid, teams.1.teamid, teams.2.teamid, quizmaster.id)
 }

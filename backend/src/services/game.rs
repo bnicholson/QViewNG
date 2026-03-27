@@ -1,6 +1,7 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use serde_json::json;
+use crate::{auth::{is_abac_authorized, policies::{game::GamePolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, game::{NewGame, Game, GameChangeset}, permission::{AppAction, AppResource}}};
 use crate::database::Database;
-use crate::models::{self, common::PaginationParams, game::{NewGame, Game, GameChangeset}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
@@ -101,12 +102,54 @@ async fn create(
 ) -> Result<HttpResponse, Error> {
 
     let mut conn = db.get_connection().expect("Failed to get connection");
-    
+
     tracing::debug!("{} Game model create {:?}", line!(), item);
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
-    
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let tournament_id = match item.tournamentid {
+        Some(tid) => tid,
+        None => {
+            let round = match models::round::read(&mut conn, item.roundid) {
+                Ok(r) => r,
+                Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                    "error": format!("Round with ID {} does not exist", item.roundid)
+                }))),
+            };
+            let division = match models::division::read(&mut conn, round.did) {
+                Ok(d) => d,
+                Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                    "error": format!("Division with ID {} does not exist", round.did)
+                }))),
+            };
+            division.tid
+        }
+    };
+
+    let tournament = match models::tournament::read(&mut conn, tournament_id) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": format!("Tournament with ID {} does not exist", tournament_id)
+        }))),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: GamePolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let game_create_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Create.as_str());
+    if is_abac_authorized(&policy_ctx, &game_create_permission, AppResource::Game.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let result: QueryResult<Game> = models::game::create(&mut conn, &item);
 
     let response: EntityResponse<Game> = process_response(result, "post");

@@ -9,7 +9,7 @@ use backend::models::game::Game;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn create_works() {
@@ -20,38 +20,37 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tid, did, room_id, round_id, left_team_id, center_team_id, right_team_id, qm_id) = fixtures::games::seed_game_payload_dependencies(&mut conn, "Tour 1");
-
-    let init_payload = fixtures::games::get_game_payload(tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
-    
-    // the model should be able to fill in these gaps left here intentionally for the sake of this test:
-    let payload = NewGame {
-        tournamentid: None,
-        divisionid: None,
-        ..init_payload
-    };
+    let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id) =
+        fixtures::games::arrange_game_create_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
-    let uri = "/api/games"; 
-    let req = test::TestRequest::post()
-        .uri(&uri)
-        .set_json(&payload)
+
+    let uri = "/api/games";
+
+    // ── Success: tournament owner with game:create ───────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    let owner_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let owner_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
         .to_request();
 
-    // Act:
+    let owner_resp = test::call_service(&app, owner_req).await;
 
-    let resp = test::call_service(&app, req).await;
-    
-    // Assert:
-    
-    assert_eq!(resp.status(), StatusCode::CREATED);
+    assert_eq!(owner_resp.status(), StatusCode::CREATED);
 
-    let body: EntityResponse<Game> = test::read_body_json(resp).await;
+    let body: EntityResponse<Game> = test::read_body_json(owner_resp).await;
     assert_eq!(body.code, 201);
     assert_eq!(body.message, "");
 
@@ -59,7 +58,7 @@ async fn create_works() {
     assert_eq!(game.divisionid, did);
     assert_eq!(game.quizmasterid, qm_id);
     assert_eq!(game.leftteamid, left_team_id);
-    
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -67,6 +66,63 @@ async fn create_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+
+    // ── Success: tournament admin with game:create ───────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    let admin_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let admin_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::CREATED);
+
+    // ── Fail: has game:create but is neither owner nor tournament admin ───────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    let unrelated_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let unrelated_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&unrelated_payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no game:create permission at all ────────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["game:read".to_string()],
+    );
+
+    let no_perm_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let no_perm_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&no_perm_payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]
@@ -83,11 +139,13 @@ async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game
             .configure(configure_routes)
     ).await;
 
-    let payload_one = fixtures::games::duplicate_team_in_game_case_one_payload(&mut conn);
-    
+    let (payload_one, owner_id_one) = fixtures::games::duplicate_team_in_game_case_one_payload(&mut conn);
+    let token_one = make_token(owner_id_one, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
+
     let uri_1 = "/api/games";
     let req_one = test::TestRequest::post()
         .uri(&uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", token_one)))
         .set_json(&payload_one)
         .to_request();
 
@@ -103,10 +161,12 @@ async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game
 
     clean_database();
 
-    let payload_two = fixtures::games::duplicate_team_in_game_case_two_payload(&mut conn);
-    
+    let (payload_two, owner_id_two) = fixtures::games::duplicate_team_in_game_case_two_payload(&mut conn);
+    let token_two = make_token(owner_id_two, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
+
     let req_two = test::TestRequest::post()
         .uri("/api/games")
+        .insert_header(("Authorization", format!("Bearer {}", token_two)))
         .set_json(&payload_two)
         .to_request();
 
@@ -122,10 +182,12 @@ async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game
 
     clean_database();
 
-    let payload_three = fixtures::games::duplicate_team_in_game_case_three_payload(&mut conn);
-    
+    let (payload_three, owner_id_three) = fixtures::games::duplicate_team_in_game_case_three_payload(&mut conn);
+    let token_three = make_token(owner_id_three, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
+
     let req_three = test::TestRequest::post()
         .uri("/api/games")
+        .insert_header(("Authorization", format!("Bearer {}", token_three)))
         .set_json(&payload_three)
         .to_request();
 

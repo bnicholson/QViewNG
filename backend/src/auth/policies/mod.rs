@@ -1,7 +1,10 @@
 
 pub mod tournament;
 pub mod division;
+pub mod round;
 pub mod room;
+pub mod game;
+pub mod team;
 
 use uuid::Uuid;
 

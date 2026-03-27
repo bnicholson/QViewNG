@@ -4,13 +4,13 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game}, services::common::PagedResponse};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, team::TeamBuilder}, services::common::PagedResponse};
 use backend::models::team::Team;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn create_works() {
@@ -21,40 +21,45 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
-    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
-
-    let payload = fixtures::teams::get_team_payload(&mut conn, division.did);
+    let (tournament, division, owner, admin_user, unrelated_user) =
+        fixtures::teams::arrange_team_create_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
+
     let uri = "/api/teams";
-    let req = test::TestRequest::post()
-        .uri(&uri)
-        .set_json(&payload)
+
+    // ── Success: tournament owner with team:create ────────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["team:create".to_string()],
+    );
+
+    let owner_payload = fixtures::teams::get_team_payload(&mut conn, division.did);
+    let owner_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
         .to_request();
 
-    // Act:
+    let owner_resp = test::call_service(&app, owner_req).await;
 
-    let resp = test::call_service(&app, req).await;
-    
-    // Assert:
-    
-    assert_eq!(resp.status(), StatusCode::CREATED);
+    assert_eq!(owner_resp.status(), StatusCode::CREATED);
 
-    let body: EntityResponse<Team> = test::read_body_json(resp).await;
+    let body: EntityResponse<Team> = test::read_body_json(owner_resp).await;
     assert_eq!(body.code, 201);
     assert_eq!(body.message, "");
 
     let team = body.data.unwrap();
     assert_eq!(team.did, division.did);
     assert_eq!(team.name.as_str(), "Better Team than Last Year");
-    assert_eq!(team.quizzer_two_id, payload.quizzer_two_id);
-    
+    assert_eq!(team.quizzer_two_id, owner_payload.quizzer_two_id);
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -62,6 +67,75 @@ async fn create_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+
+    // ── Success: tournament admin with team:create ────────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["team:create".to_string()],
+    );
+
+    let admin_payload = TeamBuilder::new_default(division.did)
+        .set_name("Admin Created Team")
+        .set_coachid(fixtures::users::create_and_insert_user(&mut conn, "AdminCoach", "CoachPwd123!").id)
+        .build()
+        .unwrap();
+    let admin_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::CREATED);
+
+    // ── Success: user with team:create permission only (not owner or admin) ───
+
+    let perm_only_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["team:create".to_string()],
+    );
+
+    let perm_only_payload = TeamBuilder::new_default(division.did)
+        .set_name("Permission Only Team")
+        .set_coachid(fixtures::users::create_and_insert_user(&mut conn, "PermCoach", "PermPwd123!").id)
+        .build()
+        .unwrap();
+    let perm_only_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", perm_only_token)))
+        .set_json(&perm_only_payload)
+        .to_request();
+
+    let perm_only_resp = test::call_service(&app, perm_only_req).await;
+
+    assert_eq!(perm_only_resp.status(), StatusCode::CREATED);
+
+    // ── Fail: no permission, not owner, not admin ─────────────────────────────
+
+    let no_auth_token = make_token(
+        unrelated_user.id,
+        vec!["member".to_string()],
+        vec![],
+    );
+
+    let no_auth_payload = TeamBuilder::new_default(division.did)
+        .set_name("Unauthorized Team")
+        .set_coachid(fixtures::users::create_and_insert_user(&mut conn, "NoAuthCoach", "NoPwd123!").id)
+        .build()
+        .unwrap();
+    let no_auth_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_auth_token)))
+        .set_json(&no_auth_payload)
+        .to_request();
+
+    let no_auth_resp = test::call_service(&app, no_auth_req).await;
+
+    assert_eq!(no_auth_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]

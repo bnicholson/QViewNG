@@ -1,7 +1,8 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{database::Database, models::division::Division};
-use crate::models::{self, common::PaginationParams, team::{NewTeam, Team, TeamChangeset}};
+use crate::auth::policies::UserContext;
+use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, role::AppRole, team::{NewTeam, Team, TeamChangeset}};
 use crate::schema::divisions::dsl::{divisions as divisions_table};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
@@ -84,26 +85,49 @@ async fn create(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.get_connection().expect("Failed to get connection");
+    let mut conn = db.get_connection().expect("Failed to get connection");
 
-    let division_exists: bool = divisions_table
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let division = match divisions_table
         .find(item.did)
-        .get_result::<Division>(&mut db)
-        .is_ok();
-    
-    if !division_exists {
-        println!("Could not find Division by ID={}", &item.did);
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Division with ID {} does not exist", item.did)
-        })));
+        .get_result::<Division>(&mut conn)
+    {
+        Ok(d) => d,
+        Err(_) => {
+            println!("Could not find Division by ID={}", &item.did);
+            return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Division with ID {} does not exist", item.did)
+            })));
+        }
+    };
+
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let has_permission = user_ctx.permissions.contains(
+        &format!("{}:{}", AppResource::Team.as_str(), AppAction::Create.as_str())
+    );
+    let is_owner = tournament.owner_id == user_ctx.user_id;
+    let is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let is_super_user = user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str());
+
+    if !is_super_user && !has_permission && !is_owner && !is_admin {
+        return Ok(HttpResponse::Unauthorized().finish());
     }
 
     tracing::debug!("{} Team model create {:?}", line!(), item);
 
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    let result: QueryResult<Team> = models::team::create(&mut db, &item);
+    let result: QueryResult<Team> = models::team::create(&mut conn, &item);
 
     let response: EntityResponse<Team> = process_response(result, "post");
     
