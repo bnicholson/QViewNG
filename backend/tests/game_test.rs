@@ -299,43 +299,46 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let game = fixtures::games::seed_game(&mut conn);
-    
+    let (tournament, game, owner, admin_user, unrelated_user) =
+        fixtures::games::arrange_game_update_works_integration_test(&mut conn);
+
     let app = test::init_service(
         App::new()
-        .app_data(web::Data::new(db))
-        .configure(configure_routes)
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
     ).await;
-    
-    let new_left_team = fixtures::teams::seed_team(&mut conn, game.divisionid);
 
-    let put_payload = json!({
-        "leftteamid": &new_left_team.teamid
-    });
-    
     let put_uri = format!("/api/games/{}", game.gid);
-    let put_req = test::TestRequest::put()
+
+    // ── Success: tournament owner with game:update ────────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    let owner_payload = json!({ "org": "Owner Updated Org" });
+    let owner_req = test::TestRequest::put()
         .uri(&put_uri)
-        .set_json(&put_payload)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
         .to_request();
 
-    // Act:
-    
-    let put_resp = test::call_service(&app, put_req).await;
+    let owner_resp = test::call_service(&app, owner_req).await;
 
-    // Assert:
-    
-    assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(owner_resp.status(), StatusCode::OK);
 
-    let put_resp_body: EntityResponse<Game> = test::read_body_json(put_resp).await;
-    assert_eq!(put_resp_body.code, 200);
-    assert_eq!(put_resp_body.message, "");
+    let owner_resp_body: EntityResponse<Game> = test::read_body_json(owner_resp).await;
+    assert_eq!(owner_resp_body.code, 200);
+    assert_eq!(owner_resp_body.message, "");
 
-    let updated_game = put_resp_body.data.unwrap();
-    assert_eq!(updated_game.divisionid, game.divisionid);
-    assert_eq!(updated_game.leftteamid, new_left_team.teamid);
+    let updated_game = owner_resp_body.data.unwrap();
+    assert_eq!(updated_game.tournamentid, tournament.tid);
+    assert_eq!(updated_game.gid, game.gid);
+    assert_eq!(updated_game.org.as_str(), "Owner Updated Org");
     assert_ne!(updated_game.created_at, updated_game.updated_at);
-    
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -343,6 +346,63 @@ async fn update_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
     assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
+
+    // ── Success: tournament admin with game:update ────────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    let admin_payload = json!({ "org": "Admin Updated Org" });
+    let admin_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    // ── Fail: has game:update but is neither owner nor tournament admin ────────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    let unrelated_payload = json!({ "org": "Unauthorized Update" });
+    let unrelated_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&unrelated_payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no game:update permission at all ────────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["game:read".to_string()],
+    );
+
+    let no_perm_payload = json!({ "org": "No Permission Update" });
+    let no_perm_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&no_perm_payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]

@@ -1064,6 +1064,61 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
     (game_1, game1_event1, game1_event2)
 }
 
+/// Returns `(tournament, game, owner, admin_user, unrelated_user)` for testing
+/// game update ABAC: owner and admin should be allowed, unrelated user should not.
+pub fn arrange_game_update_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, Game, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Div 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let round = RoundBuilder::new_default(division.did)
+        .build_and_insert(db)
+        .unwrap();
+    let room = RoomBuilder::new_default("Room 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let quizmaster = UserBuilder::new_default("Quizmaster")
+        .set_hash_password("QuizmasterPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
+
+    let game = GameBuilder::new_default(room.roomid, round.roundid)
+        .set_tournamentid(Some(tournament.tid))
+        .set_divisionid(Some(division.did))
+        .set_leftteamid(teams.0.teamid)
+        .set_rightteamid(teams.1.teamid)
+        .set_quizmasterid(quizmaster.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, game, owner, admin_user, unrelated_user)
+}
+
 /// Returns `(tournament, owner, admin_user, unrelated_user, round_id, room_id, division_id, left_team_id, center_team_id, right_team_id, quizmaster_id)`
 /// for testing game create ABAC: owner and admin should be allowed, unrelated user should not.
 pub fn arrange_game_create_works_integration_test(

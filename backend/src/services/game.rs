@@ -171,17 +171,45 @@ async fn update(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.pool.get().unwrap();
-
-    tracing::debug!("{} Game model update {:?} {:?}", line!(), item_id, item); 
+    let mut conn = db.pool.get().unwrap();
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
+    models::apicalllog::create(&mut conn, &req);
 
-    let result = models::game::update(&mut db, item_id.into_inner(), &item);
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let game_id = item_id.into_inner();
+
+    let game = match models::game::read(&mut conn, game_id) {
+        Ok(g) => g,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, game.tournamentid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: GamePolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let game_update_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Update.as_str());
+    if is_abac_authorized(&policy_ctx, &game_update_permission, AppResource::Game.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    tracing::debug!("{} Game model update {:?} {:?}", line!(), game_id, item);
+
+    let result = models::game::update(&mut conn, game_id, &item);
 
     let response = process_response(result, "put");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         200 => Ok(HttpResponse::Ok().json(response)),
