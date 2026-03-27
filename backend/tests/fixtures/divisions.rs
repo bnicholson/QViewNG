@@ -1,12 +1,44 @@
 use backend::database;
 use backend::models::division::{Division, DivisionBuilder, NewDivision};
 use backend::models::team::{Team};
-use backend::models::tournament::TournamentBuilder;
+use backend::models::tournament::{Tournament, TournamentBuilder};
+use backend::models::tournament_admin::TournamentAdminBuilder;
+use backend::models::user::{User, UserBuilder};
 use chrono::{TimeZone, Utc};
-use diesel::prelude::*;
 use uuid::Uuid;
 
 use crate::fixtures::{rounds::seed_rounds_with_sched_start_times, teams::seed_teams_with_names, tournaments::seed_tournament};
+
+/// Returns `(tournament, owner, admin_user, unrelated_user)` for testing
+/// division create ABAC: owner and admin should be allowed, unrelated user should not.
+pub fn arrange_division_create_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, owner, admin_user, unrelated_user)
+}
 
 pub fn get_division_payload(tid: Uuid) -> NewDivision {
     DivisionBuilder::new_default("Test Div 3276", tid).build().unwrap()

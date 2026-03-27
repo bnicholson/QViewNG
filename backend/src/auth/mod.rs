@@ -120,7 +120,8 @@ where
 
     // ABAC gate (only reached if RBAC passes)
     let allowed = match permission {
-        name if name == format!("{}:update", resource_name)   => ctx.can_update(&ctx.resource),
+        name if name == format!("{}:create", resource_name) => ctx.can_create(&ctx.resource),
+        name if name == format!("{}:update", resource_name) => ctx.can_update(&ctx.resource),
         name if name == format!("{}:delete", resource_name) => ctx.can_delete(&ctx.resource),
         _ => true, // no policy defined, RBAC alone is sufficient
     };

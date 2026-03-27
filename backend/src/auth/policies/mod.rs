@@ -1,5 +1,6 @@
 
 pub mod tournament;
+pub mod division;
 
 use uuid::Uuid;
 
@@ -20,6 +21,7 @@ impl UserContext {
 }
 
 pub trait Policy<Resource> {
+    fn can_create(&self, _resource: &Resource) -> bool { true }
     fn can_update(&self, resource: &Resource) -> bool;
     fn can_delete(&self, resource: &Resource) -> bool;
 }

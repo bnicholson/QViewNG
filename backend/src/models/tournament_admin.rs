@@ -125,6 +125,15 @@ pub struct TournamentAdminChangeset {
     pub access_lvl: i32
 }
 
+pub fn is_admin(db: &mut database::Connection, tour_id: Uuid, user_id: Uuid) -> bool {
+    use crate::schema::tournaments_admins::dsl::*;
+    tournaments_admins
+        .filter(tournamentid.eq(tour_id))
+        .filter(adminid.eq(user_id))
+        .first::<TournamentAdmin>(db)
+        .is_ok()
+}
+
 pub fn create(db: &mut database::Connection, item: &NewTournamentAdmin) -> QueryResult<TournamentAdmin> {
     use crate::schema::tournaments_admins::dsl::*;
     insert_into(tournaments_admins).values(item).get_result::<TournamentAdmin>(db)

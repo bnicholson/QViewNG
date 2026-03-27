@@ -1,6 +1,6 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{models::{self, division::{Division, DivisionChangeset, NewDivision}}, services::common::{EntityResponse, PagedResponse, process_response}};
+use crate::{auth::{is_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, division::{Division, DivisionChangeset, NewDivision}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
 use utoipa::OpenApi;
@@ -123,6 +123,32 @@ async fn create(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, item.tid) {
+        Ok(t) => t,
+        Err(_) => {
+            println!("Could not find Tournament by ID={}", &item.tid);
+            return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Tournament with ID {} does not exist", item.tid)
+            })));
+        }
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let div_create_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Create.as_str());
+    if is_abac_authorized(&policy_ctx, &div_create_permission, AppResource::Division.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
 
     if !models::tournament::exists(&mut conn, item.tid) {
         println!("Could not find Tournament by ID={}", &item.tid);
