@@ -14,6 +14,7 @@ import TeamsTable from '../components/TeamsTable'
 import AdminsTable from '../components/AdminsTable'
 import QuizzersTable from '../components/QuizzersTable'
 import GamesTable from '../components/GamesTable'
+import RoomMonitorTable from '../components/RoomMonitorTable'
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
 import ProfileLayout from '../components/ProfileLayout'
 import { TournamentOverviewPage } from './TournamentOverviewPage'
@@ -64,17 +65,22 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (stillLoading()) return <div>Loading Tournament...</div>
 
-  const navItems = [
-    { kind: 'route' as const, label: 'Overview',     to: `/tournament/${tid}/overview`     },
-    { kind: 'route' as const, label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
-    { kind: 'route' as const, label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
-    { kind: 'route' as const, label: 'Teams',        to: `/tournament/${tid}/teams`        },
-    { kind: 'route' as const, label: 'Rounds',       to: `/tournament/${tid}/rounds`       },
-    { kind: 'route' as const, label: 'Quizzers',     to: `/tournament/${tid}/quizzers`     },
-    { kind: 'route' as const, label: 'Games',        to: `/tournament/${tid}/games`        },
-    { kind: 'route' as const, label: 'Admins',       to: `/tournament/${tid}/admins`       },
-    { kind: 'route' as const, label: 'Stats Groups', to: `/tournament/${tid}/stats-groups` },
+  const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string }> = [
+    { kind: 'route', label: 'Overview',     to: `/tournament/${tid}/overview`     },
+    { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
+    { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
+    { kind: 'route', label: 'Room Monitor', to: `/tournament/${tid}/room-monitor`, requiredPermission: 'roommonitor:read' },
+    { kind: 'route', label: 'Teams',        to: `/tournament/${tid}/teams`        },
+    { kind: 'route', label: 'Quizzers',     to: `/tournament/${tid}/quizzers`     },
+    { kind: 'route', label: 'Rounds',       to: `/tournament/${tid}/rounds`       },
+    { kind: 'route', label: 'Games',        to: `/tournament/${tid}/games`        },
+    { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`       },
+    { kind: 'route', label: 'Stats Groups', to: `/tournament/${tid}/stats-groups` },
   ]
+
+  const navItems = allNavItems
+    .filter(({ requiredPermission }) => !requiredPermission || (session?.hasPermission(requiredPermission) ?? false))
+    .map(({ requiredPermission: _rp, ...item }) => item)
 
   return (
     <ProfileLayout title={tournament!.tname} navItems={navItems}>
@@ -96,7 +102,8 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'quizzers'     && <QuizzersTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'games'        && <GamesTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'admins'       && <AdminsTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'stats-groups' && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
+          {props.childRoute === 'stats-groups'  && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
+          {props.childRoute === 'room-monitor'  && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>
 
         <TournamentEditorDialog

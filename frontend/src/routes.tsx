@@ -35,7 +35,7 @@ export default function QViewRoutes() {
             <Route path="/my-profile/change-password" element={<MyProfilePage childRoute="change-password" />} />
             <Route path="/my-profile/sessions" element={<MyProfilePage childRoute="sessions" />} />
             <Route path="/admin/crm/users" element={<ManageUsers />} />
-            <Route path="/tournaments-page" element={<TournamentsPage />} />
+            {/* <Route path="/tournaments-page" element={<TournamentsPage />} /> */}
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />
             <Route path="/tournament/:tid/overview" element={<TournamentProfile childRoute="overview" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
@@ -48,6 +48,7 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/games" element={<TournamentProfile childRoute="games" />} />
             <Route path="/tournament/:tid/admins" element={<TournamentProfile childRoute="admins" />} />
             <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile childRoute="stats-groups" />} />
+            <Route path="/tournament/:tid/room-monitor" element={<TournamentProfile childRoute="room-monitor" />} />
             {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/roundsinprogress" element={<RoundsInProgress />} />

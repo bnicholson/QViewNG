@@ -14,6 +14,7 @@ pub enum AppResource {
     Division,
     Round,
     Room,
+    RoomMonitor,
     Game,
     Team,
     User,
@@ -22,13 +23,14 @@ pub enum AppResource {
 impl AppResource {
     pub fn as_str(&self) -> &'static str {
         match self {
-            AppResource::Tournament => "tournament",
-            AppResource::Division   => "division",
-            AppResource::Round      => "round",
-            AppResource::Room       => "room",
-            AppResource::Game       => "game",
-            AppResource::Team       => "team",
-            AppResource::User       => "user",
+            AppResource::Tournament   => "tournament",
+            AppResource::Division     => "division",
+            AppResource::Round        => "round",
+            AppResource::Room         => "room",
+            AppResource::RoomMonitor  => "roommonitor",
+            AppResource::Game         => "game",
+            AppResource::Team         => "team",
+            AppResource::User         => "user",
         }
     }
 }
