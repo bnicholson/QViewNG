@@ -34,9 +34,14 @@ pub fn arrange_room_create_works_integration_test(
     (tournament, owner, admin_user, unrelated_user)
 }
 
-pub fn seed_1_room_with_minimum_required_dependencies(db: &mut database::Connection) 
+pub fn seed_1_room_with_minimum_required_dependencies(db: &mut database::Connection)
     -> (Room, Tournament) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
     let tour = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
     let room = RoomBuilder::new_default("Room 1", tour.tid)

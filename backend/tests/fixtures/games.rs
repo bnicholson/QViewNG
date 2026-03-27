@@ -4,9 +4,14 @@ use uuid::Uuid;
 use backend::schema::games;
 use crate::fixtures;
 
-pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connection) 
+pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connection)
     -> (Game, Tournament, Division, Round, Room, Team, Team, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
     let tour = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
     let division = DivisionBuilder::new_default("Div 1", tour.tid)
@@ -185,8 +190,13 @@ pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) { 
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
 
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -763,8 +773,13 @@ pub fn seed_get_games_of_team(db: &mut database::Connection) -> (Uuid, Game, Gam
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
 
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -884,8 +899,13 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
 
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 

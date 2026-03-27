@@ -88,13 +88,15 @@ pub fn arrange_get_all_equipmentregistrations_of_equipment_piece_works_integrati
         .unwrap();
     
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(user.id)
         .build_and_insert(db)
         .unwrap();
     let equipmentregistration_1 = EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour_1.tid)
         .build_and_insert(db)
         .unwrap();
-    
+
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(user.id)
         .build_and_insert(db)
         .unwrap();
     let equipmentregistration_2 = EquipmentRegistrationBuilder::new_default(computer.equipmentid, tour_2.tid)

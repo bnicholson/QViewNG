@@ -100,11 +100,18 @@ pub fn seed_get_tournaments_where_user_is_admin(db: &mut database::Connection) -
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -117,10 +124,12 @@ pub fn seed_get_tournaments_where_user_is_admin(db: &mut database::Connection) -
         .unwrap();
 
     TournamentBuilder::new_default("Tour 3")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     TournamentBuilder::new_default("Tour 4")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -137,6 +146,7 @@ pub fn arrange_get_all_teams_where_user_is_coach_works_integration_test(
         .unwrap();
 
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(coach.id)
         .build_and_insert(db)
         .unwrap();
     let division_1 = DivisionBuilder::new_default("Div 1", tour_1.tid)
@@ -149,6 +159,7 @@ pub fn arrange_get_all_teams_where_user_is_coach_works_integration_test(
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(coach.id)
         .build_and_insert(db)
         .unwrap();
     let division_2 = DivisionBuilder::new_default("Div 2", tour_2.tid)
@@ -200,7 +211,13 @@ pub fn arrange_get_all_teams_where_user_is_quizzer_works_integration_test(
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -227,6 +244,7 @@ pub fn arrange_get_all_teams_where_user_is_quizzer_works_integration_test(
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -256,6 +274,7 @@ pub fn arrange_get_all_teams_where_user_is_quizzer_works_integration_test(
         .unwrap();
 
     let tour_3 = TournamentBuilder::new_default("Tour 3")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 

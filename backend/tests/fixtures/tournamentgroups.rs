@@ -1,4 +1,4 @@
-use backend::{database, models::{tournament::{Tournament, TournamentBuilder}, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament, TournamentGroupTournamentBuilder}}};
+use backend::{database, models::{tournament::{Tournament, TournamentBuilder}, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament, TournamentGroupTournamentBuilder}, user::UserBuilder}};
 
 pub fn get_tournamentgroup_payload() -> NewTournamentGroup {
     TournamentGroupBuilder::new_default("Test TourGroup 1")
@@ -51,16 +51,25 @@ pub fn arrange_get_all_tournaments_of_tournamentgroup_works_integration_test(db:
         .build_and_insert(db)
         .unwrap();
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
     let tour_2 = TournamentBuilder::new_default("Tour 2")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
     let tour_3 = TournamentBuilder::new_default("Tour 3")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
     let tour_4 = TournamentBuilder::new_default("Tour 4")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -82,7 +91,13 @@ pub fn arrange_add_tournament_to_tournamentgroup_works_integration_test(db: &mut
         .unwrap()
         .tgid;
 
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let tournament_id = TournamentBuilder::new_default("Test Tournament 1")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap()
         .tid;
@@ -99,10 +114,16 @@ pub fn arrange_remove_tournament_from_tournamentgroup_works_integration_test(db:
         .build_and_insert(db)
         .unwrap();
 
-    let tournament = TournamentBuilder::new_default("Test Tournament 1")
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
         .build_and_insert(db)
         .unwrap();
-    
+
+    let tournament = TournamentBuilder::new_default("Test Tournament 1")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
     let _bridge = TournamentGroupTournamentBuilder::new_default(tournamentgroup.tgid, tournament.tid)
         .build_and_insert(db)
         .unwrap();
