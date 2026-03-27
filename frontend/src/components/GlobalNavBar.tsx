@@ -38,6 +38,11 @@ export default function GlobalNavBar() {
           </Typography>
           <Typography variant="h6" component="div" sx={{ flexGrow: 2 }} onClick={toggleDrawer} />
           <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            {auth.session?.hasRole('super_user') && (
+              <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/dev')}>
+                Dev
+              </Button>
+            )}
             {auth.isAuthenticated && (
               <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/my-profile/overview')}>
                 My Profile

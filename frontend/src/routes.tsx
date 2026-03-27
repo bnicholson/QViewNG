@@ -15,6 +15,7 @@ import { Files } from "./containers/Files";
 import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
 import { ManageUsers } from "./pages/ManageUsers";
+import { DevPage } from "./pages/DevPage";
 
 // NOTE: This component was created for ease-of-access and modularity, not reusability.
 //       ONLY the App.tsx file should use this component. 
@@ -34,8 +35,8 @@ export default function QViewRoutes() {
             <Route path="/my-profile/permissions" element={<MyProfilePage childRoute="permissions" />} />
             <Route path="/my-profile/change-password" element={<MyProfilePage childRoute="change-password" />} />
             <Route path="/my-profile/sessions" element={<MyProfilePage childRoute="sessions" />} />
-            <Route path="/admin/crm/users" element={<ManageUsers />} />
-            {/* <Route path="/tournaments-page" element={<TournamentsPage />} /> */}
+            <Route path="/crm/users" element={<ManageUsers />} />
+            <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />
             <Route path="/tournament/:tid/overview" element={<TournamentProfile childRoute="overview" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
@@ -51,9 +52,10 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/room-monitor" element={<TournamentProfile childRoute="room-monitor" />} />
             {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tdeditor" element={<TDEditor />} />
-            <Route path="/roundsinprogress" element={<RoundsInProgress />} />
+            <Route path="/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
             <Route path="/swagger" element={<Swagger />} />
+            <Route path="/dev" element={<DevPage />} />
             <Route path="/404" element={<NotFound />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

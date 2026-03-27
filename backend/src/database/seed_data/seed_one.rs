@@ -15,7 +15,7 @@ pub fn add_super_user(db: &mut database::Connection) {
         .set_lname("User")
         .set_username("superuser")
         .set_hash_password("Password123!")
-        .set_email("goqview@fakeemail.com")
+        .set_email("superuser@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -31,11 +31,11 @@ pub fn add_super_user(db: &mut database::Connection) {
 }
 
 pub fn add_tournament_manager_user(db: &mut database::Connection) {
-    let user = UserBuilder::new("Taylor")
-        .set_lname("Morgan")
+    let user = UserBuilder::new("Tournament")
+        .set_lname("Manager")
         .set_username("tournamentmanager")
         .set_hash_password("Password123!")
-        .set_email("tmorgan@fakeemail.com")
+        .set_email("tmanager@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -51,11 +51,11 @@ pub fn add_tournament_manager_user(db: &mut database::Connection) {
 }
 
 pub fn add_member_user(db: &mut database::Connection) {
-    let user = UserBuilder::new("Jordan")
-        .set_lname("Ellis")
+    let user = UserBuilder::new("Justa")
+        .set_lname("Member")
         .set_username("member")
         .set_hash_password("Password123!")
-        .set_email("jellis@fakeemail.com")
+        .set_email("justamember@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
