@@ -39,6 +39,54 @@ pub fn arrange_team_create_works_integration_test(
     (tournament, division, owner, admin_user, unrelated_user)
 }
 
+/// Returns `(tournament, division, team_1, team_2, owner, admin_user, unrelated_user)` for testing
+/// team delete ABAC: owner and admin should be allowed, unrelated user should not.
+/// team_1 is used for fail cases and the owner success case; team_2 is used for the admin success case.
+pub fn arrange_team_delete_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, Division, Team, Team, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Test Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_1 = TeamBuilder::new_default(division.did)
+        .set_name("Team Delete 1")
+        .set_coachid(create_and_insert_user(db, "Coach Delete 1", "CoachPwd123!").id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let team_2 = TeamBuilder::new_default(division.did)
+        .set_name("Team Delete 2")
+        .set_coachid(create_and_insert_user(db, "Coach Delete 2", "CoachPwd456!").id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, division, team_1, team_2, owner, admin_user, unrelated_user)
+}
+
 /// Returns `(tournament, division, team, owner, admin_user, unrelated_user)` for testing
 /// team update ABAC: owner and admin should be allowed (conditions 2 & 3),
 /// and any user with `team:update` permission should be allowed (condition 1).

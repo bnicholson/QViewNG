@@ -368,52 +368,110 @@ async fn delete_works() {
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
-    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-    let round: Round = fixtures::rounds::seed_round(&mut conn, division.did);
+    let (_tournament, _division, round_1, round_2, owner, admin_user, unrelated_user) =
+        fixtures::rounds::arrange_round_delete_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
-    let delete_uri = format!("/api/rounds/{}", round.roundid);
-    let delete_req = test::TestRequest::delete()
-        .uri(&delete_uri)
+
+    let delete_uri_1 = format!("/api/rounds/{}", round_1.roundid);
+    let delete_uri_2 = format!("/api/rounds/{}", round_2.roundid);
+
+    // ── Fail: has round:delete but is neither owner nor tournament admin ──────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["round:delete".to_string()],
+    );
+
+    let unrelated_req = test::TestRequest::delete()
+        .uri(&delete_uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
         .to_request();
 
-    // Act:
-    
-    let delete_resp = test::call_service(&app, delete_req).await;
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
 
-    // Assert:
-    
-    assert_eq!(delete_resp.status(), StatusCode::OK);
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
 
-    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
-    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
-    assert_eq!(&delete_resp_body_string, "");
-
-
-    let get_by_id_uri = format!("/api/rounds/{}", round.roundid);
-    let get_by_id_req = test::TestRequest::get()
-        .uri(&get_by_id_uri)
-        .to_request();
-
-    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
-
-    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-    
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
-    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri_1);
+
+    // ── Fail: no round:delete permission at all ───────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["round:read".to_string()],
+    );
+
+    let no_perm_req = test::TestRequest::delete()
+        .uri(&delete_uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Success: tournament owner with round:delete ───────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["round:delete".to_string()],
+    );
+
+    let owner_req = test::TestRequest::delete()
+        .uri(&delete_uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request();
+
+    let owner_resp = test::call_service(&app, owner_req).await;
+
+    assert_eq!(owner_resp.status(), StatusCode::OK);
+
+    let owner_resp_body_bytes: Bytes = test::read_body(owner_resp).await;
+    let owner_resp_body_string = String::from_utf8(owner_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&owner_resp_body_string, "");
+
+    let get_by_id_req_1 = test::TestRequest::get()
+        .uri(&delete_uri_1)
+        .to_request();
+    let get_by_id_resp_1 = test::call_service(&app, get_by_id_req_1).await;
+    assert_eq!(get_by_id_resp_1.status(), StatusCode::NOT_FOUND);
+
+    // ── Success: tournament admin with round:delete ───────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["round:delete".to_string()],
+    );
+
+    let admin_req = test::TestRequest::delete()
+        .uri(&delete_uri_2)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    let get_by_id_req_2 = test::TestRequest::get()
+        .uri(&delete_uri_2)
+        .to_request();
+    let get_by_id_resp_2 = test::call_service(&app, get_by_id_req_2).await;
+    assert_eq!(get_by_id_resp_2.status(), StatusCode::NOT_FOUND);
 }
 
 #[actix_web::test]

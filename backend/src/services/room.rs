@@ -206,20 +206,48 @@ async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
     req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    tracing::debug!("{} Room model delete {:?}", line!(), item_id);
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.pool.get().unwrap();
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
+    models::apicalllog::create(&mut conn, &req);
 
-    let result = models::room::delete(&mut db, item_id.into_inner());
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let room_id = item_id.into_inner();
+
+    let room = match models::room::read(&mut conn, room_id) {
+        Ok(r) => r,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, room.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: RoomPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let room_delete_permission = format!("{}:{}", AppResource::Room.as_str(), AppAction::Delete.as_str());
+    if is_abac_authorized(&policy_ctx, &room_delete_permission, AppResource::Room.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    tracing::debug!("{} Room model delete {:?}", line!(), room_id);
+
+    let result = models::room::delete(&mut conn, room_id);
 
     if result.is_ok() {
-        HttpResponse::Ok().finish()
+        Ok(HttpResponse::Ok().finish())
     } else {
-        HttpResponse::InternalServerError().finish()
+        Ok(HttpResponse::InternalServerError().finish())
     }
 }
 

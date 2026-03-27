@@ -199,20 +199,53 @@ async fn destroy(
     db: Data<Database>,
     item_id: Path<Uuid>,
     req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    tracing::debug!("{} Round model delete {:?}", line!(), item_id);
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.pool.get().unwrap();
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
+    models::apicalllog::create(&mut conn, &req);
 
-    let result = models::round::delete(&mut db, item_id.into_inner());
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let round_id = item_id.into_inner();
+
+    let round = match models::round::read(&mut conn, round_id) {
+        Ok(r) => r,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let division = match models::division::read(&mut conn, round.did) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: RoundPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let round_delete_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Delete.as_str());
+    if is_abac_authorized(&policy_ctx, &round_delete_permission, AppResource::Round.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    tracing::debug!("{} Round model delete {:?}", line!(), round_id);
+
+    let result = models::round::delete(&mut conn, round_id);
 
     if result.is_ok() {
-        HttpResponse::Ok().finish()
+        Ok(HttpResponse::Ok().finish())
     } else {
-        HttpResponse::InternalServerError().finish()
+        Ok(HttpResponse::InternalServerError().finish())
     }
 }
 

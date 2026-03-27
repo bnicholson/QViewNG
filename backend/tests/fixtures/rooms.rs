@@ -34,6 +34,46 @@ pub fn arrange_room_create_works_integration_test(
     (tournament, owner, admin_user, unrelated_user)
 }
 
+/// Returns `(tournament, room_1, room_2, owner, admin_user, unrelated_user)` for testing
+/// room delete ABAC: owner and admin should be allowed, unrelated user should not.
+/// room_1 is used for fail cases and the owner success case; room_2 is used for the admin success case.
+pub fn arrange_room_delete_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, Room, Room, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let room_1 = RoomBuilder::new_default("Test Room Delete 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let room_2 = RoomBuilder::new_default("Test Room Delete 2", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, room_1, room_2, owner, admin_user, unrelated_user)
+}
+
 /// Returns `(tournament, room, owner, admin_user, unrelated_user)` for testing
 /// room update ABAC: owner and admin should be allowed, unrelated user should not.
 pub fn arrange_room_update_works_integration_test(

@@ -1066,6 +1066,74 @@ pub fn arrange_get_gameevents_of_game_works_integration_test(db: &mut database::
 
 /// Returns `(tournament, game, owner, admin_user, unrelated_user)` for testing
 /// game update ABAC: owner and admin should be allowed, unrelated user should not.
+/// Returns `(tournament, game_1, game_2, owner, admin_user, unrelated_user)` for testing
+/// game delete ABAC: owner and admin should be allowed, unrelated user should not.
+/// game_1 is used for fail cases and the owner success case; game_2 is used for the admin success case.
+pub fn arrange_game_delete_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, Game, Game, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Div 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let round = RoundBuilder::new_default(division.did)
+        .build_and_insert(db)
+        .unwrap();
+    let room_1 = RoomBuilder::new_default("Room 1", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let room_2 = RoomBuilder::new_default("Room 2", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let quizmaster = UserBuilder::new_default("Quizmaster")
+        .set_hash_password("QuizmasterPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
+
+    let game_1 = GameBuilder::new_default(room_1.roomid, round.roundid)
+        .set_tournamentid(Some(tournament.tid))
+        .set_divisionid(Some(division.did))
+        .set_leftteamid(teams.0.teamid)
+        .set_rightteamid(teams.1.teamid)
+        .set_quizmasterid(quizmaster.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let game_2 = GameBuilder::new_default(room_2.roomid, round.roundid)
+        .set_tournamentid(Some(tournament.tid))
+        .set_divisionid(Some(division.did))
+        .set_leftteamid(teams.1.teamid)
+        .set_rightteamid(teams.2.teamid)
+        .set_quizmasterid(quizmaster.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, game_1, game_2, owner, admin_user, unrelated_user)
+}
+
 pub fn arrange_game_update_works_integration_test(
     db: &mut database::Connection,
 ) -> (Tournament, Game, User, User, User) {
