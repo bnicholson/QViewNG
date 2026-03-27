@@ -63,10 +63,14 @@ pub(crate) fn make_access_token(user_id: Uuid, db: &mut crate::database::Connect
                 .unwrap_or_default()
         })
         .collect();
-    let permissions: Vec<String> = role_permissions.iter()
-        .filter_map(|rp| crate::models::permission::read(db, rp.permission_id).ok())
-        .map(|p| p.name)
-        .collect();
+    let permissions: Vec<String> = {
+        let mut seen = std::collections::HashSet::new();
+        role_permissions.iter()
+            .filter_map(|rp| crate::models::permission::read(db, rp.permission_id).ok())
+            .map(|p| p.name)
+            .filter(|name| seen.insert(name.clone()))
+            .collect()
+    };
 
     encode(
         &Header::default(),

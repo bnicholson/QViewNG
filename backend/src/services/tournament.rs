@@ -338,8 +338,7 @@ async fn create(
     tracing::debug!("Line {}, User Context: {:?}", line!(), user_ctx);
     
     let tour_create_permission = format!["{}:{}", AppResource::Tournament.as_str(), AppAction::Create.as_str()];
-    if !user_ctx.permissions.contains(&tour_create_permission)
-        && !user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
+    if !user_ctx.permissions.contains(&tour_create_permission) {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

@@ -3,15 +3,11 @@ import { useLocation } from 'react-router-dom'
 
 type ID = string
 
-interface Permission {
-  permission: string
-}
-
 interface AccessTokenClaims {
   sub: string
   exp: number
   roles: string[]
-  permissions: Permission[]
+  permissions: string[]
 }
 
 export interface UserSessionResponse {
@@ -35,9 +31,9 @@ class Permissions {
   private readonly permissionsSet: Set<string>
   private readonly permissionsArray: string[]
 
-  constructor(roles: string[], perms: Permission[]) {
+  constructor(roles: string[], perms: string[]) {
     this.rolesArray = roles
-    this.permissionsArray = perms.map(p => p.permission)
+    this.permissionsArray = perms
 
     this.rolesSet = new Set(this.rolesArray)
     this.permissionsSet = new Set(this.permissionsArray)

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../app/hooks';
 import { setTid, setTournament } from '../breadcrumb';
+import { useAuth } from '../hooks/useAuth';
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI';
 import { makeCancellable } from '../features/makeCancellable';
 import { states } from '../features/states';
@@ -27,7 +28,8 @@ export const TournamentFinder = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [tournaments, setTournaments] = useState<TournamentTS[]>([])
   const [tournamentEditor, setTournamentEditor] = useState<{ isOpen: boolean, tournament: TournamentTS | undefined }>({ isOpen: false, tournament: undefined });
-  const isUserAdmin = true;
+  const { session } = useAuth();
+  const isTournamentCreate = session?.hasPermission('tournament:create') ?? false;
   const dispatcher = useAppDispatch();
   const navigate = useNavigate();
   const openTournament = (tournament: TournamentTS) => {
@@ -157,7 +159,7 @@ export const TournamentFinder = () => {
           flexWrap: "wrap",
           gap: 10
         }}>
-          {isUserAdmin && (
+          {isTournamentCreate && (
             <Card onClick={() => setTournamentEditor({ isOpen: true, tournament: undefined })}>
               <CardContent sx={{ 
                 alignItems: "center", display: "flex", flexDirection: "column", height: "100%", 
@@ -187,7 +189,7 @@ export const TournamentFinder = () => {
               <Card key={tournament.tid}>
                 <TournamentCardContent onClick={() => openTournament(tournament)} tournament={tournament} />
                 {/* Make the user view the profile first before editing:
-                {isUserAdmin && (
+                {isTournamentCreate && (
                   <CardActions sx={{ justifyContent: "flex-end" }}>
                     <Button onClick={() => setTournamentEditor({ isOpen: true, tournament })} size="small">
                       Edit
