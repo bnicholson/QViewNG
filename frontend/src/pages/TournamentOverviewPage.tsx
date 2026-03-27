@@ -7,18 +7,18 @@ import type { TournamentTS } from '../features/TournamentAPI'
 
 interface TournamentOverviewPageProps {
   tournament: TournamentTS
-  isUserAdmin: boolean
+  isTournamentUpdate: boolean
   onEdit: () => void
 }
 
-export const TournamentOverviewPage = ({ tournament, isUserAdmin, onEdit }: TournamentOverviewPageProps) => {
+export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, onEdit }: TournamentOverviewPageProps) => {
   return (
     <Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
           {tournament.tname}
         </Typography>
-        {isUserAdmin && (
+        {isTournamentUpdate && (
           <Button variant="outlined" size="small" onClick={onEdit} sx={{ mt: 1 }}>
             Edit
           </Button>

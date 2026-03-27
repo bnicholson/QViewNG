@@ -17,10 +17,12 @@ import GamesTable from '../components/GamesTable'
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
 import ProfileLayout from '../components/ProfileLayout'
 import { TournamentOverviewPage } from './TournamentOverviewPage'
+import { useAuth } from '../hooks/useAuth'
 
 export const TournamentProfile = (props: { childRoute?: string }) => {
 
-  const isUserAdmin = true;
+  const { session } = useAuth();
+  const isTournamentUpdate = session?.hasPermission('tournament:update') ?? false;
 
   const { tid } = useParams();
   if (tid === undefined) return (<></>)
@@ -86,7 +88,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'overview'     && <TournamentOverviewPage tournament={tournament!} isUserAdmin={isUserAdmin} onEdit={() => setTournamentEditorIsOpen(true)} />}
+          {props.childRoute === 'overview'     && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={isTournamentUpdate} onEdit={() => setTournamentEditorIsOpen(true)} />}
           {props.childRoute === 'divisions'    && <DivisionsTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'rooms'        && <RoomsTable tid={String(tournament?.tid)}/>}
           {props.childRoute === 'rounds'       && <RoundsTable tid={String(tournament?.tid)}/>}
