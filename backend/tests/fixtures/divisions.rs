@@ -129,7 +129,12 @@ pub fn seed_get_rounds_by_division(db: &mut database::Connection) -> Division {
 }
 
 pub fn seed_get_teams_by_division(db: &mut database::Connection) -> Team {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
     let tournament = TournamentBuilder::new_default("Test Post")
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 

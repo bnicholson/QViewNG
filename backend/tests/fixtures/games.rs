@@ -317,7 +317,12 @@ pub fn seed_get_games_of_division(db: &mut database::Connection) -> (Uuid, Game,
         .unwrap();
 
 
+    let tour_owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
     let tour_1 = TournamentBuilder::new_default("Tour 1")
+        .set_owner_id(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
 
