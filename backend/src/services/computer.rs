@@ -1,7 +1,7 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{database::Database, models::computer::{Computer, ComputerChangeSet, NewComputer}};
 use crate::models::{self, common::PaginationParams};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 
@@ -33,9 +33,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::computer::read_all(&mut db, &url_params) {
-        Ok(computer) => HttpResponse::Ok().json(computer),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::computer::read_all(&mut db, &url_params), models::computer::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

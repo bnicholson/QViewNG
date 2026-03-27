@@ -313,6 +313,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     )
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::jumppads::dsl::*;
+    jumppads.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, equipment_id: i64, item: &JumpPadChangeSet) -> QueryResult<JumpPad> {
     use crate::schema::jumppads::dsl::*;
 

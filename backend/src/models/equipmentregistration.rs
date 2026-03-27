@@ -158,6 +158,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<EquipmentRegistration>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::equipmentregistrations::dsl::*;
+    equipmentregistrations.count().get_result(db)
+}
+
 pub fn read_all_equipmentregistrations_of_tournament(
     db: &mut database::Connection,
     tournament_id: Uuid,

@@ -4,7 +4,7 @@ use crate::{
     database::Database,
     models::{self, permission::{NewPermission, PermissionChangeset}},
 };
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
 
 #[derive(serde::Deserialize)]
@@ -20,13 +20,15 @@ async fn index(
 ) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
     models::apicalllog::create(&mut db, &req);
-    let result = match params.resource {
-        Some(ref res) => models::permission::read_all_for_resource(&mut db, res),
-        None => models::permission::read_all(&mut db),
-    };
-    match result {
-        Ok(perms) => HttpResponse::Ok().json(perms),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match params.resource {
+        Some(ref res) => match (models::permission::read_all_for_resource(&mut db, res), models::permission::count_for_resource(&mut db, res)) {
+            (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+            _ => HttpResponse::InternalServerError().finish(),
+        },
+        None => match (models::permission::read_all(&mut db), models::permission::count(&mut db)) {
+            (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+            _ => HttpResponse::InternalServerError().finish(),
+        },
     }
 }
 

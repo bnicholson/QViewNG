@@ -4,16 +4,16 @@ use crate::{
     database::Database,
     models::{self, role::{NewRole, RoleChangeset}},
 };
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
 
 #[get("")]
 async fn index(db: Data<Database>, req: HttpRequest) -> HttpResponse {
     let mut db = db.get_connection().expect("Failed to get connection");
     models::apicalllog::create(&mut db, &req);
-    match models::role::read_all(&mut db) {
-        Ok(roles) => HttpResponse::Ok().json(roles),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::role::read_all(&mut db), models::role::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

@@ -122,6 +122,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<StatsGroup>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::statsgroups::dsl::*;
+    statsgroups.count().get_result(db)
+}
+
 pub fn read_all_statsgroups_of_game(db: &mut database::Connection, game_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<StatsGroup>> {
     use crate::schema::games_statsgroups::dsl::*;
     use crate::schema::statsgroups::dsl::*;

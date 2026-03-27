@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{database::Database, models::{self, common::PaginationParams, roster::RosterChangeset, roster_coach::{NewRosterCoach, RosterCoach}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
 
@@ -32,9 +32,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::roster::read_all(&mut db, &url_params) {
-        Ok(roster) => HttpResponse::Ok().json(roster),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::roster::read_all(&mut db, &url_params), models::roster::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

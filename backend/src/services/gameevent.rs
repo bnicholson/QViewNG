@@ -1,7 +1,7 @@
 use actix_web::{Error, get, HttpResponse, HttpRequest, post, Result, web::{Data, Json, Path, Query}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, gameevent::{NewGameEvent, GameEvent}};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -34,9 +34,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::gameevent::read_all(&mut db, &url_params) {
-        Ok(gameevent) => HttpResponse::Ok().json(gameevent),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::gameevent::read_all(&mut db, &url_params), models::gameevent::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

@@ -2430,6 +2430,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<GameEvent>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::gameevents::dsl::*;
+    gameevents.count().get_result(db)
+}
+
 pub fn read_all_gameevents_of_game(db: &mut database::Connection, game_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<GameEvent>> {
     use crate::schema::gameevents::dsl::*;
 

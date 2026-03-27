@@ -1,7 +1,7 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{database::Database, models::tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament}};
 use crate::models::{self, common::PaginationParams, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupChangeset}};
-use crate::services::common::{EntityResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -34,9 +34,9 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    match models::tournamentgroup::read_all(&mut db, &url_params) {
-        Ok(tournamentgroup) => HttpResponse::Ok().json(tournamentgroup),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    match (models::tournamentgroup::read_all(&mut db, &url_params), models::tournamentgroup::count(&mut db)) {
+        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
 

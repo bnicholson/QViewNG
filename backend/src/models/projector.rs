@@ -401,6 +401,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     )
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::projectors::dsl::*;
+    projectors.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, equipment_id: i64, item: &ProjectorChangeSet) -> QueryResult<Projector> {
     use crate::schema::projectors::dsl::*;
 

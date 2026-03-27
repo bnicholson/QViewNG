@@ -536,6 +536,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     )
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::computers::dsl::*;
+    computers.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, equipment_id: i64, item: &ComputerChangeSet) -> QueryResult<Computer> {
     use crate::schema::computers::dsl::*;
 

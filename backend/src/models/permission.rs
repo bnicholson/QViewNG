@@ -170,12 +170,22 @@ pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<Permission>> {
     permissions.order(name.asc()).load::<Permission>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::permissions::dsl::*;
+    permissions.count().get_result(db)
+}
+
 pub fn read_all_for_resource(db: &mut database::Connection, res: &str) -> QueryResult<Vec<Permission>> {
     use crate::schema::permissions::dsl::*;
     permissions
         .filter(resource.eq(res))
         .order(action.asc())
         .load::<Permission>(db)
+}
+
+pub fn count_for_resource(db: &mut database::Connection, res: &str) -> QueryResult<i64> {
+    use crate::schema::permissions::dsl::*;
+    permissions.filter(resource.eq(res)).count().get_result(db)
 }
 
 pub fn update(db: &mut database::Connection, item_id: i32, item: &PermissionChangeset) -> QueryResult<Permission> {

@@ -174,6 +174,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<EquipmentSet>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::equipmentsets::dsl::*;
+    equipmentsets.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, item_id: i64, item: &EquipmentSetChangeset) -> QueryResult<EquipmentSet> {
     use crate::schema::equipmentsets::dsl::*;
     diesel::update(equipmentsets.filter(id.eq(item_id)))

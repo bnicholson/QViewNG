@@ -122,6 +122,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<TournamentGroup>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::tournamentgroups::dsl::*;
+    tournamentgroups.count().get_result(db)
+}
+
 pub fn read_all_tournamentgroups_of_tournament(db: &mut database::Connection, tour_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<TournamentGroup>> {
     use crate::schema::tournamentgroups_tournaments::dsl::*;
     use crate::schema::tournamentgroups::dsl::*;

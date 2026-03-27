@@ -161,6 +161,11 @@ pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<Role>> {
     roles.order(name.asc()).load::<Role>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::roles::dsl::*;
+    roles.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, item_id: i32, item: &RoleChangeset) -> QueryResult<Role> {
     use crate::schema::roles::dsl::*;
     diesel::update(roles.filter(id.eq(item_id)))

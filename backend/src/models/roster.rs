@@ -132,6 +132,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<Roster>(db)
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::rosters::dsl::*;
+    rosters.count().get_result(db)
+}
+
 pub fn read_all_rosters_of_coach(db: &mut database::Connection, coach_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Roster>> {
     use crate::schema::rosters_coaches::dsl::*;
     use crate::schema::rosters::dsl::*;

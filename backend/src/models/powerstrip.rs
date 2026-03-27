@@ -380,6 +380,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     )
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::powerstrips::dsl::*;
+    powerstrips.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, equipment_id: i64, item: &PowerStripChangeSet) -> QueryResult<PowerStrip> {
     use crate::schema::powerstrips::dsl::*;
 

@@ -317,6 +317,11 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     )
 }
 
+pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
+    use crate::schema::microphonerecorders::dsl::*;
+    microphonerecorders.count().get_result(db)
+}
+
 pub fn update(db: &mut database::Connection, equipment_id: i64, item: &MicrophoneRecorderChangeSet) -> QueryResult<MicrophoneRecorder> {
     use crate::schema::microphonerecorders::dsl::*;
 
