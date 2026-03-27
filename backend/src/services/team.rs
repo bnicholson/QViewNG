@@ -1,7 +1,7 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{database::Database, models::division::Division};
-use crate::auth::{is_abac_authorized, policies::{team::TeamPolicyResource, PolicyContext, UserContext}};
+use crate::auth::{is_rbac_and_abac_authorized, policies::{team::TeamPolicyResource, PolicyContext, UserContext}};
 use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, role::AppRole, team::{NewTeam, Team, TeamChangeset}};
 use crate::schema::divisions::dsl::{divisions as divisions_table};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
@@ -184,7 +184,7 @@ async fn update(
         resource: TeamPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let team_update_permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Update.as_str());
-    if is_abac_authorized(&policy_ctx, &team_update_permission, AppResource::Team.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &team_update_permission, AppResource::Team.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -244,7 +244,7 @@ async fn destroy(
         resource: TeamPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let team_delete_permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Delete.as_str());
-    if is_abac_authorized(&policy_ctx, &team_delete_permission, AppResource::Team.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &team_delete_permission, AppResource::Team.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

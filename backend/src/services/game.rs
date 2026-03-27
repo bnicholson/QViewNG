@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{auth::{is_abac_authorized, policies::{game::GamePolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, game::{NewGame, Game, GameChangeset}, permission::{AppAction, AppResource}}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{game::GamePolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, game::{NewGame, Game, GameChangeset}, permission::{AppAction, AppResource}}};
 use crate::database::Database;
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
@@ -146,7 +146,7 @@ async fn create(
         resource: GamePolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let game_create_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Create.as_str());
-    if is_abac_authorized(&policy_ctx, &game_create_permission, AppResource::Game.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &game_create_permission, AppResource::Game.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -200,7 +200,7 @@ async fn update(
         resource: GamePolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let game_update_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Update.as_str());
-    if is_abac_authorized(&policy_ctx, &game_update_permission, AppResource::Game.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &game_update_permission, AppResource::Game.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -252,7 +252,7 @@ async fn destroy(
         resource: GamePolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let game_delete_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Delete.as_str());
-    if is_abac_authorized(&policy_ctx, &game_delete_permission, AppResource::Game.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &game_delete_permission, AppResource::Game.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

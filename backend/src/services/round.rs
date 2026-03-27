@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{auth::{is_abac_authorized, policies::{round::RoundPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, permission::{AppAction, AppResource}, round::{NewRound, Round, RoundChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{round::RoundPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, permission::{AppAction, AppResource}, round::{NewRound, Round, RoundChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -114,7 +114,7 @@ async fn create(
         resource: RoundPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let round_create_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Create.as_str());
-    if is_abac_authorized(&policy_ctx, &round_create_permission, AppResource::Round.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &round_create_permission, AppResource::Round.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -177,7 +177,7 @@ async fn update(
         resource: RoundPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let round_update_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Update.as_str());
-    if is_abac_authorized(&policy_ctx, &round_update_permission, AppResource::Round.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &round_update_permission, AppResource::Round.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -234,7 +234,7 @@ async fn destroy(
         resource: RoundPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let round_delete_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Delete.as_str());
-    if is_abac_authorized(&policy_ctx, &round_delete_permission, AppResource::Round.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &round_delete_permission, AppResource::Round.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

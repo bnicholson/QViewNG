@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::auth::{is_abac_authorized, policies::{room::RoomPolicyResource, PolicyContext, UserContext}};
+use crate::auth::{is_rbac_and_abac_authorized, policies::{room::RoomPolicyResource, PolicyContext, UserContext}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, room::{NewRoom, Room, RoomChangeset}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
@@ -129,7 +129,7 @@ async fn create(
         resource: RoomPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let room_create_permission = format!("{}:{}", AppResource::Room.as_str(), AppAction::Create.as_str());
-    if is_abac_authorized(&policy_ctx, &room_create_permission, AppResource::Room.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &room_create_permission, AppResource::Room.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -181,7 +181,7 @@ async fn update(
         resource: RoomPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let room_update_permission = format!("{}:{}", AppResource::Room.as_str(), AppAction::Update.as_str());
-    if is_abac_authorized(&policy_ctx, &room_update_permission, AppResource::Room.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &room_update_permission, AppResource::Room.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -236,7 +236,7 @@ async fn destroy(
         resource: RoomPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let room_delete_permission = format!("{}:{}", AppResource::Room.as_str(), AppAction::Delete.as_str());
-    if is_abac_authorized(&policy_ctx, &room_delete_permission, AppResource::Room.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &room_delete_permission, AppResource::Room.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

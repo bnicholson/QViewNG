@@ -104,7 +104,7 @@ pub(crate) fn clear_refresh_cookie() -> cookie::Cookie<'static> {
         .finish()
 }
 
-pub(crate) fn is_abac_authorized<R>(ctx: &PolicyContext<R>, permission: &str, resource_name: &str) -> Result<(), AppError>
+pub(crate) fn is_rbac_and_abac_authorized<R>(ctx: &PolicyContext<R>, permission: &str, resource_name: &str) -> Result<(), AppError>
 where
     PolicyContext<R>: Policy<R>
 {
@@ -161,22 +161,22 @@ mod tests {
     fn super_user_bypasses_rbac_and_abac() {
         let ctx = make_ctx(vec![AppRole::SuperUser.as_str()], vec![]);
         // No permissions in the token, yet every check must pass.
-        assert!(is_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
-        assert!(is_abac_authorized(&ctx, "tournament:edit",   "tournament").is_ok());
-        assert!(is_abac_authorized(&ctx, "tournament:delete", "tournament").is_ok());
-        assert!(is_abac_authorized(&ctx, "user:delete",       "user").is_ok());
-        assert!(is_abac_authorized(&ctx, "anything:unknown",  "anything").is_ok());
+        assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
+        assert!(is_rbac_and_abac_authorized(&ctx, "tournament:edit",   "tournament").is_ok());
+        assert!(is_rbac_and_abac_authorized(&ctx, "tournament:delete", "tournament").is_ok());
+        assert!(is_rbac_and_abac_authorized(&ctx, "user:delete",       "user").is_ok());
+        assert!(is_rbac_and_abac_authorized(&ctx, "anything:unknown",  "anything").is_ok());
     }
 
     #[test]
     fn non_super_user_without_permission_is_forbidden() {
         let ctx = make_ctx(vec!["member"], vec![]);
-        assert!(is_abac_authorized(&ctx, "tournament:create", "tournament").is_err());
+        assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_err());
     }
 
     #[test]
     fn non_super_user_with_permission_is_allowed() {
         let ctx = make_ctx(vec!["tournament_manager"], vec!["tournament:create"]);
-        assert!(is_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
+        assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
     }
 }

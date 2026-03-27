@@ -1,6 +1,6 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{auth::{is_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, division::{Division, DivisionChangeset, NewDivision}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, division::{Division, DivisionChangeset, NewDivision}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
 use utoipa::OpenApi;
@@ -146,7 +146,7 @@ async fn create(
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let div_create_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Create.as_str());
-    if is_abac_authorized(&policy_ctx, &div_create_permission, AppResource::Division.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &div_create_permission, AppResource::Division.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -208,7 +208,7 @@ async fn update(
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let div_update_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Update.as_str());
-    if is_abac_authorized(&policy_ctx, &div_update_permission, AppResource::Division.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &div_update_permission, AppResource::Division.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -260,7 +260,7 @@ async fn destroy(
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
     let div_delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
-    if is_abac_authorized(&policy_ctx, &div_delete_permission, AppResource::Division.as_str()).is_err() {
+    if is_rbac_and_abac_authorized(&policy_ctx, &div_delete_permission, AppResource::Division.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
