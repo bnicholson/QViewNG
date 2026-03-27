@@ -39,6 +39,46 @@ pub fn arrange_round_create_works_integration_test(
     (tournament, division, owner, admin_user, unrelated_user)
 }
 
+/// Returns `(tournament, division, round, owner, admin_user, unrelated_user)` for testing
+/// round update ABAC: owner and admin should be allowed, unrelated user should not.
+pub fn arrange_round_update_works_integration_test(
+    db: &mut database::Connection,
+) -> (Tournament, Division, Round, User, User, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Test Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let round = RoundBuilder::new_default(division.did)
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2050, 1, 1, 0, 0, 0).unwrap())
+        .build_and_insert(db)
+        .unwrap();
+
+    let admin_user = UserBuilder::new_default("Tour Admin")
+        .set_hash_password("AdminPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentAdminBuilder::new_default(tournament.tid, admin_user.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let unrelated_user = UserBuilder::new_default("Unrelated User")
+        .set_hash_password("UnrelPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, division, round, owner, admin_user, unrelated_user)
+}
+
 pub fn new_round(did: Uuid, sched_start_time: DateTime<Utc>) -> NewRound {
     NewRound {
         did: did,

@@ -1,7 +1,7 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{database::Database, models::division::Division};
-use crate::auth::policies::UserContext;
+use crate::auth::{is_abac_authorized, policies::{team::TeamPolicyResource, PolicyContext, UserContext}};
 use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, role::AppRole, team::{NewTeam, Team, TeamChangeset}};
 use crate::schema::divisions::dsl::{divisions as divisions_table};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
@@ -147,17 +147,53 @@ async fn update(
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
-    let mut db = db.pool.get().unwrap();
-
-    tracing::debug!("{} Team model update {:?} {:?}", line!(), item_id, item); 
+    let mut conn = db.pool.get().unwrap();
 
     // log this api call
-    models::apicalllog::create(&mut db, &req);
+    models::apicalllog::create(&mut conn, &req);
 
-    let result = models::team::update(&mut db, item_id.into_inner(), &item);
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let team_id = item_id.into_inner();
+
+    let team = match models::team::read(&mut conn, team_id) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let division = match divisions_table
+        .find(team.did)
+        .get_result::<Division>(&mut conn)
+    {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: TeamPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let team_update_permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Update.as_str());
+    if is_abac_authorized(&policy_ctx, &team_update_permission, AppResource::Team.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    tracing::debug!("{} Team model update {:?} {:?}", line!(), team_id, item);
+
+    let result = models::team::update(&mut conn, team_id, &item);
 
     let response = process_response(result, "put");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         200 => Ok(HttpResponse::Ok().json(response)),

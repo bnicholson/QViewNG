@@ -245,11 +245,9 @@ async fn update_works() {
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
-    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
 
-    let round: Round = fixtures::rounds::seed_round(&mut conn, division.did);
+    let (tournament, division, round, owner, admin_user, unrelated_user) =
+        fixtures::rounds::arrange_round_update_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
@@ -257,36 +255,39 @@ async fn update_works() {
             .configure(configure_routes)
     ).await;
 
-    let new_scheduled_start_time = Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap();
-
-    let put_payload = json!({
-        "scheduled_start_time": &new_scheduled_start_time
-    });
-    
     let put_uri = format!("/api/rounds/{}", round.roundid);
-    let put_req = test::TestRequest::put()
+
+    // ── Success: tournament owner with round:update ───────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["round:update".to_string()],
+    );
+
+    let owner_payload = json!({
+        "scheduled_start_time": Utc.with_ymd_and_hms(2055, 5, 23, 0, 0, 0).unwrap()
+    });
+    let owner_req = test::TestRequest::put()
         .uri(&put_uri)
-        .set_json(&put_payload)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
         .to_request();
 
-    // Act:
-    
-    let put_resp = test::call_service(&app, put_req).await;
+    let owner_resp = test::call_service(&app, owner_req).await;
 
-    // Assert:
-    
-    assert_eq!(put_resp.status(), StatusCode::OK);
+    assert_eq!(owner_resp.status(), StatusCode::OK);
 
-    let put_resp_body: EntityResponse<Round> = test::read_body_json(put_resp).await;
-    assert_eq!(put_resp_body.code, 200);
-    assert_eq!(put_resp_body.message, "");
+    let owner_resp_body: EntityResponse<Round> = test::read_body_json(owner_resp).await;
+    assert_eq!(owner_resp_body.code, 200);
+    assert_eq!(owner_resp_body.message, "");
 
-    let new_round = put_resp_body.data.unwrap();
-    assert_eq!(new_round.did, division.did);
-    assert_eq!(new_round.roundid, round.roundid);
-    assert_eq!(new_round.scheduled_start_time.unwrap(), new_scheduled_start_time);
-    assert_ne!(new_round.created_at, new_round.updated_at);
-    
+    let updated_round = owner_resp_body.data.unwrap();
+    assert_eq!(updated_round.did, division.did);
+    assert_eq!(updated_round.roundid, round.roundid);
+    assert_eq!(updated_round.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 0, 0, 0).unwrap());
+    assert_ne!(updated_round.created_at, updated_round.updated_at);
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -294,6 +295,69 @@ async fn update_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
     assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
+
+    // ── Success: tournament admin with round:update ───────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["round:update".to_string()],
+    );
+
+    let admin_payload = json!({
+        "scheduled_start_time": Utc.with_ymd_and_hms(2056, 6, 15, 0, 0, 0).unwrap()
+    });
+    let admin_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    // ── Fail: has round:update but is neither owner nor tournament admin ──────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["round:update".to_string()],
+    );
+
+    let unrelated_payload = json!({
+        "scheduled_start_time": Utc.with_ymd_and_hms(2057, 7, 20, 0, 0, 0).unwrap()
+    });
+    let unrelated_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&unrelated_payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no round:update permission at all ───────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["round:read".to_string()],
+    );
+
+    let no_perm_payload = json!({
+        "scheduled_start_time": Utc.with_ymd_and_hms(2058, 8, 25, 0, 0, 0).unwrap()
+    });
+    let no_perm_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&no_perm_payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[actix_web::test]
