@@ -1,5 +1,5 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
-use crate::{auth::policies::UserContext, models::{self, permission::{AppAction, AppResource}, role::AppRole, tournament_admin::{NewTournamentAdmin, TournamentAdmin}}};
+use crate::{auth::{is_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource}, role::AppRole, tournament_admin::{NewTournamentAdmin, TournamentAdmin}}};
 use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
@@ -424,6 +424,26 @@ async fn update(
     models::apicalllog::create(&mut db, &req);
 
     tracing::debug!("{} Tournement model update {:?} {:?}", line!(), item_id, item); 
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish())
+    };
+    let tour_update_permission = format!["{}:{}", AppResource::Tournament.as_str(), AppAction::Update.as_str()];
+    let resource_name = "tournament";
+
+    let tournament = match models::tournament::read(&mut db, *item_id) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: tournament
+    };
+    if is_abac_authorized(&policy_ctx, tour_update_permission.as_str(), resource_name).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
 
     let result = models::tournament::update(&mut db, item_id.into_inner(), &item);
 

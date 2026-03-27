@@ -3,7 +3,7 @@ pub mod tournament;
 
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct UserContext {
     pub user_id: Uuid,
     pub roles: Vec<String>,
@@ -20,12 +20,11 @@ impl UserContext {
 }
 
 pub trait Policy<Resource> {
-    fn can_edit(&self, resource: &Resource) -> bool;
+    fn can_update(&self, resource: &Resource) -> bool;
     fn can_delete(&self, resource: &Resource) -> bool;
-    fn can_view(&self, resource: &Resource) -> bool;
 }
 
 pub struct PolicyContext<R> {
-    pub user: UserContext,
+    pub user_ctx: UserContext,
     pub resource: R
 }

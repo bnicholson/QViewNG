@@ -321,6 +321,20 @@ pub fn arrange_get_all_admins_of_tournament_works_integration_test(db: &mut data
     )
 }
 
+pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> (Tournament, User) {
+    let owner = UserBuilder::new_default("Tour Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tournament, owner)
+}
+
 pub fn arrange_delete_admin_works_integration_test(db: &mut database::Connection) -> (Tournament, User, TournamentAdmin) {
     let user = UserBuilder::new_default("Test User 3276")
         .set_hash_password("phunkeypazwurd")

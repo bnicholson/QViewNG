@@ -109,18 +109,18 @@ where
     PolicyContext<R>: Policy<R>
 {
     // Super users bypass all authorization checks.
-    if ctx.user.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
+    if ctx.user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
         return Ok(());
     }
 
     // RBAC gate
-    if !ctx.user.permissions.contains(&permission.to_string()) {
+    if !ctx.user_ctx.permissions.contains(&permission.to_string()) {
         return Err(AppError::Forbidden);
     }
 
     // ABAC gate (only reached if RBAC passes)
     let allowed = match permission {
-        name if name == format!("{}:edit", resource_name)   => ctx.can_edit(&ctx.resource),
+        name if name == format!("{}:update", resource_name)   => ctx.can_update(&ctx.resource),
         name if name == format!("{}:delete", resource_name) => ctx.can_delete(&ctx.resource),
         _ => true, // no policy defined, RBAC alone is sufficient
     };
@@ -141,14 +141,13 @@ mod tests {
     struct DummyResource;
 
     impl Policy<DummyResource> for PolicyContext<DummyResource> {
-        fn can_edit(&self, _: &DummyResource) -> bool { false }
+        fn can_update(&self, _: &DummyResource) -> bool { false }
         fn can_delete(&self, _: &DummyResource) -> bool { false }
-        fn can_view(&self, _: &DummyResource) -> bool { false }
     }
 
     fn make_ctx(roles: Vec<&str>, permissions: Vec<&str>) -> PolicyContext<DummyResource> {
         PolicyContext {
-            user: UserContext::new(
+            user_ctx: UserContext::new(
                 Uuid::new_v4(),
                 roles.into_iter().map(str::to_string).collect(),
                 permissions.into_iter().map(str::to_string).collect(),
