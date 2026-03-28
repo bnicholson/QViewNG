@@ -87,7 +87,7 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
   ];
 }
 
-export default function GamesTable({ tid }: { tid: string }) {
+export default function GamesTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [games, setGames] = useState<GameTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
@@ -158,6 +158,8 @@ export default function GamesTable({ tid }: { tid: string }) {
       <DataTableTemplate<GameTS>
         key={tid}
         entityLabel="Game"
+        showCreateButton={showCreateButton}
+        showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         columns={gameColumns(tid, maps)}
         rows={games}

@@ -234,6 +234,8 @@ export interface DataTableProps<T> {
   onCreate?: () => void;
   /** Controls visibility of the create button. Defaults to true. */
   showCreateButton?: boolean;
+  /** Controls visibility of the delete button on each row. Defaults to true. */
+  showDeleteButton?: boolean;
   /** Column definitions (header + cell renderer). Do NOT include the delete column — it is added automatically. */
   columns: ColumnDef<T>[];
   /** Current row data (the current page of results) */
@@ -260,6 +262,7 @@ export function DataTableTemplate<T>({
   createHref,
   onCreate,
   showCreateButton = true,
+  showDeleteButton = true,
   columns,
   rows,
   totalCount,
@@ -272,7 +275,7 @@ export function DataTableTemplate<T>({
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
-  const colSpan = columns.length + 1;
+  const colSpan = columns.length + (showDeleteButton ? 1 : 0);
 
   return (
     <div style={{ fontFamily: "inherit" }}>
@@ -371,7 +374,7 @@ export function DataTableTemplate<T>({
                   {col.header}
                 </th>
               ))}
-              <th style={{ padding: "8px 14px" }} />
+              {showDeleteButton && <th style={{ padding: "8px 14px" }} />}
             </tr>
           </thead>
           <tbody>
@@ -403,9 +406,11 @@ export function DataTableTemplate<T>({
                       {col.render(row)}
                     </td>
                   ))}
-                  <td style={{ padding: "8px 14px", whiteSpace: "nowrap" }}>
-                    <DeleteButton onDelete={() => onDelete(row)} />
-                  </td>
+                  {showDeleteButton && (
+                    <td style={{ padding: "8px 14px", whiteSpace: "nowrap" }}>
+                      <DeleteButton onDelete={() => onDelete(row)} />
+                    </td>
+                  )}
                 </tr>
               ))
             )}

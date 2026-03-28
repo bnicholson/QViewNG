@@ -54,7 +54,7 @@ function divisionColumns(tid: string): ColumnDef<DivisionTS>[] {
   ];
 }
 
-export default function DivisionsTable({ tid }: { tid: string }) {
+export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -107,6 +107,8 @@ export default function DivisionsTable({ tid }: { tid: string }) {
       <DataTableTemplate<DivisionTS>
         key={tid}
         entityLabel="Division"
+        showCreateButton={showCreateButton}
+        showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         columns={divisionColumns(tid)}
         rows={divisions}

@@ -110,13 +110,22 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
         let role_perm_ids: Vec<i32> = match app_role {
             // member: read-only on every resource
             AppRole::Member => read_ids.clone(),
-            // tournament_manager: create/update/delete on tournaments only
+            // tournament_manager: create/update/delete on all tournament-managed resources
             AppRole::TournamentManager => [
-                AppAction::Create.as_str(),
-                AppAction::Update.as_str(),
-                AppAction::Delete.as_str(),
-            ].iter().filter_map(|action| {
-                perm_ids.get(&(AppResource::Tournament.as_str(), *action)).copied()
+                AppResource::Tournament,
+                AppResource::Division,
+                AppResource::Round,
+                AppResource::Room,
+                AppResource::Game,
+                AppResource::Team,
+            ].iter().flat_map(|resource| {
+                [
+                    AppAction::Create.as_str(),
+                    AppAction::Update.as_str(),
+                    AppAction::Delete.as_str(),
+                ].iter().filter_map(|action| {
+                    perm_ids.get(&(resource.as_str(), *action)).copied()
+                }).collect::<Vec<_>>()
             }).collect(),
             // super_user: full CRUD on everything
             AppRole::SuperUser => all_ids.clone(),
@@ -166,11 +175,12 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     // Tournament admins
-    let admin_1 = UserBuilder::new("Alice")
-        .set_lname("Hartwell")
-        .set_username("ahartwell")
+    let admin_1 = UserBuilder::new("Tour")
+        .set_mname("One")
+        .set_lname("Admin")
+        .set_username("touroneadmin")
         .set_hash_password("Password123!")
-        .set_email("ahartwell@fakeemail.com")
+        .set_email("touroneadmin@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();

@@ -124,6 +124,7 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
       createLabel={createLabel}
       onCreate={onAdd}
       showCreateButton={false}
+      showDeleteButton={false}
       columns={quizzerColumns}
       rows={rows}
       totalCount={totalCount}

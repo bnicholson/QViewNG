@@ -54,7 +54,7 @@ function roomColumns(tid: string): ColumnDef<RoomTS>[] {
   ];
 }
 
-export default function RoomsTable({ tid }: { tid: string }) {
+export default function RoomsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [rooms, setRooms] = useState<RoomTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -106,6 +106,8 @@ export default function RoomsTable({ tid }: { tid: string }) {
       <DataTableTemplate<RoomTS>
         key={tid}
         entityLabel="Room"
+        showCreateButton={showCreateButton}
+        showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         columns={roomColumns(tid)}
         rows={rooms}

@@ -52,7 +52,7 @@ function teamColumns(
   ];
 }
 
-export default function TeamsTable({ tid }: { tid: string }) {
+export default function TeamsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [teams, setTeams] = useState<TeamWithCoachTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
@@ -109,6 +109,8 @@ export default function TeamsTable({ tid }: { tid: string }) {
       <DataTableTemplate<TeamWithCoachTS>
         key={tid}
         entityLabel="Team"
+        showCreateButton={showCreateButton}
+        showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         columns={teamColumns(tid, divisionMap)}
         rows={teams}

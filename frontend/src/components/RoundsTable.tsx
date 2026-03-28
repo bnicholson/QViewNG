@@ -58,7 +58,7 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
   ];
 }
 
-export default function RoundsTable({ tid }: { tid: string }) {
+export default function RoundsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [rounds, setRounds] = useState<RoundTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
@@ -115,6 +115,8 @@ export default function RoundsTable({ tid }: { tid: string }) {
       <DataTableTemplate<RoundTS>
         key={tid}
         entityLabel="Round"
+        showCreateButton={showCreateButton}
+        showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         columns={roundColumns(tid, divisionMap)}
         rows={rounds}

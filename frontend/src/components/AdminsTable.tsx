@@ -42,7 +42,7 @@ const adminColumns: ColumnDef<UserTS>[] = [
   },
 ];
 
-export default function AdminsTable({ tid }: { tid: string }) {
+export default function AdminsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [admins, setAdmins] = useState<UserTS[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -96,6 +96,8 @@ export default function AdminsTable({ tid }: { tid: string }) {
       <DataTableTemplate<UserTS>
         key={tid}
         entityLabel="Admin"
+        showCreateButton={showCreateButton}
+        showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         columns={adminColumns}
         rows={admins}

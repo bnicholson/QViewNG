@@ -24,7 +24,6 @@ import { useAuth } from '../hooks/useAuth'
 export const TournamentProfile = (props: { childRoute?: string }) => {
 
   const { session } = useAuth();
-  const isTournamentUpdate = session?.hasPermission('tournament:update') ?? false;
 
   const { tid } = useParams();
   if (tid === undefined) return (<></>)
@@ -87,6 +86,11 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
       .catch(() => setCanViewAdmins(false));
   }, [tournament?.tid, session?.userId])
 
+  // true only when the current user can act as owner or admin for this tournament
+  // AND holds the given resource-level permission
+  const canCreate = (permission: string): boolean =>
+    canViewAdmins === true && (session?.hasPermission(permission) ?? false);
+
   if (notFound) return <Navigate to="/404" replace />
   if (stillLoading()) return <div>Loading Tournament...</div>
 
@@ -122,14 +126,14 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'overview'     && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={isTournamentUpdate} onEdit={() => setTournamentEditorIsOpen(true)} />}
-          {props.childRoute === 'divisions'    && <DivisionsTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'rooms'        && <RoomsTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'rounds'       && <RoundsTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'teams'        && <TeamsTable tid={String(tournament?.tid)}/>}
+          {props.childRoute === 'overview'     && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} onEdit={() => setTournamentEditorIsOpen(true)} />}
+          {props.childRoute === 'divisions'    && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')}/>}
+          {props.childRoute === 'rooms'        && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')}/>}
+          {props.childRoute === 'rounds'       && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}/>}
+          {props.childRoute === 'teams'        && <TeamsTable tid={String(tournament?.tid)} showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}/>}
           {props.childRoute === 'quizzers'     && <QuizzersTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'games'        && <GamesTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'admins'       && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)}/>}
+          {props.childRoute === 'games'        && <GamesTable tid={String(tournament?.tid)} showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}/>}
+          {props.childRoute === 'admins'       && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
           {props.childRoute === 'stats-groups'  && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
           {props.childRoute === 'room-monitor'  && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>
