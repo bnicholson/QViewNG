@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
 import { UserEditorDialog } from './UserEditorDialog';
@@ -35,7 +36,20 @@ function userColumns(onEdit: (user: UserTS) => void): ColumnDef<UserTS>[] {
     },
     {
       header: 'Email',
-      render: (u) => u.email,
+      render: (u) => (
+        <Link
+          to={`/user/${u.id}`}
+          style={{
+            background: 'none', border: 'none', padding: 0,
+            color: '#2563eb', fontWeight: 500, cursor: 'pointer',
+            textDecoration: 'none', whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          {u.email}
+        </Link>
+      ),
     },
     {
       header: 'Activated',
