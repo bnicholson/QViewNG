@@ -3,6 +3,7 @@ use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{RosterCoa
 use crate::models::common::PaginationParams;
 use crate::database::Database;
 use diesel::QueryResult;
+use serde::Serialize;
 use uuid::Uuid;
 
 #[get("")]
@@ -288,6 +289,45 @@ async fn destroy(
     }
 }
 
+#[derive(Serialize)]
+struct UserRolesPermissions {
+    roles: Vec<String>,
+    permissions: Vec<String>,
+}
+
+#[get("/{id}/roles-and-permissions")]
+async fn read_roles_and_permissions(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+    models::apicalllog::create(&mut conn, &req);
+    let user_id = item_id.into_inner();
+
+    let user_roles = models::users_roles::read_all_for_user(&mut conn, user_id).unwrap_or_default();
+    let role_ids: Vec<uuid::Uuid> = user_roles.iter().map(|ur| ur.role_id).collect();
+
+    let roles: Vec<String> = role_ids.iter()
+        .filter_map(|&rid| models::role::read(&mut conn, rid).ok())
+        .map(|r| r.name)
+        .collect();
+
+    let role_permissions: Vec<_> = role_ids.iter()
+        .flat_map(|&rid| models::role_permission::read_all_for_role(&mut conn, rid).unwrap_or_default())
+        .collect();
+    let permissions: Vec<String> = {
+        let mut seen = std::collections::HashSet::new();
+        role_permissions.iter()
+            .filter_map(|rp| models::permission::read(&mut conn, rp.permission_id).ok())
+            .map(|p| p.name)
+            .filter(|name| seen.insert(name.clone()))
+            .collect()
+    };
+
+    HttpResponse::Ok().json(UserRolesPermissions { roles, permissions })
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
@@ -302,5 +342,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(create)
         .service(create_roster)
         .service(update)
-        .service(destroy);
+        .service(destroy)
+        .service(read_roles_and_permissions);
 }

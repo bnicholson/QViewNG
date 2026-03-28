@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
 
@@ -12,7 +13,16 @@ function formatDate(iso: string | null | undefined): string {
 const quizzerColumns: ColumnDef<UserTS>[] = [
   {
     header: 'Full Name',
-    render: (u) => `${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`,
+    render: (u) => (
+      <Link
+        to={`/user/${u.id}/overview`}
+        style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+      >
+        {`${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`}
+      </Link>
+    ),
   },
   {
     header: 'Email',

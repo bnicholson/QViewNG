@@ -4,13 +4,19 @@ mod fixtures;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::{
-    database::Database,
-    models::{self, apicalllog::ApiCalllog, permission::Permission},
+    database::{Database, seed_data::seed_one::init_roles_and_permissions},
+    models::{self, apicalllog::ApiCalllog, permission::Permission, role::AppRole, users_roles::UsersRolesBuilder},
     routes::configure_routes,
     services::common::EntityResponse,
 };
 use serde_json::json;
 use crate::common::{TEST_DB_URL, clean_database};
+
+#[derive(serde::Deserialize)]
+struct RolesAndPermissions {
+    roles: Vec<String>,
+    permissions: Vec<String>,
+}
 
 // ── POST /api/permissions ─────────────────────────────────────────────────────
 
@@ -208,4 +214,75 @@ async fn delete_permission_works() {
         test::TestRequest::get().uri(&delete_uri).to_request(),
     ).await;
     assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
+}
+
+// ── GET /api/users/{id}/roles-and-permissions ─────────────────────────────────
+
+#[actix_web::test]
+async fn get_user_roles_and_permissions_works() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    init_roles_and_permissions(&mut conn);
+    let user = fixtures::users::seed_user(&mut conn);
+    let tour_admin_role = models::role::read_by_name(&mut conn, AppRole::TournamentAdmin.as_str())
+        .expect("TournamentAdmin role should exist");
+    UsersRolesBuilder::new(user.id)
+        .assign(tour_admin_role.id)
+        .build_and_insert(&mut conn)
+        .expect("Failed to assign role");
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/users/{}/roles-and-permissions", user.id);
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&uri).to_request(),
+    ).await;
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: RolesAndPermissions = test::read_body_json(resp).await;
+    assert_eq!(body.roles, vec![AppRole::TournamentAdmin.as_str()]);
+    assert!(!body.permissions.is_empty());
+    assert!(body.permissions.iter().any(|p| p == "tournament:update"));
+    assert!(!body.permissions.iter().any(|p| p == "tournament:create"),
+        "TournamentAdmin should not have tournament:create");
+
+    let logs: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].method.as_str(), "GET");
+    assert_eq!(logs[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn get_user_roles_and_permissions_empty_for_user_with_no_roles() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/users/{}/roles-and-permissions", user.id);
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&uri).to_request(),
+    ).await;
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: RolesAndPermissions = test::read_body_json(resp).await;
+    assert!(body.roles.is_empty());
+    assert!(body.permissions.is_empty());
 }
