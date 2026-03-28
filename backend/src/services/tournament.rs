@@ -1,5 +1,5 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
-use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource}, tournament_admin::{NewTournamentAdmin, TournamentAdmin}}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource}, role::AppRole, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, users_roles::NewUsersRole}};
 use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
@@ -393,7 +393,20 @@ async fn add_admin(
     let result : QueryResult<TournamentAdmin> = models::tournament_admin::create(&mut db, &item_to_be_created);
 
     let response: EntityResponse<TournamentAdmin> = process_response(result, "post");
-    
+
+    if response.code == 201 {
+        if let Ok(role) = models::role::read_by_name(&mut db, AppRole::TournamentAdmin.as_str()) {
+            let existing_roles = models::users_roles::read_all_for_user(&mut db, item_to_be_created.adminid)
+                .unwrap_or_default();
+            if !existing_roles.iter().any(|ur| ur.role_id == role.id) {
+                let _ = models::users_roles::create(&mut db, NewUsersRole {
+                    user_id: item_to_be_created.adminid,
+                    role_id: role.id,
+                });
+            }
+        }
+    }
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         201 => Ok(HttpResponse::Created().json(response)),

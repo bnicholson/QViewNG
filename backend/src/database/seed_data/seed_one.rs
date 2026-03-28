@@ -3,6 +3,8 @@ use strum::IntoEnumIterator;
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 
+const DEFAULT_PASSWORD: &str = "Password123!";
+
 pub fn seed_data_one(db: &mut database::Connection) {
     init_roles_and_permissions(db);
     add_super_user(db);
@@ -15,7 +17,7 @@ pub fn add_super_user(db: &mut database::Connection) {
     let super_user = UserBuilder::new("Super")
         .set_lname("User")
         .set_username("superuser")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("superuser@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -35,7 +37,7 @@ pub fn add_tournament_manager_user(db: &mut database::Connection) {
     let user = UserBuilder::new("Tournament")
         .set_lname("Manager")
         .set_username("tournamentmanager")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("tmanager@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -55,7 +57,7 @@ pub fn add_member_user(db: &mut database::Connection) {
     let user = UserBuilder::new("Justa")
         .set_lname("Member")
         .set_username("member")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("justamember@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -154,7 +156,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_mname("One")
         .set_lname("Owner")
         .set_username("touroneowner")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("touroneowner@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -191,7 +193,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_mname("One")
         .set_lname("Admin")
         .set_username("touroneadmin")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("touroneadmin@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -208,7 +210,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let admin_2 = UserBuilder::new("Ben")
         .set_lname("Castillo")
         .set_username("bcastillo")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("bcastillo@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -225,7 +227,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let admin_3 = UserBuilder::new("Clara")
         .set_lname("Voss")
         .set_username("cvoss")
-        .set_hash_password("Password123!")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_email("cvoss@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
