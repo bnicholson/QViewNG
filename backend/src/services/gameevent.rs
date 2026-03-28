@@ -1,10 +1,9 @@
-use actix_web::{Error, get, HttpResponse, HttpRequest, post, Result, web::{Data, Json, Path, Query}};
+use actix_web::{Error, get, HttpResponse, HttpRequest, post, Result, web::{Data, Json, Query}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, gameevent::{NewGameEvent, GameEvent}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
-use uuid::Uuid;
 
 // #[derive(OpenApi)]
 // #[openapi(paths(index))]

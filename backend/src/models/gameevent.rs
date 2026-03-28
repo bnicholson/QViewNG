@@ -543,10 +543,10 @@ impl GameEventCalculator {
                     // Individual error point deduction starts on a certain number of errors received by the quizzer.
                     // It is normally on error number 3 that the deducation is received.
 
-                    let mut captain_seat_idx = mut_self
+                    let captain_seat_idx = mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .captain.0;
-                    let mut cocaptain_seat_idx = mut_self
+                    let cocaptain_seat_idx = mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .cocaptain.0;
                     if captain_seat_idx == game_event.quizzer {
@@ -752,28 +752,29 @@ impl GameEventCalculator {
         }
         self
     }
-    fn update_team_rankings_using_dense_ranking(mut self) -> Self {
-        // alternative to competitive ranking = Dense ranking:
-        let mut teams: Vec<(i32, TeamForGameEventCalculator)> = self.teams
-            .iter()
-            .map(|(&k, v)| (k, v.clone()))
-            .collect();
-        teams.sort_by(|a, b| b.1.score.cmp(&a.1.score));
+    // Keeping in case useful in the future (because it was written and then discovered to be not needed presently)
+    // fn update_team_rankings_using_dense_ranking(mut self) -> Self {
+    //     // alternative to competitive ranking = Dense ranking:
+    //     let mut teams: Vec<(i32, TeamForGameEventCalculator)> = self.teams
+    //         .iter()
+    //         .map(|(&k, v)| (k, v.clone()))
+    //         .collect();
+    //     teams.sort_by(|a, b| b.1.score.cmp(&a.1.score));
             
-        let mut current_rank = 1;
-        for idx in 0..teams.len() {
-            if idx > 0 && teams[idx].1.score != teams[idx - 1].1.score {
-                current_rank += 1;
-            }
-            teams[idx].1.rank = current_rank;
-        }
-        for (idx, team) in &teams {
-            if let Some(original) = self.teams.get_mut(&idx) {
-                original.rank = team.rank;
-            }
-        }
-        self
-    }
+    //     let mut current_rank = 1;
+    //     for idx in 0..teams.len() {
+    //         if idx > 0 && teams[idx].1.score != teams[idx - 1].1.score {
+    //             current_rank += 1;
+    //         }
+    //         teams[idx].1.rank = current_rank;
+    //     }
+    //     for (idx, team) in &teams {
+    //         if let Some(original) = self.teams.get_mut(&idx) {
+    //             original.rank = team.rank;
+    //         }
+    //     }
+    //     self
+    // }
 }
 
 #[derive(Clone, Debug)]
@@ -1186,10 +1187,10 @@ impl GameEventStreamBuilder {
     }
 
     pub fn then_add_NJ(self) -> Result<Self, Vec<String>> {
-        // We add a record inidicating that no quizzers jumped after full question was 
+        // We add a record inidicating that no quizzers jumped after full question was
         // read and 5-second timer ran out.
 
-        let mut errors: Vec<String> = vec![];
+        let errors: Vec<String> = vec![];
         let prev_event = self.clone().get_last_event().unwrap();
         let prev_question = prev_event.question;
         let prev_eventnum = prev_event.eventnum;
@@ -1275,7 +1276,7 @@ impl GameEventStreamBuilder {
         self.events = new_events;
 
         // Add replacement "TE" or "TC" respectively.
-        let mut record_addition_result: Result<Self, Vec<String>> = Err(vec!["This is was supposed to be replaced.".to_string()]);
+        let mut record_addition_result: Result<Self, Vec<String>> = Err(vec!["This is just for initialization of variable.".to_string()]);
         if replacement_game_event_type == "TC".to_string() {
             record_addition_result = self.then_add_TC(name, team);
         }
@@ -1344,8 +1345,8 @@ impl GameEventStreamBuilder {
             }
         )
     }
-    pub fn then_add_Aplus(mut self, name: &str, team: i32) -> Result<Self, Vec<String>> {
-        let mut errors: Vec<String> = vec![];
+    pub fn then_add_Aplus(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
+        let errors: Vec<String> = vec![];
 
         // Essentially, reset the question. That looks like marking all events for the question
         // as "DE", ready for a new "TC", "TE" or "NJ".
@@ -1387,7 +1388,7 @@ impl GameEventStreamBuilder {
             }
         )
     }
-    pub fn then_add_Aminus(mut self, name: &str, team: i32) -> Result<Self, Vec<String>> {
+    pub fn then_add_Aminus(self, name: &str, team: i32) -> Result<Self, Vec<String>> {
         let mut errors: Vec<String> = vec![];
         let prev_event = self.clone().get_last_event().unwrap();
         let prev_question = prev_event.question;
@@ -1423,11 +1424,11 @@ impl GameEventStreamBuilder {
             }
         )
     }
-    pub fn then_add_FC(mut self, is_coach: bool, team: i32) -> Result<Self, Vec<String>> {
-        // We add a record that the coach or team received a foul, 
+    pub fn then_add_FC(self, is_coach: bool, team: i32) -> Result<Self, Vec<String>> {
+        // We add a record that the coach or team received a foul,
         // where quizzer == 5 is a foul on the coach and quizzer == 6 is a foul on the team.
-        
-        let mut errors: Vec<String> = vec![];
+
+        let errors: Vec<String> = vec![];
         let prev_event = self.clone().get_last_event().unwrap();
         let new_question = prev_event.question + 1;
         let new_eventnum = 0;
@@ -1509,7 +1510,7 @@ impl GameEventStreamBuilder {
         )
     }
     pub fn then_add_SB(self, name: &str, team: i32, new_seat: i32) -> Result<Self, Vec<String>> {
-        let mut errors: Vec<String> = vec![];
+        let errors: Vec<String> = vec![];
 
         // System Behavior to emulate:
         // 1. Insert "SB" event for *the quizzer being subbed-in* (this is the quizzer reflected in 'name' param)

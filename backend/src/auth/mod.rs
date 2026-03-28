@@ -6,7 +6,7 @@ use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey}
 use chrono::{Utc, Duration};
 use uuid::Uuid;
 
-use crate::{auth::policies::{Policy, PolicyContext}, errors::AppError, models::{permission::Permission, role::AppRole}};
+use crate::{auth::policies::{Policy, PolicyContext}, errors::AppError, models::role::AppRole};
 
 pub(crate) const REFRESH_COOKIE: &str = "refresh_token";
 pub(crate) const ACCESS_EXPIRY_HOURS: i64 = 1;
