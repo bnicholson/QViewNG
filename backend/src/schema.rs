@@ -305,7 +305,6 @@ diesel::table! {
 
 diesel::table! {
     permissions (id) {
-        id -> Int4,
         #[max_length = 100]
         name -> Varchar,
         #[max_length = 100]
@@ -314,6 +313,7 @@ diesel::table! {
         action -> Nullable<Varchar>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        id -> Uuid,
     }
 }
 
@@ -371,21 +371,21 @@ diesel::table! {
 
 diesel::table! {
     roles (id) {
-        id -> Int4,
         #[max_length = 100]
         name -> Varchar,
         #[max_length = 500]
         description -> Nullable<Varchar>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        id -> Uuid,
     }
 }
 
 diesel::table! {
     roles_permissions (role_id, permission_id) {
-        role_id -> Int4,
-        permission_id -> Int4,
         created_at -> Timestamptz,
+        role_id -> Uuid,
+        permission_id -> Uuid,
     }
 }
 
@@ -624,8 +624,8 @@ diesel::table! {
 diesel::table! {
     users_roles (user_id, role_id) {
         user_id -> Uuid,
-        role_id -> Int4,
         created_at -> Timestamptz,
+        role_id -> Uuid,
     }
 }
 

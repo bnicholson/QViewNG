@@ -27,7 +27,7 @@ async fn read_for_user(
 #[get("/roles/{role_id}")]
 async fn read_for_role(
     db: Data<Database>,
-    role_id: Path<i32>,
+    role_id: Path<Uuid>,
     req: HttpRequest,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
@@ -42,7 +42,7 @@ async fn read_for_role(
 #[post("/users/{user_id}/roles/{role_id}")]
 async fn assign(
     db: Data<Database>,
-    path: Path<(Uuid, i32)>,
+    path: Path<(Uuid, Uuid)>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
@@ -65,7 +65,7 @@ async fn assign(
 #[delete("/users/{user_id}/roles/{role_id}")]
 async fn revoke(
     db: Data<Database>,
-    path: Path<(Uuid, i32)>,
+    path: Path<(Uuid, Uuid)>,
     req: HttpRequest,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 /// Canonical application roles. Every role inserted into the `roles` table
 /// must correspond to a variant here.
@@ -51,7 +52,7 @@ impl AppRole {
 pub struct RoleBuilder {
     name: String,
     description: Option<String>,
-    permission_ids: Vec<i32>,
+    permission_ids: Vec<Uuid>,
 }
 
 impl RoleBuilder {
@@ -69,13 +70,13 @@ impl RoleBuilder {
     }
 
     /// Add a single permission to this role's permission tree.
-    pub fn with_permission(mut self, permission_id: i32) -> Self {
+    pub fn with_permission(mut self, permission_id: Uuid) -> Self {
         self.permission_ids.push(permission_id);
         self
     }
 
     /// Add multiple permissions at once (useful for composing pre-built permission sets).
-    pub fn with_permissions(mut self, permission_ids: impl IntoIterator<Item = i32>) -> Self {
+    pub fn with_permissions(mut self, permission_ids: impl IntoIterator<Item = Uuid>) -> Self {
         self.permission_ids.extend(permission_ids);
         self
     }
@@ -89,7 +90,7 @@ impl RoleBuilder {
     }
 
     /// Build into a `(NewRole, Vec<permission_id>)` without touching the database.
-    pub fn build(self) -> Result<(NewRole, Vec<i32>), Vec<String>> {
+    pub fn build(self) -> Result<(NewRole, Vec<Uuid>), Vec<String>> {
         self.validate()?;
         let permission_ids = self.permission_ids.clone();
         Ok((NewRole { name: self.name, description: self.description }, permission_ids))
@@ -118,11 +119,11 @@ impl RoleBuilder {
 #[diesel(table_name = crate::schema::roles)]
 #[diesel(primary_key(id))]
 pub struct Role {
-    pub id: i32,
     pub name: String,
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub id: Uuid,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -144,12 +145,12 @@ pub fn create(db: &mut database::Connection, item: NewRole) -> QueryResult<Role>
     insert_into(roles).values(item).get_result::<Role>(db)
 }
 
-pub fn exists(db: &mut database::Connection, item_id: i32) -> bool {
+pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
     use crate::schema::roles::dsl::roles;
     roles.find(item_id).get_result::<Role>(db).is_ok()
 }
 
-pub fn read(db: &mut database::Connection, item_id: i32) -> QueryResult<Role> {
+pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Role> {
     use crate::schema::roles::dsl::*;
     roles.filter(id.eq(item_id)).first::<Role>(db)
 }
@@ -169,14 +170,14 @@ pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     roles.count().get_result(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: i32, item: &RoleChangeset) -> QueryResult<Role> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoleChangeset) -> QueryResult<Role> {
     use crate::schema::roles::dsl::*;
     diesel::update(roles.filter(id.eq(item_id)))
         .set((item, updated_at.eq(diesel::dsl::now)))
         .get_result(db)
 }
 
-pub fn delete(db: &mut database::Connection, item_id: i32) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::roles::dsl::*;
     diesel::delete(roles.filter(id.eq(item_id))).execute(db)
 }

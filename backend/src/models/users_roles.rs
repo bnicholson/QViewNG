@@ -20,7 +20,7 @@ use uuid::Uuid;
 /// ```
 pub struct UsersRolesBuilder {
     user_id: Uuid,
-    role_ids: Vec<i32>,
+    role_ids: Vec<Uuid>,
 }
 
 impl UsersRolesBuilder {
@@ -29,13 +29,13 @@ impl UsersRolesBuilder {
     }
 
     /// Assign a role to this user.
-    pub fn assign(mut self, role_id: i32) -> Self {
+    pub fn assign(mut self, role_id: Uuid) -> Self {
         self.role_ids.push(role_id);
         self
     }
 
     /// Assign multiple roles at once.
-    pub fn assign_many(mut self, role_ids: impl IntoIterator<Item = i32>) -> Self {
+    pub fn assign_many(mut self, role_ids: impl IntoIterator<Item = Uuid>) -> Self {
         self.role_ids.extend(role_ids);
         self
     }
@@ -78,15 +78,15 @@ impl UsersRolesBuilder {
 #[diesel(primary_key(user_id, role_id))]
 pub struct UsersRole {
     pub user_id: Uuid,
-    pub role_id: i32,
     pub created_at: DateTime<Utc>,
+    pub role_id: Uuid,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::schema::users_roles)]
 pub struct NewUsersRole {
     pub user_id: Uuid,
-    pub role_id: i32,
+    pub role_id: Uuid,
 }
 
 pub fn create(db: &mut database::Connection, item: NewUsersRole) -> QueryResult<UsersRole> {
@@ -101,12 +101,12 @@ pub fn read_all_for_user(db: &mut database::Connection, uid: Uuid) -> QueryResul
     users_roles.filter(user_id.eq(uid)).load::<UsersRole>(db)
 }
 
-pub fn read_all_for_role(db: &mut database::Connection, rid: i32) -> QueryResult<Vec<UsersRole>> {
+pub fn read_all_for_role(db: &mut database::Connection, rid: Uuid) -> QueryResult<Vec<UsersRole>> {
     use crate::schema::users_roles::dsl::*;
     users_roles.filter(role_id.eq(rid)).load::<UsersRole>(db)
 }
 
-pub fn delete(db: &mut database::Connection, uid: Uuid, rid: i32) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, uid: Uuid, rid: Uuid) -> QueryResult<usize> {
     use crate::schema::users_roles::dsl::*;
     diesel::delete(
         users_roles

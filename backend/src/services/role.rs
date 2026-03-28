@@ -6,6 +6,7 @@ use crate::{
 };
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
+use uuid::Uuid;
 
 #[get("")]
 async fn index(db: Data<Database>, req: HttpRequest) -> HttpResponse {
@@ -18,7 +19,7 @@ async fn index(db: Data<Database>, req: HttpRequest) -> HttpResponse {
 }
 
 #[get("/{id}")]
-async fn read(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> HttpResponse {
+async fn read(db: Data<Database>, item_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
     match models::role::read(&mut db, item_id.into_inner()) {
@@ -28,7 +29,7 @@ async fn read(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> HttpR
 }
 
 #[get("/{id}/permissions")]
-async fn read_permissions(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> HttpResponse {
+async fn read_permissions(db: Data<Database>, item_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
     match models::role_permission::read_all_for_role(&mut db, item_id.into_inner()) {
@@ -58,7 +59,7 @@ async fn create(
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
-    item_id: Path<i32>,
+    item_id: Path<Uuid>,
     Json(item): Json<RoleChangeset>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
@@ -74,7 +75,7 @@ async fn update(
 }
 
 #[delete("/{id}")]
-async fn destroy(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> HttpResponse {
+async fn destroy(db: Data<Database>, item_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
     if models::role::delete(&mut db, item_id.into_inner()).is_ok() {
@@ -88,7 +89,7 @@ async fn destroy(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> Ht
 #[post("/{role_id}/permissions/{permission_id}")]
 async fn add_permission(
     db: Data<Database>,
-    path: Path<(i32, i32)>,
+    path: Path<(Uuid, Uuid)>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
     let mut db = db.get_connection().expect("Failed to get connection");
@@ -111,7 +112,7 @@ async fn add_permission(
 #[delete("/{role_id}/permissions/{permission_id}")]
 async fn remove_permission(
     db: Data<Database>,
-    path: Path<(i32, i32)>,
+    path: Path<(Uuid, Uuid)>,
     req: HttpRequest,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();

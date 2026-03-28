@@ -1,6 +1,7 @@
 use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use strum::IntoEnumIterator;
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
+use uuid::Uuid;
 
 pub fn seed_data_one(db: &mut database::Connection) {
     init_roles_and_permissions(db);
@@ -81,7 +82,7 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
     use std::collections::HashMap;
 
     // ── Build one permission row per AppResource × AppAction variant ──────────
-    let mut perm_ids: HashMap<(&str, &str), i32> = HashMap::new();
+    let mut perm_ids: HashMap<(&str, &str), Uuid> = HashMap::new();
 
     for resource in AppResource::iter() {
         for action in AppAction::iter() {
@@ -94,11 +95,11 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
         }
     }
 
-    let read_ids: Vec<i32> = AppResource::iter()
+    let read_ids: Vec<Uuid> = AppResource::iter()
         .map(|r| *perm_ids.get(&(r.as_str(), AppAction::Read.as_str())).unwrap())
         .collect();
 
-    let all_ids: Vec<i32> = perm_ids.values().copied().collect();
+    let all_ids: Vec<Uuid> = perm_ids.values().copied().collect();
 
     // ── Build one role row per AppRole variant ────────────────────────────────
     for app_role in AppRole::iter() {
@@ -107,7 +108,7 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
             .build_and_insert(db)
             .unwrap();
 
-        let role_perm_ids: Vec<i32> = match app_role {
+        let role_perm_ids: Vec<Uuid> = match app_role {
             // member: read-only on every resource
             AppRole::Member => read_ids.clone(),
             // tournament_manager: create/update/delete on all tournament-managed resources

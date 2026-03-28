@@ -5,6 +5,7 @@ use diesel::{QueryResult, Insertable};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 /// Builder for linking one role to one or many permissions.
 ///
@@ -22,23 +23,23 @@ use chrono::{DateTime, Utc};
 ///     .build_and_insert(&mut conn)?;
 /// ```
 pub struct RolePermissionBuilder {
-    role_id: i32,
-    permission_ids: Vec<i32>,
+    role_id: Uuid,
+    permission_ids: Vec<Uuid>,
 }
 
 impl RolePermissionBuilder {
-    pub fn new(role_id: i32) -> Self {
+    pub fn new(role_id: Uuid) -> Self {
         Self { role_id, permission_ids: vec![] }
     }
 
     /// Add a permission to this role's tree.
-    pub fn add(mut self, permission_id: i32) -> Self {
+    pub fn add(mut self, permission_id: Uuid) -> Self {
         self.permission_ids.push(permission_id);
         self
     }
 
     /// Add multiple permissions at once.
-    pub fn add_many(mut self, permission_ids: impl IntoIterator<Item = i32>) -> Self {
+    pub fn add_many(mut self, permission_ids: impl IntoIterator<Item = Uuid>) -> Self {
         self.permission_ids.extend(permission_ids);
         self
     }
@@ -81,16 +82,16 @@ impl RolePermissionBuilder {
 #[diesel(table_name = crate::schema::roles_permissions)]
 #[diesel(primary_key(role_id, permission_id))]
 pub struct RolePermission {
-    pub role_id: i32,
-    pub permission_id: i32,
     pub created_at: DateTime<Utc>,
+    pub role_id: Uuid,
+    pub permission_id: Uuid,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::schema::roles_permissions)]
 pub struct NewRolePermission {
-    pub role_id: i32,
-    pub permission_id: i32,
+    pub role_id: Uuid,
+    pub permission_id: Uuid,
 }
 
 pub fn create(db: &mut database::Connection, item: NewRolePermission) -> QueryResult<RolePermission> {
@@ -100,14 +101,14 @@ pub fn create(db: &mut database::Connection, item: NewRolePermission) -> QueryRe
         .get_result::<RolePermission>(db)
 }
 
-pub fn read_all_for_role(db: &mut database::Connection, r_id: i32) -> QueryResult<Vec<RolePermission>> {
+pub fn read_all_for_role(db: &mut database::Connection, r_id: Uuid) -> QueryResult<Vec<RolePermission>> {
     use crate::schema::roles_permissions::dsl::*;
     roles_permissions
         .filter(role_id.eq(r_id))
         .load::<RolePermission>(db)
 }
 
-pub fn delete(db: &mut database::Connection, r_id: i32, p_id: i32) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, r_id: Uuid, p_id: Uuid) -> QueryResult<usize> {
     use crate::schema::roles_permissions::dsl::*;
     diesel::delete(
         roles_permissions
@@ -116,7 +117,7 @@ pub fn delete(db: &mut database::Connection, r_id: i32, p_id: i32) -> QueryResul
     ).execute(db)
 }
 
-pub fn delete_all_for_role(db: &mut database::Connection, r_id: i32) -> QueryResult<usize> {
+pub fn delete_all_for_role(db: &mut database::Connection, r_id: Uuid) -> QueryResult<usize> {
     use crate::schema::roles_permissions::dsl::*;
     diesel::delete(roles_permissions.filter(role_id.eq(r_id))).execute(db)
 }

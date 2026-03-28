@@ -1,5 +1,6 @@
 use actix_web::{delete, get, post, put, Error, HttpRequest, HttpResponse, Result,
     web::{Data, Json, Path, Query}};
+use uuid::Uuid;
 use crate::{
     database::Database,
     models::{self, permission::{NewPermission, PermissionChangeset}},
@@ -33,7 +34,7 @@ async fn index(
 }
 
 #[get("/{id}")]
-async fn read(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> HttpResponse {
+async fn read(db: Data<Database>, item_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
     match models::permission::read(&mut db, item_id.into_inner()) {
@@ -63,7 +64,7 @@ async fn create(
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
-    item_id: Path<i32>,
+    item_id: Path<Uuid>,
     Json(item): Json<PermissionChangeset>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
@@ -79,7 +80,7 @@ async fn update(
 }
 
 #[delete("/{id}")]
-async fn destroy(db: Data<Database>, item_id: Path<i32>, req: HttpRequest) -> HttpResponse {
+async fn destroy(db: Data<Database>, item_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
     if models::permission::delete(&mut db, item_id.into_inner()).is_ok() {

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 /// Resources that can be the subject of a permission.
 #[derive(EnumIter)]
@@ -121,12 +122,12 @@ impl PermissionBuilder {
 #[diesel(table_name = crate::schema::permissions)]
 #[diesel(primary_key(id))]
 pub struct Permission {
-    pub id: i32,
     pub name: String,
     pub resource: Option<String>,
     pub action: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub id: Uuid,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -150,12 +151,12 @@ pub fn create(db: &mut database::Connection, item: NewPermission) -> QueryResult
     insert_into(permissions).values(item).get_result::<Permission>(db)
 }
 
-pub fn exists(db: &mut database::Connection, item_id: i32) -> bool {
+pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
     use crate::schema::permissions::dsl::permissions;
     permissions.find(item_id).get_result::<Permission>(db).is_ok()
 }
 
-pub fn read(db: &mut database::Connection, item_id: i32) -> QueryResult<Permission> {
+pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Permission> {
     use crate::schema::permissions::dsl::*;
     permissions.filter(id.eq(item_id)).first::<Permission>(db)
 }
@@ -188,14 +189,14 @@ pub fn count_for_resource(db: &mut database::Connection, res: &str) -> QueryResu
     permissions.filter(resource.eq(res)).count().get_result(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: i32, item: &PermissionChangeset) -> QueryResult<Permission> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &PermissionChangeset) -> QueryResult<Permission> {
     use crate::schema::permissions::dsl::*;
     diesel::update(permissions.filter(id.eq(item_id)))
         .set((item, updated_at.eq(diesel::dsl::now)))
         .get_result(db)
 }
 
-pub fn delete(db: &mut database::Connection, item_id: i32) -> QueryResult<usize> {
+pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::permissions::dsl::*;
     diesel::delete(permissions.filter(id.eq(item_id))).execute(db)
 }

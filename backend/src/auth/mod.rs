@@ -48,7 +48,7 @@ pub(crate) fn make_access_token(user_id: Uuid, db: &mut crate::database::Connect
     let user_roles = crate::models::users_roles::read_all_for_user(db, user_id)
         .unwrap_or_default();
 
-    let role_ids: Vec<i32> = user_roles.iter().map(|ur| ur.role_id).collect();
+    let role_ids: Vec<Uuid> = user_roles.iter().map(|ur| ur.role_id).collect();
 
     // Resolve role names.
     let roles: Vec<String> = role_ids.iter()
