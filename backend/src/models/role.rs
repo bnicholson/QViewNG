@@ -14,7 +14,7 @@ use uuid::Uuid;
 pub enum AppRole {
     Member,
     TournamentManager,
-    // TournamentAdmin,
+    TournamentAdmin,
     SuperUser,
 }
 
@@ -23,7 +23,7 @@ impl AppRole {
         match self {
             AppRole::Member            => "member",
             AppRole::TournamentManager => "tournament_manager",
-            // AppRole::TournamentAdmin   => "tournament_admin",
+            AppRole::TournamentAdmin   => "tournament_admin",
             AppRole::SuperUser         => "super_user",
         }
     }
@@ -32,7 +32,7 @@ impl AppRole {
         match self {
             AppRole::Member            => "View all resources; no write access",
             AppRole::TournamentManager => "Create, update, and delete tournaments (assign alongside member)",
-            // AppRole::TournamentAdmin   => "Tournament Manager except for creating Tournaments",
+            AppRole::TournamentAdmin   => "Tournament Manager except for creating Tournaments",
             AppRole::SuperUser         => "Unrestricted access to all resources and actions",
         }
     }

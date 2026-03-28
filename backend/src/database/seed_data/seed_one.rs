@@ -101,6 +101,30 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
 
     let all_ids: Vec<Uuid> = perm_ids.values().copied().collect();
 
+    let tour_manager_permissions: Vec<Uuid> = [
+            AppResource::Tournament,
+            AppResource::Division,
+            AppResource::Round,
+            AppResource::Room,
+            AppResource::Game,
+            AppResource::Team,
+        ].iter().flat_map(|resource| {
+            [
+                AppAction::Create.as_str(),
+                AppAction::Update.as_str(),
+                AppAction::Delete.as_str(),
+            ].iter().filter_map(|action| {
+                perm_ids.get(&(resource.as_str(), *action)).copied()
+            }).collect::<Vec<_>>()
+        }).collect();
+
+    let tour_create_id = perm_ids.get(&(AppResource::Tournament.as_str(), AppAction::Create.as_str())).copied();
+    let tour_admin_permissions: Vec<Uuid> = tour_manager_permissions
+        .iter()
+        .copied()
+        .filter(|id| Some(*id) != tour_create_id)
+        .collect();
+
     // ── Build one role row per AppRole variant ────────────────────────────────
     for app_role in AppRole::iter() {
         let role = RoleBuilder::new(app_role.as_str())
@@ -112,22 +136,8 @@ pub fn init_roles_and_permissions(db: &mut database::Connection) {
             // member: read-only on every resource
             AppRole::Member => read_ids.clone(),
             // tournament_manager: create/update/delete on all tournament-managed resources
-            AppRole::TournamentManager => [
-                AppResource::Tournament,
-                AppResource::Division,
-                AppResource::Round,
-                AppResource::Room,
-                AppResource::Game,
-                AppResource::Team,
-            ].iter().flat_map(|resource| {
-                [
-                    AppAction::Create.as_str(),
-                    AppAction::Update.as_str(),
-                    AppAction::Delete.as_str(),
-                ].iter().filter_map(|action| {
-                    perm_ids.get(&(resource.as_str(), *action)).copied()
-                }).collect::<Vec<_>>()
-            }).collect(),
+            AppRole::TournamentManager => tour_manager_permissions.clone(),
+            AppRole::TournamentAdmin => tour_admin_permissions.clone(),
             // super_user: full CRUD on everything
             AppRole::SuperUser => all_ids.clone(),
         };
@@ -152,6 +162,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
 
     let member_role             = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
     let tournament_manager_role = crate::models::role::read_by_name(db, AppRole::TournamentManager.as_str()).unwrap();
+    let tournament_admin_role   = crate::models::role::read_by_name(db, AppRole::TournamentAdmin.as_str()).unwrap();
 
     crate::models::users_roles::UsersRolesBuilder::new(tour_owner.id)
         .assign(member_role.id)
@@ -187,6 +198,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
     UsersRolesBuilder::new(admin_1.id)
         .assign(member_role.id)
+        .assign(tournament_admin_role.id)
         .build_and_insert(db)
         .unwrap();
     TournamentAdminBuilder::new_default(tour.tid, admin_1.id)
@@ -203,6 +215,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
     UsersRolesBuilder::new(admin_2.id)
         .assign(member_role.id)
+        .assign(tournament_admin_role.id)
         .build_and_insert(db)
         .unwrap();
     TournamentAdminBuilder::new_default(tour.tid, admin_2.id)
@@ -219,6 +232,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
     UsersRolesBuilder::new(admin_3.id)
         .assign(member_role.id)
+        .assign(tournament_admin_role.id)
         .build_and_insert(db)
         .unwrap();
     TournamentAdminBuilder::new_default(tour.tid, admin_3.id)
