@@ -35,7 +35,16 @@ function teamColumns(
     },
     {
       header: 'Coach',
-      render: (t) => t.coach_name,
+      render: (t) => (
+        <a
+          href={`/user/${t.coachid}/overview`}
+          style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          {t.coach_name}
+        </a>
+      ),
     },
     {
       header: 'Created',

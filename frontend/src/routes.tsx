@@ -43,6 +43,8 @@ export default function QViewRoutes() {
             <Route path="/user/:user_id/sessions" element={<UserProfilePage childRoute="sessions" />} />
             <Route path="/user/:user_id/as-quizzer" element={<UserProfilePage childRoute="as-quizzer" />} />
             <Route path="/user/:user_id/as-coach" element={<UserProfilePage childRoute="as-coach" />} />
+            <Route path="/user/:user_id/as-coach-rosters" element={<UserProfilePage childRoute="as-coach-rosters" />} />
+            <Route path="/user/:user_id/as-coach-gear" element={<UserProfilePage childRoute="as-coach-gear" />} />
             <Route path="/user/:user_id/as-admin" element={<UserProfilePage childRoute="as-admin" />} />
             <Route path="/user/:user_id/as-quizmaster" element={<UserProfilePage childRoute="as-quizmaster" />} />
             <Route path="/user/:user_id/as-content-judge" element={<UserProfilePage childRoute="as-content-judge" />} />
@@ -55,6 +57,8 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/rooms" element={<TournamentProfile childRoute="rooms" />} />
             <Route path="/tournament/:tid/teams" element={<TournamentProfile childRoute="teams" />} />
             <Route path="/tournament/:tid/team/:teamid" element={<TeamProfile />} />
+            <Route path="/tournament/:tid/team/:teamid/overview" element={<TeamProfile childRoute="overview" />} />
+            <Route path="/tournament/:tid/team/:teamid/quizzers" element={<TeamProfile childRoute="quizzers" />} />
             <Route path="/tournament/:tid/rounds" element={<TournamentProfile childRoute="rounds" />} />
             <Route path="/tournament/:tid/quizzers" element={<TournamentProfile childRoute="quizzers" />} />
             <Route path="/tournament/:tid/games" element={<TournamentProfile childRoute="games" />} />

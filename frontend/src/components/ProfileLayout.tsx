@@ -22,7 +22,7 @@ type AnchorNavItem = {
 export type NavItem = RouteNavItem | AnchorNavItem
 
 interface ProfileLayoutProps {
-  title: string
+  title: React.ReactNode
   subtitle?: string
   navItems: NavItem[]
   children: React.ReactNode
