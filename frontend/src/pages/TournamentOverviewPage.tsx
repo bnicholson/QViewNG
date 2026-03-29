@@ -3,6 +3,7 @@ import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import { useNavigate } from 'react-router-dom'
 import type { TournamentTS } from '../features/TournamentAPI'
 
 interface TournamentOverviewPageProps {
@@ -12,17 +13,23 @@ interface TournamentOverviewPageProps {
 }
 
 export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, onEdit }: TournamentOverviewPageProps) => {
+  const navigate = useNavigate()
   return (
     <Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
           {tournament.tname}
         </Typography>
-        {isTournamentUpdate && (
-          <Button variant="outlined" size="small" onClick={onEdit} sx={{ mt: 1 }}>
-            Edit
+        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+          {isTournamentUpdate && (
+            <Button variant="contained" size="small" onClick={onEdit}>
+              Edit
+            </Button>
+          )}
+          <Button variant="contained" size="small" onClick={() => navigate(`/tournament/${tournament.tid}/register`)}>
+            Register
           </Button>
-        )}
+        </Box>
       </Box>
       <br/>
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>

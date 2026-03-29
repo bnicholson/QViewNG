@@ -52,6 +52,10 @@ export default function QViewRoutes() {
             <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />
             <Route path="/tournament/:tid/overview" element={<TournamentProfile childRoute="overview" />} />
+            <Route path="/tournament/:tid/register" element={<TournamentProfile childRoute="register" />} />
+            <Route path="/tournament/:tid/register/team" element={<TournamentProfile childRoute="register-team" />} />
+            <Route path="/tournament/:tid/register/gear" element={<TournamentProfile childRoute="register-gear" />} />
+            <Route path="/tournament/:tid/register/as-volunteer" element={<TournamentProfile childRoute="register-volunteer" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
             {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile childRoute="" />} />  // <- future */}
             <Route path="/tournament/:tid/rooms" element={<TournamentProfile childRoute="rooms" />} />
@@ -62,6 +66,7 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/rounds" element={<TournamentProfile childRoute="rounds" />} />
             <Route path="/tournament/:tid/quizzers" element={<TournamentProfile childRoute="quizzers" />} />
             <Route path="/tournament/:tid/games" element={<TournamentProfile childRoute="games" />} />
+            <Route path="/tournament/:tid/gear" element={<TournamentProfile childRoute="gear" />} />
             <Route path="/tournament/:tid/admins" element={<TournamentProfile childRoute="admins" />} />
             <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile childRoute="stats-groups" />} />
             <Route path="/tournament/:tid/room-monitor" element={<TournamentProfile childRoute="room-monitor" />} />
