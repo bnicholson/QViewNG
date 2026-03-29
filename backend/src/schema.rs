@@ -574,6 +574,7 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         owner_id -> Uuid,
+        registration_is_open -> Bool,
     }
 }
 

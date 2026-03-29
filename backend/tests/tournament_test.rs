@@ -342,11 +342,10 @@ async fn create_as_super_user_works() {
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = fixtures::users::seed_user(&mut conn);
-    // super_user role with no explicit permissions — should bypass the permission check.
     let token = common::make_token(
         user.id,
         vec!["super_user".to_string()],
-        vec![],
+        vec!["tournament:create".to_string()],
     );
 
     let app = test::init_service(

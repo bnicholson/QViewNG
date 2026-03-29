@@ -247,6 +247,7 @@ pub struct Tournament {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub owner_id: Uuid,
+    pub registration_is_open: bool,
 }
 
 #[derive(
@@ -312,7 +313,8 @@ pub struct TournamentChangeset {
     pub contactemail: Option<String>,
     pub is_public: Option<bool>,
     pub shortinfo: Option<String>,
-    pub info: Option<String>
+    pub info: Option<String>,
+    pub registration_is_open: Option<bool>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {
