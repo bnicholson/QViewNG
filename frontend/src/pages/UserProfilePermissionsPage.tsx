@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 interface RolesAndPermissions {
@@ -9,14 +8,11 @@ interface RolesAndPermissions {
 
 export const UserProfilePermissionsPage = ({ userId }: { userId: string }) => {
   const auth = useAuth()
-  const navigate = useNavigate()
 
   const [data, setData] = useState<RolesAndPermissions | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!auth.isAuthenticated) return
-
     fetch(`/api/users/${userId}/roles-and-permissions`, {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     })
@@ -26,15 +22,7 @@ export const UserProfilePermissionsPage = ({ userId }: { userId: string }) => {
       })
       .then((d: RolesAndPermissions) => setData(d))
       .catch((e) => setLoadError(e.message))
-  }, [auth.isAuthenticated, userId])
-
-  if (!auth.isAuthenticated) {
-    return (
-      <div>
-        <a href="#" onClick={() => navigate('/login')}>Login to view permissions</a>
-      </div>
-    )
-  }
+  }, [userId])
 
   if (loadError) return <div style={{ color: 'red' }}>{loadError}</div>
   if (!data) return <div>Loading...</div>

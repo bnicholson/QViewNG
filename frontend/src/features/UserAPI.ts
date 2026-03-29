@@ -34,6 +34,44 @@ export interface PagedUsers {
   items: UserTS[];
 }
 
+export interface TeamWithTournamentInfoTS {
+  teamid: string;
+  name: string;
+  coachid: string;
+  coach_name: string;
+  did: string;
+  tournament_id: string;
+  tournament_name: string;
+  tournament_fromdate: string;
+  tournament_todate: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GameWithNamesTS {
+  gid: string;
+  org: string;
+  tournamentid: string;
+  tournament_name: string;
+  tournament_fromdate: string;
+  tournament_todate: string;
+  divisionid: string;
+  roomid: string;
+  roundid: string;
+  ignore: boolean;
+  ruleset: string;
+  leftteamid: string;
+  left_team_name: string;
+  centerteamid: string | null;
+  center_team_name: string | null;
+  rightteamid: string;
+  right_team_name: string;
+  quizmasterid: string;
+  contentjudgeid: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const UserAPI = {
   get: async (page: number, size: number): Promise<PagedUsers> =>
     (await fetch(`/api/users?page=${page}&page_size=${size}`)).json(),
@@ -75,4 +113,29 @@ export const UserAPI = {
       throw new Error(`Failed to delete user (${response.status}): ${text}`);
     }
   },
+  getTeamsAsQuizzer: async (userId: string, page: number, size: number): Promise<TeamWithTournamentInfoTS[]> =>
+    (await fetch(`/api/users/${userId}/teams-where-quizzer-enriched?page=${page}&page_size=${size}`)).json(),
+  getTeamsAsCoach: async (userId: string, page: number, size: number): Promise<TeamWithTournamentInfoTS[]> =>
+    (await fetch(`/api/users/${userId}/teams-where-coach-enriched?page=${page}&page_size=${size}`)).json(),
+  getTournamentsAsAdmin: async (userId: string, page: number, size: number): Promise<TournamentForUserTS[]> =>
+    (await fetch(`/api/users/${userId}/tournaments-as-admin-or-owner?page=${page}&page_size=${size}`)).json(),
+  getGamesAsQuizmaster: async (userId: string, page: number, size: number): Promise<GameWithNamesTS[]> =>
+    (await fetch(`/api/users/${userId}/games-where-quizmaster-enriched?page=${page}&page_size=${size}`)).json(),
+  getGamesAsContentJudge: async (userId: string, page: number, size: number): Promise<GameWithNamesTS[]> =>
+    (await fetch(`/api/users/${userId}/games-where-contentjudge-enriched?page=${page}&page_size=${size}`)).json(),
+}
+
+export interface TournamentForUserTS {
+  tid: string;
+  tname: string;
+  organization: string;
+  fromdate: string;
+  todate: string;
+  venue: string;
+  city: string;
+  region: string;
+  country: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }

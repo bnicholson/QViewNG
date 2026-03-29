@@ -130,6 +130,81 @@ async fn read_teams_where_quizzer(
     }
 }
 
+#[get("/{id}/teams-where-quizzer-enriched")]
+async fn read_teams_where_quizzer_enriched(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::team::read_all_teams_where_user_is_quizzer_enriched(&mut db, user_id.into_inner(), &params) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+#[get("/{id}/teams-where-coach-enriched")]
+async fn read_teams_where_coach_enriched(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::team::read_all_teams_where_user_is_coach_enriched(&mut db, user_id.into_inner(), &params) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+#[get("/{id}/tournaments-as-admin-or-owner")]
+async fn read_tournaments_as_admin(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::tournament::read_all_tournaments_where_user_is_admin_or_owner(&mut db, user_id.into_inner(), &params) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+#[get("/{id}/games-where-quizmaster-enriched")]
+async fn read_games_where_quizmaster_enriched(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::game::read_all_games_where_user_is_quizmaster_enriched(&mut db, user_id.into_inner(), &params) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+#[get("/{id}/games-where-contentjudge-enriched")]
+async fn read_games_where_contentjudge_enriched(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::game::read_all_games_where_user_is_contentjudge_enriched(&mut db, user_id.into_inner(), &params) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[get("/{id}/rosters-of-coach")]
 async fn read_rosters_of_coach(
     db: Data<Database>,
@@ -337,6 +412,11 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_tournaments_where_admin)
         .service(read_teams_where_coach)
         .service(read_teams_where_quizzer)
+        .service(read_teams_where_quizzer_enriched)
+        .service(read_teams_where_coach_enriched)
+        .service(read_tournaments_as_admin)
+        .service(read_games_where_quizmaster_enriched)
+        .service(read_games_where_contentjudge_enriched)
         .service(read_rosters_of_coach)
         .service(read_rosters_containing_quizzer)
         .service(create)

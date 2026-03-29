@@ -1,4 +1,5 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
+use std::collections::HashMap;
 use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
 use diesel::prelude::*;
 use diesel::insert_into;
@@ -475,6 +476,139 @@ pub fn read_all_games_where_user_is_contentjudge(db: &mut database::Connection, 
         .limit(page_size)
         .offset(offset_val)
         .load::<Game>(db)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GameWithNames {
+    pub gid: Uuid,
+    pub org: String,
+    pub tournamentid: Uuid,
+    pub tournament_name: String,
+    pub tournament_fromdate: NaiveDate,
+    pub tournament_todate: NaiveDate,
+    pub divisionid: Uuid,
+    pub roomid: Uuid,
+    pub roundid: Uuid,
+    pub ignore: bool,
+    pub ruleset: String,
+    pub leftteamid: Uuid,
+    pub left_team_name: String,
+    pub centerteamid: Option<Uuid>,
+    pub center_team_name: Option<String>,
+    pub rightteamid: Uuid,
+    pub right_team_name: String,
+    pub quizmasterid: Uuid,
+    pub contentjudgeid: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+fn enrich_games_with_names(
+    db: &mut database::Connection,
+    game_list: Vec<Game>,
+) -> QueryResult<Vec<GameWithNames>> {
+    if game_list.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let tournament_ids: Vec<Uuid> = game_list.iter().map(|g| g.tournamentid).collect();
+    let tournament_map: HashMap<Uuid, (String, NaiveDate, NaiveDate)> = {
+        use crate::schema::tournaments::dsl::*;
+        tournaments
+            .filter(tid.eq_any(&tournament_ids))
+            .load::<crate::models::tournament::Tournament>(db)?
+            .into_iter()
+            .map(|t| (t.tid, (t.tname, t.fromdate, t.todate)))
+            .collect()
+    };
+
+    let team_ids: Vec<Uuid> = game_list.iter().flat_map(|g| {
+        let mut ids = vec![g.leftteamid, g.rightteamid];
+        if let Some(c) = g.centerteamid { ids.push(c); }
+        ids
+    }).collect();
+    let team_map: HashMap<Uuid, String> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(teamid.eq_any(&team_ids))
+            .load::<crate::models::team::Team>(db)?
+            .into_iter()
+            .map(|t| (t.teamid, t.name))
+            .collect()
+    };
+
+    Ok(game_list.into_iter().filter_map(|g| {
+        let (tournament_name, tournament_fromdate, tournament_todate) =
+            tournament_map.get(&g.tournamentid)?.clone();
+        let left_team_name = team_map.get(&g.leftteamid).cloned().unwrap_or_default();
+        let right_team_name = team_map.get(&g.rightteamid).cloned().unwrap_or_default();
+        let center_team_name = g.centerteamid.and_then(|cid| team_map.get(&cid).cloned());
+        Some(GameWithNames {
+            gid: g.gid,
+            org: g.org,
+            tournamentid: g.tournamentid,
+            tournament_name,
+            tournament_fromdate,
+            tournament_todate,
+            divisionid: g.divisionid,
+            roomid: g.roomid,
+            roundid: g.roundid,
+            ignore: g.ignore,
+            ruleset: g.ruleset,
+            leftteamid: g.leftteamid,
+            left_team_name,
+            centerteamid: g.centerteamid,
+            center_team_name,
+            rightteamid: g.rightteamid,
+            right_team_name,
+            quizmasterid: g.quizmasterid,
+            contentjudgeid: g.contentjudgeid,
+            created_at: g.created_at,
+            updated_at: g.updated_at,
+        })
+    }).collect())
+}
+
+pub fn read_all_games_where_user_is_quizmaster_enriched(
+    db: &mut database::Connection,
+    qm_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<GameWithNames>> {
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let game_list: Vec<Game> = {
+        use crate::schema::games::dsl::*;
+        games
+            .filter(quizmasterid.eq(qm_id))
+            .order(created_at.desc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Game>(db)?
+    };
+
+    enrich_games_with_names(db, game_list)
+}
+
+pub fn read_all_games_where_user_is_contentjudge_enriched(
+    db: &mut database::Connection,
+    cj_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<GameWithNames>> {
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let game_list: Vec<Game> = {
+        use crate::schema::games::dsl::*;
+        games
+            .filter(contentjudgeid.eq(cj_id))
+            .order(created_at.desc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Game>(db)?
+    };
+
+    enrich_games_with_names(db, game_list)
 }
 
 pub fn read_all_games_of_statsgroup(db: &mut database::Connection, sg_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {

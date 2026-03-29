@@ -84,7 +84,7 @@ const Context = createContext<AuthContext>(undefined as any)
 export const AuthProvider = (props: AuthWrapperProps) => {
   const [accessToken, setAccessToken] = useState<string | undefined>()
   const [session, setSession] = useState<Session | undefined>()
-  const [isCheckingAuth, setCheckingAuth] = useState<boolean>(false)
+  const [isCheckingAuth, setCheckingAuth] = useState<boolean>(true)
 
   return (
       <Context.Provider

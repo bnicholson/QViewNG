@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use utoipa::ToSchema;
-use chrono::{Utc,DateTime};
+use chrono::{NaiveDate, Utc, DateTime};
 
 /// Deserializes an optional nullable field so that:
 /// - key absent in JSON  → `None`           → Diesel skips the column
@@ -467,4 +467,132 @@ pub fn read_all_quizzers_of_tournament(
 
     use crate::schema::users::dsl::*;
     users.filter(id.eq_any(&quizzer_ids)).load::<crate::models::user::User>(db)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TeamWithTournamentInfo {
+    pub teamid: Uuid,
+    pub name: String,
+    pub coachid: Uuid,
+    pub coach_name: String,
+    pub did: Uuid,
+    pub tournament_id: Uuid,
+    pub tournament_name: String,
+    pub tournament_fromdate: NaiveDate,
+    pub tournament_todate: NaiveDate,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+fn enrich_teams_with_tournament_info(
+    db: &mut database::Connection,
+    team_list: Vec<Team>,
+) -> QueryResult<Vec<TeamWithTournamentInfo>> {
+    if team_list.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let did_list: Vec<Uuid> = team_list.iter().map(|t| t.did).collect();
+
+    // did -> tid mapping
+    let did_to_tid_map: HashMap<Uuid, Uuid> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(did.eq_any(&did_list))
+            .load::<crate::models::division::Division>(db)?
+            .into_iter()
+            .map(|d| (d.did, d.tid))
+            .collect()
+    };
+
+    let tid_list: Vec<Uuid> = did_to_tid_map.values().copied().collect();
+    let tournament_info_map: HashMap<Uuid, (String, NaiveDate, NaiveDate)> = {
+        use crate::schema::tournaments::dsl::*;
+        tournaments
+            .filter(tid.eq_any(&tid_list))
+            .load::<crate::models::tournament::Tournament>(db)?
+            .into_iter()
+            .map(|t| (t.tid, (t.tname, t.fromdate, t.todate)))
+            .collect()
+    };
+
+    let coach_ids: Vec<Uuid> = team_list.iter().map(|t| t.coachid).collect();
+    let coach_map: HashMap<Uuid, String> = {
+        use crate::schema::users::dsl::*;
+        users
+            .filter(id.eq_any(&coach_ids))
+            .load::<crate::models::user::User>(db)?
+            .into_iter()
+            .map(|u| (u.id, format!("{} {} {}", u.fname, u.mname, u.lname).trim().to_string()))
+            .collect()
+    };
+
+    Ok(team_list.into_iter().filter_map(|t| {
+        let tournament_id = *did_to_tid_map.get(&t.did)?;
+        let (tournament_name, tournament_fromdate, tournament_todate) =
+            tournament_info_map.get(&tournament_id)?;
+        let coach_name = coach_map.get(&t.coachid).cloned().unwrap_or_default();
+        Some(TeamWithTournamentInfo {
+            teamid: t.teamid,
+            name: t.name,
+            coachid: t.coachid,
+            coach_name,
+            did: t.did,
+            tournament_id,
+            tournament_name: tournament_name.clone(),
+            tournament_fromdate: *tournament_fromdate,
+            tournament_todate: *tournament_todate,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+        })
+    }).collect())
+}
+
+pub fn read_all_teams_where_user_is_quizzer_enriched(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<TeamWithTournamentInfo>> {
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(
+                quizzer_one_id.eq(user_id)
+                    .or(quizzer_two_id.eq(user_id))
+                    .or(quizzer_three_id.eq(user_id))
+                    .or(quizzer_four_id.eq(user_id))
+                    .or(quizzer_five_id.eq(user_id))
+                    .or(quizzer_six_id.eq(user_id))
+            )
+            .order(name.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Team>(db)?
+    };
+
+    enrich_teams_with_tournament_info(db, team_list)
+}
+
+pub fn read_all_teams_where_user_is_coach_enriched(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<TeamWithTournamentInfo>> {
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(coachid.eq(user_id))
+            .order(name.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Team>(db)?
+    };
+
+    enrich_teams_with_tournament_info(db, team_list)
 }

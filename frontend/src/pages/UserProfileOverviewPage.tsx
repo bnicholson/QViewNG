@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 interface UserProfile {
@@ -21,7 +20,6 @@ const formatDate = (iso: string) =>
 
 export const UserProfileOverviewPage = ({ userId }: { userId: string }) => {
   const auth = useAuth()
-  const navigate = useNavigate()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -35,12 +33,12 @@ export const UserProfileOverviewPage = ({ userId }: { userId: string }) => {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!auth.isAuthenticated) return
+  const isSuperUser = auth.session?.hasRole('super_user') ?? false
+  const isOwnProfile = auth.session?.userId === userId
+  const canViewAll = isSuperUser || isOwnProfile
 
-    fetch(`/api/users/${userId}`, {
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    })
+  useEffect(() => {
+    fetch(`/api/users/${userId}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Failed to load profile (${r.status})`)
         return r.json()
@@ -53,7 +51,7 @@ export const UserProfileOverviewPage = ({ userId }: { userId: string }) => {
         setEmail(data.email)
       })
       .catch((e) => setLoadError(e.message))
-  }, [auth.isAuthenticated, userId])
+  }, [userId])
 
   const save = async () => {
     setSaving(true)
@@ -81,18 +79,30 @@ export const UserProfileOverviewPage = ({ userId }: { userId: string }) => {
     }
   }
 
-  if (!auth.isAuthenticated) {
+  if (loadError) return <div style={{ color: 'red' }}>{loadError}</div>
+  if (!profile) return <div>Loading...</div>
+
+  if (!canViewAll) {
     return (
-      <div>
-        <a href="#" onClick={() => navigate('/login')}>
-          Login to view account details
-        </a>
+      <div id="overview" style={{ textAlign: 'left' }}>
+        <h2>Overview</h2>
+        <div style={{ display: 'flex', flexFlow: 'column', gap: '12px', maxWidth: '400px' }}>
+          <div style={{ display: 'flex', flexFlow: 'column' }}>
+            <label>First Name</label>
+            <input type="text" value={profile.fname} disabled style={{ opacity: 0.6 }} />
+          </div>
+          <div style={{ display: 'flex', flexFlow: 'column' }}>
+            <label>Middle Name</label>
+            <input type="text" value={profile.mname} disabled style={{ opacity: 0.6 }} />
+          </div>
+          <div style={{ display: 'flex', flexFlow: 'column' }}>
+            <label>Last Name</label>
+            <input type="text" value={profile.lname} disabled style={{ opacity: 0.6 }} />
+          </div>
+        </div>
       </div>
     )
   }
-
-  if (loadError) return <div style={{ color: 'red' }}>{loadError}</div>
-  if (!profile) return <div>Loading...</div>
 
   return (
     <div id="overview" style={{ textAlign: 'left' }}>

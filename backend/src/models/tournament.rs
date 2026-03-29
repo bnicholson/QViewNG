@@ -390,6 +390,30 @@ pub fn read_all_tournaments_where_user_is_admin(db: &mut database::Connection, a
         .load::<Tournament>(db)
 }
 
+pub fn read_all_tournaments_where_user_is_admin_or_owner(db: &mut database::Connection, user_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    let admin_tour_ids: Vec<Uuid> = {
+        use crate::schema::tournaments_admins::dsl as ta_dsl;
+        ta_dsl::tournaments_admins
+            .filter(ta_dsl::adminid.eq(user_id))
+            .load::<TournamentAdmin>(db)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|ta| ta.tournamentid)
+            .collect()
+    };
+
+    use crate::schema::tournaments::dsl::*;
+    tournaments
+        .filter(owner_id.eq(user_id).or(tid.eq_any(admin_tour_ids)))
+        .order(todate.desc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Tournament>(db)
+}
+
 pub fn read_all_tournaments_of_tournamentgroup(db: &mut database::Connection, tg_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
     use crate::schema::tournamentgroups_tournaments::dsl::*;
     use crate::schema::tournaments::dsl::*;

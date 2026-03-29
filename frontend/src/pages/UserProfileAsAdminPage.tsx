@@ -1,6 +1,6 @@
-import UserTeamsAsCoachTable from '../components/UserTeamsAsCoachTable'
+import UserTournamentsAsAdminTable from '../components/UserTournamentsAsAdminTable'
 
-export const UserProfileAsCoachPage = ({
+export const UserProfileAsAdminPage = ({
   userId,
   isSuperUser,
 }: {
@@ -8,7 +8,7 @@ export const UserProfileAsCoachPage = ({
   isSuperUser: boolean
 }) => {
   return (
-    <UserTeamsAsCoachTable
+    <UserTournamentsAsAdminTable
       userId={userId}
       showCreateButton={isSuperUser}
       showDeleteButton={isSuperUser}
