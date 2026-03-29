@@ -322,7 +322,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_coachid(coach_exp_1.id)
         .set_quizzer_one_id(q_exp_1_1.id)
         .set_quizzer_two_id(q_exp_1_2.id)
-        .set_quizzer_three_id(q_exp_1_3.id)
+        .set_quizzer_three_id(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
 
@@ -551,7 +551,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
     let team_1_novice = TeamBuilder::new_default(division_novice.did)
         .set_name("Neon Prophets")
-        .set_coachid(coach_nov_1.id)
+        .set_coachid(tour_owner.id)
         .set_quizzer_one_id(q_nov_1_1.id)
         .set_quizzer_two_id(q_nov_1_2.id)
         .set_quizzer_three_id(q_nov_1_3.id)
@@ -1023,13 +1023,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     GameBuilder::new_default(room_6.roomid, round_1_decades.roundid)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
-        .set_quizmasterid(qm_6.id)
+        .set_quizmasterid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
     GameBuilder::new_default(room_7.roomid, round_1_decades.roundid)
         .set_leftteamid(team_2_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
         .set_quizmasterid(qm_7.id)
+        .set_contentjudgeid(Some(tour_owner.id))
         .build_and_insert(db)
         .unwrap();
     // Round 2: (t1d,t3d)→rm7, (t4d,t2d)→rm6
@@ -1037,25 +1038,27 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
         .set_quizmasterid(qm_7.id)
+        .set_contentjudgeid(Some(tour_owner.id))
         .build_and_insert(db)
         .unwrap();
     GameBuilder::new_default(room_6.roomid, round_2_decades.roundid)
         .set_leftteamid(team_4_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
-        .set_quizmasterid(qm_6.id)
+        .set_quizmasterid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
     // Round 3: (t1d,t2d)→rm6, (t3d,t4d)→rm7
     GameBuilder::new_default(room_6.roomid, round_3_decades.roundid)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
-        .set_quizmasterid(qm_6.id)
+        .set_quizmasterid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
     GameBuilder::new_default(room_7.roomid, round_3_decades.roundid)
         .set_leftteamid(team_3_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
         .set_quizmasterid(qm_7.id)
+        .set_contentjudgeid(Some(tour_owner.id))
         .build_and_insert(db)
         .unwrap();
 
@@ -1064,7 +1067,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let coaches = [
         coach_exp_1.id, coach_exp_2.id, coach_exp_3.id,
         coach_exp_4.id, coach_exp_5.id, coach_exp_6.id,
-        coach_nov_1.id, coach_nov_2.id, coach_nov_3.id, coach_nov_4.id,
+        coach_nov_2.id, coach_nov_3.id, coach_nov_4.id,
         coach_dec_1.id, coach_dec_2.id, coach_dec_3.id, coach_dec_4.id,
     ];
     for coach_id in coaches {
