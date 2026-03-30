@@ -44,7 +44,7 @@ export default function GlobalNavBar() {
               </Button>
             )}
             {auth.isAuthenticated && (
-              <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/my-profile/overview')}>
+              <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate(`/user/${auth.session?.userId}/overview`)}>
                 My Profile
               </Button>
             )}

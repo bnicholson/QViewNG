@@ -5,7 +5,6 @@ import { RecoveryPage } from "./pages/RecoveryPage";
 import { ResetPage } from "./containers/ResetPage";
 import { ActivationPage } from "./pages/ActivationPage";
 import { RegistrationPage } from "./pages/RegistrationPage";
-import { MyProfilePage } from "./pages/MyProfilePage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
@@ -31,12 +30,7 @@ export default function QViewRoutes() {
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
-            <Route path="/my-profile" element={<MyProfilePage/>} />
-            <Route path="/my-profile/overview" element={<MyProfilePage childRoute="overview" />} />
-            <Route path="/my-profile/permissions" element={<MyProfilePage childRoute="permissions" />} />
-            <Route path="/my-profile/change-password" element={<MyProfilePage childRoute="change-password" />} />
-            <Route path="/my-profile/sessions" element={<MyProfilePage childRoute="sessions" />} />
-            <Route path="/user/:user_id" element={<UserProfilePage />} />
+<Route path="/user/:user_id" element={<UserProfilePage />} />
             <Route path="/user/:user_id/overview" element={<UserProfilePage childRoute="overview" />} />
             <Route path="/user/:user_id/permissions" element={<UserProfilePage childRoute="permissions" />} />
             <Route path="/user/:user_id/change-password" element={<UserProfilePage childRoute="change-password" />} />
