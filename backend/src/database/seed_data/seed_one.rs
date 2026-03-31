@@ -1,4 +1,4 @@
-use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use strum::IntoEnumIterator;
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
@@ -291,11 +291,11 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     // Div: Experienced
-    let coach_exp_1 = UserBuilder::new("Lena")
-        .set_lname("Hartwell")
-        .set_email("lhartwell@fakeemail.com")
-        .set_username("lhartwell")
-        .set_hash_password("Lena@H4rt")
+    let coach_exp_1 = UserBuilder::new("Coachish")
+        .set_lname("Coach")
+        .set_email("coach@fakeemail.com")
+        .set_username("coach")
+        .set_hash_password(DEFAULT_PASSWORD)
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -317,6 +317,61 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
+
+    // Create Roster 1 for coach_exp_1, add quizzers to roster, then build the team
+    let roster_1 = RosterBuilder::new("Roster 1", coach_exp_1.id)
+        .set_description(Some("Coach's primary roster".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    RosterCoachBuilder::new(coach_exp_1.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    RosterQuizzerBuilder::new(q_exp_1_1.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    RosterQuizzerBuilder::new(q_exp_1_2.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    RosterQuizzerBuilder::new(tour_owner.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+
+    // Create Roster 2 for coach_exp_1 with 3 new quizzers
+    let q_r2_1 = UserBuilder::new("Harper")
+        .set_lname("Ellison")
+        .set_email("hellison@fakeemail.com")
+        .set_activated(false)
+        .build_and_insert(db)
+        .unwrap();
+    let q_r2_2 = UserBuilder::new("Rowan")
+        .set_lname("Caldwell")
+        .set_email("rcaldwell@fakeemail.com")
+        .set_activated(false)
+        .build_and_insert(db)
+        .unwrap();
+    let q_r2_3 = UserBuilder::new("Nadia")
+        .set_lname("Ostrowski")
+        .set_email("nostrowski@fakeemail.com")
+        .set_activated(false)
+        .build_and_insert(db)
+        .unwrap();
+    let roster_2 = RosterBuilder::new("Roster 2", coach_exp_1.id)
+        .set_description(Some("Coach's secondary roster".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+    RosterCoachBuilder::new(coach_exp_1.id, roster_2.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    RosterQuizzerBuilder::new(q_r2_1.id, roster_2.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    RosterQuizzerBuilder::new(q_r2_2.id, roster_2.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    RosterQuizzerBuilder::new(q_r2_3.id, roster_2.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+
     let team_1_experienced = TeamBuilder::new_default(division_experienced.did)
         .set_name("Iron Covenant")
         .set_coachid(coach_exp_1.id)

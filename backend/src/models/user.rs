@@ -328,6 +328,11 @@ pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize
 
 pub fn find_by_email_or_username(db: &mut database::Connection, identifier: &str) -> QueryResult<User> {
     use crate::schema::users::dsl::*;
+
+    if identifier.trim().is_empty() {
+        return Err(diesel::result::Error::NotFound);
+    }
+
     users
         .filter(email.eq(identifier).or(username.eq(identifier)))
         .first::<User>(db)

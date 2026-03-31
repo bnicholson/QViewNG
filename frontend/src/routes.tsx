@@ -30,7 +30,7 @@ export default function QViewRoutes() {
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<RegistrationPage />} />
-<Route path="/user/:user_id" element={<UserProfilePage />} />
+            <Route path="/user/:user_id" element={<UserProfilePage />} />
             <Route path="/user/:user_id/overview" element={<UserProfilePage childRoute="overview" />} />
             <Route path="/user/:user_id/permissions" element={<UserProfilePage childRoute="permissions" />} />
             <Route path="/user/:user_id/change-password" element={<UserProfilePage childRoute="change-password" />} />

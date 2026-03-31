@@ -133,8 +133,8 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
       entityLabel="Quizzer"
       createLabel={createLabel}
       onCreate={onAdd}
-      showCreateButton={false}
-      showDeleteButton={false}
+      showCreateButton={!!onAdd}
+      showDeleteButton={!!onDelete}
       columns={quizzerColumns}
       rows={rows}
       totalCount={totalCount}
