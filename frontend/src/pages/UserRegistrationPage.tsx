@@ -12,7 +12,7 @@ const validatePassword = (password: string): string | null => {
   return null
 }
 
-export const RegistrationPage = () => {
+export const UserRegistrationPage = () => {
   const navigate = useNavigate()
   const [fname, setFname] = useState<string>('')
   const [mname, setMname] = useState<string>('')

@@ -4,7 +4,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RecoveryPage } from "./pages/RecoveryPage";
 import { ResetPage } from "./containers/ResetPage";
 import { ActivationPage } from "./pages/ActivationPage";
-import { RegistrationPage } from "./pages/RegistrationPage";
+import { UserRegistrationPage } from "./pages/UserRegistrationPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
@@ -29,7 +29,7 @@ export default function QViewRoutes() {
             <Route path="/recovery" element={<RecoveryPage />} />
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
-            <Route path="/register" element={<RegistrationPage />} />
+            <Route path="/register" element={<UserRegistrationPage />} />
             <Route path="/user/:user_id" element={<UserProfilePage />} />
             <Route path="/user/:user_id/overview" element={<UserProfilePage childRoute="overview" />} />
             <Route path="/user/:user_id/permissions" element={<UserProfilePage childRoute="permissions" />} />
@@ -46,10 +46,10 @@ export default function QViewRoutes() {
             <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />
             <Route path="/tournament/:tid/overview" element={<TournamentProfile childRoute="overview" />} />
-            <Route path="/tournament/:tid/register" element={<TournamentProfile childRoute="register" />} />
-            <Route path="/tournament/:tid/register/team" element={<TournamentProfile childRoute="register-team" />} />
-            <Route path="/tournament/:tid/register/gear" element={<TournamentProfile childRoute="register-gear" />} />
-            <Route path="/tournament/:tid/register/as-volunteer" element={<TournamentProfile childRoute="register-volunteer" />} />
+            <Route path="/tournament/:tid/register" element={<TournamentProfile childRoute="register/team" />} />
+            <Route path="/tournament/:tid/register/team" element={<TournamentProfile childRoute="register/team" />} />
+            <Route path="/tournament/:tid/register/gear" element={<TournamentProfile childRoute="register/gear" />} />
+            <Route path="/tournament/:tid/register/as-volunteer" element={<TournamentProfile childRoute="register/volunteer" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
             {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile childRoute="" />} />  // <- future */}
             <Route path="/tournament/:tid/rooms" element={<TournamentProfile childRoute="rooms" />} />

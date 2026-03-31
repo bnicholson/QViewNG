@@ -129,21 +129,21 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'register'          && <TournamentRegisterPage key="register-team"          tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
-          {props.childRoute === 'register-team'     && <TournamentRegisterPage key="register-team"          tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
-          {props.childRoute === 'register-gear'     && <TournamentRegisterPage key="register-gear"          tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" />}
-          {props.childRoute === 'register-volunteer'&& <TournamentRegisterPage key="register-volunteer"     tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" />}
-          {props.childRoute === 'overview'     && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} onEdit={() => setTournamentEditorIsOpen(true)} />}
-          {props.childRoute === 'divisions'    && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')}/>}
-          {props.childRoute === 'rooms'        && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')}/>}
-          {props.childRoute === 'rounds'       && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}/>}
-          {props.childRoute === 'teams'        && <TeamsTable tid={String(tournament?.tid)} showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}/>}
-          {props.childRoute === 'quizzers'     && <QuizzersTable tid={String(tournament?.tid)}/>}
-          {props.childRoute === 'games'        && <GamesTable tid={String(tournament?.tid)} showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}/>}
-          {props.childRoute === 'gear'          && null}
-          {props.childRoute === 'admins'       && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
-          {props.childRoute === 'stats-groups'  && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
-          {props.childRoute === 'room-monitor'  && <RoomMonitorTable tid={String(tournament?.tid)}/>}
+          {props.childRoute === 'register'          && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
+          {props.childRoute === 'register/team'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
+          {props.childRoute === 'register/gear'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" />}
+          {props.childRoute === 'register/volunteer'&& <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" />}
+          {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} onEdit={() => setTournamentEditorIsOpen(true)} />}
+          {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')}/>}
+          {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')}/>}
+          {props.childRoute === 'rounds'            && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}/>}
+          {props.childRoute === 'teams'             && <TeamsTable tid={String(tournament?.tid)} showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}/>}
+          {props.childRoute === 'quizzers'          && <QuizzersTable tid={String(tournament?.tid)}/>}
+          {props.childRoute === 'games'             && <GamesTable tid={String(tournament?.tid)} showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}/>}
+          {props.childRoute === 'gear'              && null}
+          {props.childRoute === 'admins'            && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
+          {props.childRoute === 'stats-groups'      && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
+          {props.childRoute === 'room-monitor'      && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>
 
         <TournamentEditorDialog

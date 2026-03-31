@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
@@ -37,7 +38,8 @@ const emptyTeamForm: TeamFormState = { name: '', did: '', coachid: '' }
 
 export const TournamentRegisterPage = ({ tid, tname, initialTab = 'team' }: { tid: string; tname: string; initialTab?: 'team' | 'gear' | 'as-volunteer' }) => {
   const { session } = useAuth()
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab === 'gear' ? 'gear' : 'team')
+  const navigate = useNavigate()
+  const [activeTab] = useState<Tab>(initialTab === 'gear' ? 'gear' : 'team')
 
   // Team form
   const [form, setForm] = useState<TeamFormState>(emptyTeamForm)
@@ -107,33 +109,30 @@ export const TournamentRegisterPage = ({ tid, tname, initialTab = 'team' }: { ti
 
       {/* ── Tab Buttons ── */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 3 }}>
-        <Typography variant="body1" sx={{ fontWeight: 600, alignSelf: 'center' }}>Register:</Typography>
         <Button
           variant={activeTab === 'team' ? 'contained' : 'outlined'}
-          onClick={() => setActiveTab('team')}
+          onClick={() => navigate(`/tournament/${tid}/register/team`)}
         >
           Team
         </Button>
         <Button
           variant={activeTab === 'gear' ? 'contained' : 'outlined'}
-          onClick={() => setActiveTab('gear')}
+          onClick={() => navigate(`/tournament/${tid}/register/gear`)}
         >
           Gear
         </Button>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-          <Button
-            variant="outlined"
-            disabled={!session}
-            onClick={() => setVolunteerDialogOpen(true)}
-          >
-            As Volunteer
-          </Button>
-          {!session && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, maxWidth: 240 }}>
-              Sign in or create an account to register for this Tournament as a volunteer.
-            </Typography>
-          )}
-        </Box>
+        <Button
+          variant="outlined"
+          disabled={!session}
+          onClick={() => navigate(`/tournament/${tid}/register/as-volunteer`)}
+        >
+          As Volunteer
+        </Button>
+        {!session && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+            Sign in or create an account to register for this Tournament as a volunteer.
+          </Typography>
+        )}
       </Box>
 
       {/* ── Team Tab ── */}
