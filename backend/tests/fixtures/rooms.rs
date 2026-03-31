@@ -199,7 +199,6 @@ pub fn arrange_get_all_equipmentregistrations_of_room_works_integration_test(db:
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();

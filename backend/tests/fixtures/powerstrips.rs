@@ -8,7 +8,6 @@ pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> N
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -28,7 +27,6 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -56,7 +54,6 @@ pub fn arrange_get_powerstrip_by_id_works_integration_test(db: &mut database::Co
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -83,7 +80,6 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> P
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -103,7 +99,6 @@ pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> P
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();

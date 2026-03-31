@@ -33,7 +33,7 @@ interface Props {
   editingSet?: GearSetTS;
 }
 
-const EMPTY_FORM = { name: '', description: '', is_default: false };
+const EMPTY_FORM = { name: '', description: '' };
 
 export function GearSetEditorDialog({ ownerId, isOpen, onCancel, onSave, editingSet }: Props) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -43,8 +43,7 @@ export function GearSetEditorDialog({ ownerId, isOpen, onCancel, onSave, editing
 
   const isDirty = editingSet
     ? form.name !== editingSet.name ||
-      form.description !== (editingSet.description ?? '') ||
-      form.is_default !== (editingSet.is_default ?? false)
+      form.description !== (editingSet.description ?? '')
     : form.name !== '' || form.description !== '';
 
   useEffect(() => {
@@ -54,7 +53,6 @@ export function GearSetEditorDialog({ ownerId, isOpen, onCancel, onSave, editing
           ? {
               name: editingSet.name,
               description: editingSet.description ?? '',
-              is_default: editingSet.is_default ?? false,
             }
           : EMPTY_FORM,
       );
@@ -85,12 +83,10 @@ export function GearSetEditorDialog({ ownerId, isOpen, onCancel, onSave, editing
         ? await EquipmentSetAPI.update(editingSet.id, {
             name: form.name.trim(),
             description: form.description.trim() || null,
-            is_default: form.is_default,
           })
         : await EquipmentSetAPI.create({
             equipmentownerid: ownerId,
             is_active: true,
-            is_default: form.is_default,
             name: form.name.trim(),
             description: form.description.trim() || null,
           });
@@ -148,16 +144,6 @@ export function GearSetEditorDialog({ ownerId, isOpen, onCancel, onSave, editing
             value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             sx={{ mb: 2 }}
-          />
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={form.is_default}
-                onChange={e => setForm(f => ({ ...f, is_default: e.target.checked }))}
-              />
-            }
-            label="Mark as default GearSet"
           />
         </Box>
       </Dialog>

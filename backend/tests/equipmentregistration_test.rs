@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog}, services::common::PagedResponse};
 use backend::models::equipmentregistration::EquipmentRegistration;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -88,20 +88,21 @@ async fn get_all_works() {
     
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: Vec<EquipmentRegistration> = test::read_body_json(resp).await;
+    let body: PagedResponse<EquipmentRegistration> = test::read_body_json(resp).await;
 
     let len = 2;
 
-    assert_eq!(body.len(), len);
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
 
     let mut equipmentregistration_1_interest_idx = 10;
     let mut equipmentregistration_2_interest_idx = 10;
     for idx in 0..len {
-        if body[idx].id == equipmentregistration_1.id {
+        if body.items[idx].id == equipmentregistration_1.id {
             equipmentregistration_1_interest_idx = idx;
             continue;
         }
-        if body[idx].id == equipmentregistration_2.id {
+        if body.items[idx].id == equipmentregistration_2.id {
             equipmentregistration_2_interest_idx = idx;
             continue;
         }

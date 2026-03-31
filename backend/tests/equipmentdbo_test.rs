@@ -64,18 +64,20 @@ async fn get_all_works() {
     
     // Assert:
         
-    let equipment_dbo_vec = equipment_dbo_result.unwrap();
+    let equipment_dbo_vec: Vec<EquipmentDbo> = equipment_dbo_result.unwrap();
 
     let len = 2;
+
+    assert_eq![equipment_dbo_vec.len(), len];
 
     let mut equipment_1_interest_idx = 10;
     let mut equipment_2_interest_idx = 10;
     for idx in 0..len {
-        if equipment_dbo_vec[idx].id == equipment_computer_1.id {
+        if equipment_dbo_vec[idx].id == equipment_computer_1.equipmentid {
             equipment_1_interest_idx = idx;
             continue;
         }
-        if equipment_dbo_vec[idx].id == equipment_computer_2.id {
+        if equipment_dbo_vec[idx].id == equipment_computer_2.equipmentid {
             equipment_2_interest_idx = idx;
             continue;
         }
@@ -147,17 +149,15 @@ async fn delete_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let equipment = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
+    let computer = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
 
     // Act:
     
-    let equipment_dbo_result = models::equipment_dbo::delete(&mut conn, equipment.id);   
+    let equipment_dbo_result = models::equipment_dbo::delete(&mut conn, computer.equipmentid);   
 
     // Assert:
     
-    assert!(equipment_dbo_result.is_ok());
-    let equipment_dbo_delete_count = equipment_dbo_result.unwrap();
-    assert_eq!(equipment_dbo_delete_count, 1);
+    assert_eq!(equipment_dbo_result.unwrap(), 1);  // count of records deleted
 
     // Check DB if it shows the correct number of equipment records after deletion:
     let pagination = PaginationParams {

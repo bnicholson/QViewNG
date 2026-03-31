@@ -50,8 +50,8 @@ async fn main() -> std::io::Result<()> {
     // Change commented/uncommented if you want to populate your DB with data:
     // let mut conn = db.get_connection().expect("Failed to get connection.");
     // database::clean_db::clean_database(&mut conn);
-    // database::seed_data::seed_one::seed_data_one(&mut conn);
     // database::seed_data::system_default_data::insert_system_default_data(&mut conn);
+    // database::seed_data::seed_one::seed_data_one(&mut conn);
     // let conn = conn;
     // drop(conn);
     

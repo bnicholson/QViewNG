@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog}, services::common::PagedResponse};
 use backend::models::equipmentset::EquipmentSet;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -48,7 +48,6 @@ async fn create_works() {
 
     let equipmentset = body.data.unwrap();
     assert_eq!(equipmentset.is_active, payload.is_active);
-    assert_eq!(equipmentset.is_default.unwrap(), payload.is_default.unwrap());
     assert_eq!(equipmentset.name, payload.name);
     assert_eq!(equipmentset.description.unwrap(), payload.description.unwrap());
     
@@ -91,20 +90,21 @@ async fn get_all_works() {
     
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: Vec<EquipmentSet> = test::read_body_json(resp).await;
+    let body: PagedResponse<EquipmentSet> = test::read_body_json(resp).await;
 
     let len = 2;
 
-    assert_eq!(body.len(), len);
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
 
     let mut equipmentset_1_interest_idx = 10;
     let mut equipmentset_2_interest_idx = 10;
     for idx in 0..len {
-        if body[idx].name == es_1.name {
+        if body.items[idx].name == es_1.name {
             equipmentset_1_interest_idx = idx;
             continue;
         }
-        if body[idx].name == es_2.name {
+        if body.items[idx].name == es_2.name {
             equipmentset_2_interest_idx = idx;
             continue;
         }

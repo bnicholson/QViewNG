@@ -228,13 +228,14 @@ pub fn read(db: &mut database::Connection, item_id: i64) -> QueryResult<Equipmen
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<EquipmentDbo>> {
     use crate::schema::equipment::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
     equipment
         .order(created_at)
-        .limit(pagination.page_size)
-        .offset(
-            pagination.page
-                * std::cmp::max(pagination.page_size, PaginationParams::MAX_PAGE_SIZE as i64),
-        )
+        .limit(page_size)
+        .offset(offset_val)
         .load::<EquipmentDbo>(db)
 }
 

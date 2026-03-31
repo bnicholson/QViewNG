@@ -411,7 +411,7 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
   return (
     <>
       <Dialog fullScreen open={isOpen} onClose={handleClose} TransitionComponent={SlideUp}>
-        <AppBar sx={{ position: 'relative' }}>
+        <AppBar sx={{ position: 'sticky' }}>
           <Toolbar>
             <IconButton edge="start" color="inherit" onClick={handleClose} aria-label="close">
               <CloseIcon />

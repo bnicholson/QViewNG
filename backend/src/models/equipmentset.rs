@@ -12,7 +12,6 @@ use chrono::{Utc,DateTime};
 pub struct EquipmentSetBuilder {
     equipmentownerid: Uuid,
     is_active: Option<bool>,
-    is_default: Option<bool>,
     name: Option<String>,
     description: Option<String>,
 }
@@ -22,7 +21,6 @@ impl EquipmentSetBuilder {
         Self {
             equipmentownerid,
             is_active: None,
-            is_default: None,
             name: None,
             description: None,
         }
@@ -31,7 +29,6 @@ impl EquipmentSetBuilder {
         Self {
             equipmentownerid,
             is_active: Some(true),
-            is_default: Some(false),
             name: Some("Default Equipment Set".to_string()),
             description: Some("This is the description.".to_string()),
         }
@@ -42,10 +39,6 @@ impl EquipmentSetBuilder {
     }
     pub fn set_is_active(mut self, is_active: bool) -> Self {
         self.is_active = Some(is_active);
-        self
-    }
-    pub fn set_is_default(mut self, is_default: bool) -> Self {
-        self.is_default = Some(is_default);
         self
     }
     pub fn set_name(mut self, equipmentset_name: &str) -> Self {
@@ -79,7 +72,6 @@ impl EquipmentSetBuilder {
                     NewEquipmentSet {
                         equipmentownerid: self.equipmentownerid,
                         is_active: self.is_active.unwrap(),
-                        is_default: self.is_default,
                         name: self.name.unwrap(),
                         description: self.description,
                     }
@@ -112,7 +104,6 @@ pub struct EquipmentSet {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub is_default: Option<bool>,
     pub name: String,                      // Name of the equipmentset (human readable)
     pub description: Option<String>,
 }
@@ -127,7 +118,6 @@ pub struct EquipmentSet {
 pub struct NewEquipmentSet {
     pub equipmentownerid: Uuid,
     pub is_active: bool,
-    pub is_default: Option<bool>,
     pub name: String,
     pub description: Option<String>,
 }
@@ -139,7 +129,6 @@ pub struct NewEquipmentSet {
 pub struct EquipmentSetChangeset {
     pub equipmentownerid: Option<Uuid>,
     pub is_active: Option<bool>,
-    pub is_default: Option<bool>,
     pub name: Option<String>,
     pub description: Option<String>,
 }

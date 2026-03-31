@@ -4,7 +4,6 @@ export interface GearSetTS {
   id: number;
   equipmentownerid: string;
   is_active: boolean;
-  is_default: boolean | null;
   name: string;
   description: string | null;
   created_at: string;
@@ -14,7 +13,6 @@ export interface GearSetTS {
 export interface NewGearSetPayload {
   equipmentownerid: string;
   is_active: boolean;
-  is_default: boolean | null;
   name: string;
   description: string | null;
 }
@@ -23,7 +21,6 @@ export interface GearSetChangeset {
   name?: string;
   description?: string | null;
   is_active?: boolean;
-  is_default?: boolean | null;
 }
 
 // ── Equipment DBO (bridge table) ─────────────────────────────────────────────

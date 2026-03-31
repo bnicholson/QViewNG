@@ -9,7 +9,6 @@ pub fn seed_1_of_each_equipment_piece_type(db: &mut database::Connection) ->
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -76,7 +75,6 @@ pub fn arrange_get_all_equipmentregistrations_of_equipment_piece_works_integrati
         .unwrap();
     let equipment_set = EquipmentSetBuilder::new_default(user.id)
         .set_is_active(true)
-        .set_is_default(true)
         .set_description(Some("This is a test equipment set.".to_string()))
         .build_and_insert(db)
         .unwrap();
