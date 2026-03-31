@@ -1,39 +1,14 @@
-use crate::{database, models::{division::DivisionBuilder, game::GameBuilder, permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
-use strum::IntoEnumIterator;
+use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{division::DivisionBuilder, game::GameBuilder, role::{AppRole}, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
-use uuid::Uuid;
-
-const DEFAULT_PASSWORD: &str = "Password123!";
 
 pub fn seed_data_one(db: &mut database::Connection) {
-    init_roles_and_permissions(db);
-    add_super_user(db);
-    add_tournament_manager_user(db);
-    add_member_user(db);
     add_tour_1_demo(db);
 }
 
-pub fn add_super_user(db: &mut database::Connection) {
-    let super_user = UserBuilder::new("Super")
-        .set_lname("User")
-        .set_username("superuser")
-        .set_hash_password(DEFAULT_PASSWORD)
-        .set_email("superuser@fakeemail.com")
-        .set_activated(true)
-        .build_and_insert(db)
-        .unwrap();
+pub fn add_tour_1_demo(db: &mut database::Connection) {
 
-    let member_role    = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
-    let super_user_role = crate::models::role::read_by_name(db, AppRole::SuperUser.as_str()).unwrap();
+    // Add Touranment Manager (*owner of Tour One):
 
-    UsersRolesBuilder::new(super_user.id)
-        .assign(member_role.id)
-        .assign(super_user_role.id)
-        .build_and_insert(db)
-        .unwrap();
-}
-
-pub fn add_tournament_manager_user(db: &mut database::Connection) {
     let user = UserBuilder::new("Tournament")
         .set_lname("Manager")
         .set_username("tournamentmanager")
@@ -51,10 +26,10 @@ pub fn add_tournament_manager_user(db: &mut database::Connection) {
         .assign(tournament_manager_role.id)
         .build_and_insert(db)
         .unwrap();
-}
 
-pub fn add_member_user(db: &mut database::Connection) {
-    let user = UserBuilder::new("Justa")
+    // Add member user:
+
+    let member_user = UserBuilder::new("Justa")
         .set_lname("Member")
         .set_username("member")
         .set_hash_password(DEFAULT_PASSWORD)
@@ -65,93 +40,13 @@ pub fn add_member_user(db: &mut database::Connection) {
 
     let member_role = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
 
-    UsersRolesBuilder::new(user.id)
+    UsersRolesBuilder::new(member_user.id)
         .assign(member_role.id)
         .build_and_insert(db)
         .unwrap();
-}
 
-/// Idempotent baseline setup — creates all canonical permissions and the three
-/// application roles. Does NOT assign any roles to users; call separately after
-/// inserting users (e.g. via `UsersRolesBuilder`).
-///
-/// Role permission tree (each role is self-contained):
-///
-///  member             → :read on every resource
-///  tournament_manager → tournament:create/update/delete only (member covers :read)
-///  super_user         → full CRUD on every resource
-pub fn init_roles_and_permissions(db: &mut database::Connection) {
-    use std::collections::HashMap;
-
-    // ── Build one permission row per AppResource × AppAction variant ──────────
-    let mut perm_ids: HashMap<(&str, &str), Uuid> = HashMap::new();
-
-    for resource in AppResource::iter() {
-        for action in AppAction::iter() {
-            let perm = PermissionBuilder::new(&format!("{}:{}", resource.as_str(), action.as_str()))
-                .resource(resource.as_str())
-                .action(action.as_str())
-                .build_and_insert(db)
-                .unwrap();
-            perm_ids.insert((resource.as_str(), action.as_str()), perm.id);
-        }
-    }
-
-    let read_ids: Vec<Uuid> = AppResource::iter()
-        .map(|r| *perm_ids.get(&(r.as_str(), AppAction::Read.as_str())).unwrap())
-        .collect();
-
-    let all_ids: Vec<Uuid> = perm_ids.values().copied().collect();
-
-    let tour_manager_permissions: Vec<Uuid> = [
-            AppResource::Tournament,
-            AppResource::Division,
-            AppResource::Round,
-            AppResource::Room,
-            AppResource::Game,
-            AppResource::Team,
-        ].iter().flat_map(|resource| {
-            [
-                AppAction::Create.as_str(),
-                AppAction::Update.as_str(),
-                AppAction::Delete.as_str(),
-            ].iter().filter_map(|action| {
-                perm_ids.get(&(resource.as_str(), *action)).copied()
-            }).collect::<Vec<_>>()
-        }).collect();
-
-    let tour_create_id = perm_ids.get(&(AppResource::Tournament.as_str(), AppAction::Create.as_str())).copied();
-    let tour_admin_permissions: Vec<Uuid> = tour_manager_permissions
-        .iter()
-        .copied()
-        .filter(|id| Some(*id) != tour_create_id)
-        .collect();
-
-    // ── Build one role row per AppRole variant ────────────────────────────────
-    for app_role in AppRole::iter() {
-        let role = RoleBuilder::new(app_role.as_str())
-            .description(app_role.description())
-            .build_and_insert(db)
-            .unwrap();
-
-        let role_perm_ids: Vec<Uuid> = match app_role {
-            // member: read-only on every resource
-            AppRole::Member => read_ids.clone(),
-            // tournament_manager: create/update/delete on all tournament-managed resources
-            AppRole::TournamentManager => tour_manager_permissions.clone(),
-            AppRole::TournamentAdmin => tour_admin_permissions.clone(),
-            // super_user: full CRUD on everything
-            AppRole::SuperUser => all_ids.clone(),
-        };
-
-        RolePermissionBuilder::new(role.id)
-            .add_many(role_perm_ids)
-            .build_and_insert(db)
-            .unwrap();
-    }
-}
-
-pub fn add_tour_1_demo(db: &mut database::Connection) {
+    // Add Tournament One, starting here:
+    
     let tour_owner = crate::models::user::UserBuilder::new("Tour")
         .set_mname("One")
         .set_lname("Owner")
@@ -324,6 +219,10 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
     RosterCoachBuilder::new(coach_exp_1.id, roster_1.rosterid)
+        .build_and_insert(db)
+        .unwrap();
+    // Roster is shared also with member user:
+    RosterCoachBuilder::new(member_user.id, roster_1.rosterid)
         .build_and_insert(db)
         .unwrap();
     RosterQuizzerBuilder::new(q_exp_1_1.id, roster_1.rosterid)

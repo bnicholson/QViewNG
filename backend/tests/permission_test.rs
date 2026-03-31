@@ -4,10 +4,10 @@ mod fixtures;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::{
-    database::{Database, seed_data::seed_one::init_roles_and_permissions},
+    database::{Database, seed_data::system_default_data::insert_system_default_data},
     models::{self, apicalllog::ApiCalllog, permission::Permission, role::AppRole, users_roles::UsersRolesBuilder},
     routes::configure_routes,
-    services::common::EntityResponse,
+    services::common::{EntityResponse, PagedResponse},
 };
 use serde_json::json;
 use crate::common::{TEST_DB_URL, clean_database};
@@ -77,8 +77,9 @@ async fn get_all_permissions_works() {
 
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let perms: Vec<Permission> = test::read_body_json(resp).await;
-    assert_eq!(perms.len(), 6);
+    let perms: PagedResponse<Permission> = test::read_body_json(resp).await;
+    assert_eq!(perms.items.len(), 6);
+    assert_eq!(perms.count, 6);
 }
 
 // ── GET /api/permissions?resource=post ───────────────────────────────────────
@@ -103,9 +104,10 @@ async fn get_permissions_filtered_by_resource_works() {
 
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let perms: Vec<Permission> = test::read_body_json(resp).await;
-    assert_eq!(perms.len(), 4);
-    assert!(perms.iter().all(|p| p.resource.as_deref() == Some("post")));
+    let perms: PagedResponse<Permission> = test::read_body_json(resp).await;
+    assert_eq!(perms.items.len(), 4);
+    assert_eq!(perms.count, 4);
+    assert!(perms.items.iter().all(|p| p.resource.as_deref() == Some("post")));
 }
 
 // ── GET /api/permissions/{id} ─────────────────────────────────────────────────
@@ -224,7 +226,7 @@ async fn get_user_roles_and_permissions_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    init_roles_and_permissions(&mut conn);
+    insert_system_default_data(&mut conn);
     let user = fixtures::users::seed_user(&mut conn);
     let tour_admin_role = models::role::read_by_name(&mut conn, AppRole::TournamentAdmin.as_str())
         .expect("TournamentAdmin role should exist");

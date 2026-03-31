@@ -4,9 +4,9 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
-use backend::{models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User, role::AppRole}, routes::configure_routes, services::common::{EntityResponse, PagedResponse}};
+use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::common::{EntityResponse, PagedResponse}};
 use backend::models::{division::Division, tournament::Tournament};
-use backend::database::{Database, seed_data::seed_one::init_roles_and_permissions};
+use backend::database::Database;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -623,7 +623,7 @@ async fn add_admin_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    init_roles_and_permissions(&mut conn);
+    insert_system_default_data(&mut conn);
 
     let (tournament, user_to_become_admin, payload) =
         fixtures::tournaments_admins::get_tour_admin_payload_singular(&mut conn);
