@@ -223,6 +223,23 @@ async fn read_rosters_of_coach(
     }
 }
 
+#[get("/{id}/equipmentsets")]
+async fn read_equipmentsets_of_owner(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::equipmentset::read_all_by_owner(&mut db, user_id.into_inner()) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[get("/{id}/rosters-containing-quizzer")]
 async fn read_rosters_containing_quizzer(
     db: Data<Database>,
@@ -417,6 +434,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_tournaments_as_admin)
         .service(read_games_where_quizmaster_enriched)
         .service(read_games_where_contentjudge_enriched)
+        .service(read_equipmentsets_of_owner)
         .service(read_rosters_of_coach)
         .service(read_rosters_containing_quizzer)
         .service(create)

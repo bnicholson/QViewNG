@@ -111,10 +111,6 @@ impl EquipmentDboBuilder {
         if equipment_type_id_counter != 1 {
             errors.push("exactly one equipment type ID is required".to_string());
         }
-
-        if self.misc_note.is_none() {
-            errors.push("misc_note is required".to_string());
-        }
         if self.equipmentsetid.is_none() {
             errors.push("equipmentsetid is required".to_string());
         }
@@ -255,4 +251,12 @@ pub fn update(db: &mut database::Connection, item_id: i64, item: &EquipmentDboCh
 pub fn delete(db: &mut database::Connection, item_id: i64) -> QueryResult<usize> {
     use crate::schema::equipment::dsl::*;
     diesel::delete(equipment.filter(id.eq(item_id))).execute(db)
+}
+
+pub fn read_all_by_equipmentset(db: &mut database::Connection, set_id: i64) -> QueryResult<Vec<EquipmentDbo>> {
+    use crate::schema::equipment::dsl::*;
+    equipment
+        .filter(equipmentsetid.eq(set_id))
+        .order(created_at)
+        .load::<EquipmentDbo>(db)
 }

@@ -193,3 +193,11 @@ pub fn delete(db: &mut database::Connection, item_id: i64) -> QueryResult<usize>
     use crate::schema::equipmentsets::dsl::*;
     diesel::delete(equipmentsets.filter(id.eq(item_id))).execute(db)
 }
+
+pub fn read_all_by_owner(db: &mut database::Connection, owner_id: Uuid) -> QueryResult<Vec<EquipmentSet>> {
+    use crate::schema::equipmentsets::dsl::*;
+    equipmentsets
+        .filter(equipmentownerid.eq(owner_id))
+        .order(created_at)
+        .load::<EquipmentSet>(db)
+}

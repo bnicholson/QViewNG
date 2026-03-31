@@ -130,10 +130,28 @@ async fn destroy(
     }
 }
 
+#[get("/{id}/equipment")]
+async fn read_equipment_of_set(
+    db: Data<Database>,
+    set_id: Path<i64>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::equipment_dbo::read_all_by_equipmentset(&mut db, set_id.into_inner()) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_equipment_of_set)
         .service(create)
         .service(update)
         .service(destroy);

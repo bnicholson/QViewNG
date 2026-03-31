@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentset::EquipmentSet, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
@@ -712,12 +712,12 @@ async fn get_all_rosters_of_coach_works() {
 async fn get_all_rosters_of_quizzer_works() {
 
     // Arrange:
-    
+
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-    let (_, quizzer_2, roster_3, roster_4) = 
+
+    let (_, quizzer_2, roster_3, roster_4) =
         fixtures::users::arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -725,14 +725,14 @@ async fn get_all_rosters_of_quizzer_works() {
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
+
     let uri = format!("/api/users/{}/rosters-containing-quizzer?page={}&page_size={}", quizzer_2.id, PAGE_NUM, PAGE_SIZE);
     let req = test::TestRequest::get()
         .uri(&uri)
         .to_request();
-    
+
     // Act:
-    
+
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -756,7 +756,68 @@ async fn get_all_rosters_of_quizzer_works() {
     }
     assert_ne!(roster_1_idx, 10);
     assert_ne!(roster_2_idx, 10);
-    
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_equipmentsets_of_owner_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (owner, set_1, set_2) =
+        fixtures::users::arrange_get_all_equipmentsets_of_owner_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/users/{}/equipmentsets", owner.id);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<EquipmentSet> = test::read_body_json(resp).await;
+
+    // Only the owner's 2 sets should be returned (not the other owner's set)
+    assert_eq!(body.len(), 2);
+
+    let mut set_1_idx = 10;
+    let mut set_2_idx = 10;
+    for idx in 0..body.len() {
+        if body[idx].id == set_1.id {
+            set_1_idx = idx;
+        }
+        if body[idx].id == set_2.id {
+            set_2_idx = idx;
+        }
+    }
+    assert_ne!(set_1_idx, 10);
+    assert_ne!(set_2_idx, 10);
+
+    // All returned sets belong to the queried owner
+    assert_eq!(body[set_1_idx].equipmentownerid, owner.id);
+    assert_eq!(body[set_2_idx].equipmentownerid, owner.id);
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());

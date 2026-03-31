@@ -2,7 +2,7 @@
 mod common;
 mod fixtures;
 
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, computer::Computer, equipment::Equipment, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, computer::Computer, equipment::Equipment, equipment_dbo::EquipmentDbo, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 use actix_web::{App, test, web::{self}};
 use actix_http::StatusCode;
@@ -261,6 +261,66 @@ async fn get_all_equipmentregistrations_of_equipment_piece_works() {
     }
     assert_ne!(equipmentregistration_1_idx, 10);
     assert_ne!(equipmentregistration_2_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_equipment_of_set_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (equipment_set, equipment_id_1, equipment_id_2) =
+        fixtures::equipmentsets::arrange_get_equipment_of_set_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/equipmentsets/{}/equipment", equipment_set.id);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<EquipmentDbo> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 2);
+
+    let mut item_1_idx = 10;
+    let mut item_2_idx = 10;
+    for idx in 0..body.len() {
+        if body[idx].id == equipment_id_1 {
+            item_1_idx = idx;
+        }
+        if body[idx].id == equipment_id_2 {
+            item_2_idx = idx;
+        }
+    }
+    assert_ne!(item_1_idx, 10);
+    assert_ne!(item_2_idx, 10);
+
+    // Both items belong to the queried set
+    assert_eq!(body[item_1_idx].equipmentsetid, equipment_set.id);
+    assert_eq!(body[item_2_idx].equipmentsetid, equipment_set.id);
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);

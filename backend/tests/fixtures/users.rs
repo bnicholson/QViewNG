@@ -1,4 +1,4 @@
-use backend::{database, models::{division::DivisionBuilder, roster::{Roster, RosterBuilder}, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
+use backend::{database, models::{division::DivisionBuilder, equipmentset::{EquipmentSet, EquipmentSetBuilder}, roster::{Roster, RosterBuilder}, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
 use uuid::Uuid;
 
 pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
@@ -308,6 +308,33 @@ pub fn arrange_get_all_teams_where_user_is_quizzer_works_integration_test(
         .unwrap();
 
     (quizzer_of_interest, team_1, team_2, team_3, team_4, team_5, team_6)
+}
+
+pub fn arrange_get_all_equipmentsets_of_owner_works_integration_test(
+    db: &mut database::Connection
+) -> (User, EquipmentSet, EquipmentSet) {
+    let owner = UserBuilder::new_default("Equipment Owner")
+        .set_hash_password("OwnerPwd456!")
+        .build_and_insert(db)
+        .unwrap();
+    let set_1 = EquipmentSetBuilder::new_default(owner.id)
+        .set_name("Owner's Set 1")
+        .build_and_insert(db)
+        .unwrap();
+    let set_2 = EquipmentSetBuilder::new_default(owner.id)
+        .set_name("Owner's Set 2")
+        .build_and_insert(db)
+        .unwrap();
+    // A second user with their own set, to verify filtering by owner
+    let other_owner = UserBuilder::new_default("Other Owner")
+        .set_hash_password("OtherOwnerPwd456!")
+        .build_and_insert(db)
+        .unwrap();
+    let _ = EquipmentSetBuilder::new_default(other_owner.id)
+        .set_name("Other Owner's Set")
+        .build_and_insert(db)
+        .unwrap();
+    (owner, set_1, set_2)
 }
 
 pub fn arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(
