@@ -28,6 +28,7 @@ import {
   GEAR_TYPE_LABELS,
   detectGearType,
   type EquipmentDboTS,
+  type EquipmentDetail,
   type GearSetTS,
   type GearType,
 } from '../features/EquipmentSetAPI'
@@ -118,6 +119,47 @@ function MoveButton({
   );
 }
 
+// ── Gear item info string ─────────────────────────────────────────────────────
+
+function getGearInfo(detail: EquipmentDetail, dbo: EquipmentDboTS): string {
+  const props: Array<[string, string]> = [['ID', String(dbo.id)]]
+
+  if ('Computer' in detail) {
+    const c = detail.Computer
+    if (c.brand) props.push(['Brand', c.brand])
+    if (c.operating_system) props.push(['OS', c.operating_system])
+    if (c.quizmachine_version) props.push(['QuizMachine', c.quizmachine_version])
+    if (c.wifi_capabilities) props.push(['WiFi', c.wifi_capabilities])
+  } else if ('JumpPad' in detail) {
+    if (detail.JumpPad.color) props.push(['Color', detail.JumpPad.color])
+  } else if ('InterfaceBox' in detail) {
+    const ib = detail.InterfaceBox
+    props.push(['Type', ib.type_])
+    if (ib.serial_number) props.push(['S/N', ib.serial_number])
+  } else if ('Monitor' in detail) {
+    const m = detail.Monitor
+    if (m.size) props.push(['Size', `${m.size}"`])
+    if (m.brand) props.push(['Brand', m.brand])
+  } else if ('MicrophoneRecorder' in detail) {
+    if (detail.MicrophoneRecorder.type_) props.push(['Type', detail.MicrophoneRecorder.type_])
+  } else if ('Projector' in detail) {
+    if (detail.Projector.brand) props.push(['Brand', detail.Projector.brand])
+  } else if ('PowerStrip' in detail) {
+    const ps = detail.PowerStrip
+    if (ps.make) props.push(['Make', ps.make])
+    if (ps.model) props.push(['Model', ps.model])
+    if (ps.color) props.push(['Color', ps.color])
+    props.push(['Plugs', String(ps.num_of_plugs)])
+  } else if ('ExtensionCord' in detail) {
+    const ec = detail.ExtensionCord
+    if (ec.color) props.push(['Color', ec.color])
+    if (ec.length) props.push(['Length', ec.length])
+  }
+
+  if (dbo.misc_note) props.push(['Note', dbo.misc_note])
+  return props.map(([label, value]) => `${label}: ${value}`).join(',  ')
+}
+
 // ── Gear table ────────────────────────────────────────────────────────────────
 
 function GearTable({
@@ -137,6 +179,18 @@ function GearTable({
 }) {
   const setById = Object.fromEntries(gearSets.map(s => [s.id, s]));
 
+  const [detailsByEquipId, setDetailsByEquipId] = useState<Record<number, EquipmentDetail>>({});
+
+  useEffect(() => {
+    if (rows.length === 0) return;
+    Promise.all(rows.map(r => EquipmentSetAPI.getEquipmentDetail(r.id).catch(() => null)))
+      .then(results => {
+        const map: Record<number, EquipmentDetail> = {};
+        rows.forEach((r, i) => { if (results[i]) map[r.id] = results[i]!; });
+        setDetailsByEquipId(map);
+      });
+  }, [rows]);
+
   if (rows.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
@@ -151,8 +205,8 @@ function GearTable({
         <TableHead>
           <TableRow sx={{ '& th': { fontWeight: 600, backgroundColor: 'action.hover' } }}>
             <TableCell>Type</TableCell>
-            <TableCell>Note</TableCell>
-            {showSetColumn && <TableCell>GearSet</TableCell>}
+            <TableCell>Info</TableCell>
+            {showSetColumn && <TableCell>Gear Set</TableCell>}
             <TableCell>Added</TableCell>
             <TableCell align="right">Actions</TableCell>
           </TableRow>
@@ -174,8 +228,12 @@ function GearTable({
                     <Chip label="Unknown" size="small" />
                   )}
                 </TableCell>
-                <TableCell sx={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {row.misc_note || <Typography variant="body2" color="text.disabled" component="span">—</Typography>}
+                <TableCell>
+                  <Typography variant="body2">
+                    {detailsByEquipId[row.id]
+                      ? getGearInfo(detailsByEquipId[row.id], row)
+                      : `ID: ${row.id}`}
+                  </Typography>
                 </TableCell>
                 {showSetColumn && (
                   <TableCell>
@@ -255,8 +313,8 @@ function AllGearPanel({
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'left' }}>
-        GearSets help organize your equipment for tournaments. Each piece of gear belongs to exactly
-        one GearSet. This tab shows all gear across your {gearSets.length} GearSet{gearSets.length !== 1 ? 's' : ''}.
+        gear sets help organize your equipment for tournaments. Each piece of gear belongs to exactly
+        one gear set. This tab shows all gear across your {gearSets.length} gear set{gearSets.length !== 1 ? 's' : ''}.
         Use the <DriveFileMoveIcon sx={{ fontSize: 14, verticalAlign: 'middle' }} /> button on any row to move gear between sets.
       </Typography>
       <GearTable
@@ -322,7 +380,6 @@ function GearSetPanel({
             <Typography variant="body2" color="text.secondary">{gearSet.description}</Typography>
           )}
           <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-            {gearSet.is_default && <Chip label="Default" size="small" color="primary" variant="outlined" />}
             {!gearSet.is_active && <Chip label="Inactive" size="small" color="warning" variant="outlined" />}
             <Typography variant="caption" color="text.disabled">
               Created {new Date(gearSet.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
@@ -331,7 +388,7 @@ function GearSetPanel({
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEditSet} sx={{ textTransform: 'none' }}>
-            Edit GearSet
+            Edit Gear Set
           </Button>
           <Button
             size="small"
@@ -340,14 +397,14 @@ function GearSetPanel({
             startIcon={<DeleteIcon />}
             onClick={() => setConfirmDialog({
               isOpen: true,
-              title: 'Delete this GearSet?',
+              title: 'Delete this Gear Set?',
               message: `"${gearSet.name}" and all its gear items will be permanently removed.`,
               onCancel: () => setConfirmDialog(confirmDialogDefaultState),
               onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); onDeleteSet(); },
             })}
             sx={{ textTransform: 'none' }}
           >
-            Delete GearSet
+            Delete Gear Set
           </Button>
         </Box>
       </Box>
@@ -519,9 +576,6 @@ export const UserProfileAsCoachGearPage = (props: { userId: string; isSuperUser:
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   {s.name}
-                  {s.is_default && (
-                    <Chip label="default" size="small" sx={{ height: 16, fontSize: 10, cursor: 'pointer' }} />
-                  )}
                 </Box>
               }
             />
@@ -566,10 +620,10 @@ export const UserProfileAsCoachGearPage = (props: { userId: string; isSuperUser:
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <InventoryIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            No GearSets yet. Create your first GearSet to start tracking your equipment.
+            No gear sets yet. Create your first gear set to start tracking your equipment.
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateSetOpen(true)}>
-            Create GearSet
+            Create Gear Set
           </Button>
         </Box>
       )}

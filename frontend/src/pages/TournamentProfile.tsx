@@ -129,7 +129,6 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'register'          && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
           {props.childRoute === 'register/team'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
           {props.childRoute === 'register/gear'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" />}
           {props.childRoute === 'register/volunteer'&& <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" />}

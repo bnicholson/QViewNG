@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{division::DivisionBuilder, game::GameBuilder, role::{AppRole}, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, division::DivisionBuilder, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 
 pub fn seed_data_one(db: &mut database::Connection) {
@@ -194,6 +194,161 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
+
+    // Add "Set 1" equipment set for the coach user with one of each gear type
+    let coach_set_1 = crate::models::equipmentset::EquipmentSetBuilder::new_default(coach_exp_1.id)
+        .set_name("Set 1")
+        .set_description(Some("Main GearSet".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    ComputerBuilder::new_default(coach_set_1.id)
+        .set_brand(Some("Dell".to_string()))
+        .set_misc_note(Some("Main quiz machine".to_string()))
+        .set_operating_system(Some("Windows 11".to_string()))
+        .set_quizmachine_version(Some("6.2.2".to_string()))
+        .set_wifi_capabilities(Some("capable".to_string()))
+        .set_login_username(Some("Quizzer".to_string()))
+        .set_login_password(Some("Password123!".to_string()))
+        .set_has_vga_out_port(Some(true))
+        .set_has_display_port_out(Some(true))
+        .set_has_dvi_out_port(Some(false))
+        .set_has_hdmi_out_port(Some(true))
+        .set_has_usb_port(Some(true))
+        .set_clientkey(Some("liunalfw2k4oiww".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    JumpPadBuilder::new_default(coach_set_1.id)
+        .set_misc_note(Some("Jump pads set, red".to_string()))
+        .set_color(Some("red".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    InterfaceBoxBuilder::new_default(coach_set_1.id)
+        .set_type_(Some("Wired".to_string()))
+        .set_serial_number(Some("ahjsunkkdmif67nn87sk".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    MonitorBuilder::new_default(coach_set_1.id)
+        .set_size(Some("27".to_string()))
+        .set_brand(Some("Dell".to_string()))
+        .set_has_vga_out_port(Some(true))
+        .set_has_display_port_out(Some(false))
+        .set_has_dvi_out_port(Some(false))
+        .set_has_hdmi_out_port(Some(false))
+        .build_and_insert(db)
+        .unwrap();
+
+    MicrophoneRecorderBuilder::new_default(coach_set_1.id)
+        .set_type_(Some("External".to_string()))
+        .set_misc_note(Some("Casio".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    ProjectorBuilder::new_default(coach_set_1.id)
+        .set_brand(Some("Epson".to_string()))
+        .set_has_vga_out_port(Some(true))
+        .set_has_display_port_out(Some(true))
+        .set_has_dvi_out_port(Some(true))
+        .set_has_hdmi_out_port(Some(true))
+        .build_and_insert(db)
+        .unwrap();
+
+    PowerStripBuilder::new_default(coach_set_1.id)
+        .set_make(Some("Belkin".to_string()))
+        .set_model(Some("BE108000-06".to_string()))
+        .set_color(Some("white".to_string()))
+        .set_num_of_plugs(Some(8))
+        .set_misc_note(Some("Old reliable".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    ExtensionCordBuilder::new_default(coach_set_1.id)
+        .set_length(Some("6ft".to_string()))
+        .set_color(Some("Black".to_string()))
+        .set_misc_note(Some("The one that came from dad's house".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    // Add "Set 1" equipment set for the coach user with one of each gear type
+    let coach_set_2 = crate::models::equipmentset::EquipmentSetBuilder::new_default(coach_exp_1.id)
+        .set_name("Set 2")
+        .set_description(Some("Backup GearSet".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    ComputerBuilder::new_default(coach_set_2.id)
+        .set_brand(Some("Dell".to_string()))
+        .set_misc_note(Some("Main quiz machine".to_string()))
+        .set_operating_system(Some("Windows 11".to_string()))
+        .set_quizmachine_version(Some("6.2.2".to_string()))
+        .set_wifi_capabilities(Some("capable".to_string()))
+        .set_login_username(Some("Quizzer".to_string()))
+        .set_login_password(Some("Password123!".to_string()))
+        .set_has_vga_out_port(Some(true))
+        .set_has_display_port_out(Some(true))
+        .set_has_dvi_out_port(Some(false))
+        .set_has_hdmi_out_port(Some(true))
+        .set_has_usb_port(Some(true))
+        .set_clientkey(Some("liunalfw2k4oiww".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    JumpPadBuilder::new_default(coach_set_2.id)
+        .set_misc_note(Some("Jump pads set, red".to_string()))
+        .set_color(Some("red".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    InterfaceBoxBuilder::new_default(coach_set_2.id)
+        .set_type_(Some("Wired".to_string()))
+        .set_serial_number(Some("ahjsunkkdmif67nn87sk".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    MonitorBuilder::new_default(coach_set_2.id)
+        .set_size(Some("27".to_string()))
+        .set_brand(Some("Dell".to_string()))
+        .set_has_vga_out_port(Some(true))
+        .set_has_display_port_out(Some(false))
+        .set_has_dvi_out_port(Some(false))
+        .set_has_hdmi_out_port(Some(false))
+        .build_and_insert(db)
+        .unwrap();
+
+    MicrophoneRecorderBuilder::new_default(coach_set_2.id)
+        .set_type_(Some("External".to_string()))
+        .set_misc_note(Some("Casio".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    ProjectorBuilder::new_default(coach_set_2.id)
+        .set_brand(Some("Epson".to_string()))
+        .set_has_vga_out_port(Some(true))
+        .set_has_display_port_out(Some(true))
+        .set_has_dvi_out_port(Some(true))
+        .set_has_hdmi_out_port(Some(true))
+        .build_and_insert(db)
+        .unwrap();
+
+    PowerStripBuilder::new_default(coach_set_2.id)
+        .set_make(Some("Belkin".to_string()))
+        .set_model(Some("BE108000-06".to_string()))
+        .set_color(Some("white".to_string()))
+        .set_num_of_plugs(Some(8))
+        .set_misc_note(Some("Old reliable".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    ExtensionCordBuilder::new_default(coach_set_2.id)
+        .set_length(Some("6ft".to_string()))
+        .set_color(Some("Black".to_string()))
+        .set_misc_note(Some("The one that came from dad's house".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
     let q_exp_1_1 = UserBuilder::new("Aiden")
         .set_lname("Park")
         .set_email("apark@fakeemail.com")

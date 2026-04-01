@@ -25,6 +25,7 @@ import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { TeamAPI, type NewTeamPayload } from '../features/TeamAPI'
 import { useAuth } from '../hooks/useAuth'
+import { TournamentGearRegistrationPanel } from '../components/TournamentGearRegistrationPanel'
 
 type Tab = 'team' | 'gear'
 
@@ -226,7 +227,7 @@ export const TournamentRegisterPage = ({ tid, tname, initialTab = 'team' }: { ti
 
       {/* ── Gear Tab ── */}
       {activeTab === 'gear' && (
-        <Typography>#</Typography>
+        <TournamentGearRegistrationPanel tid={tid} />
       )}
 
       {/* ── Volunteer Confirm Dialog ── */}
