@@ -259,7 +259,7 @@ export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
     <Box>
       {/* ── Page header ── */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, mb: 2 }}>
-        <Typography variant="h6">Register Gear</Typography>
+        <Typography variant="h6">My Registered Gear</Typography>
         <Typography variant="body2" color="text.secondary">
           {totalRegistered} of {allItems.length} item{allItems.length !== 1 ? 's' : ''} registered
           for this tournament

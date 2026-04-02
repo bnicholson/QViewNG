@@ -1,37 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogContentText from '@mui/material/DialogContentText'
-import DialogTitle from '@mui/material/DialogTitle'
-import Typography from '@mui/material/Typography'
-import { useAuth } from '../hooks/useAuth'
 import { TournamentGearRegistrationPanel } from '../components/TournamentGearRegistrationPanel'
 import { TournamentTeamRegistrationPanel } from '../components/TournamentTeamRegistrationPanel'
+import { TournamentVolunteerPanel } from '../components/TournamentVolunteerPanel'
 
-type Tab = 'team' | 'gear'
+type Tab = 'team' | 'gear' | 'volunteer'
 
 export const TournamentRegisterPage = ({ tid, tname, initialTab = 'team' }: { tid: string; tname: string; initialTab?: 'team' | 'gear' | 'as-volunteer' }) => {
-  const { session } = useAuth()
   const navigate = useNavigate()
-  const [activeTab] = useState<Tab>(initialTab === 'gear' ? 'gear' : 'team')
 
-  // Volunteer
-  const [volunteerDialogOpen, setVolunteerDialogOpen] = useState(initialTab === 'as-volunteer')
-  const [volunteerName, setVolunteerName] = useState('')
-
-  useEffect(() => {
-    if (!session?.userId) return
-    fetch(`/api/users/${session.userId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data) setVolunteerName([data.fname, data.mname, data.lname].filter(Boolean).join(' '))
-      })
-      .catch(() => {})
-  }, [session?.userId])
+  const [activeTab] = useState<Tab>(
+    initialTab === 'gear' ? 'gear' : initialTab === 'as-volunteer' ? 'volunteer' : 'team'
+  )
 
   return (
     <Box>
@@ -51,17 +33,11 @@ export const TournamentRegisterPage = ({ tid, tname, initialTab = 'team' }: { ti
           Gear
         </Button>
         <Button
-          variant="outlined"
-          disabled={!session}
+          variant={activeTab === 'volunteer' ? 'contained' : 'outlined'}
           onClick={() => navigate(`/tournament/${tid}/register/as-volunteer`)}
         >
           As Volunteer
         </Button>
-        {!session && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-            Sign in or create an account to register for this Tournament as a volunteer.
-          </Typography>
-        )}
       </Box>
 
       {/* ── Team Tab ── */}
@@ -74,19 +50,10 @@ export const TournamentRegisterPage = ({ tid, tname, initialTab = 'team' }: { ti
         <TournamentGearRegistrationPanel tid={tid} />
       )}
 
-      {/* ── Volunteer Confirm Dialog ── */}
-      <Dialog open={volunteerDialogOpen} onClose={() => setVolunteerDialogOpen(false)}>
-        <DialogTitle>Register as Volunteer</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            You are registering as a volunteer for <strong>{tname}</strong> under the name <strong>{volunteerName}</strong>. Would you like to confirm?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setVolunteerDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => setVolunteerDialogOpen(false)}>Confirm</Button>
-        </DialogActions>
-      </Dialog>
+      {/* ── Volunteer Tab ── */}
+      {activeTab === 'volunteer' && (
+        <TournamentVolunteerPanel tid={tid} tname={tname} />
+      )}
 
     </Box>
   )
