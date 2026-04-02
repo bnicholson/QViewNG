@@ -20,7 +20,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tournament, division, owner, admin_user, unrelated_user) =
+    let (_, division, owner, admin_user, unrelated_user) =
         fixtures::teams::arrange_team_create_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -78,6 +78,7 @@ async fn create_works() {
     let admin_payload = TeamBuilder::new_default(division.did)
         .set_name("Admin Created Team")
         .set_coachid(fixtures::users::create_and_insert_user(&mut conn, "AdminCoach", "CoachPwd123!").id)
+        .set_quizzer_one_id(fixtures::users::create_and_insert_user(&mut conn, "AdminQuizzer", "QuizPwd123!").id)
         .build()
         .unwrap();
     let admin_req = test::TestRequest::post()
@@ -101,6 +102,7 @@ async fn create_works() {
     let perm_only_payload = TeamBuilder::new_default(division.did)
         .set_name("Permission Only Team")
         .set_coachid(fixtures::users::create_and_insert_user(&mut conn, "PermCoach", "PermPwd123!").id)
+        .set_quizzer_one_id(fixtures::users::create_and_insert_user(&mut conn, "PermQuizzer", "QuizPwd123!").id)
         .build()
         .unwrap();
     let perm_only_req = test::TestRequest::post()
@@ -113,7 +115,7 @@ async fn create_works() {
 
     assert_eq!(perm_only_resp.status(), StatusCode::CREATED);
 
-    // ── Fail: no permission, not owner, not admin ─────────────────────────────
+    // ── Fail: no permission, not owner, not admin, not coach ─────────────────────────────
 
     let no_auth_token = make_token(
         unrelated_user.id,
@@ -135,6 +137,62 @@ async fn create_works() {
     let no_auth_resp = test::call_service(&app, no_auth_req).await;
 
     assert_eq!(no_auth_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: authorized but no quizzer on the team ───────────────────────────
+
+    let no_quizzer_payload = TeamBuilder::new_default(division.did)
+        .set_name("No Quizzer Team")
+        .set_coachid(fixtures::users::create_and_insert_user(&mut conn, "NoQuizCoach", "NoQuizPwd123!").id)
+        .build()
+        .unwrap();
+    let no_quizzer_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&no_quizzer_payload)
+        .to_request();
+
+    let no_quizzer_resp = test::call_service(&app, no_quizzer_req).await;
+
+    assert_eq!(no_quizzer_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // Reset DB:
+
+    clean_database();
+
+    let (_tournament, division, _owner, _admin_user, _unrelated_user, coach_user) =
+        fixtures::teams::arrange_team_create_as_coach_works_integration_test(&mut conn);
+
+    let uri = "/api/teams";
+
+    // ── Success: user creates a team listing themselves as coach (no extra permission needed) ──
+
+    let coach_token = make_token(
+        coach_user.id,
+        vec!["member".to_string()],
+        vec![],
+    );
+
+    let coach_payload = TeamBuilder::new_default(division.did)
+        .set_name("Coach Self Registered Team")
+        .set_coachid(coach_user.id)
+        .set_quizzer_one_id(fixtures::users::create_and_insert_user(&mut conn, "CoachQuizzer", "QuizPwd123!").id)
+        .build()
+        .unwrap();
+    let coach_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", coach_token)))
+        .set_json(&coach_payload)
+        .to_request();
+
+    let coach_resp = test::call_service(&app, coach_req).await;
+
+    assert_eq!(coach_resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Team> = test::read_body_json(coach_resp).await;
+    assert_eq!(body.code, 201);
+    let created_team = body.data.unwrap();
+    assert_eq!(created_team.coachid, coach_user.id);
+    assert_eq!(created_team.name.as_str(), "Coach Self Registered Team");
 }
 
 #[actix_web::test]
@@ -250,7 +308,7 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tournament, division, team, owner, admin_user, unrelated_user) =
+    let (_, division, team, owner, admin_user, unrelated_user) =
         fixtures::teams::arrange_team_update_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -317,7 +375,7 @@ async fn update_works() {
 
     assert_eq!(admin_resp.status(), StatusCode::OK);
 
-    // ── Fail: has team:update but is neither owner nor tournament admin ────────
+    // ── Fail: has team:update but is neither owner, tournament admin nor coach ────────
 
     let unrelated_token = make_token(
         unrelated_user.id,
@@ -336,7 +394,7 @@ async fn update_works() {
 
     assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
 
-    // ── Fail: no team:update permission at all ────────────────────────────────
+    // ── Fail: no team:update permission at all and not coach ────────────────────────────────
 
     let no_perm_token = make_token(
         owner.id,
@@ -354,6 +412,61 @@ async fn update_works() {
     let no_perm_resp = test::call_service(&app, no_perm_req).await;
 
     assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: authorized but update would remove all quizzers ────────────────
+
+    let remove_quizzers_payload = json!({
+        "quizzer_one_id": null,
+        "quizzer_two_id": null,
+        "quizzer_three_id": null,
+        "quizzer_four_id": null,
+        "quizzer_five_id": null,
+        "quizzer_six_id": null,
+    });
+    let remove_quizzers_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&remove_quizzers_payload)
+        .to_request();
+
+    let remove_quizzers_resp = test::call_service(&app, remove_quizzers_req).await;
+
+    assert_eq!(remove_quizzers_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // Reset DB:
+
+    clean_database();
+
+    let (_tournament, _division, team, coach_user, unrelated_user) =
+        fixtures::teams::arrange_team_update_as_coach_works_integration_test(&mut conn);
+
+    let put_uri = format!("/api/teams/{}", team.teamid);
+
+    // ── Success: coach updates their own team without needing any extra permission ──
+
+    let coach_token = make_token(
+        coach_user.id,
+        vec!["member".to_string()],
+        vec![],
+    );
+
+    let coach_payload = json!({ "name": "Coach Updated Team Name" });
+    let coach_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", coach_token)))
+        .set_json(&coach_payload)
+        .to_request();
+
+    let coach_resp = test::call_service(&app, coach_req).await;
+
+    assert_eq!(coach_resp.status(), StatusCode::OK);
+
+    let coach_resp_body: EntityResponse<Team> = test::read_body_json(coach_resp).await;
+    assert_eq!(coach_resp_body.code, 200);
+    let updated_team = coach_resp_body.data.unwrap();
+    assert_eq!(updated_team.teamid, team.teamid);
+    assert_eq!(updated_team.coachid, coach_user.id);
+    assert_eq!(updated_team.name.as_str(), "Coach Updated Team Name");
 }
 
 #[actix_web::test]

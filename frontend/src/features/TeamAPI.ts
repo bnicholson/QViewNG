@@ -17,6 +17,12 @@ export interface NewTeamPayload {
   did: string;
   coachid: string;
   name: string;
+  quizzer_one_id?: string | null;
+  quizzer_two_id?: string | null;
+  quizzer_three_id?: string | null;
+  quizzer_four_id?: string | null;
+  quizzer_five_id?: string | null;
+  quizzer_six_id?: string | null;
 }
 
 export interface TeamChangeset {
@@ -45,6 +51,21 @@ export interface PagedTeamsWithCoach {
   items: TeamWithCoachTS[];
 }
 
+async function throwApiError(verb: string, status: number, body: string): Promise<never> {
+  let message: string
+  try {
+    const json = JSON.parse(body)
+    if (typeof json?.error === 'string') {
+      message = `Failed to ${verb} team. Error: ${json.error} (${status})`
+    } else {
+      message = `Failed to ${verb} team (${status}): ${body}`
+    }
+  } catch {
+    message = `Failed to ${verb} team (${status}): ${body}`
+  }
+  throw new Error(message)
+}
+
 export const TeamAPI = {
   get: async (page: number, size: number): Promise<PagedTeams> =>
     (await fetch(`/api/teams?page=${page}&page_size=${size}`)).json(),
@@ -55,35 +76,32 @@ export const TeamAPI = {
     if (!response.ok) throw new Error(`Team not found (${response.status})`);
     return response.json();
   },
-  create: async (team: NewTeamPayload): Promise<TeamTS> => {
+  create: async (team: NewTeamPayload, accessToken?: string): Promise<TeamTS> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
     const response = await fetch('/api/teams', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(team),
     });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to create team (${response.status}): ${text}`);
-    }
-    return response.json();
-  },
-  update: async (id: string, changeset: TeamChangeset): Promise<TeamTS> => {
-    const response = await fetch(`/api/teams/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changeset),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to update team (${response.status}): ${text}`);
-    }
+    if (!response.ok) await throwApiError('create', response.status, await response.text());
     return (await response.json()).data;
   },
-  delete: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/teams/${id}`, { method: 'DELETE' });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to delete team (${response.status}): ${text}`);
-    }
+  update: async (id: string, changeset: TeamChangeset, accessToken?: string): Promise<TeamTS> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const response = await fetch(`/api/teams/${id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(changeset),
+    });
+    if (!response.ok) await throwApiError('update', response.status, await response.text());
+    return (await response.json()).data;
+  },
+  delete: async (id: string, accessToken?: string): Promise<void> => {
+    const headers: Record<string, string> = {};
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const response = await fetch(`/api/teams/${id}`, { method: 'DELETE', headers });
+    if (!response.ok) await throwApiError('delete', response.status, await response.text());
   },
 };

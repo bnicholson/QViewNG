@@ -89,12 +89,16 @@ async fn create(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
-
+    
+    tracing::debug!("{} Team model create: {:?}", line!(), item);
+    
     let extensions = req.extensions();
     let user_ctx = match extensions.get::<UserContext>() {
         Some(u_ctx) => u_ctx,
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
+    
+    tracing::debug!("{} UserCtx: {:?}", line!(), user_ctx);
 
     let division = match divisions_table
         .find(item.did)
@@ -120,12 +124,24 @@ async fn create(
     let is_owner = tournament.owner_id == user_ctx.user_id;
     let is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
     let is_super_user = user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str());
+    let is_coach = item.coachid == user_ctx.user_id;
 
-    if !is_super_user && !has_permission && !is_owner && !is_admin {
+    let is_authorized = is_super_user || has_permission || is_owner || is_admin || is_coach;
+    if !is_authorized {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    tracing::debug!("{} Team model create {:?}", line!(), item);
+    let has_quizzer = item.quizzer_one_id.is_some()
+        || item.quizzer_two_id.is_some()
+        || item.quizzer_three_id.is_some()
+        || item.quizzer_four_id.is_some()
+        || item.quizzer_five_id.is_some()
+        || item.quizzer_six_id.is_some();
+    if !has_quizzer {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": "A team must have at least one quizzer."
+        })));
+    }
 
     let result: QueryResult<Team> = models::team::create(&mut conn, &item);
 
@@ -178,14 +194,32 @@ async fn update(
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
-    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let is_coach = team.coachid == user_ctx.user_id;
+    let is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
     let policy_ctx = PolicyContext {
         user_ctx: user_ctx.clone(),
-        resource: TeamPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+        resource: TeamPolicyResource { tournament, user_is_tournament_admin: is_admin, user_is_team_coach: false },
     };
     let team_update_permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Update.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &team_update_permission, AppResource::Team.as_str()).is_err() {
+    
+    let is_authorized = is_coach || is_rbac_and_abac_authorized(&policy_ctx, &team_update_permission, AppResource::Team.as_str()).is_ok();
+    if !is_authorized {
         return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let effective = |existing: Option<Uuid>, change: Option<Option<Uuid>>| -> Option<Uuid> {
+        match change { Some(v) => v, None => existing }
+    };
+    let has_quizzer = effective(team.quizzer_one_id, item.quizzer_one_id).is_some()
+        || effective(team.quizzer_two_id, item.quizzer_two_id).is_some()
+        || effective(team.quizzer_three_id, item.quizzer_three_id).is_some()
+        || effective(team.quizzer_four_id, item.quizzer_four_id).is_some()
+        || effective(team.quizzer_five_id, item.quizzer_five_id).is_some()
+        || effective(team.quizzer_six_id, item.quizzer_six_id).is_some();
+    if !has_quizzer {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": "A team must have at least one quizzer."
+        })));
     }
 
     tracing::debug!("{} Team model update {:?} {:?}", line!(), team_id, item);
@@ -241,7 +275,7 @@ async fn destroy(
     let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
     let policy_ctx = PolicyContext {
         user_ctx: user_ctx.clone(),
-        resource: TeamPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+        resource: TeamPolicyResource { tournament, user_is_tournament_admin: user_is_admin, user_is_team_coach: false },
     };
     let team_delete_permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Delete.as_str());
     if is_rbac_and_abac_authorized(&policy_ctx, &team_delete_permission, AppResource::Team.as_str()).is_err() {
