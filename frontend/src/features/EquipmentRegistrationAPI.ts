@@ -15,7 +15,32 @@ export interface NewEquipmentRegistrationPayload {
   status: string;
 }
 
+export interface EquipmentRegistrationChangeset {
+  status?: string;
+  roomid?: string;
+}
+
 export const EquipmentRegistrationAPI = {
+
+  getByTournament: async (tid: string, page: number, size: number): Promise<EquipmentRegistrationTS[]> => {
+    const res = await fetch(`/api/tournaments/${tid}/equipmentregistrations?page=${page}&page_size=${size}`);
+    if (!res.ok) throw new Error(`Failed to load registrations (${res.status})`);
+    return res.json();
+  },
+
+  update: async (id: number, changeset: EquipmentRegistrationChangeset): Promise<EquipmentRegistrationTS> => {
+    const res = await fetch(`/api/equipmentregistrations/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changeset),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to update registration (${res.status}): ${text}`);
+    }
+    const result = await res.json();
+    return result.data ?? result;
+  },
 
   // Fetch registrations for a specific set of equipment IDs, filtered to one tournament.
   // Queries per-item so results are accurate regardless of total tournament registration count.

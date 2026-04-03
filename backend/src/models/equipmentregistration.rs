@@ -9,6 +9,58 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{Utc,DateTime};
 
+pub enum EquipmentRegistrationStatus {
+    NotYetReceivedFromOwner,
+    ReceivedFromOwner,
+    PreparedForAssignment,
+    AssignedToRoom,
+    OnStandby,
+    DeployedToRoom,
+    ReturnedFromRoom,
+    NeedsRepair,
+    ReturnedToOwner,
+}
+
+const NOT_YET_RECEIVED_FROM_OWNER: &'static str = "Not Yet Received from Owner";
+const RECEIVED_FROM_OWNER: &'static str = "Received from Owner";
+const PREPARED_FOR_ASSIGNMENT: &'static str = "Prepared for Assignment";
+const ASSIGNED_TO_ROOM: &'static str = "Assigned to Room";
+const ON_STANDBY: &'static str = "On Standby";
+const DEPLOYED_TO_ROOM: &'static str = "Deployed to Room";
+const RETURNED_FROM_ROOM: &'static str = "Returned from Room";
+const NEEDS_REPAIR: &'static str = "Needs Repair";
+const RETURNED_TO_OWNER: &'static str = "Returned to Owner";
+
+impl EquipmentRegistrationStatus {
+    pub fn to_string(self) -> String {
+        String::from(match self {
+            EquipmentRegistrationStatus::NotYetReceivedFromOwner => NOT_YET_RECEIVED_FROM_OWNER,
+            EquipmentRegistrationStatus::ReceivedFromOwner => RECEIVED_FROM_OWNER,
+            EquipmentRegistrationStatus::PreparedForAssignment => PREPARED_FOR_ASSIGNMENT,
+            EquipmentRegistrationStatus::AssignedToRoom => ASSIGNED_TO_ROOM,
+            EquipmentRegistrationStatus::OnStandby => ON_STANDBY,
+            EquipmentRegistrationStatus::DeployedToRoom => DEPLOYED_TO_ROOM,
+            EquipmentRegistrationStatus::ReturnedFromRoom => RETURNED_FROM_ROOM,
+            EquipmentRegistrationStatus::NeedsRepair => NEEDS_REPAIR,
+            EquipmentRegistrationStatus::ReturnedToOwner => RETURNED_TO_OWNER,
+        })
+    }
+    pub fn from_str(status: &str) -> Result<Self, String> {
+        match status {
+            s if s == NOT_YET_RECEIVED_FROM_OWNER => Ok(EquipmentRegistrationStatus::NotYetReceivedFromOwner),
+            s if s == RECEIVED_FROM_OWNER => Ok(EquipmentRegistrationStatus::ReceivedFromOwner),
+            s if s == PREPARED_FOR_ASSIGNMENT => Ok(EquipmentRegistrationStatus::PreparedForAssignment),
+            s if s == ASSIGNED_TO_ROOM => Ok(EquipmentRegistrationStatus::AssignedToRoom),
+            s if s == ON_STANDBY => Ok(EquipmentRegistrationStatus::OnStandby),
+            s if s == DEPLOYED_TO_ROOM => Ok(EquipmentRegistrationStatus::DeployedToRoom),
+            s if s == RETURNED_FROM_ROOM => Ok(EquipmentRegistrationStatus::ReturnedFromRoom),
+            s if s == NEEDS_REPAIR => Ok(EquipmentRegistrationStatus::NeedsRepair),
+            s if s == RETURNED_TO_OWNER => Ok(EquipmentRegistrationStatus::ReturnedToOwner),
+            _ => Err("Could not create EquipmentRegistrationStatus enum from str.".to_string())
+        }
+    }
+}
+
 pub struct EquipmentRegistrationBuilder {
     equipmentid: i64,
     tournamentid: Uuid,
@@ -30,7 +82,7 @@ impl EquipmentRegistrationBuilder {
             equipmentid,
             tournamentid,
             roomid: None,
-            status: Some("Received from Owner".to_string()),
+            status: Some(NOT_YET_RECEIVED_FROM_OWNER.to_string()),
         }
     }
     pub fn set_name(mut self, equipmentid: i64) -> Self {
@@ -100,7 +152,7 @@ pub struct EquipmentRegistration {
     pub equipmentid: i64,
     pub tournamentid: Uuid,
     pub roomid: Option<Uuid>,
-    pub status: String,  // 'Received from Owner', 'Prepared for Assignment', 'Assigned to Room', 'Deployed to Room', 'On Standby', 'Returned from Room', 'Needs Repair', 'Returned to Owner'
+    pub status: String,  // 'Not Yet Received from Owner', 'Received from Owner', 'Prepared for Assignment', 'Assigned to Room', 'On Standby', 'Deployed to Room', 'Returned from Room', 'Needs Repair', 'Returned to Owner'
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

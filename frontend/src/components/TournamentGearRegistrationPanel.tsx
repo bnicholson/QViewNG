@@ -163,7 +163,7 @@ export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
           EquipmentRegistrationAPI.create({
             equipmentid: e.id,
             tournamentid: tid,
-            status: 'Received from Owner',
+            status: 'Not Yet Received from Owner',
           }),
         ),
       )

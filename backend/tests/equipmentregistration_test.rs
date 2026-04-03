@@ -47,6 +47,7 @@ async fn create_works() {
 
     let equipmentregistration: EquipmentRegistration = body.data.unwrap();
     assert_eq!(equipmentregistration.status, new_equipment_registration.status);
+    assert_eq!(equipmentregistration.status, "Not Yet Received from Owner");
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
