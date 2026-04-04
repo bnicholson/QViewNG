@@ -33,20 +33,34 @@ interface LookupMaps {
 function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
   return [
     {
+      header: '',
+      render: (g) => (
+        <Link
+          to={`/game/${g.gid}/overview`}
+          style={{ textDecoration: 'none' }}
+        >
+          <button style={{
+            padding: '2px 10px',
+            fontSize: '0.75rem',
+            cursor: 'pointer',
+            borderRadius: '4px',
+            border: '1px solid #d1d5db',
+            background: '#f9fafb',
+            whiteSpace: 'nowrap',
+          }}>
+            View<br/>Profile
+          </button>
+        </Link>
+      ),
+    },
+    {
       header: 'Division',
       render: (g) => maps.divisions.get(g.divisionid) ?? g.divisionid,
     },
     {
       header: 'Round',
       render: (g) => (
-        <Link
-          to={`/game/${g.gid}/overview`}
-          style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
-          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
-          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
-        >
-          {formatDateTime(maps.rounds.get(g.roundid))}
-        </Link>
+        <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
       ),
     },
     {

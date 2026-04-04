@@ -36,9 +36,41 @@ export interface PagedGames {
   items: GameTS[];
 }
 
+export interface GameChangeset {
+  org?: string;
+  divisionid?: string;
+  roomid?: string;
+  roundid?: string;
+  ignore?: boolean;
+  ruleset?: string;
+  leftteamid?: string;
+  centerteamid?: string | null;
+  rightteamid?: string;
+  quizmasterid?: string;
+  contentjudgeid?: string | null;
+}
+
 export const GameAPI = {
   get: async (page: number, size: number): Promise<PagedGames> =>
     (await fetch(`/api/games?page=${page}&page_size=${size}`)).json(),
+  getById: async (id: string): Promise<GameTS> => {
+    const response = await fetch(`/api/games/${id}`);
+    if (!response.ok) throw new Error(`Game not found (${response.status})`);
+    return response.json();
+  },
+  update: async (id: string, changeset: GameChangeset): Promise<GameTS> => {
+    const response = await fetch(`/api/games/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changeset),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to update game (${response.status}): ${text}`);
+    }
+    const envelope = await response.json();
+    return envelope.data ?? envelope;
+  },
   getByTournament: async (tid: string, page: number, size: number): Promise<PagedGames> =>
     (await fetch(`/api/tournaments/${tid}/games?page=${page}&page_size=${size}`)).json(),
   create: async (game: NewGamePayload): Promise<GameTS> => {
