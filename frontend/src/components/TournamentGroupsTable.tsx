@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import IconButton from '@mui/material/IconButton'
 import EditIcon from '@mui/icons-material/Edit'
+import { Link } from 'react-router-dom'
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
 import { TournamentGroupAPI, type TournamentGroupTS } from '../features/TournamentGroupAPI'
 import { TournamentGroupEditorDialog } from './TournamentGroupEditorDialog'
@@ -15,7 +16,14 @@ function groupColumns(onEdit: (group: TournamentGroupTS) => void): ColumnDef<Tou
     {
       header: 'Name',
       render: g => (
-        <span style={{ fontWeight: 500 }}>{g.name}</span>
+        <Link
+          to={`/tournament-group/${g.tgid}/overview`}
+          style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+          onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          {g.name}
+        </Link>
       ),
     },
     {

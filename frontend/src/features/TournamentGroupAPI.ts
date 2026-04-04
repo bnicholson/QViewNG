@@ -80,4 +80,24 @@ export const TournamentGroupAPI = {
       throw new Error(`Failed to remove tournament group association (${res.status}): ${text}`);
     }
   },
+
+  // Returns all tournaments linked to a group.
+  getTournaments: async (tgid: string, page: number, size: number): Promise<any[]> => {
+    const res = await fetch(`/api/tournamentgroups/${tgid}/tournaments?page=${page}&page_size=${size}`);
+    if (!res.ok) throw new Error(`Failed to load tournaments for group (${res.status})`);
+    return res.json();
+  },
+
+  // Links an existing tournament to this group.
+  addTournament: async (tgid: string, tid: string): Promise<void> => {
+    const res = await fetch(`/api/tournamentgroups/${tgid}/tournaments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentgroupid: tgid, tournamentid: tid }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to add tournament to group (${res.status}): ${text}`);
+    }
+  },
 };
