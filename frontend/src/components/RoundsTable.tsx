@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoundAPI, type RoundTS } from "../features/RoundAPI";
 import { RoundEditorDialog } from "./RoundEditorDialog";
@@ -29,14 +30,14 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
     {
       header: "Scheduled Start Time",
       render: (r) => (
-        <a
-          href={`/round/${r.roundid}`}
+        <Link
+          to={`/round/${r.roundid}/overview`}
           style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500, whiteSpace: "nowrap" }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
         >
           {formatDateTime(r.scheduled_start_time)}
-        </a>
+        </Link>
       ),
     },
     {
@@ -58,7 +59,7 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
   ];
 }
 
-export default function RoundsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [rounds, setRounds] = useState<RoundTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
@@ -69,10 +70,10 @@ export default function RoundsTable({ tid, showCreateButton = true, showDeleteBu
   pageSizeRef.current = pageSize;
 
   const loadRounds = useCallback((p: number, ps: number) => {
-    Promise.all([
-      RoundAPI.getByTournament(tid, p, ps),
-      DivisionAPI.get(0, 100),
-    ])
+    const roundsPromise = did
+      ? RoundAPI.getByDivision(did, p, ps)
+      : RoundAPI.getByTournament(tid, p, ps);
+    Promise.all([roundsPromise, DivisionAPI.get(0, 100)])
       .then(([roundResult, divisionResult]) => {
         setPage(p);
         setPageSize(ps);
@@ -81,11 +82,11 @@ export default function RoundsTable({ tid, showCreateButton = true, showDeleteBu
         setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
       })
       .catch(() => console.error("Failed to load rounds"));
-  }, [tid]);
+  }, [tid, did]);
 
   useEffect(() => {
     loadRounds(0, pageSizeRef.current);
-  }, [tid]);
+  }, [tid, did]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadRounds(newPage, pageSize);
@@ -113,7 +114,7 @@ export default function RoundsTable({ tid, showCreateButton = true, showDeleteBu
   return (
     <>
       <DataTableTemplate<RoundTS>
-        key={tid}
+        key={did ?? tid}
         entityLabel="Round"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}

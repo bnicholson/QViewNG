@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { GameAPI, type GameTS } from '../features/GameAPI';
 import { DivisionAPI } from '../features/DivisionAPI';
@@ -38,14 +39,14 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
     {
       header: 'Round',
       render: (g) => (
-        <a
-          href={`/tournament/${tid}/game/${g.gid}`}
+        <Link
+          to={`/game/${g.gid}/overview`}
           style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
         >
           {formatDateTime(maps.rounds.get(g.roundid))}
-        </a>
+        </Link>
       ),
     },
     {
@@ -87,7 +88,7 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
   ];
 }
 
-export default function GamesTable({ tid, roundid, showCreateButton = true, showDeleteButton = true }: { tid: string; roundid?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function GamesTable({ tid, did, roundid, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; roundid?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [games, setGames] = useState<GameTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
@@ -105,7 +106,9 @@ export default function GamesTable({ tid, roundid, showCreateButton = true, show
   const loadGames = useCallback((p: number, ps: number) => {
     const gamesPromise = roundid
       ? GameAPI.getByRound(roundid, p, ps).then(items => ({ items, count: null as null | number }))
-      : GameAPI.getByTournament(tid, p, ps).then(r => ({ items: r.items, count: r.count }));
+      : did
+        ? GameAPI.getByDivision(did, p, ps).then(items => ({ items, count: null as null | number }))
+        : GameAPI.getByTournament(tid, p, ps).then(r => ({ items: r.items, count: r.count }));
 
     Promise.all([
       gamesPromise,
@@ -128,11 +131,11 @@ export default function GamesTable({ tid, roundid, showCreateButton = true, show
         });
       })
       .catch(() => console.error('Failed to load games'));
-  }, [tid, roundid]);
+  }, [tid, did, roundid]);
 
   useEffect(() => {
     loadGames(0, pageSizeRef.current);
-  }, [tid]);
+  }, [tid, did, roundid]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadGames(newPage, pageSize);
@@ -161,7 +164,7 @@ export default function GamesTable({ tid, roundid, showCreateButton = true, show
   return (
     <>
       <DataTableTemplate<GameTS>
-        key={roundid ?? tid}
+        key={roundid ?? did ?? tid}
         entityLabel="Game"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}

@@ -21,6 +21,8 @@ export const RoundAPI = {
     (await fetch(`/api/rounds?page=${page}&page_size=${size}`)).json(),
   getByTournament: async (tid: string, page: number, size: number): Promise<RoundTS[]> =>
     (await fetch(`/api/tournaments/${tid}/rounds?page=${page}&page_size=${size}`)).json(),
+  getByDivision: async (did: string, page: number, size: number): Promise<RoundTS[]> =>
+    (await fetch(`/api/divisions/${did}/rounds?page=${page}&page_size=${size}`)).json(),
   create: async (round: NewRoundPayload): Promise<RoundTS> => {
     const response = await fetch('/api/rounds', {
       method: 'POST',

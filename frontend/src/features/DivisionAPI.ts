@@ -47,10 +47,17 @@ export const DivisionAPI = {
   },
   delete: async (id: string) =>
     await fetch(`/api/divisions/${id}`, { method: 'DELETE' }),
-  update: async (id: string, division: Partial<NewDivisionPayload>) =>
-    await fetch(`/api/divisions/${id}`, {
+  update: async (id: string, division: Partial<NewDivisionPayload>): Promise<DivisionTS> => {
+    const response = await fetch(`/api/divisions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(division),
-    }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to update division (${response.status}): ${text}`);
+    }
+    const envelope = await response.json();
+    return envelope.data ?? envelope;
+  },
 }

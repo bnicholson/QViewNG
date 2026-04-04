@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type TournamentForUserTS } from '../features/UserAPI';
 
@@ -14,7 +15,7 @@ function linkStyle(): React.CSSProperties {
   return { color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' };
 }
 
-function onHover(e: React.MouseEvent<HTMLAnchorElement>, enter: boolean) {
+function onHover(e: React.MouseEvent<HTMLElement>, enter: boolean) {
   e.currentTarget.style.textDecoration = enter ? 'underline' : 'none';
 }
 
@@ -22,14 +23,14 @@ const columns: ColumnDef<TournamentForUserTS>[] = [
   {
     header: 'Tournament',
     render: (t) => (
-      <a
-        href={`/tournament/${t.tid}/overview`}
+      <Link
+        to={`/tournament/${t.tid}/overview`}
         style={linkStyle()}
         onMouseEnter={(e) => onHover(e, true)}
         onMouseLeave={(e) => onHover(e, false)}
       >
         {t.tname}
-      </a>
+      </Link>
     ),
   },
   {

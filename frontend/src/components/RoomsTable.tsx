@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoomAPI, type RoomTS } from "../features/RoomAPI";
 import { RoomEditorDialog } from "./RoomEditorDialog";
@@ -17,14 +18,14 @@ function roomColumns(tid: string): ColumnDef<RoomTS>[] {
     {
       header: "Name",
       render: (r) => (
-        <a
-          href={`/tournament/${tid}/room/${r.roomid}`}
+        <Link
+          to={`/room/${r.roomid}/overview`}
           style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500, whiteSpace: "nowrap" }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
         >
           {r.name}
-        </a>
+        </Link>
       ),
     },
     {

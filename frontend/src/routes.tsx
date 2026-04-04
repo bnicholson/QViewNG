@@ -9,7 +9,8 @@ import { UserProfilePage } from "./pages/UserProfilePage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
 import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
-import { RoundProfile } from "./pages/RoundProfile";
+import { RoundProfile } from "./pages/RoundProfile"
+import { DivisionProfile } from "./pages/DivisionProfile";
 import { TeamProfile } from "./pages/TeamProfile";
 import { TDEditor } from "./containers/TDEditor";
 import { RoundsInProgress } from "./containers/RoundsInProgress";
@@ -53,12 +54,11 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/register/gear" element={<TournamentProfile childRoute="register/gear" />} />
             <Route path="/tournament/:tid/register/as-volunteer" element={<TournamentProfile childRoute="register/volunteer" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
-            {/* <Route path="/tournament/:tid/division/:did_str" element={<DivisionProfile childRoute="" />} />  // <- future */}
             <Route path="/tournament/:tid/rooms" element={<TournamentProfile childRoute="rooms" />} />
             <Route path="/tournament/:tid/teams" element={<TournamentProfile childRoute="teams" />} />
-            <Route path="/tournament/:tid/team/:teamid" element={<TeamProfile />} />
-            <Route path="/tournament/:tid/team/:teamid/overview" element={<TeamProfile childRoute="overview" />} />
-            <Route path="/tournament/:tid/team/:teamid/quizzers" element={<TeamProfile childRoute="quizzers" />} />
+            <Route path="/team/:teamid" element={<TeamProfile />} />
+            <Route path="/team/:teamid/overview" element={<TeamProfile childRoute="overview" />} />
+            <Route path="/team/:teamid/quizzers" element={<TeamProfile childRoute="quizzers" />} />
             <Route path="/tournament/:tid/rounds" element={<TournamentProfile childRoute="rounds" />} />
             <Route path="/tournament/:tid/quizzers" element={<TournamentProfile childRoute="quizzers" />} />
             <Route path="/tournament/:tid/games" element={<TournamentProfile childRoute="games" />} />
@@ -67,7 +67,6 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/tournament-groups" element={<TournamentProfile childRoute="tournament-groups" />} />
             <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile childRoute="stats-groups" />} />
             <Route path="/tournament/:tid/room-monitor" element={<TournamentProfile childRoute="room-monitor" />} />
-            {/* <Route path="/division" element={<Divisions />} /> */}
             <Route path="/tournament-group/:tgid" element={<TournamentGroupProfile />} />
             <Route path="/tournament-group/:tgid/overview" element={<TournamentGroupProfile childRoute="overview" />} />
             <Route path="/tournament-group/:tgid/tournaments" element={<TournamentGroupProfile childRoute="tournaments" />} />
@@ -75,6 +74,13 @@ export default function QViewRoutes() {
             <Route path="/round/:roundid" element={<RoundProfile />} />
             <Route path="/round/:roundid/overview" element={<RoundProfile childRoute="overview" />} />
             <Route path="/round/:roundid/games" element={<RoundProfile childRoute="games" />} />
+            <Route path="/division/:did" element={<DivisionProfile />} />
+            <Route path="/division/:did/overview" element={<DivisionProfile childRoute="overview" />} />
+            <Route path="/division/:did/teams" element={<DivisionProfile childRoute="teams" />} />
+            <Route path="/division/:did/quizzers" element={<DivisionProfile childRoute="quizzers" />} />
+            <Route path="/division/:did/rounds" element={<DivisionProfile childRoute="rounds" />} />
+            <Route path="/division/:did/games" element={<DivisionProfile childRoute="games" />} />
+            <Route path="/division/:did/stats-groups" element={<DivisionProfile childRoute="stats-groups" />} />
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />

@@ -58,7 +58,7 @@ export const RoundProfile = (props: { childRoute?: string }) => {
         <Breadcrumbs aria-label="breadcrumb">
           <Link color="inherit" to="/">Home</Link>
           <Link color="inherit" to={`/tournament/${tournament.tid}/overview`}>{tournament.tname}</Link>
-          <Link color="inherit" to={`/tournament/${tournament.tid}/rounds`}>{division.dname}</Link>
+          <Link color="inherit" to={`/division/${division.did}/overview`}>{division.dname}</Link>
           <Typography color="text.primary">{formatDateTime(round.scheduled_start_time)}</Typography>
         </Breadcrumbs>
 

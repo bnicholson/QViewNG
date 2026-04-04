@@ -9,7 +9,7 @@ import { TeamProfileQuizzersPage } from './TeamProfileQuizzersPage'
 type ChildRoute = 'overview' | 'quizzers'
 
 export const TeamProfile = (props: { childRoute?: ChildRoute }) => {
-  const { tid, teamid } = useParams<{ tid: string; teamid: string }>();
+  const { teamid } = useParams<{ teamid: string }>();
   const [team, setTeam] = useState<TeamTS | null>(null);
 
   useEffect(() => {
@@ -19,16 +19,16 @@ export const TeamProfile = (props: { childRoute?: ChildRoute }) => {
       .catch(() => {});
   }, [teamid]);
 
-  if (!tid || !teamid) return <Navigate to="/404" replace />;
+  if (!teamid) return <Navigate to="/404" replace />;
 
   const navItems: NavItem[] = [
-    { kind: 'route', label: 'Overview', to: `/tournament/${tid}/team/${teamid}/overview` },
-    { kind: 'route', label: 'Quizzers', to: `/tournament/${tid}/team/${teamid}/quizzers` },
+    { kind: 'route', label: 'Overview', to: `/team/${teamid}/overview` },
+    { kind: 'route', label: 'Quizzers', to: `/team/${teamid}/quizzers` },
   ];
 
   return (
     <ProfileLayout title={<>Team:<br />{team?.name ?? ''}</>} navItems={navItems}>
-      {props.childRoute === 'overview' && <TeamProfileOverviewPage tid={tid} teamid={teamid} />}
+      {props.childRoute === 'overview' && <TeamProfileOverviewPage teamid={teamid} />}
       {props.childRoute === 'quizzers' && <TeamProfileQuizzersPage teamid={teamid} />}
     </ProfileLayout>
   );

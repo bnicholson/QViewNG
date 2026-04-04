@@ -15,7 +15,7 @@ function userLabel(u: UserTS): string {
   return [u.fname, u.mname, u.lname].filter(Boolean).join(' ');
 }
 
-export const TeamProfileOverviewPage = ({ tid, teamid }: { tid: string; teamid: string }) => {
+export const TeamProfileOverviewPage = ({ teamid }: { teamid: string }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [tournament, setTournament] = useState<TournamentTS | undefined>(undefined);
@@ -25,24 +25,23 @@ export const TeamProfileOverviewPage = ({ tid, teamid }: { tid: string; teamid: 
 
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([
-      TournamentAPI.getById(tid),
-      TeamAPI.getById(teamid),
-      UserAPI.get(0, 200),
-    ])
-      .then(([t, tm, u]) => {
-        setTournament(t);
+    Promise.all([TeamAPI.getById(teamid), UserAPI.get(0, 200)])
+      .then(([tm, u]) => {
         setTeam(tm);
         setUsers(u.items);
         return DivisionAPI.getById(tm.did);
       })
-      .then(setDivision)
+      .then(div => {
+        setDivision(div);
+        return TournamentAPI.getById(div.tid);
+      })
+      .then(setTournament)
       .catch((err) => {
         console.error('Failed to load team overview:', err);
         setNotFound(true);
       })
       .finally(() => setIsLoading(false));
-  }, [tid, teamid]);
+  }, [teamid]);
 
   if (notFound) return <div>Team not found.</div>;
   if (isLoading || !team || !tournament || !division) return <div>Loading...</div>;
@@ -54,8 +53,8 @@ export const TeamProfileOverviewPage = ({ tid, teamid }: { tid: string; teamid: 
     <Stack spacing={3}>
       <Breadcrumbs aria-label="breadcrumb">
         <Link color="inherit" to="/">Home</Link>
-        <Link color="inherit" to={`/tournament/${tid}/divisions`}>{tournament.tname}</Link>
-        <Typography color="text.secondary">{division.dname}</Typography>
+        <Link color="inherit" to={`/tournament/${tournament.tid}/divisions`}>{tournament.tname}</Link>
+        <Link color="inherit" to={`/division/${division.did}/overview`}>{division.dname}</Link>
         <Typography color="text.primary">{team.name}</Typography>
       </Breadcrumbs>
 

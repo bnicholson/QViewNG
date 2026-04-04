@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import List from '@mui/material/List'
@@ -63,8 +63,7 @@ function useActiveAnchor(anchors: string[]): string | null {
 
 export default function ProfileLayout({ title, subtitle, navItems, children }: ProfileLayoutProps) {
   const location = useLocation()
-  const navigate = useNavigate()
-  const { exitUrl } = useProfileHistory()
+  const { exitUrl, exit } = useProfileHistory()
   const anchors = navItems.filter((i): i is AnchorNavItem => i.kind === 'anchor').map((i) => i.anchor)
   const activeAnchor = useActiveAnchor(anchors)
 
@@ -108,7 +107,7 @@ export default function ProfileLayout({ title, subtitle, navItems, children }: P
             <Divider sx={{ mb: 0.5 }} />
             <Button
               size="small"
-              onClick={() => navigate(exitUrl)}
+              onClick={exit}
               sx={{ px: '10px', py: '3px', justifyContent: 'flex-start', color: 'text.secondary', fontSize: '0.875rem', textTransform: 'none', width: '100%' }}
             >
               &laquo; Exit Profile

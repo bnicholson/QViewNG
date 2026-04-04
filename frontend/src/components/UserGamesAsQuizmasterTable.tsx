@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type GameWithNamesTS } from '../features/UserAPI';
 
@@ -14,7 +15,7 @@ function linkStyle(): React.CSSProperties {
   return { color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' };
 }
 
-function onHover(e: React.MouseEvent<HTMLAnchorElement>, enter: boolean) {
+function onHover(e: React.MouseEvent<HTMLElement>, enter: boolean) {
   e.currentTarget.style.textDecoration = enter ? 'underline' : 'none';
 }
 
@@ -22,14 +23,14 @@ const columns: ColumnDef<GameWithNamesTS>[] = [
   {
     header: 'Tournament',
     render: (g) => (
-      <a
-        href={`/tournament/${g.tournamentid}/overview`}
+      <Link
+        to={`/tournament/${g.tournamentid}/overview`}
         style={linkStyle()}
         onMouseEnter={(e) => onHover(e, true)}
         onMouseLeave={(e) => onHover(e, false)}
       >
         {g.tournament_name}
-      </a>
+      </Link>
     ),
   },
   {
@@ -43,41 +44,41 @@ const columns: ColumnDef<GameWithNamesTS>[] = [
   {
     header: 'Left Team',
     render: (g) => (
-      <a
-        href={`/tournament/${g.tournamentid}/team/${g.leftteamid}`}
+      <Link
+        to={`/team/${g.leftteamid}/overview`}
         style={linkStyle()}
         onMouseEnter={(e) => onHover(e, true)}
         onMouseLeave={(e) => onHover(e, false)}
       >
         {g.left_team_name}
-      </a>
+      </Link>
     ),
   },
   {
     header: 'Right Team',
     render: (g) => (
-      <a
-        href={`/tournament/${g.tournamentid}/team/${g.rightteamid}`}
+      <Link
+        to={`/team/${g.rightteamid}/overview`}
         style={linkStyle()}
         onMouseEnter={(e) => onHover(e, true)}
         onMouseLeave={(e) => onHover(e, false)}
       >
         {g.right_team_name}
-      </a>
+      </Link>
     ),
   },
   {
     header: 'Center Team',
     render: (g) =>
       g.centerteamid ? (
-        <a
-          href={`/tournament/${g.tournamentid}/team/${g.centerteamid}`}
+        <Link
+          to={`/team/${g.centerteamid}/overview`}
           style={linkStyle()}
           onMouseEnter={(e) => onHover(e, true)}
           onMouseLeave={(e) => onHover(e, false)}
         >
           {g.center_team_name ?? g.centerteamid}
-        </a>
+        </Link>
       ) : (
         <span style={{ color: '#9ca3af' }}>—</span>
       ),

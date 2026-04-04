@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
 import { DivisionEditorDialog } from "./DivisionEditorDialog";
@@ -17,14 +18,14 @@ function divisionColumns(tid: string): ColumnDef<DivisionTS>[] {
     {
       header: "Name",
       render: (d) => (
-        <a
-          href={`/tournament/${tid}/division/${d.did}`}
+        <Link
+          to={`/division/${d.did}/overview`}
           style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500, whiteSpace: "nowrap" }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
         >
           {d.dname}
-        </a>
+        </Link>
       ),
     },
     {

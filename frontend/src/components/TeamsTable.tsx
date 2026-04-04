@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { TeamAPI, type TeamTS, type TeamWithCoachTS } from '../features/TeamAPI';
 import { DivisionAPI } from '../features/DivisionAPI';
+import { UserAPI } from '../features/UserAPI';
 import { TeamEditorDialog } from './TeamEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
@@ -12,21 +14,20 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 function teamColumns(
-  tid: string,
   divisionMap: Map<string, string>,
 ): ColumnDef<TeamWithCoachTS>[] {
   return [
     {
       header: 'Name',
       render: (t) => (
-        <a
-          href={`/tournament/${tid}/team/${t.teamid}`}
+        <Link
+          to={`/team/${t.teamid}/overview`}
           style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
         >
           {t.name}
-        </a>
+        </Link>
       ),
     },
     {
@@ -36,14 +37,14 @@ function teamColumns(
     {
       header: 'Coach',
       render: (t) => (
-        <a
-          href={`/user/${t.coachid}/overview`}
+        <Link
+          to={`/user/${t.coachid}/overview`}
           style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
         >
           {t.coach_name}
-        </a>
+        </Link>
       ),
     },
     {
@@ -61,7 +62,7 @@ function teamColumns(
   ];
 }
 
-export default function TeamsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [teams, setTeams] = useState<TeamWithCoachTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
@@ -72,23 +73,41 @@ export default function TeamsTable({ tid, showCreateButton = true, showDeleteBut
   pageSizeRef.current = pageSize;
 
   const loadTeams = useCallback((p: number, ps: number) => {
-    Promise.all([
-      TeamAPI.getByTournament(tid, p, ps),
-      DivisionAPI.getByTournament(tid, 0, 100),
-    ])
-      .then(([teamResult, divisionResult]) => {
-        setPage(p);
-        setPageSize(ps);
-        setTotalCount(teamResult.count);
-        setTeams(teamResult.items);
-        setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
-      })
-      .catch(() => console.error('Failed to load teams'));
-  }, [tid]);
+    if (did) {
+      Promise.all([
+        TeamAPI.getByDivision(did, p, ps),
+        DivisionAPI.getByTournament(tid, 0, 100),
+        UserAPI.get(0, 500),
+      ])
+        .then(([teamItems, divisionResult, userResult]) => {
+          const userMap = new Map(userResult.items.map(u => [u.id, [u.fname, u.mname, u.lname].filter(Boolean).join(' ')]));
+          const enriched: TeamWithCoachTS[] = teamItems.map(t => ({ ...t, coach_name: userMap.get(t.coachid) ?? t.coachid }));
+          setPage(p);
+          setPageSize(ps);
+          setTotalCount(teamItems.length < ps ? p * ps + teamItems.length : (p + 2) * ps);
+          setTeams(enriched);
+          setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
+        })
+        .catch(() => console.error('Failed to load teams'));
+    } else {
+      Promise.all([
+        TeamAPI.getByTournament(tid, p, ps),
+        DivisionAPI.getByTournament(tid, 0, 100),
+      ])
+        .then(([teamResult, divisionResult]) => {
+          setPage(p);
+          setPageSize(ps);
+          setTotalCount(teamResult.count);
+          setTeams(teamResult.items);
+          setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
+        })
+        .catch(() => console.error('Failed to load teams'));
+    }
+  }, [tid, did]);
 
   useEffect(() => {
     loadTeams(0, pageSizeRef.current);
-  }, [tid]);
+  }, [tid, did]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadTeams(newPage, pageSize);
@@ -116,12 +135,12 @@ export default function TeamsTable({ tid, showCreateButton = true, showDeleteBut
   return (
     <>
       <DataTableTemplate<TeamWithCoachTS>
-        key={tid}
+        key={did ?? tid}
         entityLabel="Team"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={teamColumns(tid, divisionMap)}
+        columns={teamColumns(divisionMap)}
         rows={teams}
         totalCount={totalCount}
         getId={(t) => t.teamid}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type TeamWithTournamentInfoTS } from '../features/UserAPI';
+import { Link } from 'react-router-dom';
 
 function formatDateRange(from: string, to: string): string {
   const fmt = (s: string) =>
@@ -22,14 +23,14 @@ const columns: ColumnDef<TeamWithTournamentInfoTS>[] = [
   {
     header: 'Tournament',
     render: (t) => (
-      <a
-        href={`/tournament/${t.tournament_id}/overview`}
+      <Link
+        to={`/tournament/${t.tournament_id}/overview`}
         style={linkStyle()}
         onMouseEnter={(e) => onHover(e, true)}
         onMouseLeave={(e) => onHover(e, false)}
       >
         {t.tournament_name}
-      </a>
+      </Link>
     ),
   },
   {
@@ -43,14 +44,14 @@ const columns: ColumnDef<TeamWithTournamentInfoTS>[] = [
   {
     header: 'Team',
     render: (t) => (
-      <a
-        href={`/tournament/${t.tournament_id}/team/${t.teamid}`}
+      <Link
+        to={`/team/${t.teamid}/overview`}
         style={linkStyle()}
         onMouseEnter={(e) => onHover(e, true)}
         onMouseLeave={(e) => onHover(e, false)}
       >
         {t.name}
-      </a>
+      </Link>
     ),
   },
 ];
