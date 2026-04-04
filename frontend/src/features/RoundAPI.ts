@@ -33,6 +33,24 @@ export const RoundAPI = {
     }
     return response.json();
   },
+  getById: async (id: string): Promise<RoundTS> => {
+    const response = await fetch(`/api/rounds/${id}`);
+    if (!response.ok) throw new Error(`Round not found (${response.status})`);
+    return response.json();
+  },
+  update: async (id: string, payload: { scheduled_start_time: string | null }): Promise<RoundTS> => {
+    const response = await fetch(`/api/rounds/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to update round (${response.status}): ${text}`);
+    }
+    const envelope = await response.json();
+    return envelope.data ?? envelope;
+  },
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/rounds/${id}`, { method: 'DELETE' });
     if (!response.ok) {

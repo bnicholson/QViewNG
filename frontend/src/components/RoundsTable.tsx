@@ -30,7 +30,7 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
       header: "Scheduled Start Time",
       render: (r) => (
         <a
-          href={`/tournament/${tid}/round/${r.roundid}`}
+          href={`/round/${r.roundid}`}
           style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500, whiteSpace: "nowrap" }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}

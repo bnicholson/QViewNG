@@ -87,7 +87,7 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
   ];
 }
 
-export default function GamesTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function GamesTable({ tid, roundid, showCreateButton = true, showDeleteButton = true }: { tid: string; roundid?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [games, setGames] = useState<GameTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
@@ -103,8 +103,12 @@ export default function GamesTable({ tid, showCreateButton = true, showDeleteBut
   pageSizeRef.current = pageSize;
 
   const loadGames = useCallback((p: number, ps: number) => {
+    const gamesPromise = roundid
+      ? GameAPI.getByRound(roundid, p, ps).then(items => ({ items, count: null as null | number }))
+      : GameAPI.getByTournament(tid, p, ps).then(r => ({ items: r.items, count: r.count }));
+
     Promise.all([
-      GameAPI.getByTournament(tid, p, ps),
+      gamesPromise,
       DivisionAPI.get(0, 100),
       RoomAPI.get(0, 100),
       RoundAPI.get(0, 200),
@@ -113,8 +117,9 @@ export default function GamesTable({ tid, showCreateButton = true, showDeleteBut
       .then(([gameResult, divResult, roomResult, roundResult, teamResult]) => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(gameResult.count);
-        setGames(gameResult.items);
+        const { items, count } = gameResult;
+        setTotalCount(count ?? (items.length < ps ? p * ps + items.length : (p + 2) * ps));
+        setGames(items);
         setMaps({
           divisions: new Map(divResult.items.map(d => [d.did, d.dname])),
           rooms: new Map(roomResult.items.map(r => [r.roomid, r.name])),
@@ -123,7 +128,7 @@ export default function GamesTable({ tid, showCreateButton = true, showDeleteBut
         });
       })
       .catch(() => console.error('Failed to load games'));
-  }, [tid]);
+  }, [tid, roundid]);
 
   useEffect(() => {
     loadGames(0, pageSizeRef.current);
@@ -156,7 +161,7 @@ export default function GamesTable({ tid, showCreateButton = true, showDeleteBut
   return (
     <>
       <DataTableTemplate<GameTS>
-        key={tid}
+        key={roundid ?? tid}
         entityLabel="Game"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}

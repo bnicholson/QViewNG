@@ -53,6 +53,8 @@ export const GameAPI = {
     }
     return response.json();
   },
+  getByRound: async (roundid: string, page: number, size: number): Promise<GameTS[]> =>
+    (await fetch(`/api/rounds/${roundid}/games?page=${page}&page_size=${size}`)).json(),
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/games/${id}`, { method: 'DELETE' });
     if (!response.ok) {

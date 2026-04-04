@@ -8,7 +8,8 @@ import { UserRegistrationPage } from "./pages/UserRegistrationPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
-import { TournamentGroupProfile } from "./pages/TournamentGroupProfile";
+import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
+import { RoundProfile } from "./pages/RoundProfile";
 import { TeamProfile } from "./pages/TeamProfile";
 import { TDEditor } from "./containers/TDEditor";
 import { RoundsInProgress } from "./containers/RoundsInProgress";
@@ -71,6 +72,9 @@ export default function QViewRoutes() {
             <Route path="/tournament-group/:tgid/overview" element={<TournamentGroupProfile childRoute="overview" />} />
             <Route path="/tournament-group/:tgid/tournaments" element={<TournamentGroupProfile childRoute="tournaments" />} />
             <Route path="/tournament-group/:tgid/stats-groups" element={<TournamentGroupProfile childRoute="stats-groups" />} />
+            <Route path="/round/:roundid" element={<RoundProfile />} />
+            <Route path="/round/:roundid/overview" element={<RoundProfile childRoute="overview" />} />
+            <Route path="/round/:roundid/games" element={<RoundProfile childRoute="games" />} />
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
