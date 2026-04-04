@@ -55,6 +55,8 @@ export const GameAPI = {
   },
   getByRound: async (roundid: string, page: number, size: number): Promise<GameTS[]> =>
     (await fetch(`/api/rounds/${roundid}/games?page=${page}&page_size=${size}`)).json(),
+  getByRoom: async (roomid: string, page: number, size: number): Promise<GameTS[]> =>
+    (await fetch(`/api/rooms/${roomid}/games?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<GameTS[]> =>
     (await fetch(`/api/divisions/${did}/games?page=${page}&page_size=${size}`)).json(),
   delete: async (id: string): Promise<void> => {

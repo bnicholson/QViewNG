@@ -27,6 +27,11 @@ export const RoomAPI = {
     (await fetch(`/api/rooms?page=${page}&page_size=${size}`)).json(),
   getByTournament: async (tid: string, page: number, size: number): Promise<RoomTS[]> =>
     (await fetch(`/api/tournaments/${tid}/rooms?page=${page}&page_size=${size}`)).json(),
+  getById: async (id: string): Promise<RoomTS> => {
+    const response = await fetch(`/api/rooms/${id}`);
+    if (!response.ok) throw new Error(`Room not found (${response.status})`);
+    return response.json();
+  },
   create: async (room: NewRoomPayload): Promise<RoomTS> => {
     const response = await fetch('/api/rooms', {
       method: 'POST',
@@ -56,6 +61,7 @@ export const RoomAPI = {
       const text = await response.text();
       throw new Error(`Failed to update room (${response.status}): ${text}`);
     }
-    return response.json();
+    const envelope = await response.json();
+    return envelope.data ?? envelope;
   },
 }

@@ -10,7 +10,8 @@ import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
 import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
 import { RoundProfile } from "./pages/RoundProfile"
-import { DivisionProfile } from "./pages/DivisionProfile";
+import { DivisionProfile } from "./pages/DivisionProfile"
+import { RoomProfile } from "./pages/RoomProfile";
 import { TeamProfile } from "./pages/TeamProfile";
 import { TDEditor } from "./containers/TDEditor";
 import { RoundsInProgress } from "./containers/RoundsInProgress";
@@ -81,6 +82,9 @@ export default function QViewRoutes() {
             <Route path="/division/:did/rounds" element={<DivisionProfile childRoute="rounds" />} />
             <Route path="/division/:did/games" element={<DivisionProfile childRoute="games" />} />
             <Route path="/division/:did/stats-groups" element={<DivisionProfile childRoute="stats-groups" />} />
+            <Route path="/room/:roomid" element={<RoomProfile />} />
+            <Route path="/room/:roomid/overview" element={<RoomProfile childRoute="overview" />} />
+            <Route path="/room/:roomid/games" element={<RoomProfile childRoute="games" />} />
             <Route path="/tdeditor" element={<TDEditor />} />
             <Route path="/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
