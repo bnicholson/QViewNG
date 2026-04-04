@@ -532,6 +532,8 @@ diesel::table! {
         description -> Nullable<Varchar>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        creator_id -> Uuid,
+        owner_id -> Uuid,
     }
 }
 
@@ -574,6 +576,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         owner_id -> Uuid,
         registration_is_open -> Bool,
+        creator_id -> Uuid,
     }
 }
 
@@ -664,7 +667,6 @@ diesel::joinable!(rounds -> divisions (did));
 diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
-diesel::joinable!(tournaments -> users (owner_id));
 diesel::joinable!(tournaments_admins -> tournaments (tournamentid));
 diesel::joinable!(tournaments_admins -> users (adminid));
 diesel::joinable!(user_sessions -> users (user_id));

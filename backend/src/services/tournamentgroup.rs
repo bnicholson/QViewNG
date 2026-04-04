@@ -1,6 +1,6 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
-use crate::{database::Database, models::tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament}};
-use crate::models::{self, common::PaginationParams, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupChangeset}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use crate::{auth::policies::UserContext, database::Database, models::tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament}};
+use crate::models::{self, common::PaginationParams, tournamentgroup::{NewTournamentGroup, NewTournamentGroupPayload, TournamentGroup, TournamentGroupChangeset}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
@@ -78,21 +78,34 @@ async fn read_tournaments(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewTournamentGroup>,
+    Json(payload): Json<NewTournamentGroupPayload>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.get_connection().expect("Failed to get connection");
 
-    tracing::debug!("{} TournamentGroup model create {:?}", line!(), item);
+    tracing::debug!("{} TournamentGroup model create {:?}", line!(), payload);
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
-    
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(ctx) => ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let item = NewTournamentGroup {
+        name: payload.name,
+        description: payload.description,
+        creator_id: user_ctx.user_id,
+        owner_id: user_ctx.user_id,
+    };
+
     let result: QueryResult<TournamentGroup> = models::tournamentgroup::create(&mut db, &item);
 
     let response: EntityResponse<TournamentGroup> = process_response(result, "post");
-    
+
     match response.code {
         409 => Ok(HttpResponse::Conflict().json(response)),
         201 => Ok(HttpResponse::Created().json(response)),

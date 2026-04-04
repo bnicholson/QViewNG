@@ -1,0 +1,83 @@
+export interface TournamentGroupTS {
+  tgid: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  creator_id: string;
+  owner_id: string;
+}
+
+export interface NewTournamentGroupPayload {
+  name: string;
+  description: string | null;
+}
+
+export interface TournamentGroupChangeset {
+  name: string;
+  description: string | null;
+}
+
+export const TournamentGroupAPI = {
+  getByTournament: async (tid: string, page: number, size: number): Promise<TournamentGroupTS[]> => {
+    const res = await fetch(`/api/tournaments/${tid}/tournamentgroups?page=${page}&page_size=${size}`);
+    if (!res.ok) throw new Error(`Failed to load tournament groups (${res.status})`);
+    return res.json();
+  },
+
+  getById: async (tgid: string): Promise<TournamentGroupTS> => {
+    const res = await fetch(`/api/tournamentgroups/${tgid}`);
+    if (!res.ok) throw new Error(`Tournament group not found (${res.status})`);
+    return res.json();
+  },
+
+  // Creates a new group and associates it with the given tournament.
+  create: async (tid: string, payload: NewTournamentGroupPayload): Promise<TournamentGroupTS> => {
+    const createRes = await fetch('/api/tournamentgroups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!createRes.ok) {
+      const text = await createRes.text();
+      throw new Error(`Failed to create tournament group (${createRes.status}): ${text}`);
+    }
+    const envelope = await createRes.json();
+    const group: TournamentGroupTS = envelope.data ?? envelope;
+
+    const linkRes = await fetch(`/api/tournamentgroups/${group.tgid}/tournaments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentgroupid: group.tgid, tournamentid: tid }),
+    });
+    if (!linkRes.ok) {
+      const text = await linkRes.text();
+      throw new Error(`Group created but failed to link to tournament (${linkRes.status}): ${text}`);
+    }
+
+    return group;
+  },
+
+  update: async (tgid: string, changeset: TournamentGroupChangeset): Promise<TournamentGroupTS> => {
+    const res = await fetch(`/api/tournamentgroups/${tgid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changeset),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to update tournament group (${res.status}): ${text}`);
+    }
+    const envelope = await res.json();
+    return envelope.data ?? envelope;
+  },
+
+  // Removes this tournament's association with the group (does not delete the group globally).
+  removeFromTournament: async (tgid: string, tid: string): Promise<void> => {
+    const res = await fetch(`/api/tournamentgroups/${tgid}/tournaments/${tid}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to remove tournament group association (${res.status}): ${text}`);
+    }
+  },
+};

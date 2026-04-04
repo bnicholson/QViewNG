@@ -357,6 +357,7 @@ async fn create(
         shortinfo: payload.shortinfo,
         info: payload.info,
         owner_id: user_ctx.user_id,
+        creator_id: user_ctx.user_id,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);

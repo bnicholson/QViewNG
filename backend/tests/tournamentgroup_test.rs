@@ -4,12 +4,12 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, tournament::Tournament, tournamentgroup_tournament::TournamentGroupTournament}};
-use backend::models::tournamentgroup::TournamentGroup;
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, tournament::Tournament, tournamentgroup_tournament::TournamentGroupTournament, user::UserBuilder}};
+use backend::models::tournamentgroup::{TournamentGroup, NewTournamentGroupPayload};
 use backend::routes::configure_routes;
-use backend::services::common::EntityResponse;
+use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn create_works() {
@@ -20,17 +20,26 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let payload = fixtures::tournamentgroups::get_tournamentgroup_payload();
+    let user = backend::models::user::UserBuilder::new_default("Group Creator")
+        .set_hash_password("Pwd123!abc")
+        .build_and_insert(&mut conn)
+        .unwrap();
+    let token = make_token(user.id, vec!["member".to_string()], vec!["tournamentgroup:create".to_string()]);
+    let payload = NewTournamentGroupPayload {
+        name: "Test TourGroup 1".to_string(),
+        description: Some("This is Tour 1's payload.".to_string()),
+    };
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
+
     let uri = "/api/tournamentgroups";
     let req = test::TestRequest::post()
         .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
         .set_json(&payload)
         .to_request();
 
@@ -90,31 +99,32 @@ async fn get_all_works() {
     
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let body: Vec<TournamentGroup> = test::read_body_json(resp).await;
+    let body: PagedResponse<TournamentGroup> = test::read_body_json(resp).await;
 
     let len = 2;
 
-    assert_eq!(body.len(), len);
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
 
     let mut tg_of_interest_1_idx = 10;
     let mut tg_of_interest_2_idx = 10;
     for idx in 0..len {
-        if body[idx].name == "Test TourGroup 1".to_string() {
+        if body.items[idx].name == "Test TourGroup 1".to_string() {
             tg_of_interest_1_idx = idx;
             continue;
         }
-        if body[idx].name == "Test TourGroup 2".to_string() {
+        if body.items[idx].name == "Test TourGroup 2".to_string() {
             tg_of_interest_2_idx = idx;
             continue;
         }
     }
 
-    let tg_of_interest_1 = &body[tg_of_interest_1_idx];
+    let tg_of_interest_1 = &body.items[tg_of_interest_1_idx];
     assert_eq!(tg_of_interest_1.tgid, tg_1.tgid);
     assert_eq!(tg_of_interest_1.name.as_str(), "Test TourGroup 1");
     assert_eq!(tg_of_interest_1.description.as_ref().unwrap().as_str(), "This is Tour 1's payload.");
 
-    let tg_of_interest_2 = &body[tg_of_interest_2_idx];
+    let tg_of_interest_2 = &body.items[tg_of_interest_2_idx];
     assert_eq!(tg_of_interest_2.tgid, tg_2.tgid);
     assert_eq!(tg_of_interest_2.name.as_str(), "Test TourGroup 2");
     assert_eq!(tg_of_interest_2.description.as_ref().unwrap().as_str(), "This is Tour 2's payload.");

@@ -11,6 +11,7 @@ use uuid::Uuid;
 /// Resources that can be the subject of a permission.
 #[derive(EnumIter)]
 pub enum AppResource {
+    TournamentGroup,
     Tournament,
     Division,
     Round,
@@ -24,6 +25,7 @@ pub enum AppResource {
 impl AppResource {
     pub fn as_str(&self) -> &'static str {
         match self {
+            AppResource::TournamentGroup => "tournamentgroup",
             AppResource::Tournament   => "tournament",
             AppResource::Division     => "division",
             AppResource::Round        => "round",

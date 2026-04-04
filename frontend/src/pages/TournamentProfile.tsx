@@ -21,6 +21,7 @@ import ProfileLayout from '../components/ProfileLayout'
 import { TournamentOverviewPage } from './TournamentOverviewPage'
 import { TournamentRegisterPage } from './TournamentRegisterPage'
 import { TournamentGearPage } from './TournamentGearPage'
+import TournamentGroupsTable from '../components/TournamentGroupsTable'
 import { useAuth } from '../hooks/useAuth'
 
 export const TournamentProfile = (props: { childRoute?: string }) => {
@@ -108,6 +109,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Games',        to: `/tournament/${tid}/games`        },
     { kind: 'route', label: 'Gear',         to: `/tournament/${tid}/gear`         },
     { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`,       visible: canViewAdmins === true },
+    { kind: 'route', label: 'Tournament Groups', to: `/tournament/${tid}/tournament-groups` },
     { kind: 'route', label: 'Stats Groups', to: `/tournament/${tid}/stats-groups` },
   ]
 
@@ -142,6 +144,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'games'             && <GamesTable tid={String(tournament?.tid)} showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}/>}
           {props.childRoute === 'gear'              && <TournamentGearPage tid={String(tournament?.tid)} />}
           {props.childRoute === 'admins'            && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
+          {props.childRoute === 'tournament-groups'  && <TournamentGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate('tournamentgroup:create')} showDeleteButton={canCreate('tournamentgroup:delete')} />}
           {props.childRoute === 'stats-groups'      && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
           {props.childRoute === 'room-monitor'      && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>

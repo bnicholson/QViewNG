@@ -194,6 +194,7 @@ impl TournamentBuilder {
                     shortinfo: self.shortinfo.unwrap(),
                     info: self.info.unwrap(),
                     owner_id: self.owner_id.unwrap(),
+                    creator_id: self.owner_id.unwrap(),
                 })
             }
         }
@@ -248,6 +249,7 @@ pub struct Tournament {
     pub updated_at: DateTime<Utc>,
     pub owner_id: Uuid,
     pub registration_is_open: bool,
+    pub creator_id: Uuid,
 }
 
 #[derive(
@@ -274,6 +276,7 @@ pub struct NewTournament {
     pub shortinfo : String,
     pub info: String,
     pub owner_id: Uuid,
+    pub creator_id: Uuid,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is

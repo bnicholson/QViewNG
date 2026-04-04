@@ -12,7 +12,9 @@ use chrono::{Utc,DateTime};
 
 pub struct TournamentGroupBuilder {
     name: String,
-    description: Option<String>
+    description: Option<String>,
+    creator_id: Option<Uuid>,
+    owner_id: Option<Uuid>,
 }
 
 impl TournamentGroupBuilder {
@@ -20,13 +22,25 @@ impl TournamentGroupBuilder {
         Self {
             name: tournamentgroup_name.to_string(),
             description: None,
+            creator_id: None,
+            owner_id: None,
         }
     }
     pub fn new_default(tournamentgroup_name: &str) -> Self {
         Self {
             name: tournamentgroup_name.to_string(),
             description: Some("".to_string()),
+            creator_id: None,
+            owner_id: None,
         }
+    }
+    pub fn set_creator_id(mut self, id: Uuid) -> Self {
+        self.creator_id = Some(id);
+        self
+    }
+    pub fn set_owner_id(mut self, id: Uuid) -> Self {
+        self.owner_id = Some(id);
+        self
     }
     pub fn set_name(mut self, tournamentgroup_name: String) -> Self {
         self.name = tournamentgroup_name;
@@ -37,12 +51,16 @@ impl TournamentGroupBuilder {
         self
     }
     pub fn build(self) -> Result<NewTournamentGroup, Vec<String>> {
-        Ok(
-            NewTournamentGroup {
-                name: self.name,
-                description: self.description
-            }
-        )
+        let mut errors = Vec::new();
+        if self.creator_id.is_none() { errors.push("creator_id is required".to_string()); }
+        if self.owner_id.is_none()   { errors.push("owner_id is required".to_string()); }
+        if !errors.is_empty() { return Err(errors); }
+        Ok(NewTournamentGroup {
+            name: self.name,
+            description: self.description,
+            creator_id: self.creator_id.unwrap(),
+            owner_id: self.owner_id.unwrap(),
+        })
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<TournamentGroup> {
         let new_tournamentgroup = self.build();
@@ -69,6 +87,8 @@ pub struct TournamentGroup {
     pub description: Option<String>,            // Description of the tournamentgroup
     pub created_at: DateTime<Utc>,              // When was this tournamentgroup created
     pub updated_at: DateTime<Utc>,              // When was this tournamentgroup last updated
+    pub creator_id: Uuid,                      // User who created this group
+    pub owner_id: Uuid,                        // User who owns this group
 }
 
 #[derive(
@@ -81,13 +101,22 @@ pub struct TournamentGroup {
 pub struct NewTournamentGroup {
     pub name: String,                           // Name of the tournamentgroup (human readable)
     pub description: Option<String>,            // Description of the tournamentgroup
+    pub creator_id: Uuid,
+    pub owner_id: Uuid,
+}
+
+/// Payload accepted from the frontend (no creator_id/owner_id — injected server-side).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NewTournamentGroupPayload {
+    pub name: String,
+    pub description: Option<String>,
 }
 
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::tournamentgroups)]
 #[diesel(primary_key(tournamentgroupid))]
-pub struct TournamentGroupChangeset {   
+pub struct TournamentGroupChangeset {
     pub name: String,                           // Name of the tournamentgroup (human readable)
     pub description: Option<String>,            // Description of the tournamentgroup
 }

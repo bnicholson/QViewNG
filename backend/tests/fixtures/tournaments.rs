@@ -240,21 +240,29 @@ pub fn arrange_get_all_tournamentgroups_of_tournament_works_integration_test(db:
 
     let tg_1 = TournamentGroupBuilder::new_default("Test TourGroup 1")
         .set_description(Some("This is TourGroup 1 testing.".to_string()))
+        .set_creator_id(owner.id)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tg_2 = TournamentGroupBuilder::new_default("Test TourGroup 2")
         .set_description(Some("This is TourGroup 2 testing.".to_string()))
+        .set_creator_id(owner.id)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tg_3 = TournamentGroupBuilder::new_default("Test TourGroup 3")
         .set_description(Some("This is TourGroup 3 testing.".to_string()))
+        .set_creator_id(owner.id)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
     let tg_4 = TournamentGroupBuilder::new_default("Test TourGroup 4")
         .set_description(Some("This is TourGroup 4 testing.".to_string()))
+        .set_creator_id(owner.id)
+        .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 

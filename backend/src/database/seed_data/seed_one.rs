@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, division::DivisionBuilder, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, division::DivisionBuilder, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 
 pub fn seed_data_one(db: &mut database::Connection) {
@@ -80,6 +80,16 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_shortinfo("Display standard data")
         .set_info("This Tournament is intended to show the visitor what a fully data-entered Tournament would look like.")
         .set_owner_id(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    // Tournament group
+    let tg_1 = TournamentGroupBuilder::new_default("TG 1 (Demo)")
+        .set_creator_id(tour_owner.id)
+        .set_owner_id(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    TournamentGroupTournamentBuilder::new_default(tg_1.tgid, tour.tid)
         .build_and_insert(db)
         .unwrap();
 
