@@ -7,6 +7,7 @@ import Container from '@mui/material/Container';
 import QViewRoutes from './routes';
 import FooterGlobal from './components/FooterGlobal';
 import GlobalNavBar from './components/GlobalNavBar';
+import { ProfileHistoryProvider } from './contexts/ProfileHistoryContext';
 
 if (import.meta.env.NODE_ENV === 'development') import('./setupDevelopment')
 
@@ -14,7 +15,7 @@ export default function App() {
   useAuthCheck()
 
   return (
-    <>
+    <ProfileHistoryProvider>
       <CssBaseline />
       <GlobalNavBar />
       <Toolbar />
@@ -24,6 +25,6 @@ export default function App() {
         </Container>
         <FooterGlobal />
       </div>
-    </>
+    </ProfileHistoryProvider>
   )
 }

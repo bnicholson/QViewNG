@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Typography from '@mui/material/Typography'
 import Divider from '@mui/material/Divider'
+import { useProfileHistory } from '../contexts/ProfileHistoryContext'
 
 type RouteNavItem = {
   kind: 'route'
@@ -61,6 +63,8 @@ function useActiveAnchor(anchors: string[]): string | null {
 
 export default function ProfileLayout({ title, subtitle, navItems, children }: ProfileLayoutProps) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { exitUrl } = useProfileHistory()
   const anchors = navItems.filter((i): i is AnchorNavItem => i.kind === 'anchor').map((i) => i.anchor)
   const activeAnchor = useActiveAnchor(anchors)
 
@@ -98,6 +102,18 @@ export default function ProfileLayout({ title, subtitle, navItems, children }: P
           <Typography variant="caption" sx={{ px: '10px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
             {subtitle}
           </Typography>
+        )}
+        {exitUrl && (
+          <>
+            <Divider sx={{ mb: 0.5 }} />
+            <Button
+              size="small"
+              onClick={() => navigate(exitUrl)}
+              sx={{ px: '10px', py: '3px', justifyContent: 'flex-start', color: 'text.secondary', fontSize: '0.875rem', textTransform: 'none', width: '100%' }}
+            >
+              &laquo; Exit Profile
+            </Button>
+          </>
         )}
         <Divider sx={{ mb: 0.5 }} />
         <List dense disablePadding>

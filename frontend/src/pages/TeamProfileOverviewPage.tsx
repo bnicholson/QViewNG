@@ -78,7 +78,18 @@ export const TeamProfileOverviewPage = ({ tid, teamid }: { tid: string; teamid: 
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Coach</Typography>
-            <Typography variant="body1">{coachName}</Typography>
+            <Typography variant="body1">
+              {coachUser ? (
+                <Link
+                  to={`/user/${coachUser.id}/overview`}
+                  style={{ color: '#2563eb', textDecoration: 'none' }}
+                  onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                  onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                >
+                  {coachName}
+                </Link>
+              ) : coachName}
+            </Typography>
           </Grid>
         </Grid>
       </Box>
