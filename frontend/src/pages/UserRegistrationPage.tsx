@@ -70,7 +70,8 @@ export const UserRegistrationPage = () => {
   }
 
   return (
-    <div className="Form" style={{ textAlign: 'left' }}>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div className="Form" style={{ textAlign: 'left', width: 650, maxWidth: '100%', marginLeft: '20px', marginRight: '20px' }}>
       <h1>Registration</h1>
       <br />
       <form onSubmit={(e) => { e.preventDefault(); register() }}>
@@ -145,6 +146,7 @@ export const UserRegistrationPage = () => {
       >
         Need to activate your account? Click here.
       </a>
+    </div>
     </div>
   )
 }

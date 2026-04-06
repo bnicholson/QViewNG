@@ -29,7 +29,8 @@ export const ActivationPage = () => {
   }
 
   return (
-    <div className="Form" style={{ textAlign: 'left' }}>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div className="Form" style={{ textAlign: 'left', width: 650, maxWidth: '100%', marginLeft: '20px', marginRight: '20px' }}>
       <h1>Activate Account</h1>
       <p style={{ marginBottom: '16px' }}>
         Enter the activation token from the email sent to you after registration.
@@ -56,6 +57,7 @@ export const ActivationPage = () => {
       >
         Already activated? Click here to login.
       </a>
+    </div>
     </div>
   )
 }

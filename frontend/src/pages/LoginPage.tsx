@@ -27,7 +27,8 @@ export const LoginPage = () => {
   }
 
   return (
-    <div className="Form" style={{ textAlign: 'left' }}>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div className="Form" style={{ textAlign: 'left', width: 650, maxWidth: '100%', marginLeft: '20px', marginRight: '20px' }}>
       <h1>Login</h1>
       <br />
       <form onSubmit={(e) => { e.preventDefault(); login() }}>
@@ -64,6 +65,7 @@ export const LoginPage = () => {
       >
         Forgot your password? Click here to recover your account.
       </a>
+    </div>
     </div>
   )
 }
