@@ -7,8 +7,7 @@ import { UserProfileOverviewPage } from './UserProfileOverviewPage'
 import { UserProfilePermissionsPage } from './UserProfilePermissionsPage'
 import { UserProfileChangePasswordPage } from './UserProfileChangePasswordPage'
 import { UserProfileSessionsPage } from './UserProfileSessionsPage'
-import { UserProfileAsQuizzerPage } from './UserProfileAsQuizzerPage'
-import { UserProfileAsCoachPage } from './UserProfileAsCoachPage'
+import { UserProfileMyTeamsPage } from './UserProfileMyTeamsPage'
 import { UserProfileAsCoachQuizzerRostersPage } from './UserProfileAsCoachQuizzerRostersPage'
 import { UserProfileAsCoachGearPage } from './UserProfileAsCoachGearPage'
 import { UserProfileAsAdminPage } from './UserProfileAsAdminPage'
@@ -20,8 +19,7 @@ type ChildRoute =
   | 'permissions'
   | 'change-password'
   | 'sessions'
-  | 'as-quizzer'
-  | 'as-coach'
+  | 'my-teams'
   | 'my-rosters'
   | 'my-gear'
   | 'as-admin'
@@ -49,11 +47,10 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const canViewPrivate = isSuperUser || isOwnProfile
 
   const navItems: NavItem[] = [
-    { kind: 'route', label: 'Overview',             to: `/user/${user_id}/overview`         },
-    { kind: 'route', label: 'As Quizzer',           to: `/user/${user_id}/as-quizzer`       },
-    { kind: 'route', label: 'My Rosters',         to: `/user/${user_id}/my-rosters`  },
-    { kind: 'route', label: 'As Coach: Teams',   to: `/user/${user_id}/as-coach`          },
-    { kind: 'route', label: 'My Gear',           to: `/user/${user_id}/my-gear`     },
+    { kind: 'route', label: 'Overview',         to: `/user/${user_id}/overview`     },
+    { kind: 'route', label: 'My Teams',         to: `/user/${user_id}/my-teams`     },
+    { kind: 'route', label: 'My Rosters',       to: `/user/${user_id}/my-rosters`   },
+    { kind: 'route', label: 'My Gear',          to: `/user/${user_id}/my-gear`      },
     { kind: 'route', label: 'As Quizmaster',        to: `/user/${user_id}/as-quizmaster`    },
     { kind: 'route', label: 'As Content Judge',     to: `/user/${user_id}/as-content-judge` },
     { kind: 'route', label: 'As Admin',             to: `/user/${user_id}/as-admin`         },
@@ -70,9 +67,8 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
       {props.childRoute === 'permissions'      && (canViewPrivate ? <UserProfilePermissionsPage userId={user_id} /> : null)}
       {props.childRoute === 'change-password'  && (canViewPrivate ? <UserProfileChangePasswordPage /> : null)}
       {props.childRoute === 'sessions'         && (canViewPrivate ? <UserProfileSessionsPage /> : null)}
-      {props.childRoute === 'as-quizzer'       && <UserProfileAsQuizzerPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-coach'                  && <UserProfileAsCoachPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'my-rosters'  && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'my-teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'my-rosters' && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} />}
