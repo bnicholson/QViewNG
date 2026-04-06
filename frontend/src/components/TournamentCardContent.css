@@ -7,12 +7,15 @@
 .tournamentCardContent h3 {
   display: flex;
   flex-direction: column;
-  line-height: 1;
+  gap: 4px;
+  line-height: 1.3;
+  margin-top: 0;
+  margin-bottom: 10px;
 }
 
-.tournamentCardContent p:first-child,
-.tournamentCardContent h3:first-child {
-  margin-top: 0px;
+.tournamentCardContent p:last-child,
+.tournamentCardContent h3:last-child {
+  margin-bottom: 0;
 }
 
 .tournamentCardContent h3 span.dates {
@@ -20,9 +23,23 @@
   font-weight: normal;
 }
 
-.tournamentCardContent p:last-child {
-  margin-bottom: 0px;
+.tournamentCardContent h3 span.tournamentStatus {
+  font-size: 12px;
+  font-weight: normal;
 }
+
+.tournamentCardContent h3 span.statusComingUp {
+  color: #b8860b;
+}
+
+.tournamentCardContent h3 span.statusInProgress {
+  color: #2e7d32;
+}
+
+.tournamentCardContent h3 span.statusEnded {
+  color: #1565c0;
+}
+
 
 .tournamentCardContent p {
   font-size: 14px;

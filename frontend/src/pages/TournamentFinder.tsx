@@ -161,22 +161,23 @@ export const TournamentFinder = () => {
         }}>
           {isTournamentCreate && (
             <Card onClick={() => setTournamentEditor({ isOpen: true, tournament: undefined })}>
-              <CardContent sx={{ 
-                alignItems: "center", display: "flex", flexDirection: "column", height: "100%", 
-                justifyContent: "center", cursor: "pointer"
+              <CardContent sx={{
+                alignItems: "center", display: "flex", flexDirection: "column", height: "100%",
+                justifyContent: "center", cursor: "pointer", margin: "0 10px"
                 }}>
                 <div style={{
                   alignItems: "center",
                   background: "#e5e5e5",
                   borderRadius: 40,
                   display: "flex",
-                  height: 80,
+                  height: 70,
                   justifyContent: "center",
-                  width: 80
+                  width: 70,
+                  marginBottom: "10px"
                 }}>
-                  <AddIcon fontSize="large" />
+                  <AddIcon fontSize="medium" />
                 </div>
-                Create a New Tournament
+                Create a New<br/>Tournament
               </CardContent>
             </Card>
           )}
