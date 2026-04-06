@@ -63,8 +63,10 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
 
     let all_ids: Vec<Uuid> = perm_ids.values().copied().collect();
 
+    let tour_group_update_id = perm_ids.get(&(AppResource::TournamentGroup.as_str(), AppAction::Update.as_str())).copied();
     let tour_manager_permissions: Vec<Uuid> = [
             AppResource::Tournament,
+            AppResource::TournamentGroup,
             AppResource::Division,
             AppResource::Round,
             AppResource::Room,
@@ -78,7 +80,9 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
             ].iter().filter_map(|action| {
                 perm_ids.get(&(resource.as_str(), *action)).copied()
             }).collect::<Vec<_>>()
-        }).collect();
+        })
+        .filter(|id| Some(*id) != tour_group_update_id)
+        .collect();
 
     let tour_create_id = perm_ids.get(&(AppResource::Tournament.as_str(), AppAction::Create.as_str())).copied();
     let tour_admin_permissions: Vec<Uuid> = tour_manager_permissions
@@ -97,7 +101,7 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
         let role_perm_ids: Vec<Uuid> = match app_role {
             // member: read-only on every resource
             AppRole::Member => read_ids.clone(),
-            // tournament_manager: create/update/delete on all tournament-managed resources
+            // tournament_manager: create/update/delete on all tournament-managed resources (including TournamentGroups)
             AppRole::TournamentManager => tour_manager_permissions.clone(),
             AppRole::TournamentAdmin => tour_admin_permissions.clone(),
             // super_user: full CRUD on everything

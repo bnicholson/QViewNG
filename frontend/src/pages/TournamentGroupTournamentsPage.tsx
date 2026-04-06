@@ -16,6 +16,7 @@ import dayjs from 'dayjs'
 import { TournamentGroupAPI } from '../features/TournamentGroupAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import TournamentTable, { DEFAULT_PAGE_SIZE } from '../components/TournamentTable'
+import { useAuth } from '../hooks/useAuth'
 
 interface Props {
   tgid: string
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
+  const { session } = useAuth()
   const [linked, setLinked] = useState<TournamentTS[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,23 +59,33 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
 
   useEffect(() => { loadLinked() }, [loadLinked])
 
-  const handleSearch = async () => {
-    if (!query.trim()) return
+  const handleSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setSearchResults([]); return }
     setSearching(true)
     setError(null)
     try {
       const result = await TournamentAPI.get(0, '100')
-      const q = query.toLowerCase()
+      const lower = q.toLowerCase()
       const linkedIds = new Set(linked.map(t => String(t.tid)))
       setSearchResults(
-        result.items.filter(t => t.tname.toLowerCase().includes(q) && !linkedIds.has(String(t.tid)))
+        result.items.filter(t => {
+          const isSuperUser = session?.hasRole('super_user') ?? false
+          return t.tname.toLowerCase().includes(lower) &&
+            !linkedIds.has(String(t.tid)) &&
+            (isSuperUser || t.owner_id === session?.userId)
+        })
       )
     } catch (e: any) {
       setError(e.message)
     } finally {
       setSearching(false)
     }
-  }
+  }, [linked])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => handleSearch(query), 300)
+    return () => clearTimeout(timeout)
+  }, [query, handleSearch])
 
   const handleAdd = async (tournament: TournamentTS) => {
     setAddingId(String(tournament.tid))
@@ -131,8 +143,10 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
           totalCount={linked.length}
           page={page}
           pageSize={pageSize}
-          showDeleteButton={canEdit}
-          onDelete={handleRemove}
+          showDeleteButton={false}
+          showRemoveButton={canEdit}
+          onDelete={async () => {}}
+          onRemove={handleRemove}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
         />
@@ -141,7 +155,7 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
       {/* Search to add */}
       {canEdit && (
         <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, textAlign: "left" }}>
             Add Tournament to Group
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -150,24 +164,15 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
               placeholder="Search by tournament name…"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
               sx={{ flex: 1, maxWidth: 420 }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <SearchIcon fontSize="small" />
+                    {searching ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
                   </InputAdornment>
                 ),
               }}
             />
-            <Button
-              variant="outlined"
-              onClick={handleSearch}
-              disabled={searching || !query.trim()}
-              startIcon={searching ? <CircularProgress size={14} /> : undefined}
-            >
-              Search
-            </Button>
           </Box>
 
           {searchResults.length > 0 && (
@@ -201,7 +206,7 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
 
           {!searching && query.trim() && searchResults.length === 0 && (
             <Typography variant="body2" color="text.secondary">
-              No unlinked tournaments match "{query}".
+              No unlinked tournaments that you manage match "{query}".
             </Typography>
           )}
         </Box>

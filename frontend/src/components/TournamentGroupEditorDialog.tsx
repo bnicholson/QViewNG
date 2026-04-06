@@ -19,6 +19,7 @@ import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { TournamentGroupAPI, type TournamentGroupTS } from '../features/TournamentGroupAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export const TournamentGroupEditorDialog = ({ tid, isOpen, onCancel, onSave, initialGroup }: Props) => {
+  const { accessToken } = useAuth();
   const isEdit = Boolean(initialGroup);
   const [form, setForm] = useState<FormState>(emptyState);
   const [alertOpened, setAlertOpened] = useState(false);
@@ -95,7 +97,7 @@ export const TournamentGroupEditorDialog = ({ tid, isOpen, onCancel, onSave, ini
         result = await TournamentGroupAPI.create(tid, {
           name: form.name.trim(),
           description: form.description.trim() || null,
-        });
+        }, accessToken!);
       }
     } catch (err: any) {
       setErrorMsg('Failed to save: ' + err.message);

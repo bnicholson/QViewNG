@@ -19,6 +19,12 @@ export interface TournamentGroupChangeset {
 }
 
 export const TournamentGroupAPI = {
+  getAll: async (page: number, size: number): Promise<{ count: number; items: TournamentGroupTS[] }> => {
+    const res = await fetch(`/api/tournamentgroups?page=${page}&page_size=${size}`);
+    if (!res.ok) throw new Error(`Failed to load tournament groups (${res.status})`);
+    return res.json();
+  },
+
   getByTournament: async (tid: string, page: number, size: number): Promise<TournamentGroupTS[]> => {
     const res = await fetch(`/api/tournaments/${tid}/tournamentgroups?page=${page}&page_size=${size}`);
     if (!res.ok) throw new Error(`Failed to load tournament groups (${res.status})`);
@@ -32,10 +38,12 @@ export const TournamentGroupAPI = {
   },
 
   // Creates a new group and associates it with the given tournament.
-  create: async (tid: string, payload: NewTournamentGroupPayload): Promise<TournamentGroupTS> => {
+  create: async (tid: string, payload: NewTournamentGroupPayload, accessToken: string): Promise<TournamentGroupTS> => {
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` };
+
     const createRes = await fetch('/api/tournamentgroups', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify(payload),
     });
     if (!createRes.ok) {
@@ -47,7 +55,7 @@ export const TournamentGroupAPI = {
 
     const linkRes = await fetch(`/api/tournamentgroups/${group.tgid}/tournaments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ tournamentgroupid: group.tgid, tournamentid: tid }),
     });
     if (!linkRes.ok) {
