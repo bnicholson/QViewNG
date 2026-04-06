@@ -34,19 +34,27 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const auth = useAuth()
   const { user_id } = useParams<{ user_id: string }>()
   const [userName, setUserName] = useState<{ fname: string; lname: string } | null>(null)
+  const [targetIsSuperUser, setTargetIsSuperUser] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (!user_id) return
-    fetch(`/api/users/${user_id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data) setUserName({ fname: data.fname, lname: data.lname }) })
-      .catch(() => {})
+    setTargetIsSuperUser(null)
+    Promise.all([
+      fetch(`/api/users/${user_id}`).then((r) => r.ok ? r.json() : null),
+      fetch(`/api/users/${user_id}/roles-and-permissions`).then((r) => r.ok ? r.json() : null),
+    ]).then(([userData, rolesData]) => {
+      if (userData) setUserName({ fname: userData.fname, lname: userData.lname })
+      setTargetIsSuperUser(rolesData?.roles?.includes('super_user') ?? false)
+    }).catch(() => { setTargetIsSuperUser(false) })
   }, [user_id])
 
   if (!user_id) return <Navigate to="/404" replace />
-  if (auth.isCheckingAuth) return null
+  if (auth.isCheckingAuth || targetIsSuperUser === null) return null
 
   const isSuperUser = auth.session?.hasRole('super_user') ?? false
+
+  if (targetIsSuperUser && !isSuperUser) return <Navigate to="/404" replace />
+
   const isOwnProfile = auth.session?.userId === user_id
   const canViewPrivate = isSuperUser || isOwnProfile
   const canManageTournaments = (isOwnProfile || isSuperUser) && (isSuperUser || (auth.session?.hasPermission('tournament:create') ?? false))
