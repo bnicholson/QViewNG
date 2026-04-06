@@ -37,8 +37,8 @@ export const TournamentGroupAPI = {
     return res.json();
   },
 
-  // Creates a new group and associates it with the given tournament.
-  create: async (tid: string, payload: NewTournamentGroupPayload, accessToken: string): Promise<TournamentGroupTS> => {
+  // Creates a new group and optionally associates it with a tournament when tid is provided.
+  create: async (tid: string | undefined, payload: NewTournamentGroupPayload, accessToken: string): Promise<TournamentGroupTS> => {
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` };
 
     const createRes = await fetch('/api/tournamentgroups', {
@@ -53,14 +53,16 @@ export const TournamentGroupAPI = {
     const envelope = await createRes.json();
     const group: TournamentGroupTS = envelope.data ?? envelope;
 
-    const linkRes = await fetch(`/api/tournamentgroups/${group.tgid}/tournaments`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({ tournamentgroupid: group.tgid, tournamentid: tid }),
-    });
-    if (!linkRes.ok) {
-      const text = await linkRes.text();
-      throw new Error(`Group created but failed to link to tournament (${linkRes.status}): ${text}`);
+    if (tid) {
+      const linkRes = await fetch(`/api/tournamentgroups/${group.tgid}/tournaments`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ tournamentgroupid: group.tgid, tournamentid: tid }),
+      });
+      if (!linkRes.ok) {
+        const text = await linkRes.text();
+        throw new Error(`Group created but failed to link to tournament (${linkRes.status}): ${text}`);
+      }
     }
 
     return group;
@@ -78,6 +80,14 @@ export const TournamentGroupAPI = {
     }
     const envelope = await res.json();
     return envelope.data ?? envelope;
+  },
+
+  delete: async (tgid: string): Promise<void> => {
+    const res = await fetch(`/api/tournamentgroups/${tgid}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to delete tournament group (${res.status}): ${text}`);
+    }
   },
 
   // Removes this tournament's association with the group (does not delete the group globally).

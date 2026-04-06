@@ -106,8 +106,10 @@ interface Props {
   totalCount: number
   page: number
   pageSize: number
+  showCreateButton?: boolean
   showDeleteButton?: boolean
   showRemoveButton?: boolean
+  onCreate?: () => void
   onDelete: (t: TournamentTS) => Promise<void>
   onRemove?: (t: TournamentTS) => Promise<void>
   onPageChange: (page: number) => void
@@ -119,8 +121,10 @@ export default function TournamentTable({
   totalCount,
   page,
   pageSize,
+  showCreateButton = false,
   showDeleteButton = true,
   showRemoveButton = false,
+  onCreate,
   onDelete,
   onRemove,
   onPageChange,
@@ -129,7 +133,8 @@ export default function TournamentTable({
   return (
     <DataTableTemplate<TournamentTS>
       entityLabel="Tournament"
-      showCreateButton={false}
+      showCreateButton={showCreateButton}
+      onCreate={onCreate}
       showDeleteButton={showDeleteButton}
       columns={tournamentColumns(showRemoveButton, onRemove)}
       rows={tournaments}

@@ -56,7 +56,11 @@ export const TournamentGroupProfile = (props: { childRoute?: string }) => {
             />
           )}
           {props.childRoute === 'tournaments' && (
-            <TournamentGroupTournamentsPage tgid={tgid} canEdit={canEdit} />
+            <TournamentGroupTournamentsPage
+              tgid={tgid}
+              canEdit={canEdit}
+              canCreate={session?.hasPermission('tournament:create') ?? false}
+            />
           )}
           {props.childRoute === 'stats-groups' && (
             <Typography color="text.secondary">Stats Groups coming soon.</Typography>

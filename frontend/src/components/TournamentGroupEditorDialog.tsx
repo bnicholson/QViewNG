@@ -36,7 +36,7 @@ interface FormState {
 const emptyState: FormState = { name: '', description: '' };
 
 interface Props {
-  tid: string;
+  tid?: string;
   isOpen: boolean;
   onCancel: VoidFunction;
   onSave: (group: TournamentGroupTS) => void;

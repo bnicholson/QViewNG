@@ -16,18 +16,21 @@ import dayjs from 'dayjs'
 import { TournamentGroupAPI } from '../features/TournamentGroupAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import TournamentTable, { DEFAULT_PAGE_SIZE } from '../components/TournamentTable'
+import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
 import { useAuth } from '../hooks/useAuth'
 
 interface Props {
   tgid: string
   canEdit: boolean
+  canCreate: boolean
 }
 
-export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
-  const { session } = useAuth()
+export const TournamentGroupTournamentsPage = ({ tgid, canEdit, canCreate }: Props) => {
+  const { session, accessToken } = useAuth()
   const [linked, setLinked] = useState<TournamentTS[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [creatorOpen, setCreatorOpen] = useState(false)
 
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
@@ -106,6 +109,16 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
     setLinked(prev => prev.filter(t => t.tid !== tournament.tid))
   }
 
+  const handleCreated = async (tournament: TournamentTS) => {
+    setCreatorOpen(false)
+    try {
+      await TournamentGroupAPI.addTournament(tgid, String(tournament.tid))
+      setLinked(prev => [...prev, tournament])
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
   }
@@ -143,6 +156,8 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
           totalCount={linked.length}
           page={page}
           pageSize={pageSize}
+          showCreateButton={canCreate}
+          onCreate={() => setCreatorOpen(true)}
           showDeleteButton={false}
           showRemoveButton={canEdit}
           onDelete={async () => {}}
@@ -211,6 +226,12 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit }: Props) => {
           )}
         </Box>
       )}
+
+      <TournamentEditorDialog
+        isOpen={creatorOpen}
+        onCancel={() => setCreatorOpen(false)}
+        onSave={handleCreated}
+      />
     </Box>
   )
 }

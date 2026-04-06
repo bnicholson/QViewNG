@@ -40,12 +40,14 @@ export default function QViewRoutes() {
             <Route path="/user/:user_id/permissions" element={<UserProfilePage childRoute="permissions" />} />
             <Route path="/user/:user_id/change-password" element={<UserProfilePage childRoute="change-password" />} />
             <Route path="/user/:user_id/sessions" element={<UserProfilePage childRoute="sessions" />} />
-            <Route path="/user/:user_id/my-teams" element={<UserProfilePage childRoute="my-teams" />} />
+            <Route path="/user/:user_id/teams" element={<UserProfilePage childRoute="teams" />} />
             <Route path="/user/:user_id/my-rosters" element={<UserProfilePage childRoute="my-rosters" />} />
             <Route path="/user/:user_id/my-gear" element={<UserProfilePage childRoute="my-gear" />} />
             <Route path="/user/:user_id/as-admin" element={<UserProfilePage childRoute="as-admin" />} />
             <Route path="/user/:user_id/as-quizmaster" element={<UserProfilePage childRoute="as-quizmaster" />} />
             <Route path="/user/:user_id/as-content-judge" element={<UserProfilePage childRoute="as-content-judge" />} />
+            <Route path="/user/:user_id/managed-tournaments" element={<UserProfilePage childRoute="managed-tournaments" />} />
+            <Route path="/user/:user_id/managed-tournament-groups" element={<UserProfilePage childRoute="managed-tournament-groups" />} />
             <Route path="/crm/users" element={<ManageUsers />} />
             <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />

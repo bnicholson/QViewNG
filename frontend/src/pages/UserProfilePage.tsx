@@ -13,18 +13,22 @@ import { UserProfileAsCoachGearPage } from './UserProfileAsCoachGearPage'
 import { UserProfileAsAdminPage } from './UserProfileAsAdminPage'
 import { UserProfileAsQuizmasterPage } from './UserProfileAsQuizmasterPage'
 import { UserProfileAsContentJudgePage } from './UserProfileAsContentJudgePage'
+import { UserProfileManagedTournamentsPage } from './UserProfileManagedTournamentsPage'
+import { UserProfileManagedTournamentGroupsPage } from './UserProfileManagedTournamentGroupsPage'
 
 type ChildRoute =
   | 'overview'
   | 'permissions'
   | 'change-password'
   | 'sessions'
-  | 'my-teams'
+  | 'teams'
   | 'my-rosters'
   | 'my-gear'
   | 'as-admin'
   | 'as-quizmaster'
   | 'as-content-judge'
+  | 'managed-tournaments'
+  | 'managed-tournament-groups'
 
 export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const auth = useAuth()
@@ -45,15 +49,29 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const isSuperUser = auth.session?.hasRole('super_user') ?? false
   const isOwnProfile = auth.session?.userId === user_id
   const canViewPrivate = isSuperUser || isOwnProfile
+  const canManageTournaments = (isOwnProfile || isSuperUser) && (isSuperUser || (auth.session?.hasPermission('tournament:create') ?? false))
+  const canManageTournamentGroups = (isOwnProfile || isSuperUser) && (isSuperUser || (auth.session?.hasPermission('tournamentgroup:create') ?? false))
+  const canCreateTournament = isSuperUser || (auth.session?.hasPermission('tournament:create') ?? false)
+  const canDeleteTournament = isSuperUser || (auth.session?.hasPermission('tournament:delete') ?? false)
+  const canCreateTournamentGroup = isSuperUser || (auth.session?.hasPermission('tournamentgroup:create') ?? false)
+  const canDeleteTournamentGroup = isSuperUser || (auth.session?.hasPermission('tournamentgroup:delete') ?? false)
 
   const navItems: NavItem[] = [
     { kind: 'route', label: 'Overview',         to: `/user/${user_id}/overview`     },
-    { kind: 'route', label: 'My Teams',         to: `/user/${user_id}/my-teams`     },
-    { kind: 'route', label: 'My Rosters',       to: `/user/${user_id}/my-rosters`   },
-    { kind: 'route', label: 'My Gear',          to: `/user/${user_id}/my-gear`      },
+    { kind: 'route', label: 'Teams',         to: `/user/${user_id}/teams`     },
+    ...(canViewPrivate ? [
+      { kind: 'route' as const, label: 'My Rosters', to: `/user/${user_id}/my-rosters` },
+      { kind: 'route' as const, label: 'My Gear',    to: `/user/${user_id}/my-gear`    },
+    ] : []),
     { kind: 'route', label: 'As Quizmaster',        to: `/user/${user_id}/as-quizmaster`    },
     { kind: 'route', label: 'As Content Judge',     to: `/user/${user_id}/as-content-judge` },
     { kind: 'route', label: 'As Admin',             to: `/user/${user_id}/as-admin`         },
+    ...(canManageTournaments ? [
+      { kind: 'route' as const, label: 'Managed Tournaments',       to: `/user/${user_id}/managed-tournaments`        },
+    ] : []),
+    ...(canManageTournamentGroups ? [
+      { kind: 'route' as const, label: 'Managed Tournament Groups', to: `/user/${user_id}/managed-tournament-groups`  },
+    ] : []),
     ...(canViewPrivate ? [
       { kind: 'route' as const, label: 'Permissions',          to: `/user/${user_id}/permissions`      },
       { kind: 'route' as const, label: 'Change Password',      to: `/user/${user_id}/change-password`  },
@@ -67,12 +85,14 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
       {props.childRoute === 'permissions'      && (canViewPrivate ? <UserProfilePermissionsPage userId={user_id} /> : null)}
       {props.childRoute === 'change-password'  && (canViewPrivate ? <UserProfileChangePasswordPage /> : null)}
       {props.childRoute === 'sessions'         && (canViewPrivate ? <UserProfileSessionsPage /> : null)}
-      {props.childRoute === 'my-teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'my-rosters' && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-content-judge' && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} />}
+      {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} />}
     </ProfileLayout>
   )
 }
