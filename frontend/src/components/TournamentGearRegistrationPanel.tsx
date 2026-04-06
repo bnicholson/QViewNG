@@ -244,7 +244,7 @@ export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
           You don't have any gear in your profile yet. Add gear to your profile before
           registering it for this tournament.
         </Alert>
-        <Button variant="outlined" onClick={() => navigate(`/user/${userId}/as-coach-gear`)}>
+        <Button variant="outlined" onClick={() => navigate(`/user/${userId}/my-gear`)}>
           Go to My Gear →
         </Button>
       </Stack>
@@ -268,7 +268,7 @@ export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
           size="small"
           variant="outlined"
           sx={{ ml: 'auto' }}
-          onClick={() => navigate(`/user/${userId}/as-coach-gear`)}
+          onClick={() => navigate(`/user/${userId}/my-gear`)}
         >
           Manage My Gear →
         </Button>

@@ -22,8 +22,8 @@ type ChildRoute =
   | 'sessions'
   | 'as-quizzer'
   | 'as-coach'
-  | 'as-coach-rosters'
-  | 'as-coach-gear'
+  | 'my-rosters'
+  | 'my-gear'
   | 'as-admin'
   | 'as-quizmaster'
   | 'as-content-judge'
@@ -51,9 +51,9 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const navItems: NavItem[] = [
     { kind: 'route', label: 'Overview',             to: `/user/${user_id}/overview`         },
     { kind: 'route', label: 'As Quizzer',           to: `/user/${user_id}/as-quizzer`       },
-    { kind: 'route', label: 'As Coach: Rosters', to: `/user/${user_id}/as-coach-rosters`  },
-    { kind: 'route', label: 'As Coach: Teams',           to: `/user/${user_id}/as-coach`                  },
-    { kind: 'route', label: 'As Coach: Gear',            to: `/user/${user_id}/as-coach-gear`             },
+    { kind: 'route', label: 'My Rosters',         to: `/user/${user_id}/my-rosters`  },
+    { kind: 'route', label: 'As Coach: Teams',   to: `/user/${user_id}/as-coach`          },
+    { kind: 'route', label: 'My Gear',           to: `/user/${user_id}/my-gear`     },
     { kind: 'route', label: 'As Quizmaster',        to: `/user/${user_id}/as-quizmaster`    },
     { kind: 'route', label: 'As Content Judge',     to: `/user/${user_id}/as-content-judge` },
     { kind: 'route', label: 'As Admin',             to: `/user/${user_id}/as-admin`         },
@@ -72,8 +72,8 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
       {props.childRoute === 'sessions'         && (canViewPrivate ? <UserProfileSessionsPage /> : null)}
       {props.childRoute === 'as-quizzer'       && <UserProfileAsQuizzerPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-coach'                  && <UserProfileAsCoachPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-coach-rosters'  && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-coach-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'my-rosters'  && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-content-judge' && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} />}

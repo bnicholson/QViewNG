@@ -58,7 +58,7 @@ function AllQuizzersPanel({ allQuizzers, loading, rosterCount }: { allQuizzers: 
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: "left" }}>
-        Rosters organize your quizzers and are used when registering teams for tournaments. 
+        As a Coach, rosters organize your quizzers and are used when registering teams for tournaments. 
         Each tab above is a roster you manage.
         Quizzers can exist in 1 or more rosters. 
         You can share rosters with your co-leaders also.

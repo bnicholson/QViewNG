@@ -313,7 +313,7 @@ function AllGearPanel({
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'left' }}>
-        gear sets help organize your equipment for tournaments. Each piece of gear belongs to exactly
+        Gear sets help organize your equipment when registering for tournaments. Each piece of gear belongs to exactly
         one gear set. This tab shows all gear across your {gearSets.length} gear set{gearSets.length !== 1 ? 's' : ''}.
         Use the <DriveFileMoveIcon sx={{ fontSize: 14, verticalAlign: 'middle' }} /> button on any row to move gear between sets.
       </Typography>

@@ -599,7 +599,7 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
             size="small"
             variant="text"
             sx={{ p: 0, minWidth: 0, textDecoration: 'underline', verticalAlign: 'baseline' }}
-            onClick={() => navigate(`/user/${userId}/as-coach-rosters`)}
+            onClick={() => navigate(`/user/${userId}/my-rosters`)}
           >
             Add quizzers to a roster
           </Button>
