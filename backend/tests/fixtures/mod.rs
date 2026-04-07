@@ -24,4 +24,4 @@ pub mod powerstrips;
 pub mod extensioncords;
 pub mod apicalllogs;
 pub mod roles;
-pub mod permissions;
+pub mod permissions;pub mod create_tournament_applicants;

@@ -75,6 +75,19 @@ diesel::table! {
 }
 
 diesel::table! {
+    create_tournament_applicants (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        request_context -> Nullable<Text>,
+        #[max_length = 64]
+        status -> Varchar,
+        created_at -> Timestamptz,
+        modified_at -> Timestamptz,
+        last_modified_user_id -> Uuid,
+    }
+}
+
+diesel::table! {
     divisions (did) {
         did -> Uuid,
         tid -> Uuid,
@@ -681,6 +694,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     attachment_blobs,
     attachments,
     computers,
+    create_tournament_applicants,
     divisions,
     equipment,
     equipmentregistrations,

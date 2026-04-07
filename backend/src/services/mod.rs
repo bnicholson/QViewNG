@@ -29,3 +29,4 @@ pub mod users_roles;
 // pub mod pingmsg;
 // pub mod namelist;
 // pub mod roominfo;
+pub mod create_tournament_applicant;

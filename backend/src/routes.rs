@@ -33,6 +33,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::users_roles::endpoints(web::scope("/usersroles")))
             .service(services::tournamentgroup::endpoints(web::scope("/tournamentgroups")))
             .service(services::statsgroup::endpoints(web::scope("/statsgroups")))
+            .service(services::create_tournament_applicant::endpoints(web::scope("/createtournamentapplicants")))
             .service(services::roster::endpoints(web::scope("/rosters")))
             .service(services::equipmentset::endpoints(web::scope("/equipmentsets")))
             .service(services::equipmentregistration::endpoints(web::scope("/equipmentregistrations")))
