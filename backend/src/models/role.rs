@@ -13,7 +13,7 @@ use uuid::Uuid;
 #[derive(EnumIter)]
 pub enum AppRole {
     Member,
-    TournamentManager,
+    TournamentManager,  // AKA, Tournament Owner/Creator
     TournamentAdmin,
     SuperUser,
 }

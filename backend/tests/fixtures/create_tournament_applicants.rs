@@ -1,4 +1,4 @@
-use backend::{database, models::{create_tournament_applicant::{CreateTournamentApplicant, CreateTournamentApplicantBuilder}, user::{User, UserBuilder}}};
+use backend::{database, database::seed_data::system_default_data::insert_system_default_data, models::{create_tournament_applicant::{CreateTournamentApplicant, CreateTournamentApplicantBuilder}, user::{User, UserBuilder}}};
 
 pub fn seed_user(db: &mut database::Connection) -> User {
     UserBuilder::new_default("Applicant User")
@@ -37,6 +37,7 @@ pub fn arrange_get_by_id_works_integration_test(db: &mut database::Connection) -
 }
 
 pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> (CreateTournamentApplicant, User) {
+    insert_system_default_data(db);
     let user = seed_user(db);
     let item = CreateTournamentApplicantBuilder::new_default(user.id, user.id)
         .set_request_context(Some("Update test request.".to_string()))

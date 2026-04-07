@@ -1,6 +1,6 @@
 use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::database::Database;
-use crate::models::{self, common::PaginationParams, create_tournament_applicant::{NewCreateTournamentApplicant, CreateTournamentApplicant, CreateTournamentApplicantChangeset}};
+use crate::models::{self, common::PaginationParams, create_tournament_applicant::{NewCreateTournamentApplicant, CreateTournamentApplicant, CreateTournamentApplicantChangeset}, role::AppRole, users_roles::NewUsersRole};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -75,6 +75,14 @@ async fn update(
     models::apicalllog::create(&mut conn, &req);
 
     let result = models::create_tournament_applicant::update(&mut conn, item_id.into_inner(), &item);
+
+    if item.status.as_deref() == Some("approved") {
+        if let Ok(ref updated) = result {
+            if let Ok(role) = models::role::read_by_name(&mut conn, AppRole::TournamentManager.as_str()) {
+                let _ = models::users_roles::create(&mut conn, NewUsersRole { user_id: updated.user_id, role_id: role.id });
+            }
+        }
+    }
 
     let response: EntityResponse<CreateTournamentApplicant> = process_response(result, "put");
 

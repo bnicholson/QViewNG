@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, create_tournament_applicant::CreateTournamentApplicant}, services::common::PagedResponse};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, create_tournament_applicant::CreateTournamentApplicant, role::AppRole}, services::common::PagedResponse};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
@@ -183,6 +183,16 @@ async fn update_works() {
     assert_eq!(updated.status.as_str(), "approved");
     assert_eq!(updated.last_modified_user_id, user.id);
     assert_ne!(updated.modified_at, item.modified_at);
+
+    // When status is approved, the applicant's user should be assigned the tournament_manager role:
+    let tournament_manager_role = models::role::read_by_name(&mut conn, AppRole::TournamentManager.as_str())
+        .expect("tournament_owner role should exist");
+    let users_roles = models::users_roles::read_all_for_user(&mut conn, item.user_id)
+        .expect("Should be able to read users_roles");
+    assert!(
+        users_roles.iter().any(|ur| ur.role_id == tournament_manager_role.id),
+        "Applicant user should have been assigned the tournament_owner role on approval"
+    );
 
     let apicalllog_records: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
     assert_eq!(apicalllog_records.iter().count(), 1);
