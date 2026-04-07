@@ -14,7 +14,9 @@ pub struct RoomBuilder {
     building: Option<String>,                       // What is the building this room is in
     comments: Option<String>,                       // Any comments about the room,
     tid: Uuid,                                      // id of the associated tournament
-    clientkey: Option<String>
+    clientkey: Option<String>,
+    quizmaster_id: Option<Uuid>,
+    contentjudge_id: Option<Uuid>,
 }
 
 impl RoomBuilder {
@@ -24,7 +26,9 @@ impl RoomBuilder {
             building: None,
             comments: None,
             tid: tid,
-            clientkey: None
+            clientkey: None,
+            quizmaster_id: None,
+            contentjudge_id: None,
         }
     }
     pub fn new_default(room_name: &str, tid: Uuid) -> Self {
@@ -33,7 +37,9 @@ impl RoomBuilder {
             building: Some("Building 451".to_string()),
             comments: Some("None at this time.".to_string()),
             tid: tid,
-            clientkey: Some("".to_string())
+            clientkey: Some("".to_string()),
+            quizmaster_id: None,
+            contentjudge_id: None,
         }
     }
     pub fn set_name(mut self, room_name: String) -> Self {
@@ -54,6 +60,14 @@ impl RoomBuilder {
     }
     pub fn set_clientkey(mut self, clientkey: Option<String>) -> Self {
         self.clientkey = clientkey;
+        self
+    }
+    pub fn set_quizmaster_id(mut self, quizmaster_id: Option<Uuid>) -> Self {
+        self.quizmaster_id = quizmaster_id;
+        self
+    }
+    pub fn set_contentjudge_id(mut self, contentjudge_id: Option<Uuid>) -> Self {
+        self.contentjudge_id = contentjudge_id;
         self
     }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
@@ -87,7 +101,9 @@ impl RoomBuilder {
                         building: self.building.unwrap(),    // What is the building this room is in
                         comments: self.comments.unwrap(),    // Any comments about the room,
                         tid: self.tid,                       // id of the associated tournament
-                        clientkey: self.clientkey.unwrap()
+                        clientkey: self.clientkey.unwrap(),
+                        quizmaster_id: self.quizmaster_id,
+                        contentjudge_id: self.contentjudge_id,
                     }
                 )
             }
@@ -120,7 +136,9 @@ pub struct Room {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub tid: Uuid,                              // id of the associated tournament
-    pub clientkey: String                       // registraiton key from the QuizMachine client, used here for ID
+    pub clientkey: String,                      // registration key from the QuizMachine client, used here for ID
+    pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
+    pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
 }
 
 #[derive(
@@ -135,18 +153,22 @@ pub struct NewRoom {
     pub building: String,                       // What is the building this room is in
     pub comments: String,                       // Any comments about the room,
     pub tid: Uuid,                              // id of the associated tournament
-    pub clientkey: String
+    pub clientkey: String,
+    pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
+    pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
 }
 
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::rooms)]
 #[diesel(primary_key(roomid))]
-pub struct RoomChangeset {   
+pub struct RoomChangeset {
     pub name: Option<String>,                   // Name of the room (human readable)
     pub building: Option<String>,               // What is the building this room is in
     pub comments: Option<String>,               // Any comments about the room
-    pub clientkey: Option<String>
+    pub clientkey: Option<String>,
+    pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
+    pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
 }
 
 pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room> {

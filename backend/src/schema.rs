@@ -401,6 +401,8 @@ diesel::table! {
         tid -> Uuid,
         #[max_length = 64]
         clientkey -> Varchar,
+        quizmaster_id -> Nullable<Uuid>,
+        contentjudge_id -> Nullable<Uuid>,
     }
 }
 
