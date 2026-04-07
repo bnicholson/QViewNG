@@ -87,15 +87,37 @@ export const GameEditorDialog = (props: Props) => {
   const [rounds, setRounds] = useState<RoundTS[]>([]);
   const [teams, setTeams] = useState<TeamTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
+  const [qmFromRoom, setQmFromRoom] = useState(false);
+  const [cjFromRoom, setCjFromRoom] = useState(false);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
     setForm(emptyState);
+    setQmFromRoom(false);
+    setCjFromRoom(false);
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg('');
     setAlertOpened(false);
+  };
+
+  const handleRoomChange = (roomid: string) => {
+    const room = rooms.find(r => r.roomid === roomid);
+    const patch: Partial<GameFormState> = { roomid };
+    if (room?.quizmaster_id) {
+      patch.quizmasterid = room.quizmaster_id;
+      setQmFromRoom(true);
+    } else {
+      setQmFromRoom(false);
+    }
+    if (room?.contentjudge_id) {
+      patch.contentjudgeid = room.contentjudge_id;
+      setCjFromRoom(true);
+    } else {
+      setCjFromRoom(false);
+    }
+    set(patch);
   };
 
   useEffect(() => {
@@ -184,7 +206,7 @@ export const GameEditorDialog = (props: Props) => {
   });
 
   const userLabel = (u: UserTS) =>
-    [u.fname, u.mname, u.lname].filter(Boolean).join(' ') + ` (@${u.username})`;
+    [u.fname, u.mname, u.lname].filter(Boolean).join(' ');  // + ` (@${u.username})`;
 
   const set = (patch: Partial<GameFormState>) => setForm(s => ({ ...s, ...patch }));
 
@@ -240,7 +262,7 @@ export const GameEditorDialog = (props: Props) => {
               </Grid>
               <Grid item xs={12} sm={4}>
                 <InputLabel>Room (*required)</InputLabel>
-                <Select value={form.roomid} onChange={(e) => set({ roomid: e.target.value })}
+                <Select value={form.roomid} onChange={(e) => handleRoomChange(e.target.value)}
                   displayEmpty fullWidth
                   renderValue={(v) => v ? (rooms.find(r => r.roomid === v)?.name ?? v) : <em>Select a room</em>}
                 >
@@ -294,12 +316,15 @@ export const GameEditorDialog = (props: Props) => {
           </ListItem>
 
           {/* Row 3: Quizmaster, Content Judge */}
-          <ListItem>
+          <ListItem sx={{ display: 'block' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Note: At the time of Game creation, Games that have Rooms specified inherit the Quizmaster and Content Judge of the Room.
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <InputLabel>Quizmaster (*required)</InputLabel>
                 <Select value={form.quizmasterid} onChange={(e) => set({ quizmasterid: e.target.value })}
-                  displayEmpty fullWidth
+                  displayEmpty fullWidth disabled={qmFromRoom}
                   renderValue={(v) => {
                     if (!v) return <em>Select a quizmaster</em>;
                     const u = users.find(u => u.id === v);
@@ -308,11 +333,14 @@ export const GameEditorDialog = (props: Props) => {
                 >
                   {users.map(u => <MenuItem key={u.id} value={u.id}>{userLabel(u)}</MenuItem>)}
                 </Select>
+                {qmFromRoom && (
+                  <Typography variant="caption" color="text.secondary">Set by Room</Typography>
+                )}
               </Grid>
               <Grid item xs={12} sm={6}>
                 <InputLabel>Content Judge</InputLabel>
                 <Select value={form.contentjudgeid} onChange={(e) => set({ contentjudgeid: e.target.value })}
-                  displayEmpty fullWidth
+                  displayEmpty fullWidth disabled={cjFromRoom}
                   renderValue={(v) => {
                     if (!v) return <em>None</em>;
                     const u = users.find(u => u.id === v);
@@ -322,6 +350,9 @@ export const GameEditorDialog = (props: Props) => {
                   <MenuItem value=""><em>None</em></MenuItem>
                   {users.map(u => <MenuItem key={u.id} value={u.id}>{userLabel(u)}</MenuItem>)}
                 </Select>
+                {cjFromRoom && (
+                  <Typography variant="caption" color="text.secondary">Set by Room</Typography>
+                )}
               </Grid>
             </Grid>
           </ListItem>

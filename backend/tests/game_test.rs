@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::NewGame, gameevent::GameEvent, statsgroup::StatsGroup}, services::common::PagedResponse};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, gameevent::GameEvent, statsgroup::StatsGroup}, services::common::PagedResponse};
 use backend::models::game::Game;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -20,7 +20,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id) =
+    let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, cj_id) =
         fixtures::games::arrange_game_create_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -55,8 +55,10 @@ async fn create_works() {
     assert_eq!(body.message, "");
 
     let game = body.data.unwrap();
+    let room = backend::models::room::read(&mut conn, room_id).expect("Room should exist");
     assert_eq!(game.divisionid, did);
-    assert_eq!(game.quizmasterid, qm_id);
+    assert_eq!(game.quizmasterid, room.quizmaster_id.expect("Room should have a quizmaster"));
+    assert_eq!(game.contentjudgeid, room.contentjudge_id);
     assert_eq!(game.leftteamid, left_team_id);
 
     // Check that ApiCalllog is recording API calls for this endpoint:

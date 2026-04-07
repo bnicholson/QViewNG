@@ -1187,11 +1187,12 @@ pub fn arrange_game_update_works_integration_test(
     (tournament, game, owner, admin_user, unrelated_user)
 }
 
-/// Returns `(tournament, owner, admin_user, unrelated_user, round_id, room_id, division_id, left_team_id, center_team_id, right_team_id, quizmaster_id)`
+/// Returns `(tournament, owner, admin_user, unrelated_user, round_id, room_id, division_id, left_team_id, center_team_id, right_team_id, quizmaster_id, contentjudge_id)`
 /// for testing game create ABAC: owner and admin should be allowed, unrelated user should not.
+/// The room has quizmaster_id and contentjudge_id set; a created game should inherit them.
 pub fn arrange_game_create_works_integration_test(
     db: &mut database::Connection,
-) -> (Tournament, User, User, User, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
+) -> (Tournament, User, User, User, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
     let owner = UserBuilder::new_default("Tour Owner")
         .set_hash_password("OwnerPwd123!")
         .build_and_insert(db)
@@ -1221,14 +1222,20 @@ pub fn arrange_game_create_works_integration_test(
     let round = RoundBuilder::new_default(division.did)
         .build_and_insert(db)
         .unwrap();
-    let room = RoomBuilder::new_default("Room 1", tournament.tid)
-        .build_and_insert(db)
-        .unwrap();
     let quizmaster = UserBuilder::new_default("Quizmaster")
         .set_hash_password("QuizmasterPwd123!")
         .build_and_insert(db)
         .unwrap();
+    let content_judge = UserBuilder::new_default("Content Judge")
+        .set_hash_password("ContentJudgePwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let room = RoomBuilder::new_default("Room 1", tournament.tid)
+        .set_quizmaster_id(Some(quizmaster.id))
+        .set_contentjudge_id(Some(content_judge.id))
+        .build_and_insert(db)
+        .unwrap();
     let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
 
-    (tournament, owner, admin_user, unrelated_user, round.roundid, room.roomid, division.did, teams.0.teamid, teams.1.teamid, teams.2.teamid, quizmaster.id)
+    (tournament, owner, admin_user, unrelated_user, round.roundid, room.roomid, division.did, teams.0.teamid, teams.1.teamid, teams.2.teamid, quizmaster.id, content_judge.id)
 }

@@ -150,6 +150,20 @@ async fn create(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
+    // Inherit quizmaster and content judge from the room if the room has them set.
+    let item = if let Ok(room) = models::room::read(&mut conn, item.roomid) {
+        let mut item = item;
+        if let Some(qm_id) = room.quizmaster_id {
+            item.quizmasterid = qm_id;
+        }
+        if room.contentjudge_id.is_some() {
+            item.contentjudgeid = room.contentjudge_id;
+        }
+        item
+    } else {
+        item
+    };
+
     let result: QueryResult<Game> = models::game::create(&mut conn, &item);
 
     let response: EntityResponse<Game> = process_response(result, "post");

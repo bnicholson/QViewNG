@@ -21,7 +21,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tournament, division, owner, admin_user, unrelated_user) =
+    let (_, division, owner, admin_user, unrelated_user) =
         fixtures::rounds::arrange_round_create_works_integration_test(&mut conn);
 
     let mut payload = fixtures::rounds::get_round_payload(division.did);
@@ -246,7 +246,7 @@ async fn update_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tournament, division, round, owner, admin_user, unrelated_user) =
+    let (_, division, round, owner, admin_user, unrelated_user) =
         fixtures::rounds::arrange_round_update_works_integration_test(&mut conn);
 
     let app = test::init_service(

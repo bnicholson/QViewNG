@@ -437,7 +437,7 @@ async fn update_works() {
 
     clean_database();
 
-    let (_tournament, _division, team, coach_user, unrelated_user) =
+    let (_tournament, _division, team, coach_user, _) =
         fixtures::teams::arrange_team_update_as_coach_works_integration_test(&mut conn);
 
     let put_uri = format!("/api/teams/{}", team.teamid);

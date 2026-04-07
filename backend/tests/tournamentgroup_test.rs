@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, tournament::Tournament, tournamentgroup_tournament::TournamentGroupTournament, user::UserBuilder}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, tournament::Tournament, tournamentgroup_tournament::TournamentGroupTournament}};
 use backend::models::tournamentgroup::{TournamentGroup, NewTournamentGroupPayload};
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};

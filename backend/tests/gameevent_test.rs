@@ -3,12 +3,11 @@ mod common;
 mod fixtures;
 
 use actix_http::StatusCode;
-use actix_web::{App, test, web::{self,Bytes}};
+use actix_web::{App, test, web};
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
 use backend::models::gameevent::GameEvent;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
-use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
 #[actix_web::test]

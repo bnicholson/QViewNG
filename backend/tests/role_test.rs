@@ -14,20 +14,20 @@ use crate::common::{TEST_DB_URL, clean_database};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-fn make_app_and_db() -> (Database, impl std::future::Future<Output = impl actix_web::dev::Service<
-    actix_http::Request,
-    Response = actix_web::dev::ServiceResponse,
-    Error = actix_web::Error,
->>) {
-    let db = Database::new(TEST_DB_URL);
-    let db_clone = Database::new(TEST_DB_URL);
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db_clone))
-            .configure(configure_routes)
-    );
-    (db, app)
-}
+// fn make_app_and_db() -> (Database, impl std::future::Future<Output = impl actix_web::dev::Service<
+//     actix_http::Request,
+//     Response = actix_web::dev::ServiceResponse,
+//     Error = actix_web::Error,
+// >>) {
+//     let db = Database::new(TEST_DB_URL);
+//     let db_clone = Database::new(TEST_DB_URL);
+//     let app = test::init_service(
+//         App::new()
+//             .app_data(web::Data::new(db_clone))
+//             .configure(configure_routes)
+//     );
+//     (db, app)
+// }
 
 // ── POST /api/roles ───────────────────────────────────────────────────────────
 

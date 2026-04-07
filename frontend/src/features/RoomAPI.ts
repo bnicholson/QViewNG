@@ -7,6 +7,8 @@ export interface RoomTS {
   clientkey: string;
   created_at: string;
   updated_at: string;
+  quizmaster_id: string | null;
+  contentjudge_id: string | null;
 }
 
 export interface NewRoomPayload {
@@ -15,6 +17,8 @@ export interface NewRoomPayload {
   building: string;
   comments: string;
   clientkey: string;
+  quizmaster_id?: string | null;
+  contentjudge_id?: string | null;
 }
 
 export interface PagedRooms {
@@ -32,10 +36,13 @@ export const RoomAPI = {
     if (!response.ok) throw new Error(`Room not found (${response.status})`);
     return response.json();
   },
-  create: async (room: NewRoomPayload): Promise<RoomTS> => {
+  create: async (room: NewRoomPayload, accessToken?: string): Promise<RoomTS> => {
     const response = await fetch('/api/rooms', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(room),
     });
     if (!response.ok) {
@@ -44,17 +51,25 @@ export const RoomAPI = {
     }
     return response.json();
   },
-  delete: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
+  delete: async (id: string, accessToken?: string): Promise<void> => {
+    const response = await fetch(`/api/rooms/${id}`, {
+      method: 'DELETE',
+      headers: {
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
+    });
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`Failed to delete room (${response.status}): ${text}`);
     }
   },
-  update: async (id: string, room: Partial<NewRoomPayload>): Promise<RoomTS> => {
+  update: async (id: string, room: Partial<NewRoomPayload>, accessToken?: string): Promise<RoomTS> => {
     const response = await fetch(`/api/rooms/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(room),
     });
     if (!response.ok) {
