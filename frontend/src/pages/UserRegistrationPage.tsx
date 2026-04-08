@@ -78,6 +78,7 @@ export const UserRegistrationPage = () => {
       <div style={{ display: 'flex', flexFlow: 'column' }}>
         <label>First Name</label>
         <input
+          autoFocus
           value={fname}
           onChange={(e) => { setFname(e.target.value); setFnameError(null) }}
           onBlur={() => setFnameError(fname.trim() ? null : 'First name is required.')}

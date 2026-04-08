@@ -37,6 +37,23 @@ export const CreateTournamentApplicantAPI = {
     return body.data;
   },
 
+  getByUser: async (userId: string): Promise<CreateTournamentApplicantTS[]> =>
+    (await fetch(`/api/createtournamentapplicants/user/${userId}`)).json(),
+
+  create: async (payload: { user_id: string; last_modified_user_id: string; request_context?: string }): Promise<CreateTournamentApplicantTS> => {
+    const response = await fetch('/api/createtournamentapplicants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, status: 'pending' }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Failed to submit application (${response.status}): ${text}`);
+    }
+    const body = await response.json();
+    return body.data;
+  },
+
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/createtournamentapplicants/${id}`, { method: 'DELETE' });
     if (!response.ok) throw new Error(`Failed to delete applicant (${response.status})`);

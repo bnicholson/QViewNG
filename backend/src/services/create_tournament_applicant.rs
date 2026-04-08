@@ -63,6 +63,22 @@ async fn create(
     }
 }
 
+#[get("/user/{user_id}")]
+async fn read_by_user(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::create_tournament_applicant::read_by_user(&mut conn, user_id.into_inner()) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[put("/{id}")]
 async fn update(
     db: Data<Database>,
@@ -115,6 +131,7 @@ async fn destroy(
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     scope
         .service(index)
+        .service(read_by_user)
         .service(read)
         .service(create)
         .service(update)

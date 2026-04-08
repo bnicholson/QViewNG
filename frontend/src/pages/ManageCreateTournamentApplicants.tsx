@@ -1,7 +1,5 @@
-// import Box from '@mui/material/Box'
-// import Divider from '@mui/material/Divider'
 import Stack from '@mui/material/Stack'
-// import Typography from '@mui/material/Typography'
+import Typography from '@mui/material/Typography'
 import CreateTournamentApplicantsTable from '../components/CreateTournamentApplicantsTable'
 import { useAuth } from '../hooks/useAuth'
 
@@ -10,18 +8,12 @@ export const ManageCreateTournamentApplicants = () => {
   const userId = session?.userId ?? '';
 
   return (
-    <Stack spacing={3}>
-      {/* <Box>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
-          Tournament Applicants
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Review and update the status of tournament creation applications.
-        </Typography>
-      </Box>
-
-      <Divider /> */}
-
+    <Stack spacing={2}>
+      <Typography variant="body2" color="text.secondary">
+        Note: To 'Approve' or 'Decline' an application, click the status label, change the status and save.
+        <br/>
+        Once status is no longer 'Pending' it cannot be updated; the user must submit a new application.
+      </Typography>
       <CreateTournamentApplicantsTable currentUserId={userId ?? ''} />
     </Stack>
   );

@@ -35,6 +35,7 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const { user_id } = useParams<{ user_id: string }>()
   const [userName, setUserName] = useState<{ fname: string; lname: string } | null>(null)
   const [targetIsSuperUser, setTargetIsSuperUser] = useState<boolean | null>(null)
+  const [targetIsTournamentManager, setTargetIsTournamentManager] = useState<boolean>(false)
 
   useEffect(() => {
     if (!user_id) return
@@ -45,6 +46,7 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
     ]).then(([userData, rolesData]) => {
       if (userData) setUserName({ fname: userData.fname, lname: userData.lname })
       setTargetIsSuperUser(rolesData?.roles?.includes('super_user') ?? false)
+      setTargetIsTournamentManager(rolesData?.roles?.includes('tournament_manager') ?? false)
     }).catch(() => { setTargetIsSuperUser(false) })
   }, [user_id])
 
@@ -56,9 +58,10 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   if (targetIsSuperUser && !isSuperUser) return <Navigate to="/404" replace />
 
   const isOwnProfile = auth.session?.userId === user_id
+  const isTournamentManager = isSuperUser || (auth.session?.hasRole('tournament_manager') ?? false)
   const canViewPrivate = isSuperUser || isOwnProfile
-  const canManageTournaments = (isOwnProfile || isSuperUser) && (isSuperUser || (auth.session?.hasPermission('tournament:create') ?? false))
-  const canManageTournamentGroups = (isOwnProfile || isSuperUser) && (isSuperUser || (auth.session?.hasPermission('tournamentgroup:create') ?? false))
+  const canManageTournaments = isOwnProfile || isSuperUser
+  const canManageTournamentGroups = (isOwnProfile || isSuperUser) && isTournamentManager && (isSuperUser || (auth.session?.hasPermission('tournamentgroup:create') ?? false))
   const canCreateTournament = isSuperUser || (auth.session?.hasPermission('tournament:create') ?? false)
   const canDeleteTournament = isSuperUser || (auth.session?.hasPermission('tournament:delete') ?? false)
   const canCreateTournamentGroup = isSuperUser || (auth.session?.hasPermission('tournamentgroup:create') ?? false)
@@ -99,8 +102,8 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
       {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} />}
       {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} />}
-      {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} />}
+      {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} isTournamentManager={isTournamentManager} isSuperUser={isSuperUser} targetIsSuperUser={targetIsSuperUser ?? false} targetIsTournamentManager={targetIsTournamentManager} />}
+      {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} isSuperUser={isSuperUser} targetIsTournamentManager={targetIsTournamentManager} />}
     </ProfileLayout>
   )
 }

@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import {
   CreateTournamentApplicantAPI,
   type CreateTournamentApplicantTS,
 } from '../features/CreateTournamentApplicantAPI';
+import { UserAPI } from '../features/UserAPI';
 import { CreateTournamentApplicantEditorDialog } from './CreateTournamentApplicantEditorDialog';
 
 function formatDate(iso: string | null | undefined): string {
@@ -20,7 +22,7 @@ function StatusBadge({ status }: { status: string }) {
     declined: { background: '#fce8e6', color: '#c0392b', border: '1px solid #f5c6cb' },
   };
   const labels: Record<string, string> = {
-    pending: 'Applied', approved: 'Approved', declined: 'Declined',
+    pending: 'Pending', approved: 'Approved', declined: 'Declined',
   };
   const style = styles[status] ?? { background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' };
   return (
@@ -34,27 +36,43 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function applicantColumns(onEdit: (a: CreateTournamentApplicantTS) => void): ColumnDef<CreateTournamentApplicantTS>[] {
+function applicantColumns(
+  onEdit: (a: CreateTournamentApplicantTS) => void,
+  userNames: Record<string, string>,
+): ColumnDef<CreateTournamentApplicantTS>[] {
   return [
     {
-      header: 'User ID',
-      render: (a) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#6b7280' }}>
-          {a.user_id}
-        </span>
-      ),
+      header: 'Name',
+      render: (a) => {
+        const name = userNames[a.user_id];
+        return (
+          <Link
+            to={`/user/${a.user_id}/overview`}
+            style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+          >
+            {name ?? '—'}
+          </Link>
+        );
+      },
     },
     {
       header: 'Status',
-      render: (a) => (
-        <button
-          onClick={() => onEdit(a)}
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-          title="Edit applicant"
-        >
+      render: (a) => {
+        const editable = a.status === 'pending';
+        return editable ? (
+          <button
+            onClick={() => onEdit(a)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+            title="Edit applicant"
+          >
+            <StatusBadge status={a.status} />
+          </button>
+        ) : (
           <StatusBadge status={a.status} />
-        </button>
-      ),
+        );
+      },
     },
     {
       header: 'Request Context',
@@ -72,6 +90,22 @@ function applicantColumns(onEdit: (a: CreateTournamentApplicantTS) => void): Col
       header: 'Last Modified',
       render: (a) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(a.modified_at)}</span>,
     },
+    {
+      header: 'Last Modified By',
+      render: (a) => {
+        const name = userNames[a.last_modified_user_id];
+        return (
+          <Link
+            to={`/user/${a.last_modified_user_id}/overview`}
+            style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+          >
+            {name ?? '—'}
+          </Link>
+        );
+      },
+    },
   ];
 }
 
@@ -85,6 +119,21 @@ export default function CreateTournamentApplicantsTable({ currentUserId }: Props
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editing, setEditing] = useState<CreateTournamentApplicantTS | undefined>(undefined);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
+
+  const loadUserNames = useCallback((applicants: CreateTournamentApplicantTS[]) => {
+    const ids = [...new Set([
+      ...applicants.map(a => a.user_id),
+      ...applicants.map(a => a.last_modified_user_id),
+    ])];
+    Promise.all(ids.map(id => UserAPI.getById(id).catch(() => null))).then(users => {
+      const names: Record<string, string> = {};
+      users.forEach((u, i) => {
+        if (u) names[ids[i]] = [u.fname, u.mname, u.lname].filter(Boolean).join(' ');
+      });
+      setUserNames(prev => ({ ...prev, ...names }));
+    });
+  }, []);
 
   const load = useCallback((p: number, ps: number) => {
     CreateTournamentApplicantAPI.get(p, ps)
@@ -93,9 +142,10 @@ export default function CreateTournamentApplicantsTable({ currentUserId }: Props
         setPageSize(ps);
         setTotalCount(result.count);
         setItems(result.items);
+        loadUserNames(result.items);
       })
       .catch(() => console.error('Failed to load applicants'));
-  }, []);
+  }, [loadUserNames]);
 
   useEffect(() => { load(0, DEFAULT_PAGE_SIZE); }, [load]);
 
@@ -128,7 +178,8 @@ export default function CreateTournamentApplicantsTable({ currentUserId }: Props
       <DataTableTemplate<CreateTournamentApplicantTS>
         entityLabel="Applicant"
         showCreateButton={false}
-        columns={applicantColumns((a) => setEditing(a))}
+        showDeleteButton={false}
+        columns={applicantColumns((a) => setEditing(a), userNames)}
         rows={items}
         totalCount={totalCount}
         getId={(a) => a.id}

@@ -34,7 +34,7 @@ export const LoginPage = () => {
       <form onSubmit={(e) => { e.preventDefault(); login() }}>
       <div style={{ display: 'flex', flexFlow: 'column' }}>
         <label>Email or Username</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <div style={{ display: 'flex', flexFlow: 'column' }}>
         <label>Password</label>

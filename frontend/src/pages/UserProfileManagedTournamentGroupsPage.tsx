@@ -43,9 +43,11 @@ interface Props {
   userId: string
   canCreate: boolean
   canDelete: boolean
+  isSuperUser: boolean
+  targetIsTournamentManager: boolean
 }
 
-export const UserProfileManagedTournamentGroupsPage = ({ userId, canCreate, canDelete }: Props) => {
+export const UserProfileManagedTournamentGroupsPage = ({ userId, canCreate, canDelete, isSuperUser, targetIsTournamentManager }: Props) => {
   const [allRows, setAllRows] = useState<TournamentGroupTS[]>([])
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
@@ -77,8 +79,15 @@ export const UserProfileManagedTournamentGroupsPage = ({ userId, canCreate, canD
 
   return (
     <Box>
+      {isSuperUser && !targetIsTournamentManager && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: "left" }}>
+          Note: <em>This user does not have the appropriate permissions to create or manage Tournaments and Tournament Groups.</em>
+        </Typography>
+      )}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'left' }}>
         This page shows all tournament groups that you are the owner and manager of.
+        <br/><br/>
+        Use Tournament Groups to get multi-Tournament stats results and create linked Tournament histories (for example: for a district's season's Tournaments, for recurring annual/semi-annual Tournaments, etc.)
       </Typography>
       <DataTableTemplate<TournamentGroupTS>
         entityLabel="Tournament Group"

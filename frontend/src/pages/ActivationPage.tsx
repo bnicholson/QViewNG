@@ -39,6 +39,7 @@ export const ActivationPage = () => {
         <div style={{ display: 'flex', flexFlow: 'column' }}>
           <label>Activation Token</label>
           <input
+            autoFocus
             value={activationToken}
             onChange={(e) => { setActivationToken(e.target.value); setError(null) }}
           />

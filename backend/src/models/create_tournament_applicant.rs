@@ -116,6 +116,14 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<CreateTournamentApplicant>(db)
 }
 
+pub fn read_by_user(db: &mut database::Connection, uid: Uuid) -> QueryResult<Vec<CreateTournamentApplicant>> {
+    use crate::schema::create_tournament_applicants::dsl::*;
+    create_tournament_applicants
+        .filter(user_id.eq(uid))
+        .order(created_at.asc())
+        .load::<CreateTournamentApplicant>(db)
+}
+
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::create_tournament_applicants::dsl::*;
     create_tournament_applicants.count().get_result(db)

@@ -5,8 +5,8 @@ import { ManageUsers } from './ManageUsers'
 import { ManageCreateTournamentApplicants } from './ManageCreateTournamentApplicants'
 
 const navItems = [
-  { kind: 'route' as const, label: 'Users',                  to: '/crm/users'                          },
-  { kind: 'route' as const, label: 'Tournament Applicants',  to: '/crm/create-tournament-applicants'   },
+  { kind: 'route' as const, label: 'Users',                         to: '/crm/users'                          },
+  { kind: 'route' as const, label: 'Create Tournament Applicants',  to: '/crm/create-tournament-applicants'   },
 ]
 
 export const CRMProfile = (props: { childRoute?: string }) => {

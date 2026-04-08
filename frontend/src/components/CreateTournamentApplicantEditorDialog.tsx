@@ -33,7 +33,7 @@ const Transition = React.forwardRef(function Transition(
 });
 
 const STATUS_OPTIONS = [
-  { label: 'Applied',  value: 'pending'  },
+  { label: 'Pending',  value: 'pending'  },
   { label: 'Approved', value: 'approved' },
   { label: 'Declined', value: 'declined' },
 ] as const;
