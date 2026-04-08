@@ -1,8 +1,9 @@
-use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, division::DivisionBuilder, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 
 pub fn seed_data_one(db: &mut database::Connection) {
     add_tour_1_demo(db);
+    create_tournament_applicants(db);
 }
 
 pub fn add_tour_1_demo(db: &mut database::Connection) {
@@ -1281,4 +1282,71 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
             .build_and_insert(db)
             .unwrap();
     }
+}
+
+pub fn create_tournament_applicants(db: &mut database::Connection) {
+
+    let member_role             = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
+    let tournament_manager_role = crate::models::role::read_by_name(db, AppRole::TournamentManager.as_str()).unwrap();
+
+    // Applicant 1 — status: pending ("Applied")
+    let applicant_1 = UserBuilder::new("Alex")
+        .set_lname("Torres")
+        .set_username("alex.torres")
+        .set_hash_password(DEFAULT_PASSWORD)
+        .set_email("alex.torres@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+
+    UsersRolesBuilder::new(applicant_1.id)
+        .assign(member_role.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    CreateTournamentApplicantBuilder::new(applicant_1.id, "pending", applicant_1.id)
+        .set_request_context(Some("I would like to host a regional tournament for my area.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    // Applicant 2 — status: declined
+    let applicant_2 = UserBuilder::new("Jordan")
+        .set_lname("Blake")
+        .set_username("jordan.blake")
+        .set_hash_password(DEFAULT_PASSWORD)
+        .set_email("jordan.blake@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+
+    UsersRolesBuilder::new(applicant_2.id)
+        .assign(member_role.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    CreateTournamentApplicantBuilder::new(applicant_2.id, "declined", applicant_2.id)
+        .set_request_context(Some("Requesting to run a small invitational tournament.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
+
+    // Applicant 3 — status: approved; user gets tournament_owner + tournament_manager roles
+    let applicant_3 = UserBuilder::new("Casey")
+        .set_lname("Morgan")
+        .set_username("casey.morgan")
+        .set_hash_password(DEFAULT_PASSWORD)
+        .set_email("casey.morgan@fakeemail.com")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+
+    UsersRolesBuilder::new(applicant_3.id)
+        .assign(member_role.id)
+        .assign(tournament_manager_role.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    CreateTournamentApplicantBuilder::new(applicant_3.id, "approved", applicant_3.id)
+        .set_request_context(Some("Looking to organize a national qualifier event for our division.".to_string()))
+        .build_and_insert(db)
+        .unwrap();
 }

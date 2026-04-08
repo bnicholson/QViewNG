@@ -19,7 +19,7 @@ import { RoundsInProgress } from "./containers/RoundsInProgress";
 import { Files } from "./containers/Files";
 import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
-import { ManageUsers } from "./pages/ManageUsers";
+import { CRMProfile } from "./pages/CRMProfile";
 import { DevPage } from "./pages/DevPage";
 
 // NOTE: This component was created for ease-of-access and modularity, not reusability.
@@ -48,7 +48,9 @@ export default function QViewRoutes() {
             <Route path="/user/:user_id/as-content-judge" element={<UserProfilePage childRoute="as-content-judge" />} />
             <Route path="/user/:user_id/managed-tournaments" element={<UserProfilePage childRoute="managed-tournaments" />} />
             <Route path="/user/:user_id/managed-tournament-groups" element={<UserProfilePage childRoute="managed-tournament-groups" />} />
-            <Route path="/crm/users" element={<ManageUsers />} />
+            <Route path="/crm" element={<CRMProfile />} />
+            <Route path="/crm/users" element={<CRMProfile childRoute="users" />} />
+            <Route path="/crm/create-tournament-applicants" element={<CRMProfile childRoute="create-tournament-applicants" />} />
             <Route path="/tournaments-page" element={<TournamentsPage />} />
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />
             <Route path="/tournament/:tid/overview" element={<TournamentProfile childRoute="overview" />} />

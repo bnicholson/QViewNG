@@ -15,9 +15,9 @@ interface DevLink {
 }
 
 const devLinks: DevLink[] = [
+  { label: 'CRM',                path: '/crm',                description: 'User and tournament applicant management' },
   { label: 'Tournaments Page',   path: '/tournaments-page',   description: 'Tournaments list page'                   },
   { label: 'TD Editor',          path: '/tdeditor',           description: 'Legacy tournament director editor'        },
-  { label: 'Manage Users',       path: '/crm/users',          description: 'CRM user management'                     },
   { label: 'Rounds In Progress', path: '/rounds-in-progress', description: 'View rounds currently in progress'       },
   { label: 'Files',              path: '/files',              description: 'File management'                         },
   { label: 'Swagger',            path: '/swagger',            description: 'API documentation and interactive tester' },

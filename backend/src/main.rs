@@ -28,9 +28,6 @@ async fn main() -> std::io::Result<()> {
        log4rs::init_file("config/logging_prod.yaml",deserializers).unwrap();  
    }
 
-    #[cfg(debug_assertions)]
-    log4rs::init_file("config/logging_debug.yaml",Default::default()).unwrap();
-
     // tell everyone we have logging running
     log::info!("Initialized log4rs");
 
