@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 
 pub fn insert_seed_data_one(db: &mut database::Connection) {
@@ -13,7 +13,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let user = UserBuilder::new("Tournament")
         .set_lname("Manager")
         .set_username("tournamentmanager")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("tmanager@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -33,7 +33,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let member_user = UserBuilder::new("Justa")
         .set_lname("Member")
         .set_username("member")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("justamember@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -52,7 +52,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_mname("One")
         .set_lname("Owner")
         .set_username("touroneowner")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("touroneowner@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -99,7 +99,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_mname("One")
         .set_lname("Admin")
         .set_username("touroneadmin")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("touroneadmin@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -116,7 +116,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let admin_2 = UserBuilder::new("Ben")
         .set_lname("Castillo")
         .set_username("bcastillo")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("bcastillo@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -133,7 +133,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let admin_3 = UserBuilder::new("Clara")
         .set_lname("Voss")
         .set_username("cvoss")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("cvoss@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -168,7 +168,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Avery")
         .set_username("javery_qm")
         .set_email("javery@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -176,7 +176,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Blake")
         .set_username("rblake_qm")
         .set_email("rblake@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -184,7 +184,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Casey")
         .set_username("mcasey_qm")
         .set_email("mcasey@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -192,7 +192,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Drew")
         .set_username("qdrew_qm")
         .set_email("qdrew@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -200,7 +200,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Ellis")
         .set_username("sellis_qm")
         .set_email("sellis@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -208,7 +208,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Flynn")
         .set_username("aflynn_qm")
         .set_email("aflynn@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -216,7 +216,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Grant")
         .set_username("bgrant_qm")
         .set_email("bgrant@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -226,7 +226,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Harper")
         .set_username("dharper_cj")
         .set_email("dharper@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -234,7 +234,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Ingram")
         .set_username("eingram_cj")
         .set_email("eingram@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -242,7 +242,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Jensen")
         .set_username("fjensen_cj")
         .set_email("fjensen@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -250,7 +250,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Knox")
         .set_username("gknox_cj")
         .set_email("gknox@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -258,7 +258,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Lane")
         .set_username("hlane_cj")
         .set_email("hlane@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -266,7 +266,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Marsh")
         .set_username("imarsh_cj")
         .set_email("imarsh@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -274,7 +274,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Nash")
         .set_username("jnash_cj")
         .set_email("jnash@fakeemail.com")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -334,7 +334,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_lname("Coach")
         .set_email("coach@fakeemail.com")
         .set_username("coach")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
@@ -1362,7 +1362,7 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
     let applicant_1 = UserBuilder::new("Alex")
         .set_lname("Torres")
         .set_username("alex.torres")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("alex.torres@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -1382,7 +1382,7 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
     let applicant_2 = UserBuilder::new("Jordan")
         .set_lname("Blake")
         .set_username("jordan.blake")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("jordan.blake@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)
@@ -1402,7 +1402,7 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
     let applicant_3 = UserBuilder::new("Casey")
         .set_lname("Morgan")
         .set_username("casey.morgan")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("casey.morgan@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)

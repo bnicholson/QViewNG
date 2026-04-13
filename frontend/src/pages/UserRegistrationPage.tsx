@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { IS_DEMO } from '../main'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -41,6 +42,8 @@ export const UserRegistrationPage = () => {
   }
 
   const register = async () => {
+    if (IS_DEMO) return
+
     const fnErr = fname.trim() ? null : 'First name is required.'
     const lnErr = lname.trim() ? null : 'Last name is required.'
     const unameErr = username.trim() ? null : 'Username is required.'
@@ -73,6 +76,11 @@ export const UserRegistrationPage = () => {
     <div style={{ display: 'flex', justifyContent: 'center' }}>
     <div className="Form" style={{ textAlign: 'left', width: 650, maxWidth: '100%', marginLeft: '20px', marginRight: '20px' }}>
       <h1>Registration</h1>
+      {IS_DEMO && (
+        <div style={{ background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 6, padding: '10px 14px', marginBottom: 12, color: '#713f12', fontSize: '0.9em' }}>
+          <strong>Demo Mode:</strong> QView is in Demo Mode. Fields are editable but will not be persisted and will not create new users.
+        </div>
+      )}
       <br />
       <form onSubmit={(e) => { e.preventDefault(); register() }}>
       <div style={{ display: 'flex', flexFlow: 'column' }}>

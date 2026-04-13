@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { IS_DEMO } from '../main'
 
 export const ActivationPage = () => {
   const navigate = useNavigate()
@@ -10,6 +11,8 @@ export const ActivationPage = () => {
   const [error, setError] = useState<string | null>(null)
 
   const activate = async () => {
+    if (IS_DEMO) return
+
     if (!activationToken.trim()) {
       setError('Please enter your activation token.')
       return
@@ -32,6 +35,11 @@ export const ActivationPage = () => {
     <div style={{ display: 'flex', justifyContent: 'center' }}>
     <div className="Form" style={{ textAlign: 'left', width: 650, maxWidth: '100%', marginLeft: '20px', marginRight: '20px' }}>
       <h1>Activate Account</h1>
+      {IS_DEMO && (
+        <div style={{ background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 6, padding: '10px 14px', marginBottom: 12, color: '#713f12', fontSize: '0.9em' }}>
+          <strong>Demo Mode:</strong> QView is in Demo Mode. Fields are editable but will not be persisted and will not activate any accounts.
+        </div>
+      )}
       <p style={{ marginBottom: '16px' }}>
         Enter the activation token from the email sent to you after registration.
       </p>

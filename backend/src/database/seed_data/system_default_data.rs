@@ -4,7 +4,10 @@ use uuid::Uuid;
 use crate::{database, models::{permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 
 
-pub const DEFAULT_PASSWORD: &str = "Password123!";
+pub fn default_password() -> String {
+    std::env::var("SEED_DATA_COMMON_PASSWORD")
+        .unwrap_or_else(|_| "SeedDefault1!".to_string())
+}
 
 pub fn insert_system_default_data(db: &mut database::Connection) {
     init_roles_and_permissions(db);
@@ -15,7 +18,7 @@ fn add_super_user(db: &mut database::Connection) {
     let super_user = UserBuilder::new("Super")
         .set_lname("User")
         .set_username("superuser")
-        .set_hash_password(DEFAULT_PASSWORD)
+        .set_hash_password(&default_password())
         .set_email("superuser@fakeemail.com")
         .set_activated(true)
         .build_and_insert(db)

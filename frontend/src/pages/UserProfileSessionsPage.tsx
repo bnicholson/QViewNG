@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import type { UserSessionResponse } from '../hooks/useAuth'
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from '../components/DataTableTemplate'
+import { IS_DEMO } from '../main'
 
 type SessionRow = UserSessionResponse['sessions'][number]
 
@@ -66,6 +67,8 @@ export const UserProfileSessionsPage = () => {
   }, [pageSize, page, loadSessions])
 
   const handleDelete = useCallback(async (row: SessionRow): Promise<void> => {
+    if (IS_DEMO) return
+
     const response = await fetch(`/api/auth/sessions/${row.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${auth.accessToken}` },
@@ -75,6 +78,8 @@ export const UserProfileSessionsPage = () => {
   }, [auth.accessToken])
 
   const handleDeleteAll = async () => {
+    if (IS_DEMO) return
+
     setDeletingAll(true)
     await fetch('/api/auth/sessions', {
       method: 'DELETE',
@@ -90,6 +95,11 @@ export const UserProfileSessionsPage = () => {
 
   return (
     <>
+      {IS_DEMO && (
+        <div style={{ background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 6, padding: '10px 14px', marginBottom: 12, color: '#713f12', fontSize: '0.9em' }}>
+          <strong>Demo Mode:</strong> QView is in Demo Mode. Session management is disabled and no changes will be persisted.
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
         <button
           disabled={isDeletingAll || sessions.length === 0}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { IS_DEMO } from '../main'
 
 const validatePassword = (password: string): string | null => {
   if (password.length < 8) return 'Password must be at least 8 characters long.'
@@ -23,6 +24,8 @@ export const UserProfileChangePasswordPage = () => {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
 
   const changePassword = async () => {
+    if (IS_DEMO) return
+
     setOldPasswordError(null)
     setNewPasswordError(null)
     setPasswordSuccess(null)
@@ -70,6 +73,11 @@ export const UserProfileChangePasswordPage = () => {
   return (
     <div className="Form" style={{ textAlign: 'left' }}>
       <h2>Change Password</h2>
+      {IS_DEMO && (
+        <div style={{ background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 6, padding: '10px 14px', marginBottom: 12, color: '#713f12', fontSize: '0.9em' }}>
+          <strong>Demo Mode:</strong> QView is in Demo Mode. Password changes are disabled and will not be persisted.
+        </div>
+      )}
       <br />
       <div style={{ display: 'flex', flexFlow: 'column' }}>
         <label>Current Password</label>

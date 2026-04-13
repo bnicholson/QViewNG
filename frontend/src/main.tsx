@@ -9,6 +9,8 @@ import { ThemeProvider } from '@mui/material'
 import theme from './theme.ts'
 import { AuthProvider } from './hooks/useAuth.tsx'
 
+export const IS_DEMO = false
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
