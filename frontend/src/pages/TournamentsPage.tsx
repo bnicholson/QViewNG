@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { TournamentAPI } from '../features/TournamentAPI'
+import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 
 
 export function TournamentsPage() {
   const [text, setText] = useState<string>('')
-  const [selectedTournament, editTournament] = useState<Tournament | null>(null)
-  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [selectedTournament, editTournament] = useState<TournamentTS | null>(null)
+  const [tournaments, setTournaments] = useState<TournamentTS[]>([])
   const pageSize = 5
   const [page, setPage] = useState<number>(0)
   const [numPages, setPages] = useState<number>(1)
@@ -19,7 +19,7 @@ export function TournamentsPage() {
     setProcessing(false)
   }
 
-  const updateTournament = async (tournament: Tournament) => {
+  const updateTournament = async (tournament: TournamentTS) => {
     setProcessing(true)
     await TournamentAPI.update(tournament.tid, {} as any)
     setTournaments((await TournamentAPI.get(page, String(pageSize))).items)
@@ -28,7 +28,7 @@ export function TournamentsPage() {
     setProcessing(false)
   }
 
-  const deleteTournament = async (tournament: Tournament) => {
+  const deleteTournament = async (tournament: TournamentTS) => {
     setProcessing(true)
     await TournamentAPI.delete(tournament.tid)
     setTournaments((await TournamentAPI.get(page, String(pageSize))).items)

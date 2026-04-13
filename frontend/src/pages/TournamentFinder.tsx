@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { 
-  Button, Card, CardActions, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
+  Card, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
 } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -34,7 +34,7 @@ export const TournamentFinder = () => {
   const navigate = useNavigate();
   const openTournament = (tournament: TournamentTS) => {
     dispatcher(setTournament(tournament.tname));
-    dispatcher(setTid(tournament.tid));
+    dispatcher(setTid(Number(tournament.tid)));
     // navigate("/division");  <- previously
     navigate(`/tournament/${tournament.tid}`);
   }

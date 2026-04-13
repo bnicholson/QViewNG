@@ -58,8 +58,10 @@ export default function RoomMonitorTable({ tid: _tid }: { tid: string }) {
       getId={(r) => String(r.id)}
       page={0}
       pageSize={PLACEHOLDER_ROWS.length}
-      onPageChange={() => {}}
-      onPageSizeChange={() => {}}
-    />
+      onPageChange={() => { } }
+      onPageSizeChange={() => { }} 
+      onDelete={function (row: RoomMonitorRow): Promise<void> {
+        throw new Error('Function not implemented.');
+      } }    />
   );
 }

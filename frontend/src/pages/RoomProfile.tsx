@@ -10,11 +10,13 @@ import { RoomAPI, type RoomTS } from '../features/RoomAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { RoomProfileOverviewPage } from './RoomProfileOverviewPage'
 import GamesTable from '../components/GamesTable'
+import { useAuth } from '../hooks/useAuth'
 
 export const RoomProfile = (props: { childRoute?: string }) => {
   const { roomid } = useParams()
   if (!roomid) return <></>
 
+  const { session } = useAuth()
   const [room, setRoom] = useState<RoomTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -31,6 +33,10 @@ export const RoomProfile = (props: { childRoute?: string }) => {
 
   if (notFound) return <Navigate to="/404" replace />
   if (!room || !tournament) return <div>Loading Room…</div>
+
+  const isOwnerOrSuperUser =
+    (session?.hasRole('super_user') ?? false) ||
+    (session?.userId === tournament.owner_id)
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/room/${roomid}/overview` },
@@ -49,7 +55,7 @@ export const RoomProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <RoomProfileOverviewPage room={room} tournament={tournament} onUpdated={setRoom} />
+            <RoomProfileOverviewPage room={room} tournament={tournament} onUpdated={setRoom} showSensitiveColumns={isOwnerOrSuperUser} />
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} roomid={roomid} />

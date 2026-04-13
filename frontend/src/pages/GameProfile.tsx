@@ -10,11 +10,13 @@ import { GameAPI, type GameTS } from '../features/GameAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { GameProfileOverviewPage } from './GameProfileOverviewPage'
+import { useAuth } from '../hooks/useAuth'
 
 export const GameProfile = (props: { childRoute?: string }) => {
   const { gid } = useParams()
   if (!gid) return <></>
 
+  const { session } = useAuth()
   const [game, setGame] = useState<GameTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [division, setDivision] = useState<DivisionTS | null>(null)
@@ -39,6 +41,10 @@ export const GameProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!game || !tournament || !division) return <div>Loading Game…</div>
 
+  const isOwnerOrSuperUser =
+    (session?.hasRole('super_user') ?? false) ||
+    (session?.userId === tournament.owner_id)
+
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/game/${gid}/overview` },
   ]
@@ -56,7 +62,7 @@ export const GameProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <GameProfileOverviewPage game={game} tournament={tournament} onUpdated={setGame} />
+            <GameProfileOverviewPage game={game} tournament={tournament} onUpdated={setGame} canEdit={isOwnerOrSuperUser} />
           )}
         </Box>
 

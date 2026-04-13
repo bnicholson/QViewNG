@@ -42,6 +42,7 @@ interface Props {
   room: RoomTS
   tournament: TournamentTS
   onUpdated: (room: RoomTS) => void
+  showSensitiveColumns?: boolean
 }
 
 type Role = 'quizmaster' | 'contentjudge'
@@ -54,10 +55,11 @@ interface AssignmentSectionProps {
   onAssign: (user: UserTS) => Promise<void>
   onRemove: () => Promise<void>
   saving: boolean
+  canEdit: boolean
 }
 
 const AssignmentSection = ({
-  label, currentId, currentName, occupiedIds, onAssign, onRemove, saving,
+  label, currentId, currentName, occupiedIds, onAssign, onRemove, saving, canEdit,
 }: AssignmentSectionProps) => {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<UserTS[]>([])
@@ -111,16 +113,18 @@ const AssignmentSection = ({
       {currentId && currentName ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <UserProfileLink id={currentId} name={currentName} />
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            disabled={removing || saving}
-            onClick={handleRemove}
-            sx={{ ml: 1 }}
-          >
-            {removing ? 'Removing…' : 'Remove'}
-          </Button>
+          {canEdit && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              disabled={removing || saving}
+              onClick={handleRemove}
+              sx={{ ml: 1 }}
+            >
+              {removing ? 'Removing…' : 'Remove'}
+            </Button>
+          )}
         </Box>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1, textAlign: "left" }}>
@@ -128,63 +132,65 @@ const AssignmentSection = ({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-        <TextField
-          size="small"
-          placeholder={`Search users to assign as ${label.toLowerCase()}…`}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          sx={{ maxWidth: 400 }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                {searching ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
-              </InputAdornment>
-            ),
-          }}
-        />
+      {canEdit && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <TextField
+            size="small"
+            placeholder={`Search users to assign as ${label.toLowerCase()}…`}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            sx={{ maxWidth: 400 }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  {searching ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
+                </InputAdornment>
+              ),
+            }}
+          />
 
-        {results.length > 0 && (
-          <Paper variant="outlined" sx={{ width: '100%', maxWidth: 440, mt: 0.5 }}>
-            <List dense disablePadding>
-              {results.map((u, i) => (
-                <ListItem
-                  key={u.id}
-                  divider={i < results.length - 1}
-                  sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}
-                >
-                  <ListItemText
-                    primary={`${u.fname} ${u.lname}`}
-                    secondary={u.username}
-                    sx={{ flex: 1, minWidth: 0 }}
-                  />
-                  <Button
-                    size="small"
-                    variant="contained"
-                    disabled={!!assigningId || saving}
-                    onClick={() => handleAssign(u)}
-                    startIcon={assigningId === u.id ? <CircularProgress size={12} /> : undefined}
-                    sx={{ flexShrink: 0 }}
+          {results.length > 0 && (
+            <Paper variant="outlined" sx={{ width: '100%', maxWidth: 440, mt: 0.5 }}>
+              <List dense disablePadding>
+                {results.map((u, i) => (
+                  <ListItem
+                    key={u.id}
+                    divider={i < results.length - 1}
+                    sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}
                   >
-                    Assign
-                  </Button>
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        )}
+                    <ListItemText
+                      primary={`${u.fname} ${u.lname}`}
+                      secondary={u.username}
+                      sx={{ flex: 1, minWidth: 0 }}
+                    />
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={!!assigningId || saving}
+                      onClick={() => handleAssign(u)}
+                      startIcon={assigningId === u.id ? <CircularProgress size={12} /> : undefined}
+                      sx={{ flexShrink: 0 }}
+                    >
+                      Assign
+                    </Button>
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          )}
 
-        {!searching && query.trim() && results.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            No available users match "{query}".
-          </Typography>
-        )}
-      </Box>
+          {!searching && query.trim() && results.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              No available users match "{query}".
+            </Typography>
+          )}
+        </Box>
+      )}
     </Box>
   )
 }
 
-export const RoomProfileOverviewPage = ({ room, tournament, onUpdated }: Props) => {
+export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensitiveColumns = false }: Props) => {
   const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -332,14 +338,16 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated }: Props) 
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
-            <Typography variant="body2" color="text.secondary">Client Key</Typography>
-            {editing ? (
-              <TextField size="small" value={clientkey} onChange={e => setClientkey(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
-            ) : (
-              <Typography variant="body1">{room.clientkey || '—'}</Typography>
-            )}
-          </Grid>
+          {showSensitiveColumns && (
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="body2" color="text.secondary">Client Key</Typography>
+              {editing ? (
+                <TextField size="small" value={clientkey} onChange={e => setClientkey(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
+              ) : (
+                <Typography variant="body1">{room.clientkey || '—'}</Typography>
+              )}
+            </Grid>
+          )}
 
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Created</Typography>
@@ -371,7 +379,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated }: Props) 
                 Cancel
               </Button>
             </>
-          ) : (
+          ) : showSensitiveColumns && (
             <Button variant="outlined" size="small" onClick={startEdit}>
               Edit
             </Button>
@@ -394,6 +402,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated }: Props) 
             onAssign={user => handleAssign('quizmaster', user)}
             onRemove={() => handleRemove('quizmaster')}
             saving={saving}
+            canEdit={showSensitiveColumns}
           />
           <AssignmentSection
             label="Content Judge"
@@ -403,6 +412,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated }: Props) 
             onAssign={user => handleAssign('contentjudge', user)}
             onRemove={() => handleRemove('contentjudge')}
             saving={saving}
+            canEdit={showSensitiveColumns}
           />
         </Box>
       </Box>

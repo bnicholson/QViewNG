@@ -3,15 +3,15 @@ import MuiTableCell from '@mui/material/TableCell';
 import {
   AutoSizer,
   Column,
-  Index,
+  type Index,
   Table,
-  TableCellRenderer,
-  TableHeaderProps
+  type TableCellRenderer,
+  type TableHeaderProps
 } from 'react-virtualized';
 import { TableContainer, TextField } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 
-const TableCell: React.FC = ({ children }) => {
+const TableCell = ({ children }: { children: React.ReactNode }) => {
   return (
     <MuiTableCell
       component="div"

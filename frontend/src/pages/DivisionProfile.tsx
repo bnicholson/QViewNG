@@ -8,10 +8,10 @@ import Typography from '@mui/material/Typography'
 import ProfileLayout from '../components/ProfileLayout'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
+import { useAuth } from '../hooks/useAuth'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
 import GamesTable from '../components/GamesTable'
-import QuizzersTable from '../components/QuizzersTable'
 import { DivisionProfileOverviewPage } from './DivisionProfileOverviewPage'
 import { DivisionProfileQuizzersPage } from './DivisionProfileQuizzersPage'
 
@@ -19,6 +19,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
   const { did } = useParams()
   if (!did) return <></>
 
+  const { session } = useAuth()
   const [division, setDivision] = useState<DivisionTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -35,6 +36,10 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
 
   if (notFound) return <Navigate to="/404" replace />
   if (!division || !tournament) return <div>Loading Division…</div>
+
+  const isOwnerOrSuperUser =
+    (session?.hasRole('super_user') ?? false) ||
+    (session?.userId === tournament.owner_id)
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview',     to: `/division/${did}/overview`     },
@@ -57,7 +62,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} />
+            <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} canEdit={isOwnerOrSuperUser} />
           )}
           {props.childRoute === 'teams' && (
             <TeamsTable tid={tournament.tid} did={did} />

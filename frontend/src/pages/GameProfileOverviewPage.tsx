@@ -34,7 +34,19 @@ function formatDateTime(iso: string | null | undefined): string {
 }
 
 function userLabel(u: UserTS): string {
-  return [u.fname, u.mname, u.lname].filter(Boolean).join(' ') + ` (@${u.username})`
+  return [u.fname, u.mname, u.lname].filter(Boolean).join(' ')  // + ` (@${u.username})`
+}
+
+const linkStyle: React.CSSProperties = { color: '#2563eb', textDecoration: 'none' }
+const linkHandlers = {
+  onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.textDecoration = 'underline'),
+  onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.textDecoration = 'none'),
+}
+
+function ProfileLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link to={to} style={linkStyle} {...linkHandlers}>{label}</Link>
+  )
 }
 
 interface Lookups {
@@ -63,9 +75,10 @@ interface Props {
   game: GameTS
   tournament: TournamentTS
   onUpdated: (game: GameTS) => void
+  canEdit?: boolean
 }
 
-export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) => {
+export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit = false }: Props) => {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<FormState | null>(null)
   const [lookups, setLookups] = useState<Lookups | null>(null)
@@ -215,7 +228,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{divMap.get(game.divisionid) ?? game.divisionid}</Typography>
+              <Typography variant="body1"><ProfileLink to={`/division/${game.divisionid}/overview`} label={divMap.get(game.divisionid) ?? game.divisionid} /></Typography>
             )}
           </Grid>
 
@@ -227,7 +240,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{roomMap.get(game.roomid) ?? game.roomid}</Typography>
+              <Typography variant="body1"><ProfileLink to={`/room/${game.roomid}/overview`} label={roomMap.get(game.roomid) ?? game.roomid} /></Typography>
             )}
           </Grid>
 
@@ -239,7 +252,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.rounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{formatDateTime(r.scheduled_start_time)}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{formatDateTime(roundMap.get(game.roundid))}</Typography>
+              <Typography variant="body1"><ProfileLink to={`/round/${game.roundid}/overview`} label={formatDateTime(roundMap.get(game.roundid))} /></Typography>
             )}
           </Grid>
 
@@ -251,7 +264,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{teamLabel(game.leftteamid)}</Typography>
+              <Typography variant="body1"><ProfileLink to={`/team/${game.leftteamid}/overview`} label={teamLabel(game.leftteamid)} /></Typography>
             )}
           </Grid>
 
@@ -264,7 +277,11 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{teamLabel(game.centerteamid ?? null)}</Typography>
+              <Typography variant="body1">
+                {game.centerteamid
+                  ? <ProfileLink to={`/team/${game.centerteamid}/overview`} label={teamLabel(game.centerteamid)} />
+                  : '—'}
+              </Typography>
             )}
           </Grid>
 
@@ -276,7 +293,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{teamLabel(game.rightteamid)}</Typography>
+              <Typography variant="body1"><ProfileLink to={`/team/${game.rightteamid}/overview`} label={teamLabel(game.rightteamid)} /></Typography>
             )}
           </Grid>
 
@@ -288,7 +305,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.users.map(u => <MenuItem key={u.id} value={u.id}>{userLabel(u)}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{userDisplay(game.quizmasterid)}</Typography>
+              <Typography variant="body1"><ProfileLink to={`/user/${game.quizmasterid}/overview`} label={userDisplay(game.quizmasterid)} /></Typography>
             )}
           </Grid>
 
@@ -301,24 +318,30 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 {lookups?.users.map(u => <MenuItem key={u.id} value={u.id}>{userLabel(u)}</MenuItem>)}
               </Select>
             ) : (
-              <Typography variant="body1">{userDisplay(game.contentjudgeid ?? null)}</Typography>
+              <Typography variant="body1">
+                {game.contentjudgeid
+                  ? <ProfileLink to={`/user/${game.contentjudgeid}/overview`} label={userDisplay(game.contentjudgeid)} />
+                  : '—'}
+              </Typography>
             )}
           </Grid>
 
           {/* Ignore */}
-          <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
-            {editing && form ? (
-              <FormControlLabel
-                control={<Switch checked={form.ignore} onChange={e => set({ ignore: e.target.checked })} />}
-                label="Ignore"
-              />
-            ) : (
-              <Box>
-                <Typography variant="body2" color="text.secondary">Ignore</Typography>
-                <Chip label={game.ignore ? 'Yes' : 'No'} size="small" color={game.ignore ? 'warning' : 'default'} sx={{ mt: 0.5 }} />
-              </Box>
-            )}
-          </Grid>
+          {canEdit && (
+            <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+              {editing && form ? (
+                <FormControlLabel
+                  control={<Switch checked={form.ignore} onChange={e => set({ ignore: e.target.checked })} />}
+                  label="Ignore"
+                />
+              ) : (
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Ignore</Typography>
+                  <Chip label={game.ignore ? 'Yes' : 'No'} size="small" color={game.ignore ? 'warning' : 'default'} sx={{ mt: 0.5 }} />
+                </Box>
+              )}
+            </Grid>
+          )}
 
           {/* Timestamps */}
           <Grid item xs={12} sm={6} md={4}>
@@ -342,7 +365,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated }: Props) 
                 Cancel
               </Button>
             </>
-          ) : (
+          ) : canEdit && (
             <Button variant="outlined" size="small" onClick={startEdit}>
               Edit
             </Button>

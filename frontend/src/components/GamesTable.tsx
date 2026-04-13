@@ -30,7 +30,7 @@ interface LookupMaps {
   teams: Map<string, string>;
 }
 
-function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
+function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolean): ColumnDef<GameTS>[] {
   return [
     {
       header: '',
@@ -83,10 +83,10 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
       header: 'Ruleset',
       render: (g) => g.ruleset,
     },
-    {
+    ...(showSensitiveColumns ? [{
       header: 'Ignore',
-      render: (g) => <BoolBadge value={g.ignore} />,
-    },
+      render: (g: GameTS) => <BoolBadge value={g.ignore} />,
+    }] : []),
     {
       header: 'Created',
       render: (g) => (
@@ -102,7 +102,7 @@ function gameColumns(tid: string, maps: LookupMaps): ColumnDef<GameTS>[] {
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean }) {
   const [games, setGames] = useState<GameTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
@@ -185,7 +185,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={gameColumns(tid, maps)}
+        columns={gameColumns(tid, maps, showSensitiveColumns)}
         rows={games}
         totalCount={totalCount}
         getId={(g) => g.gid}

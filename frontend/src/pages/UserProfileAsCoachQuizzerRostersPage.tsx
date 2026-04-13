@@ -172,14 +172,12 @@ function CoachesSection({ rosterId, createdByUserId }: { rosterId: string; creat
 
 function RosterPanel({
   roster,
-  userId,
   allQuizzers,
   onEditRoster,
   onDeleteRoster,
   onQuizzersChanged,
 }: {
   roster: RosterTS;
-  userId: string;
   allQuizzers: UserTS[];
   onEditRoster: () => void;
   onDeleteRoster: () => void;
@@ -414,7 +412,6 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
         <RosterPanel
           key={selectedRoster.rosterid}
           roster={selectedRoster}
-          userId={userId}
           allQuizzers={allQuizzers}
           onEditRoster={() => setEditDialogOpen(true)}
           onDeleteRoster={handleDeleteRoster}

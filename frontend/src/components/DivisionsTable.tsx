@@ -13,7 +13,7 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function divisionColumns(tid: string): ColumnDef<DivisionTS>[] {
+function divisionColumns(tid: string, showSensitiveColumns: boolean): ColumnDef<DivisionTS>[] {
   return [
     {
       header: "Name",
@@ -32,10 +32,10 @@ function divisionColumns(tid: string): ColumnDef<DivisionTS>[] {
       header: "Breadcrumb",
       render: (d) => d.breadcrumb,
     },
-    {
+    ...(showSensitiveColumns ? [{
       header: "Is Public",
-      render: (d) => <BoolBadge value={d.is_public} />,
-    },
+      render: (d: DivisionTS) => <BoolBadge value={d.is_public} />,
+    }] : []),
     {
       header: "Short Info",
       render: (d) => d.shortinfo,
@@ -55,7 +55,7 @@ function divisionColumns(tid: string): ColumnDef<DivisionTS>[] {
   ];
 }
 
-export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean }) {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -111,7 +111,7 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={divisionColumns(tid)}
+        columns={divisionColumns(tid, showSensitiveColumns)}
         rows={divisions}
         totalCount={totalCount}
         getId={(d) => d.did}

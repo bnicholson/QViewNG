@@ -1,22 +1,57 @@
-FROM rust:1.60
 
-RUN apt-get update -y
-RUN apt-get install -y nodejs npm
-RUN npm i -g yarn
-# You can remove the next RUN step if you're not using the Create Rust App 'auth' plugin
-# For the argonautica crate, we need to install LLVM/Clang v3.9 or higher
-RUN apt-get install -y clang llvm-dev libclang-dev
+# === Builder Stage ===
 
-# Since the official rust image doesn't have nightly variants, we're going to install it ourselves
-# This will make the image bigger than it needs to be -- you can try using another image if this is important to you
-RUN rustup update nightly;
-RUN rustup default nightly;
+FROM rust:1.80 AS builder
+
+# Install curl, gnupg, ca-certificates needed for NodeSource setup
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    ca-certificates \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+       | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+       | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN rustup update stable && rustup default stable
 
 WORKDIR /app
 COPY . .
 
-RUN cargo build --release
+# Build frontend
+RUN cd frontend && npm install && npm run build
 
-EXPOSE 3000
+# Build backend
+RUN cd backend && cargo build --release
 
-CMD ["cargo", "run", "--release"]
+# === Runtime Stage ===
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libssl3 \
+    ca-certificates \
+    nginx \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy compiled backend binary
+COPY --from=builder /app/backend/target/release/backend /usr/local/bin/backend
+
+# Copy built frontend assets
+COPY --from=builder /app/frontend/dist /app/frontend/dist
+
+# Copy nginx and supervisord configs
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/supervisord.conf /etc/supervisor/conf.d/qviewng.conf
+
+EXPOSE 80
+
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

@@ -103,7 +103,7 @@ function StatusCell({
       value={row.reg.status}
       disabled={saving}
       onChange={e => onChange(row.reg.id, e.target.value)}
-      sx={{ minWidth: 230 }}
+      sx={{ minWidth: 230, fontSize: '0.875rem' }}
     >
       {STATUSES.map(s => (
         <MenuItem key={s} value={s}>{s}</MenuItem>
@@ -130,7 +130,7 @@ function RoomCell({
       value={row.reg.roomid ?? ''}
       disabled={saving}
       onChange={e => { if (e.target.value) onChange(row.reg.id, e.target.value) }}
-      sx={{ minWidth: 140 }}
+      sx={{ minWidth: 140, fontSize: '0.875rem' }}
     >
       <MenuItem value="" disabled>Not Assigned</MenuItem>
       {rooms.map(r => (

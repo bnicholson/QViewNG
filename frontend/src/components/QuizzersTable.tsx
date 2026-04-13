@@ -10,41 +10,43 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-const quizzerColumns: ColumnDef<UserTS>[] = [
-  {
-    header: 'Full Name',
-    render: (u) => (
-      <Link
-        to={`/user/${u.id}/overview`}
-        style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
-        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
-        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
-      >
-        {`${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`}
-      </Link>
-    ),
-  },
-  {
-    header: 'Email',
-    render: (u) => u.email,
-  },
-  {
-    header: 'Activated',
-    render: (u) => <BoolBadge value={u.activated} />,
-  },
-  {
-    header: 'Created',
-    render: (u) => (
-      <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.created_at)}</span>
-    ),
-  },
-  {
-    header: 'Last Modified',
-    render: (u) => (
-      <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.updated_at)}</span>
-    ),
-  },
-];
+function quizzerColumns(showSensitiveColumns: boolean): ColumnDef<UserTS>[] {
+  return [
+    {
+      header: 'Full Name',
+      render: (u) => (
+        <Link
+          to={`/user/${u.id}/overview`}
+          style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          {`${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`}
+        </Link>
+      ),
+    },
+    {
+      header: 'Email',
+      render: (u) => u.email,
+    },
+    ...(showSensitiveColumns ? [{
+      header: 'Activated',
+      render: (u: UserTS) => <BoolBadge value={u.activated} />,
+    }] : []),
+    {
+      header: 'Created',
+      render: (u) => (
+        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.created_at)}</span>
+      ),
+    },
+    {
+      header: 'Last Modified',
+      render: (u) => (
+        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.updated_at)}</span>
+      ),
+    },
+  ];
+}
 
 interface Props {
   tid?: string;
@@ -56,9 +58,10 @@ interface Props {
   onDelete?: (user: UserTS) => Promise<void>;
   /** Overrides the create button label. Only meaningful when onAdd is provided. */
   createLabel?: string;
+  showSensitiveColumns?: boolean;
 }
 
-export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, createLabel }: Props) {
+export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false }: Props) {
   // All items for client-side pagination (tid or externalRows mode)
   const [allTournamentQuizzers, setAllTournamentQuizzers] = useState<UserTS[] | undefined>(undefined);
   // Current-page items for server-side pagination (no tid, no externalRows)
@@ -135,7 +138,7 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
       onCreate={onAdd}
       showCreateButton={!!onAdd}
       showDeleteButton={!!onDelete}
-      columns={quizzerColumns}
+      columns={quizzerColumns(showSensitiveColumns)}
       rows={rows}
       totalCount={totalCount}
       getId={(u) => u.id}

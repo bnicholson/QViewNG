@@ -1,7 +1,7 @@
-use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::DEFAULT_PASSWORD}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{Local, NaiveDate, Duration, TimeZone, Utc};
 
-pub fn seed_data_one(db: &mut database::Connection) {
+pub fn insert_seed_data_one(db: &mut database::Connection) {
     add_tour_1_demo(db);
     create_tournament_applicants(db);
 }
@@ -149,14 +149,17 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
 
     let division_experienced = DivisionBuilder::new_default("Experienced", tour.tid)
         .set_shortinfo("Been around the block".to_string())
+        .set_is_public(true)
         .build_and_insert(db)
         .unwrap();
     let division_novice = DivisionBuilder::new_default("Novice", tour.tid)
         .set_shortinfo("New to this".to_string())
+        .set_is_public(true)
         .build_and_insert(db)
         .unwrap();
     let division_decades = DivisionBuilder::new_default("Decades", tour.tid)
         .set_shortinfo("Young at heart!".to_string())
+        .set_is_public(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -343,7 +346,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    ComputerBuilder::new_default(coach_set_1.id)
+    let eq_s1_computer = ComputerBuilder::new_default(coach_set_1.id)
         .set_brand(Some("Dell".to_string()))
         .set_misc_note(Some("Main quiz machine".to_string()))
         .set_operating_system(Some("Windows 11".to_string()))
@@ -360,19 +363,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    JumpPadBuilder::new_default(coach_set_1.id)
+    let eq_s1_jumppad = JumpPadBuilder::new_default(coach_set_1.id)
         .set_misc_note(Some("Jump pads set, red".to_string()))
         .set_color(Some("red".to_string()))
         .build_and_insert(db)
         .unwrap();
 
-    InterfaceBoxBuilder::new_default(coach_set_1.id)
+    let eq_s1_interfacebox = InterfaceBoxBuilder::new_default(coach_set_1.id)
         .set_type_(Some("Wired".to_string()))
         .set_serial_number(Some("ahjsunkkdmif67nn87sk".to_string()))
         .build_and_insert(db)
         .unwrap();
 
-    MonitorBuilder::new_default(coach_set_1.id)
+    let eq_s1_monitor = MonitorBuilder::new_default(coach_set_1.id)
         .set_size(Some("27".to_string()))
         .set_brand(Some("Dell".to_string()))
         .set_has_vga_out_port(Some(true))
@@ -382,13 +385,13 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    MicrophoneRecorderBuilder::new_default(coach_set_1.id)
+    let eq_s1_microphone = MicrophoneRecorderBuilder::new_default(coach_set_1.id)
         .set_type_(Some("External".to_string()))
         .set_misc_note(Some("Casio".to_string()))
         .build_and_insert(db)
         .unwrap();
 
-    ProjectorBuilder::new_default(coach_set_1.id)
+    let eq_s1_projector = ProjectorBuilder::new_default(coach_set_1.id)
         .set_brand(Some("Epson".to_string()))
         .set_has_vga_out_port(Some(true))
         .set_has_display_port_out(Some(true))
@@ -397,7 +400,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    PowerStripBuilder::new_default(coach_set_1.id)
+    let eq_s1_powerstrip = PowerStripBuilder::new_default(coach_set_1.id)
         .set_make(Some("Belkin".to_string()))
         .set_model(Some("BE108000-06".to_string()))
         .set_color(Some("white".to_string()))
@@ -406,7 +409,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    ExtensionCordBuilder::new_default(coach_set_1.id)
+    let eq_s1_extensioncord = ExtensionCordBuilder::new_default(coach_set_1.id)
         .set_length(Some("6ft".to_string()))
         .set_color(Some("Black".to_string()))
         .set_misc_note(Some("The one that came from dad's house".to_string()))
@@ -420,7 +423,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    ComputerBuilder::new_default(coach_set_2.id)
+    let eq_s2_computer = ComputerBuilder::new_default(coach_set_2.id)
         .set_brand(Some("Dell".to_string()))
         .set_misc_note(Some("Main quiz machine".to_string()))
         .set_operating_system(Some("Windows 11".to_string()))
@@ -437,19 +440,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    JumpPadBuilder::new_default(coach_set_2.id)
+    let eq_s2_jumppad = JumpPadBuilder::new_default(coach_set_2.id)
         .set_misc_note(Some("Jump pads set, red".to_string()))
         .set_color(Some("red".to_string()))
         .build_and_insert(db)
         .unwrap();
 
-    InterfaceBoxBuilder::new_default(coach_set_2.id)
+    let eq_s2_interfacebox = InterfaceBoxBuilder::new_default(coach_set_2.id)
         .set_type_(Some("Wired".to_string()))
         .set_serial_number(Some("ahjsunkkdmif67nn87sk".to_string()))
         .build_and_insert(db)
         .unwrap();
 
-    MonitorBuilder::new_default(coach_set_2.id)
+    let eq_s2_monitor = MonitorBuilder::new_default(coach_set_2.id)
         .set_size(Some("27".to_string()))
         .set_brand(Some("Dell".to_string()))
         .set_has_vga_out_port(Some(true))
@@ -459,13 +462,13 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    MicrophoneRecorderBuilder::new_default(coach_set_2.id)
+    let eq_s2_microphone = MicrophoneRecorderBuilder::new_default(coach_set_2.id)
         .set_type_(Some("External".to_string()))
         .set_misc_note(Some("Casio".to_string()))
         .build_and_insert(db)
         .unwrap();
 
-    ProjectorBuilder::new_default(coach_set_2.id)
+    let eq_s2_projector = ProjectorBuilder::new_default(coach_set_2.id)
         .set_brand(Some("Epson".to_string()))
         .set_has_vga_out_port(Some(true))
         .set_has_display_port_out(Some(true))
@@ -474,7 +477,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    PowerStripBuilder::new_default(coach_set_2.id)
+    let eq_s2_powerstrip = PowerStripBuilder::new_default(coach_set_2.id)
         .set_make(Some("Belkin".to_string()))
         .set_model(Some("BE108000-06".to_string()))
         .set_color(Some("white".to_string()))
@@ -483,12 +486,78 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .build_and_insert(db)
         .unwrap();
 
-    ExtensionCordBuilder::new_default(coach_set_2.id)
+    let eq_s2_extensioncord = ExtensionCordBuilder::new_default(coach_set_2.id)
         .set_length(Some("6ft".to_string()))
         .set_color(Some("Black".to_string()))
         .set_misc_note(Some("The one that came from dad's house".to_string()))
         .build_and_insert(db)
         .unwrap();
+
+    // Register all equipment from both sets with the tournament
+    // Set 1 — fully deployed to Room 1; microphone held as spare on standby
+    EquipmentRegistrationBuilder::new_default(eq_s1_computer.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_jumppad.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_interfacebox.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_monitor.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_microphone.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::OnStandby.to_string()))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_projector.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_powerstrip.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s1_extensioncord.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_1.roomid))
+        .build_and_insert(db).unwrap();
+
+    // Set 2 — deployed to Room 2; interface box flagged for repair, extension cord returned from room
+    EquipmentRegistrationBuilder::new_default(eq_s2_computer.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_2.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_jumppad.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_2.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_interfacebox.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::NeedsRepair.to_string()))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_monitor.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_2.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_microphone.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_2.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_projector.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_2.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_powerstrip.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::DeployedToRoom.to_string()))
+        .set_roomid(Some(room_2.roomid))
+        .build_and_insert(db).unwrap();
+    EquipmentRegistrationBuilder::new_default(eq_s2_extensioncord.equipmentid, tour.tid)
+        .set_status(Some(EquipmentRegistrationStatus::ReturnedFromRoom.to_string()))
+        .build_and_insert(db).unwrap();
 
     let q_exp_1_1 = UserBuilder::new("Aiden")
         .set_lname("Park")

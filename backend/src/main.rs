@@ -21,11 +21,7 @@ async fn main() -> std::io::Result<()> {
     
    #[cfg(not(debug_assertions))] {
        // Handle setting up log4rs (logging)
-       // add syslog support
-       let mut deserializers = log4rs::file::Deserializers::new();
-       log4rs_syslog::register(&mut deserializers);
-
-       log4rs::init_file("config/logging_prod.yaml",deserializers).unwrap();  
+       log4rs::init_file("config/logging_prod.yaml", Default::default()).unwrap();
    }
 
     // tell everyone we have logging running
@@ -36,7 +32,7 @@ async fn main() -> std::io::Result<()> {
         Ok(h) => h,
         Err(_) => "127.0.0.1".to_string()
     };
-    let port = match std::env::var("BACKEND_PORT") {
+    let port = match std::env::var("APP_PORT") {
         Ok(p) => p.to_string(),
         Err(_) => "3000".to_string()
     };
@@ -45,12 +41,12 @@ async fn main() -> std::io::Result<()> {
     let db = database::Database::new("DATABASE_URL");
     
     // Change commented/uncommented if you want to populate your DB with data:
-    // let mut conn = db.get_connection().expect("Failed to get connection.");
-    // database::clean_db::clean_database(&mut conn);
-    // database::seed_data::system_default_data::insert_system_default_data(&mut conn);
-    // database::seed_data::seed_one::seed_data_one(&mut conn);
-    // let conn = conn;
-    // drop(conn);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    database::clean_db::clean_database(&mut conn);
+    database::seed_data::system_default_data::insert_system_default_data(&mut conn);
+    database::seed_data::seed_one::insert_seed_data_one(&mut conn);
+    let conn = conn;
+    drop(conn);
     
     log::info!("Server listening on http://{host_and_port} ...");
 

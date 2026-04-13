@@ -25,13 +25,15 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-redux": "^9.2.0",
-    "react-router-dom": "^7.10.1"
+    "react-router-dom": "^7.10.1",
+    "react-virtualized": "^9.22.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/react-virtualized": "^9.22.3",
     "@vitejs/plugin-react": "^5.1.1",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.1",

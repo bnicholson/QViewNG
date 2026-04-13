@@ -26,7 +26,7 @@ interface Props {
 }
 
 export const TournamentGroupTournamentsPage = ({ tgid, canEdit, canCreate }: Props) => {
-  const { session, accessToken } = useAuth()
+  const { session } = useAuth()
   const [linked, setLinked] = useState<TournamentTS[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

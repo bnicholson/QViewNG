@@ -13,7 +13,7 @@ import DivisionPanel from '../components/DivisionPanel'
 import SchedulePanel from '../components/SchedulePanel'
 import TeamPanel from '../components/TeamPanel'
 import RoomMonitor from '../components/RoomMonitor'
-import { DivisionAPI } from '../features/DivisionAPI'
+import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -52,7 +52,7 @@ export const TDEditor = () => {
   // const [expanded, setExpanded] = useState(false)
   const [processing, setProcessing] = useState<boolean>(false)
   const [displayDate, setDisplayDate] = useState<Date>(new Date())
-  const [divisions, setDivisions] = useState<Division[]>([])
+  const [divisions, setDivisions] = useState<DivisionTS[]>([])
   // const [openDivisionEditor, setDivisionEditorOpen] = useState(false);
 
   // const handleEditorClickOpen = () => {

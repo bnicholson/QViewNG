@@ -22,9 +22,10 @@ interface Props {
   division: DivisionTS
   tournament: TournamentTS
   onUpdated: (division: DivisionTS) => void
+  canEdit?: boolean
 }
 
-export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated }: Props) => {
+export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, canEdit = false }: Props) => {
   const [editing, setEditing] = useState(false)
   const [dname, setDname] = useState('')
   const [breadcrumb, setBreadcrumb] = useState('')
@@ -151,7 +152,7 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated }:
                 Cancel
               </Button>
             </>
-          ) : (
+          ) : canEdit && (
             <Button variant="outlined" size="small" onClick={startEdit}>
               Edit
             </Button>

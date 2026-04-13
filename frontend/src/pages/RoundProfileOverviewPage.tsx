@@ -37,9 +37,10 @@ interface Props {
   division: DivisionTS
   tournament: TournamentTS
   onUpdated: (round: RoundTS) => void
+  canEdit?: boolean
 }
 
-export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdated }: Props) => {
+export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdated, canEdit = false }: Props) => {
   const [editing, setEditing] = useState(false)
   const [scheduledStart, setScheduledStart] = useState('')
   const [saving, setSaving] = useState(false)
@@ -100,7 +101,16 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
 
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Division</Typography>
-            <Typography variant="body1">{division.dname}</Typography>
+            <Typography variant="body1">
+              <Link
+                to={`/division/${division.did}/overview`}
+                style={{ color: '#2563eb', textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+              >
+                {division.dname}
+              </Link>
+            </Typography>
           </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
@@ -139,7 +149,7 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
                 Cancel
               </Button>
             </>
-          ) : (
+          ) : canEdit && (
             <Button variant="outlined" size="small" onClick={startEdit}>
               Edit
             </Button>

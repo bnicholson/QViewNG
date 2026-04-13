@@ -25,10 +25,8 @@ export const DatePickerComponent = (props: Props) => {
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <DesktopDatePicker
         label={label}
-        inputFormat="MM/DD/YYYY"
         value={value}
         onChange={handleChange}
-        renderInput={(params) => <TextField {...params} />}
       />
     </LocalizationProvider>
   );

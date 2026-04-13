@@ -1,0 +1,55 @@
+
+services:
+
+  postgres:
+    image: "postgres:18"
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    volumes:
+      - "qviewng-db:/var/lib/postgresql"
+    restart: unless-stopped
+    networks:
+      - qviewng-net
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+
+  qviewng:
+    # image: "${DOCKER_APP_IMAGE}"
+    build: .
+    environment:
+      - JWT_SECRET
+      - BACKEND_PORT
+      - DATABASE_URL
+      - FRONTEND_URL
+      - SMTP_HOST
+      - SMTP_USER
+      - SMTP_PASS
+      - SMTP_FROM
+    restart: unless-stopped
+    networks:
+      - qviewng-net
+    depends_on:
+      - postgres
+    ports:
+      - "${APP_PORT:-80}:80"
+
+  cloudflare-tunnel:
+    image: "cloudflare/cloudflared:latest"
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    # environment:
+    #   - "TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem"
+    restart: unless-stopped
+    # volumes:
+    #   - "./certs/cert.pem:/etc/cloudflared/cert.pem:ro"
+    networks:
+      - qviewng-net
+    depends_on:
+      - qviewng
+
+networks:
+  qviewng-net: {}
+
+volumes:
+  qviewng-db:

@@ -113,7 +113,8 @@ export const QuizzerEditorDialog = (props: Props) => {
       lname: form.lname,
       username: form.username,
       email: form.email,
-      password: form.password,
+      hash_password: form.password,
+      activated: false
     };
 
     let result: UserTS;

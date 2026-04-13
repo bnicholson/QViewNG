@@ -69,11 +69,29 @@ export const TeamProfileOverviewPage = ({ teamid }: { teamid: string }) => {
         <Grid container spacing={{ xs: 1, sm: 2 }}>
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
-            <Typography variant="body1">{tournament.tname}</Typography>
+            <Typography variant="body1">
+              <Link
+                to={`/tournament/${tournament.tid}/overview`}
+                style={{ color: '#2563eb', textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+              >
+                {tournament.tname}
+              </Link>
+            </Typography>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Division</Typography>
-            <Typography variant="body1">{division.dname}</Typography>
+            <Typography variant="body1">
+              <Link
+                to={`/division/${division.did}/overview`}
+                style={{ color: '#2563eb', textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+              >
+                {division.dname}
+              </Link>
+            </Typography>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Coach</Typography>

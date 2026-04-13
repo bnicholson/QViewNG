@@ -87,6 +87,7 @@ function RemoveButton({ onRemove }: { onRemove: () => Promise<void> }) {
 
 function groupColumns(
   onEdit: (group: TournamentGroupTS) => void,
+  canEdit: boolean,
   showRemoveButton: boolean,
   onRemove: (group: TournamentGroupTS) => Promise<void>,
 ): ColumnDef<TournamentGroupTS>[] {
@@ -116,17 +117,19 @@ function groupColumns(
       header: 'Last Modified',
       render: g => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
     },
-    {
+    ...((canEdit || showRemoveButton) ? [{
       header: '',
-      render: g => (
+      render: (g: TournamentGroupTS) => (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-          <IconButton size="small" onClick={() => onEdit(g)} aria-label="Edit tournament group">
-            <EditIcon fontSize="small" />
-          </IconButton>
+          {canEdit && (
+            <IconButton size="small" onClick={() => onEdit(g)} aria-label="Edit tournament group">
+              <EditIcon fontSize="small" />
+            </IconButton>
+          )}
           {showRemoveButton && <RemoveButton onRemove={() => onRemove(g)} />}
         </Box>
       ),
-    },
+    }] : []),
   ];
 }
 
@@ -134,9 +137,10 @@ interface Props {
   tid: string;
   showCreateButton?: boolean;
   showDeleteButton?: boolean;
+  canEdit?: boolean;
 }
 
-export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true }: Props) {
+export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true, canEdit = false }: Props) {
   const { session } = useAuth();
   const [groups, setGroups] = useState<TournamentGroupTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -259,7 +263,7 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
         showCreateButton={showCreateButton}
         showDeleteButton={false}
         onCreate={openCreate}
-        columns={groupColumns(openEdit, showDeleteButton, handleRemove)}
+        columns={groupColumns(openEdit, canEdit, showDeleteButton, handleRemove)}
         rows={groups}
         totalCount={totalCount}
         getId={g => g.tgid}
@@ -271,66 +275,68 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
       />
 
       {/* Search to add */}
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, textAlign: "left" }}>
-          Add to Existing Tournament Group
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-
-        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-          <TextField
-            size="small"
-            placeholder="Search by group name…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            sx={{ flex: 1, maxWidth: 420 }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  {searching ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-
-        {searchResults.length > 0 && (
-          <Paper variant="outlined" sx={{ maxWidth: 520 }}>
-            <List dense disablePadding>
-              {searchResults.map((g, i) => (
-                <ListItem
-                  key={g.tgid}
-                  divider={i < searchResults.length - 1}
-                  secondaryAction={
-                    <Button
-                      size="small"
-                      variant="contained"
-                      disabled={addingId === g.tgid}
-                      onClick={() => handleAdd(g)}
-                      startIcon={addingId === g.tgid ? <CircularProgress size={12} /> : undefined}
-                    >
-                      Add
-                    </Button>
-                  }
-                >
-                  <ListItemText
-                    primary={g.name}
-                    secondary={g.description || undefined}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        )}
-
-        {!searching && query.trim() && searchResults.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            No unlinked tournament groups that you manage match "{query}".
+      {canEdit && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, textAlign: "left" }}>
+            Add to Existing Tournament Group
           </Typography>
-        )}
-      </Box>
+          <Divider sx={{ mb: 2 }} />
+
+          {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+            <TextField
+              size="small"
+              placeholder="Search by group name…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              sx={{ flex: 1, maxWidth: 420 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {searching ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+
+          {searchResults.length > 0 && (
+            <Paper variant="outlined" sx={{ maxWidth: 520 }}>
+              <List dense disablePadding>
+                {searchResults.map((g, i) => (
+                  <ListItem
+                    key={g.tgid}
+                    divider={i < searchResults.length - 1}
+                    secondaryAction={
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={addingId === g.tgid}
+                        onClick={() => handleAdd(g)}
+                        startIcon={addingId === g.tgid ? <CircularProgress size={12} /> : undefined}
+                      >
+                        Add
+                      </Button>
+                    }
+                  >
+                    <ListItemText
+                      primary={g.name}
+                      secondary={g.description || undefined}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          )}
+
+          {!searching && query.trim() && searchResults.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              No unlinked tournament groups that you manage match "{query}".
+            </Typography>
+          )}
+        </Box>
+      )}
 
       <TournamentGroupEditorDialog
         tid={tid}
