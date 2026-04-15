@@ -1,29 +1,30 @@
-# QView
+# QViewNG
 
 [by [QuizStuff](https://www.quizstuff.com)]
 
 QView is a React + Rust web application designed to manage tournaments for Quizzing events 
 such as Bible Quizzing, Physics Quizzes, etc.
 
-This GH repo is intended to replace the [/bnicholson/QView repo](https://github.com/bnicholson/QView) some time in the future.
+A demo of QViewNG is available for viewing at [qviewng-demo.teenbiblequiz.com](https://qviewng-demo.teenbiblequiz.com).
 
-The vision for the QView project (meaning the most detailed information about QView's future) can be found in this [Wiki pages](https://github.com/bnicholson/QViewNG/wiki) of this GH repo.
+Project/Task management for QViewNG is done in [Jira](https://qviewng.atlassian.net/jira/core/projects/QVNG/board?filter=&groupBy=status). Access is limited to 10 developers max. Please contact Collyn Brenner at collynbrenner@gmail.com to request access.
 
-Rust provides the backend APIs and microservices.
-The frontend is designed using the React JavaScript framework.
-The UI is designed using the Material UI framework and components.
+This GH repo is planned to replace the [/bnicholson/QView repo](https://github.com/bnicholson/QView) eventually and then be renamed to 'QView'.
 
-The backend database is Postgresql.
-Redis/Valkey is planned to be used as a cache and as a inter QView server store if we 
-end up having two application servers.
+The vision for QViewNG can be found in the [GH Wiki pages](https://github.com/bnicholson/QViewNG/wiki) of this GH repo.
 
-If you'd like to support the project by contributing your development time please don't hesitate to reach out to Collyn Brenner at collynbrenner@gmail.com. We're looking to make this a reality - and there is plenty to do!
+Tech stack overview:
+- Rust provides the backend APIs and microservices.
+- The frontend is designed using the React JavaScript framework.
+- The UI is designed using the Material UI framework and components.
+- The backend database is Postgresql.
+- Redis/Valkey is planned to be used as a cache and as a inter QView server store.
 
-Note:  A beta/UAT development environment may be available for viewing at http://qview.quizstuff.com:3000
+At this time, contributions are being accepted only in the form of developer code contribubtions. If interested please context Collyn Brenner at collynbrenner@gmail.com.
 
 <br/>
 
-## Setting Up the Dev Environment (*requirements*)
+## Dev Environment Setup
 
 1) Install Ubuntu desktop on a machine or on a VM/Hypervisor/Virtualbox. (It is best if you have a computer with Ubuntu 24.04+ installed on it.)
 
