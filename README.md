@@ -26,7 +26,9 @@ At this time, contributions are being accepted only in the form of developer cod
 
 ## Dev Environment Setup
 
-1) Install Ubuntu desktop on a machine or on a VM/Hypervisor/Virtualbox. (It is best if you have a computer with Ubuntu 24.04+ installed on it.)
+Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same things on MacOS, Windows OS and/or WSL2, however this guide will stick to Ubuntu 24.04 OS.
+
+1) Install Ubuntu desktop on a machine or on a VM/Hypervisor/Virtualbox.
 
 2) Install 'git' in Ubuntu.
    ```
@@ -39,8 +41,8 @@ At this time, contributions are being accepted only in the form of developer cod
    cd qview
    ```
 
-4) `getrustdev`: this script loads all the required linux (debian) programs needed to develop
-   such as Rust, PostgreSQL, etc.
+4) Run `getrustdev` (*this script loads all the required linux (debian) programs needed to develop
+   such as Rust, PostgreSQL, etc.):
 	```
    ./getrustdev
    ```
@@ -52,7 +54,7 @@ At this time, contributions are being accepted only in the form of developer cod
    cd ..
    ```
 
-6) Now create a development database. QView uses PostgreSQL as the database. Create a standard
+6) Now create a development database. QViewNG uses PostgreSQL as the database. Create a standard
    PostgreSQL database using the following commands as the PostgreSQL user:
    ```
    sudo bash
@@ -68,19 +70,18 @@ At this time, contributions are being accepted only in the form of developer cod
    ```
 
    Note:  There is an example script under setup-db-valkey.sh that does this plus other work.
-   The script is intended to replace steps #8, #9, #10 however the script has flaws so you may
-   want to stick with the manual steps above until those are sorted out.
+   The script is intended to replace steps #8, #9, #10 however the script has flaws so at this time is
+   preferred to stick with the manual steps above until those are sorted out.
 
-7) Copy and paste the '.env.example' file in the same directory it exists in (the root dir) and
-   manually populate it with the necessary values (specifically for the database conneciton string).
+8) Copy and paste the '.env.example', '.env.release.example' and '.env.test,example' files in the same directory they are found in (the root dir), remove the '.example' portions from the file names, and manually populate it with the necessary values. Eaxh example file has comments descriing what each ENV VAR is used for and supposed to be (or at least it should if it has been maintained well).
 
-8) Run the DB migrations on the datbase you just created to establish in the DB the schema and perhaps some data:
+9) Run the DB migrations on the datbase you just created to establish in the DB the schema and perhaps some data:
    ```
    cd {root}/backend
    diesel migration run
    ```
 
-9) Remove the superuser permissions from the user you created earlier:
+10) Remove the superuser permissions from the user you created earlier:
    ```
    sudo bash
    su - postgres
