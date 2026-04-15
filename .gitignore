@@ -1,9 +1,11 @@
 /frontend/dist
 /.cargo/.build
-.env*
-.env_beta
-.env_prod
+.env
 !.env.example
+.env.release
+!.env.release.example
+.env.test
+!.env.test.example
 node_modules
 build-log*.txt
 .DS_Store
@@ -11,6 +13,8 @@ build-log*.txt
 /target/debug
 /backend/target
 /backend/target/debug
+/qviewng-db
+/postgres-init/*.backup
 
 # Temp files in the build
 Cargo.lock

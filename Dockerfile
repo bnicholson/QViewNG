@@ -52,6 +52,13 @@ COPY --from=builder /app/frontend/dist /app/frontend/dist
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/qviewng.conf
 
+# Copy backend runtime config and release env
+COPY backend/config /app/config
+COPY .env.release /app/.env.release
+
+# Create log directory for log4rs
+RUN mkdir -p /var/log/qviewng
+
 EXPOSE 80
 
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

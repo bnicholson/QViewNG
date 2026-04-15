@@ -11,4 +11,6 @@
 #
 # user@host:~/projects/qview$ nohup ./betarun &
 #
-export $(cat .env_beta | xargs) && cargo run --release >output
+
+# This line has been commented out (4/15/2026) by Collyn Brenner until further notice.
+# export $(cat .env_beta | xargs) && cargo run --release >output
