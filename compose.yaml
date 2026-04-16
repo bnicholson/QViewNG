@@ -9,8 +9,7 @@ services:
       - POSTGRES_DB
     volumes:
       - "qviewng-db:/var/lib/postgresql"
-      # Init scripts directory (read-only)
-      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro  # Init scripts directory (read-only)
     restart: unless-stopped
     networks:
       - qviewng-net
@@ -27,7 +26,6 @@ services:
     image: "${DOCKER_APP_IMAGE}"
     build: .
     environment:
-      - ENV_FILE=.env.release
       - JWT_SECRET
       - BACKEND_PORT
       - FRONTEND_URL

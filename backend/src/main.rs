@@ -4,14 +4,15 @@ use actix_web::middleware::{Compress, Logger, NormalizePath};
 use backend::database;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use dotenvy::dotenv;
 use backend::routes::configure_routes;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
-    let env_file = std::env::var("ENV_FILE").unwrap_or_else(|_| ".env".to_string());
-    dotenv::from_filename(&env_file).ok();
+    #[cfg(debug_assertions)]
+    dotenvy::from_filename(".env.dev").ok();
+    #[cfg(not(debug_assertions))]
+    dotenvy::from_filename(".env").ok();
 
     #[cfg(debug_assertions)] {
         let subscriber = FmtSubscriber::builder()
