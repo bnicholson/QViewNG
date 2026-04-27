@@ -243,6 +243,8 @@ diesel::table! {
         contentjudgeid -> Nullable<Uuid>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        #[max_length = 64]
+        clientkey -> Varchar,
     }
 }
 

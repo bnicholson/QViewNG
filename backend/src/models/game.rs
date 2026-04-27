@@ -23,7 +23,8 @@ pub struct GameBuilder {
     centerteamid: Option<Uuid>,
     rightteamid: Option<Uuid>,
     quizmasterid: Option<Uuid>,
-    contentjudgeid: Option<Uuid>
+    contentjudgeid: Option<Uuid>,
+    clientkey: Option<String>
 }
 
 impl GameBuilder {
@@ -40,7 +41,8 @@ impl GameBuilder {
             centerteamid: None,
             rightteamid: None,
             quizmasterid: None,
-            contentjudgeid: None
+            contentjudgeid: None,
+            clientkey: None
         }
     }
     pub fn new_default(room_id: Uuid, round_id: Uuid) -> Self {
@@ -56,7 +58,8 @@ impl GameBuilder {
             centerteamid: None,
             rightteamid: None,
             quizmasterid: None,
-            contentjudgeid: None
+            contentjudgeid: None,
+            clientkey: Some(String::new())
         }
     }
     pub fn set_org(mut self, val: String) -> Self {
@@ -156,7 +159,8 @@ impl GameBuilder {
                         centerteamid: self.centerteamid,
                         rightteamid: self.rightteamid.unwrap(),
                         quizmasterid: self.quizmasterid.unwrap(),
-                        contentjudgeid: self.contentjudgeid
+                        contentjudgeid: self.contentjudgeid,
+                        clientkey: self.clientkey.unwrap_or_default()
                     }
                 )
             }
@@ -205,7 +209,8 @@ pub struct Game {
     pub quizmasterid: Uuid,
     pub contentjudgeid: Option<Uuid>,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>
+    pub updated_at: DateTime<Utc>,
+    pub clientkey: String
 }
 
 #[derive(
@@ -228,7 +233,8 @@ pub struct NewGame {
     pub centerteamid: Option<Uuid>,
     pub rightteamid: Uuid,
     pub quizmasterid: Uuid,
-    pub contentjudgeid: Option<Uuid>
+    pub contentjudgeid: Option<Uuid>,
+    pub clientkey: String
 }
 
 
@@ -252,12 +258,13 @@ pub struct GameChangeset {
     pub centerteamid: Option<Uuid>,
     pub rightteamid: Option<Uuid>,
     pub quizmasterid: Option<Uuid>,
-    pub contentjudgeid: Option<Uuid>
+    pub contentjudgeid: Option<Uuid>,
+    pub clientkey: Option<String>
 }
 
 impl GameChangeset {
     pub fn empty() -> Self {
-        Self {   
+        Self {
             org: None,
             tournamentid: None,
             divisionid: None,
@@ -269,7 +276,8 @@ impl GameChangeset {
             centerteamid: None,
             rightteamid: None,
             quizmasterid: None,
-            contentjudgeid: None
+            contentjudgeid: None,
+            clientkey: None
         }
     }
 }

@@ -67,7 +67,7 @@ pub async fn write(
                 let tmp = pair.1.replace("+"," ");
                 eventlog_entry.clientkey = (&tmp).to_string();
                 roominfo_entry.clientkey = (&tmp).to_string();
-                game_entry.clientkey = tmp;
+                game_entry.clientkey = Some(tmp);
                 field_count += 1;
             },
             "tk" => {   // tournament key - short id for a particular tournament
@@ -272,8 +272,8 @@ pub async fn write(
     // now lets log all this information to the eventlog table.
     // This is a file on disk in QMServer.  But we'll put it
     // on the database in the eventlog table for Qview
-    match eventlog::write_eventlog(&mut mdb, eventlog_entry) {
-        Ok(eventlog) => {
+    match eventlog::write_eventlog(mdb, eventlog_entry) {
+        Ok(_eventlog) => {
             // okay we wrote to eventlog - do nothing
         },
         Err(e) => {
@@ -292,10 +292,9 @@ pub async fn write(
     // clientkey, org, tournament, division, room, round.
     // let mut gid = game::get_gid_from_cache(&game_entry);  // will reintroduce caching at a later time
     
-    
     // now let's create an entry in the games table
     // Handle errors while we create the entry
-    match game::create_update(&mut mdb, &game_entry) {
+    match game::create_update(mdb, &game_entry) {
         Ok(output) => {
             // update the gameevent gid so we have the correct one to write
             // the gameevent to the Quizzes table
@@ -339,7 +338,7 @@ pub async fn write(
 
     // now let's write an entry in the quizzes event table
     // Handle errors while we create the entry - this is a database insert or update
-    match gameevent::create_update_game_event(&mut mdb, &gameevent_entry) {
+    match gameevent::create_update_game_event(mdb, &gameevent_entry) {
         Ok(output) => {
             log::info!("Inserted/Updated a Quizevent {:?}",output)
         },
