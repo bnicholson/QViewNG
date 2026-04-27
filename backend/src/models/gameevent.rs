@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 use chrono::DateTime;
-use diesel::{prelude::*, insert_into};
+use diesel::{insert_into, prelude::*, upsert::on_constraint};
 use uuid::Uuid;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -2341,6 +2341,26 @@ impl GameEvent {
     }
 }
 
+// impl GameEvent {
+//     pub fn empty() -> Self {
+//         // Now populate the quizzes event
+//         return Self {
+//             gid: Uuid::nil(),
+//             question: -1,
+//             eventnum: -1,
+//             name: "".to_string(),
+//             team: -1,
+//             quizzer: -1,
+//             event: "".to_string(),
+//             parm1: "".to_string(),
+//             parm2: "".to_string(),
+//             clientts: Utc::now(),
+//             serverts: Utc::now(),
+//             md5digest: "".to_string()
+//         }
+//     }
+// }
+
 trait SortGameEvents {
     fn sort(&mut self);
 }
@@ -2376,41 +2396,71 @@ pub struct NewGameEvent {
     pub md5digest: String,
 }
 
-// Are there any use cases where we would want to edit an event stream record for Games? Commenting out until further notice:
-// // #[tsync::tsync]
-// #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
-// #[diesel(table_name = crate::schema::gameevents)]
-// #[diesel(primary_key(gid,question,eventnum))]
-// pub struct GameEventChangeset {   
-//     pub name: String,
-//     pub team: i32,
-//     pub quizzer: i32,
-//     pub event: String,
-//     pub parm1: String,
-//     pub parm2: String,
-//     pub clientts: DateTime<Utc>,
-//     pub serverts: DateTime<Utc>,
-//     pub md5digest: String,  
-// }
+impl NewGameEvent {
+    pub fn empty() -> Self {
+        // Now populate the quizzes event
+        return Self {
+            gid: Uuid::nil(),
+            question: -1,
+            eventnum: -1,
+            name: "".to_string(),
+            team: -1,
+            quizzer: -1,
+            event: "".to_string(),
+            parm1: "".to_string(),
+            parm2: "".to_string(),
+            clientts: Utc::now(),
+            serverts: Utc::now(),
+            md5digest: "".to_string()
+        }
+    }
+}
 
-// What use case would bring us to want to modify an event stream record for Games? Commenting out until further notice:
-// pub fn empty_changeset() -> GameEventChangeset {
-//     return GameEventChangeset {   
-//         name: "".to_string(),
-//         team: -1,
-//         quizzer: -1,
-//         event: "".to_string(),
-//         parm1: "".to_string(),
-//         parm2: "".to_string(),
-//         clientts: Utc::now(),
-//         serverts: Utc::now(),
-//         md5digest: "".to_string()
-//     }
-// }
+#[derive(Debug, Serialize, Deserialize, Clone, AsChangeset)]
+#[diesel(table_name = crate::schema::gameevents)]
+pub struct GameEventChangeset {
+    pub name: String,
+    pub team: i32,
+    pub quizzer: i32,
+    pub event: String,
+    pub parm1: String,
+    pub parm2: String,
+    pub clientts: DateTime<Utc>,
+    pub serverts: DateTime<Utc>,
+    pub md5digest: String,
+}
+
+impl GameEventChangeset {
+    pub fn from_newgameevent(item: &NewGameEvent) -> Self {
+        Self {
+            name: item.name.clone(),
+            team: item.team,
+            quizzer: item.quizzer,
+            event: item.event.clone(),
+            parm1: item.parm1.clone(),
+            parm2: item.parm2.clone(),
+            clientts: item.clientts,
+            serverts: item.serverts,
+            md5digest: item.md5digest.clone(),
+        }
+    }
+}
 
 pub fn create(db: &mut database::Connection, item: &NewGameEvent) -> QueryResult<GameEvent> {
     use crate::schema::gameevents::dsl::*;
     insert_into(gameevents).values(item).get_result::<GameEvent>(db)
+}
+
+pub fn exists(db: &mut database::Connection, game_id: Uuid, question_num: i32, event_num: i32) -> bool {
+    use crate::schema::gameevents::dsl::*;
+    diesel::select(diesel::dsl::exists(
+        gameevents
+            .filter(gid.eq(game_id))
+            .filter(question.eq(question_num))
+            .filter(eventnum.eq(event_num))
+    ))
+    .get_result::<bool>(db)
+    .unwrap_or(false)
 }
 
 // pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<GameEvent> {
@@ -2450,15 +2500,24 @@ pub fn read_all_gameevents_of_game(db: &mut database::Connection, game_id: Uuid,
         .load::<GameEvent>(db)
 }
 
-// Not sure what advantage this offers over fn 'create_game_event' above. Commenting out for now:
-// pub fn create_update_game_event(db: &mut database::Connection, item: &GameEvent) -> QueryResult<GameEvent> {
-//     use crate::schema::gameevents::dsl::*;
-//     insert_into(gameevents).values(item).on_conflict(on_constraint(
-//         "gameevents_pkey1"))
-//         .do_update()
-//         .set(item)
-//         .get_result::<GameEvent>(db)
-// }
+pub fn create_update_game_event(db: &mut database::Connection, item: &NewGameEvent) -> QueryResult<GameEvent> {
+    use crate::schema::gameevents::dsl::*;
+
+    if exists(db, item.gid, item.question, item.eventnum) {
+        log::debug!("GameEvent (gid={}, question={}, eventnum={}) exists — updating", item.gid, item.question, item.eventnum);
+        diesel::update(
+            gameevents
+                .filter(gid.eq(item.gid))
+                .filter(question.eq(item.question))
+                .filter(eventnum.eq(item.eventnum))
+        )
+        .set(&GameEventChangeset::from_newgameevent(item))
+        .get_result::<GameEvent>(db)
+    } else {
+        log::debug!("GameEvent (gid={}, question={}, eventnum={}) not found — inserting", item.gid, item.question, item.eventnum);
+        insert_into(gameevents).values(item).get_result::<GameEvent>(db)
+    }
+}
 
 // Not including a Delete fn until it is apparent that it is needed.
 

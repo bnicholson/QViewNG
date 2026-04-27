@@ -15,6 +15,7 @@ async fn main() -> std::io::Result<()> {
     dotenvy::from_filename(".env").ok();
 
     #[cfg(debug_assertions)] {
+        tracing_log::LogTracer::init().ok();
         let subscriber = FmtSubscriber::builder()
             .with_max_level(Level::DEBUG)
             .finish();

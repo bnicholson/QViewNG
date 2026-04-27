@@ -66,14 +66,19 @@ export const TournamentAPI = {
   },
   create: async (tournament: TournamentChangesetTS, accessToken?: string): Promise<TournamentCreateUpdateResult> => {
     let nquery = JSON.stringify(tournament);
-    let response = await fetch('/api/tournaments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-        },
-        body: nquery,
-      });
+
+    let requestBody = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
+      body: nquery,
+    }
+
+    // console.log(requestBody)
+
+    let response = await fetch('/api/tournaments', requestBody);
       if (response.status === 401) {
         throw new Error("401");
       }

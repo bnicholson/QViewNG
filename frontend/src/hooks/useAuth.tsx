@@ -106,7 +106,8 @@ export const useAuth = () => {
   const context = useContext(Context)
 
   const login = async (email: string, password: string): Promise<string | null> => {
-    const response = await fetch('/api/auth/login', {
+    
+    let requestBody = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -117,7 +118,11 @@ export const useAuth = () => {
         screen_width: window.screen.width,
         screen_height: window.screen.height,
       }),
-    })
+    }
+
+    // console.log(requestBody)
+
+    const response = await fetch('/api/auth/login', requestBody)
 
     if (response.ok) {
       const responseJson = await response.json()

@@ -1,9 +1,390 @@
 use actix_web::{Error, get, HttpResponse, HttpRequest, post, Result, web::{Data, Json, Query}};
-use crate::database::Database;
-use crate::models::{self, common::PaginationParams, gameevent::{NewGameEvent, GameEvent}};
+use crate::models::{self, common::PaginationParams, gameevent::{self, GameEvent, NewGameEvent}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
-// use utoipa::OpenApi;
 use diesel::QueryResult;
+use chrono::{ Utc, TimeZone };
+use uuid::Uuid;
+// use std::file;
+use base64::{self, Engine};
+use sha1::{Sha1, Digest};
+use diesel::result::Error as DBError;
+use crate::models::{eventlog, roominfo};
+// use crate::models::gameevent::{self,GameEvent};
+use crate::models::game::{self,GameChangeset};
+use crate::database::{self,Database};
+// use utoipa::OpenApi;
+
+// #[derive(OpenApi)]
+// #[openapi(paths(index))]
+// pub struct GameEventDoc;
+
+pub async fn write(
+    mdb: &mut database::Connection,
+    req: HttpRequest,
+) -> actix_web::Result<HttpResponse> {
+    // let db = req.app_data::<Data<Database>>().unwrap();
+    // let mut mdb = db.pool.get().unwrap();
+
+    log::info!("Inside 'write' fn for endpoint '{}'", req.full_url());
+
+    // log this api call (*Actually let's do this in one place: Let the endpoint fn do the api call logging.)
+    // let mut db = db.get_connection().expect("Failed to get connection");
+    // apicalllog::create(&mut db, &req);
+
+    // First let's get an eventlog structure, a game structure, and
+    // an empty quiz events structure
+    let mut eventlog_entry = eventlog::empty_changeset();
+    let mut game_entry = GameChangeset::empty();
+    let mut gameevent_entry = NewGameEvent::empty();
+    let mut roominfo_entry = roominfo::empty();
+
+    // Okay, it's now time to search all the parameters and set the associated 
+    // variables set in all the data that we will write to the cache
+    // or to the database
+    let qs = qstring::QString::from(req.query_string());
+    let ps = qs.to_pairs();
+    let psiter = ps.iter();
+    let mut tk=String::new();
+    let mut org = "Nazarene".to_string();
+    let mut qn_str = String::new();
+    let mut e_str = String::new();
+    let mut t_str = String::new();
+    let mut q_str = String::new();
+    let mut ts = Utc::now();
+    let mut gid = Uuid::nil();
+    let mut field_count = 0;
+    for pair in psiter {
+
+        let s = String::from(pair.0);
+        match s.as_str() {
+            "bldgroom" => {
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.bldgroom = (&tmp).to_string();
+                roominfo_entry.bldgroom = tmp;
+                field_count += 1;               
+            },
+            "key" => {  // key4server - uniquely identifies a particular client
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.clientkey = (&tmp).to_string();
+                roominfo_entry.clientkey = (&tmp).to_string();
+                game_entry.clientkey = tmp;
+                field_count += 1;
+            },
+            "tk" => {   // tournament key - short id for a particular tournament
+                tk = pair.1.replace("+"," ");   // currently used except to ensure we don't have corruption
+                field_count += 1;                
+            },
+            "org" => {
+                org = pair.1.replace("+"," ");   // don't bump the field count because it's not sent by client
+            },
+            "tn" => { // Tournament Name
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.tournament = tmp.clone();
+                roominfo_entry.tournament = tmp.clone();
+                match Uuid::parse_str(&tmp) {
+                    Ok(uuid) => { game_entry.tournamentid = Some(uuid); field_count += 1; },
+                    Err(e) => log::error!("{:?} {:?} Failed to parse tournamentid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
+                }
+            },
+            "dn" => { // Division Name
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.division = tmp.clone();
+                roominfo_entry.division = tmp.clone();
+                match Uuid::parse_str(&tmp) {
+                    Ok(uuid) => { game_entry.divisionid = Some(uuid); field_count += 1; },
+                    Err(e) => log::error!("{:?} {:?} Failed to parse divisionid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
+                }
+            },
+            "rm" => { // Room
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.room = tmp.clone();
+                roominfo_entry.room = tmp.clone();
+                match Uuid::parse_str(&tmp) {
+                    Ok(uuid) => { game_entry.roomid = Some(uuid); field_count += 1; },
+                    Err(e) => log::error!("{:?} {:?} Failed to parse roomid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
+                }
+            },
+            "rd" => { // Round
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.round = tmp.clone();
+                roominfo_entry.round = tmp.clone();
+                match Uuid::parse_str(&tmp) {
+                    Ok(uuid) => { game_entry.roundid = Some(uuid); field_count += 1; },
+                    Err(e) => log::error!("{:?} {:?} Failed to parse roundid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
+                }
+            }, 
+            "qn" => { // Question #
+                qn_str = pair.1.replace("+"," ");
+                let qn = pair.1.trim().parse().unwrap(); 
+                eventlog_entry.question = qn;
+                gameevent_entry.question = qn;
+                roominfo_entry.question = qn;
+                field_count += 1;
+            },
+            "e" => { // event number
+                e_str = pair.1.replace("+"," ");
+                let e = pair.1.trim().parse().unwrap();
+                eventlog_entry.eventnum = e;
+                gameevent_entry.eventnum = e;
+                field_count +=1;
+            },
+            "n" => { // quizzer or team name
+                let tmp = pair.1.replace("+"," ");
+                gameevent_entry.name = (&tmp).to_string();
+                eventlog_entry.name = tmp;
+                field_count +=1;
+            },
+            "t" => { // team # (0-2)
+                t_str = pair.1.replace("+"," ");
+                let t = pair.1.trim().parse().unwrap();
+                gameevent_entry.team = t;
+                eventlog_entry.team = t;
+                field_count +=1;
+            },
+            "q" => { // quizzer # (0-4)
+                q_str = pair.1.replace("+"," "); 
+                let q = pair.1.trim().parse().unwrap();
+                gameevent_entry.quizzer = q;
+                eventlog_entry.quizzer = q;
+                field_count +=1;
+            }, 
+            "ec" => { // Event type/class (TC, BE, QT, ...
+                gameevent_entry.event = pair.1.to_string();
+                eventlog_entry.event = pair.1.to_string();
+                field_count += 1;
+            }, 
+            "p1" => { // parameter 1
+                let tmp = pair.1.replace("+"," ");
+                gameevent_entry.parm1 = (&tmp).to_string();
+                eventlog_entry.parm1 = tmp;
+                field_count += 1;
+            }, 
+            "p2" => { // parameter 2 - depends upon what ec is
+                let tmp = pair.1.replace("+"," ");
+                gameevent_entry.parm2 = (&tmp).to_string();
+                eventlog_entry.parm2 = tmp;
+                field_count += 1;
+            }, 
+            "ts" => { // timestamp from the client
+                println!("TS Input = {:?}",pair.1);
+                let secs : i64 = pair.1.trim().parse().unwrap();
+                ts = Utc.timestamp(secs,0);
+                gameevent_entry.clientts = ts;
+                eventlog_entry.ts = pair.1.to_string();
+                roominfo_entry.client_time = ts;
+                field_count += 1;
+            }, 
+            "md5" => {  // md5 hashsum
+                let tmp = pair.1.replace("+"," ");
+                gameevent_entry.md5digest = (&tmp).to_string();
+                eventlog_entry.md5digest = tmp;
+                field_count += 1;
+            },
+            "nonce" => {
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.nonce = tmp;
+                field_count += 1;
+            },
+            "s1s" => {
+                let tmp = pair.1.replace("+","+");
+                eventlog_entry.s1s = tmp;
+                field_count += 1;
+            },
+            "myip" => {
+                // this is optional should only be there sometimes.
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.clientip = (&tmp).to_string();
+                roominfo_entry.clientip = tmp;
+            }
+            _ => {
+                log::error!("{:?} {:?} Invalid parameter received in /gameevent api call {:?} ",module_path!(),line!(),
+                    pair);
+            }
+        }
+    }
+
+    // Check to make sure we got all the parameters
+    let content = "bad parameters";
+    if field_count != 19 {
+        return Ok(
+            HttpResponse::BadRequest()
+                .content_type("text/html; charset=utf-8")
+                .body(content)
+        )
+    }
+
+    // create the sha1 object
+    let mut sha1hasher = Sha1::new();
+
+    // the following code calculates and checks the sha1sum of all the GET parameters.
+    // we had issues with the network (firewalls, app firewalls, etc) corrupting or 
+    // giving false 200s.  This avoids that.
+    // Grab the HOST:PORT the web server should run on.
+    let gameevent_psk = match std::env::var("QUIZEVENT_PSK") {
+        Ok(gameevent_psk) => {
+            gameevent_psk
+        },
+        Err(e) => {
+            log::error!("{:?} {:?} Invalid QUIZEVENT_PSK",module_path!(),line!());
+            "this won't work but fail".to_string()
+        }
+    };
+
+    sha1hasher.update(&&eventlog_entry.nonce);
+    sha1hasher.update(gameevent_psk);
+    sha1hasher.update(&eventlog_entry.bldgroom);
+	sha1hasher.update(&eventlog_entry.clientkey);
+	sha1hasher.update(&tk);
+	sha1hasher.update(&eventlog_entry.tournament);
+	sha1hasher.update(&eventlog_entry.division);
+    sha1hasher.update(&eventlog_entry.room);
+    sha1hasher.update(&eventlog_entry.round);
+	sha1hasher.update(&qn_str);
+    sha1hasher.update(&e_str);
+    sha1hasher.update(&eventlog_entry.name);
+    sha1hasher.update(&t_str);
+    sha1hasher.update(&q_str);
+    sha1hasher.update(&eventlog_entry.event);
+    sha1hasher.update(&eventlog_entry.parm1);
+    sha1hasher.update(&eventlog_entry.parm2);
+    let rslt = sha1hasher.finalize();
+    let rsltbase64 = base64::engine::general_purpose::STANDARD.encode(rslt);
+
+    // now grab the result of the sha1hashing
+	log::info!("{:?} {:?} GameEvent: Org: {} BldgRoom: {}, Key: {}, Tk: {}, TN: {}, DN: {}, Room: {}, Round: {}, Question: {}, EventNumber: {} Name: {} Team: {} Quizzer: {}, EC: {}, Parm1: {} Parm2: {}, Timestamp: {}, Host: {}, MD5: {}, Nonce: {} {}, Sha1sum: {} Calculated sha1sum: {}",
+        module_path!(),line!(), org, &eventlog_entry.bldgroom, &eventlog_entry.clientkey, tk, &eventlog_entry.tournament, &eventlog_entry.division, 
+        &eventlog_entry.room, &eventlog_entry.round, &eventlog_entry.question, &eventlog_entry.eventnum, &eventlog_entry.name,
+        &eventlog_entry.team, &eventlog_entry.quizzer, &eventlog_entry.event, &eventlog_entry.parm1, &eventlog_entry.parm2, 
+        ts, &eventlog_entry.clientip, &eventlog_entry.md5digest, &eventlog_entry.nonce, &eventlog_entry.nonce.len(), &eventlog_entry.s1s, rsltbase64 );   
+    
+    // now make sure we didn't have any corrupted data.  If so print an error and get out
+    if !&eventlog_entry.s1s.eq(&rsltbase64) {
+        // oh boy!!!
+        log::error!("{} {} /api/gameevent Sha1sums don't match {} {}",module_path!(), line!(), &eventlog_entry.s1s, rsltbase64);
+        let error_content = format!("Sha1sums don't match! {} {}",&eventlog_entry.s1s, &rsltbase64);
+        return Ok(
+            HttpResponse::BadRequest()
+                .content_type("text/html; charset=utf-8")
+                .body(error_content)
+        )
+    }
+
+    // now lets log all this information to the eventlog table.
+    // This is a file on disk in QMServer.  But we'll put it
+    // on the database in the eventlog table for Qview
+    match eventlog::write_eventlog(&mut mdb, eventlog_entry) {
+        Ok(eventlog) => {
+            // okay we wrote to eventlog - do nothing
+        },
+        Err(e) => {
+            log::error!("{} {} Eventlog write failure: {}",module_path!(),line!(),e);
+            let error_content = format!("Eventlog write failure {}", e);
+            return Ok(
+                HttpResponse::BadRequest()
+                    .content_type("text/html; charset=utf-8")
+                    .body(error_content)
+            )
+        }
+    }
+
+    // first lets see if we have the game cached.  This will give us the gid for
+    // this event.  If gid is <= 0 then this is the first event for this
+    // clientkey, org, tournament, division, room, round.
+    // let mut gid = game::get_gid_from_cache(&game_entry);  // will reintroduce caching at a later time
+    
+    
+    // now let's create an entry in the games table
+    // Handle errors while we create the entry
+    match game::create_update(&mut mdb, &game_entry) {
+        Ok(output) => {
+            // update the gameevent gid so we have the correct one to write
+            // the gameevent to the Quizzes table
+            gameevent_entry.gid = output.gid;
+            gid = output.gid;
+            log::info!("Inserted/Updated a Game {:?}",output)            
+        },
+        Err(e) => {
+            let error_content = format!("Game write failure {}", e);
+            match e {
+                // the most likely cause here is a Unique constraint - the row
+                // already exists in the database.  We'll ignore those and
+                // panic or log the others
+                DBError::DatabaseError(dbek,e) => match dbek {
+                    diesel::result::DatabaseErrorKind::UniqueViolation => {
+                        // do nothing here.  This is a normal case when another event 
+                        // comes in for this quiz.
+                        log::error!("{:?} {:?} Error {:?} {:?}", module_path!(),line!(), dbek, e);
+                    },
+                    _ => {
+                        // Okay this error is a database error but not a unique violation
+                        log::error!("{:?} {:?} DB Create error {:?} {:?} {:?}",module_path!(), line!(),dbek, e ,game_entry);
+                    },
+                },
+                _ => {
+                    // this is some error but not a database error
+                    log::error!("{:?} {:?} DB Create error {:?} {:?}",module_path!(), line!(),e,game_entry);
+                },
+            };
+
+            return Ok(
+                HttpResponse::BadRequest()
+                    .content_type("text/html; charset=utf-8")
+                    .body(error_content)
+            )
+        },
+    };
+
+    // send an update to the cache for this room.  Rounds in  Progress (tickertape)
+    roominfo::update_roominfo(&mut roominfo_entry);
+
+    // now let's write an entry in the quizzes event table
+    // Handle errors while we create the entry - this is a database insert or update
+    match gameevent::create_update_game_event(&mut mdb, &gameevent_entry) {
+        Ok(output) => {
+            log::info!("Inserted/Updated a Quizevent {:?}",output)
+        },
+        Err(err) => {
+            let error_content = format!("Quizevent write failure {}", err);
+            match err {
+                // the most likely cause here is a Unique constraint - the row
+                // already exists in the database.  We'll ignore those and
+                // panic or log the others
+                DBError::DatabaseError(dbek,info) => match dbek {
+                    diesel::result::DatabaseErrorKind::UniqueViolation => {
+                        // Okay we've written this one before.  this is some weird error
+                         // since the upsert() in the gameevent model should have 
+                        // handled it.
+                    },
+                    _ => {
+                        // Okay this error is a database error but not a unique violation
+                        log::error!("Line: {:?} DB Create error {:?} {:?} {:?}",line!(),dbek,info,gameevent_entry);
+                    },
+                },
+                _ => {
+                    // this is some error but not a database error
+                    log::error!("Line: {:?} DB Create error {:?} {:?}",line!(),err,gameevent_entry);
+                },
+            };
+
+            return Ok(
+                HttpResponse::BadRequest()
+                    .content_type("text/html; charset=utf-8")
+                    .body(error_content)
+            )
+        },
+    
+    }
+
+    Ok(
+        HttpResponse::Ok()
+            .content_type("text/html; charset=utf-8")
+            .body("Inserted/Updated")
+    )
+}
+
+fn print_type_of<T>(_: &T) {
+    println!("{}", std::any::type_name::<T>())
+}
 
 // #[derive(OpenApi)]
 // #[openapi(paths(index))]
@@ -39,6 +420,92 @@ async fn index(
     }
 }
 
+// pub async fn index_playground(
+//     req: HttpRequest,
+//     Query(url_params): Query<PaginationParams>,
+//     db: Data<Database>,
+// ) -> actix_web::Result<HttpResponse> {
+//     let mut db = db.get_connection().expect("Failed to get connection");
+
+//     let content = std::fs::read_to_string("./.cargo/graphql-playground.html").unwrap();
+
+//     let result = game::read_all(&mut db, &url_params);
+//     println!("{:?}",result);
+
+//     Ok(
+//         HttpResponse::Ok()
+//             .content_type("text/html; charset=utf-8")
+//             // GraphQL Playground original source:
+//             // .body(playground_source(
+//             //     GraphQLPlaygroundConfig::new("/api/graphql")
+//             //         .with_header("Authorization", "token")
+//             //         .subscription_endpoint("/api/graphql/ws"),
+//             // ))
+
+//             // GraphQL Playground modified source to include authentication:
+//             .body(content)
+//     )
+// }
+
+// #[utoipa::path(
+//         get,
+//         path = "/gameevents",
+//         responses(
+//             (status = 200, description = "GameEvents found successfully", body = GameEvent),
+//             (status = 404, description = "GameEvents not found")
+//         ),
+//         params(
+//             ("page" = Option<u64>, Query, description = "Page to read"),
+//             ("page_size" = Option<u64>, Query, description = "How many GameEvents to return")
+//         )
+//     )
+// ]
+// #[get("")]
+// async fn index(
+//     db: Data<Database>,
+//     Query(info): Query<PaginationParams>,
+// //    info: web::Path<Info>,
+// //    path: web::Path<(String,String,String)>,
+//     req: HttpRequest,
+// ) -> HttpResponse {
+//     let mut db = db.get_connection().expect("Failed to get connection");
+    
+//     print_type_of(&db); 
+
+//     println!("Method: {:?}",req.method()); 
+//     println!("URI: {:?}",req.uri()); 
+//     println!("Version: {:?}",req.version());     
+//     println!("URI: {:?}",req.uri()); 
+//     println!("Path: {:?}",req.path()); 
+//     println!("URI: {:?}",req.uri()); 
+//     println!("Query_string: {:?}",req.query_string()); 
+
+//     let result = game::read_all(&mut db, &info);
+
+//     if result.is_ok() {
+//         HttpResponse::Ok().json(result.unwrap())
+//     } else {
+//         HttpResponse::InternalServerError().finish()
+//     }
+// }
+
+// #[get("/{id}")]
+// async fn read(
+//     db: Data<Database>,
+//     item_id: Path<Uuid>,
+// ) -> HttpResponse {
+//     println!("read endpoint");
+//     let mut db = db.get_connection().expect("Failed to get connection");
+
+//     let result = game::read(&mut db, item_id.into_inner());
+
+//     if result.is_ok() {
+//         HttpResponse::Ok().json(result.unwrap())
+//     } else {
+//         HttpResponse::NotFound().finish()
+//     }
+// }
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -66,8 +533,67 @@ async fn create(
     }
 }
 
+
+// #[post("")]
+// async fn create(
+//     db: Data<Database>,
+//     Json(item): Json<NewGame>,
+// ) -> Result<HttpResponse, Error> {
+//     println!("create endpoint");
+//     let mut db = db.get_connection().expect("Failed to get connection");
+
+//     let result: Game = game::create(&mut db, &item).expect("Creation error");
+
+//     Ok(HttpResponse::Created().json(result))
+// }
+
+// #[put("/{id}")]
+// async fn update(
+//     db: Data<Database>,
+//     item_id: Path<Uuid>,
+//     Json(item): Json<GameChangeset>,
+// ) -> HttpResponse {
+//     println!("update endpoint");
+//     let mut db = db.get_connection().expect("Failed to get connection");
+
+//     let result = game::update(&mut db, item_id.into_inner(), &item);
+
+//     if result.is_ok() {
+//         HttpResponse::Ok().finish()
+//     } else {
+//         HttpResponse::InternalServerError().finish()
+//     }
+// }
+
+// #[delete("/{id}")]
+// async fn destroy(
+//     db: Data<Database>,
+//     item_id: Path<Uuid>,
+// ) -> HttpResponse {
+//     println!("destroy endpoint");
+//     let mut db = db.get_connection().expect("Failed to get connection");
+
+//     let result = game::delete(&mut db, item_id.into_inner());
+
+//     if result.is_ok() {
+//         HttpResponse::Ok().finish()
+//     } else {
+//         HttpResponse::InternalServerError().finish()
+//     }
+// }
+
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(create);
 }
+
+// pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
+//     return scope
+//         .service(index)
+//         .service(read)
+//         .service(create)
+//         .service(update)
+//         .service(destroy);
+// }

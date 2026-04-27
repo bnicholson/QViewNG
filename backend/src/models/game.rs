@@ -1,4 +1,5 @@
 use chrono::{DateTime, NaiveDate, Utc};
+use diesel::upsert::on_constraint;
 use std::collections::HashMap;
 use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
 use diesel::prelude::*;
@@ -254,17 +255,24 @@ pub struct GameChangeset {
     pub contentjudgeid: Option<Uuid>
 }
 
-// pub fn empty_changeset() -> GameChangeset {
-//     return GameChangeset {   
-//         org: "".to_string(),
-//         tournamentid: None,
-//         divisionid: None,
-//         roomid: None,
-//         roundid: None,
-//         ignore: false,
-//         ruleset: "".to_string()
-//     }
-// }
+impl GameChangeset {
+    pub fn empty() -> Self {
+        Self {   
+            org: None,
+            tournamentid: None,
+            divisionid: None,
+            roomid: None,
+            roundid: None,
+            ignore: None,
+            ruleset: None,
+            leftteamid: None,
+            centerteamid: None,
+            rightteamid: None,
+            quizmasterid: None,
+            contentjudgeid: None
+        }
+    }
+}
 
 pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
@@ -345,6 +353,16 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
 
     insert_into(games)
         .values(game)
+        .get_result::<Game>(db)
+}
+
+pub fn create_update(db: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {
+    use crate::schema::games::dsl::*;
+
+    insert_into(games).values(item).on_conflict(on_constraint(
+        "games_org_tournament_division_room_round_clientkey_key"))
+        .do_update()//games.filter(gid.eq(item_id)))
+        .set(item)
         .get_result::<Game>(db)
 }
 
