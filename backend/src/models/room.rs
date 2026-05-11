@@ -230,6 +230,13 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoomChangeset
         .get_result(db)
 }
 
+pub fn find_by_name_in_tournament(db: &mut database::Connection, room_name: &str, tournament_id: Uuid) -> QueryResult<Room> {
+    use crate::schema::rooms::dsl::*;
+    rooms
+        .filter(name.eq(room_name).and(tid.eq(tournament_id)))
+        .first::<Room>(db)
+}
+
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::rooms::dsl::*;
     rooms.count().get_result(db)
