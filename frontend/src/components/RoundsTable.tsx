@@ -28,7 +28,7 @@ function formatDate(iso: string | null | undefined): string {
 function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<RoundTS>[] {
   return [
     {
-      header: "Scheduled Start Time",
+      header: "Round",
       render: (r) => (
         <Link
           to={`/round/${r.roundid}/overview`}
@@ -36,8 +36,14 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
         >
-          {formatDateTime(r.scheduled_start_time)}
+          {r.name}
         </Link>
+      ),
+    },
+    {
+      header: "Scheduled Start Time",
+      render: (r) => (
+        <span style={{ whiteSpace: "nowrap" }}>{formatDateTime(r.scheduled_start_time)}</span>
       ),
     },
     {

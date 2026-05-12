@@ -821,22 +821,27 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     let round_1_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_2_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_3_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_4_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_5_experienced = RoundBuilder::new_default(division_experienced.did)
+        .set_name("5")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
@@ -983,14 +988,17 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     let round_1_novice = RoundBuilder::new_default(division_novice.did)
+        .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_2_novice = RoundBuilder::new_default(division_novice.did)
+        .set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_3_novice = RoundBuilder::new_default(division_novice.did)
+        .set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
@@ -1137,14 +1145,17 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
 
     let round_1_decades = RoundBuilder::new_default(division_decades.did)
+        .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_2_decades = RoundBuilder::new_default(division_decades.did)
+        .set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
     let round_3_decades = RoundBuilder::new_default(division_decades.did)
+        .set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();

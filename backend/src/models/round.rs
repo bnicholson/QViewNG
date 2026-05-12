@@ -12,6 +12,7 @@ use chrono::{DateTime, TimeZone, Utc};
 
 pub struct RoundBuilder {
     pub did: Option<Uuid>,                              // id of the associated division
+    pub name: Option<String>,
     pub scheduled_start_time: Option<DateTime<Utc>>
 }
 
@@ -19,14 +20,20 @@ impl RoundBuilder {
     pub fn new(did: Uuid) -> Self {
         Self {
             did: Some(did),
+            name: None,
             scheduled_start_time: None
         }
     }
     pub fn new_default(did: Uuid) -> Self {
         Self {
             did: Some(did),
+            name: None,
             scheduled_start_time: Some(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap())
         }
+    }
+    pub fn set_name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
     }
     pub fn set_scheduled_start_time(mut self, time: DateTime<Utc>) -> Self {
         self.scheduled_start_time = Some(time);
@@ -36,6 +43,9 @@ impl RoundBuilder {
         let mut errors = Vec::new();
         if self.did.is_none() {
             errors.push("did is required".to_string());
+        }
+        if self.name.is_none() {
+            errors.push("name is required".to_string());
         }
         if self.scheduled_start_time.is_none() {
             errors.push("scheduled_start_time is required".to_string());
@@ -54,6 +64,7 @@ impl RoundBuilder {
                 Ok(
                     NewRound {
                         did: self.did.unwrap(),
+                        name: self.name.unwrap(),
                         scheduled_start_time: self.scheduled_start_time.unwrap()
                     }
                 )
@@ -105,6 +116,7 @@ pub struct Round {
     pub scheduled_question_eighteen_id: Option<Uuid>,
     pub scheduled_question_nineteen_id: Option<Uuid>,
     pub scheduled_question_twenty_id: Option<Uuid>,
+    pub name: String,
 }
 
 #[derive(
@@ -116,6 +128,7 @@ pub struct Round {
 #[diesel(table_name = crate::schema::rounds)]
 pub struct NewRound {
     pub did: Uuid,                              // id of the associated division
+    pub name: String,
     pub scheduled_start_time: DateTime<Utc>
 }
 
@@ -124,6 +137,7 @@ pub struct NewRound {
 #[diesel(table_name = crate::schema::rounds)]
 #[diesel(primary_key(roundid))]
 pub struct RoundChangeset {
+    pub name: Option<String>,
     pub scheduled_start_time: Option<DateTime<Utc>>
 }
 

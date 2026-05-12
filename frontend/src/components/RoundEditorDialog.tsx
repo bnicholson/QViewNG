@@ -35,11 +35,13 @@ const Transition = React.forwardRef(function Transition(
 
 interface RoundFormState {
   did: string;
+  name: string;
   scheduled_start_time: Dayjs | null;
 }
 
 const emptyState: RoundFormState = {
   did: "",
+  name: "",
   scheduled_start_time: null,
 };
 
@@ -73,7 +75,7 @@ export const RoundEditorDialog = (props: Props) => {
   }, [isOpen]);
 
   const openCancelDialog = () => {
-    const isDirty = form.did !== "" || form.scheduled_start_time !== null;
+    const isDirty = form.did !== "" || form.name !== "" || form.scheduled_start_time !== null;
     if (!isDirty) {
       onCancel();
     } else {
@@ -93,6 +95,11 @@ export const RoundEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
+    if (!form.name.trim()) {
+      setErrorMsg("Round name is required.");
+      setAlertOpened(true);
+      return;
+    }
     if (!form.scheduled_start_time || !form.scheduled_start_time.isValid()) {
       setErrorMsg("Scheduled start time is required.");
       setAlertOpened(true);
@@ -101,6 +108,7 @@ export const RoundEditorDialog = (props: Props) => {
 
     const payload: NewRoundPayload = {
       did: form.did,
+      name: form.name.trim(),
       scheduled_start_time: form.scheduled_start_time.toISOString(),
     };
 
@@ -186,6 +194,16 @@ export const RoundEditorDialog = (props: Props) => {
                     <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>
                   ))}
                 </Select>
+              </Grid>
+              <Grid item xs={6}>
+                <InputLabel>Round Name (*required)</InputLabel>
+                <TextField
+                  value={form.name}
+                  onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
+                  placeholder="e.g. 1"
+                  fullWidth
+                  size="small"
+                />
               </Grid>
               <Grid item xs={6}>
                 <InputLabel>Scheduled Start Time (*required)</InputLabel>

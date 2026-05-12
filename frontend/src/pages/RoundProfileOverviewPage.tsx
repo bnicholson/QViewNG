@@ -42,11 +42,13 @@ interface Props {
 
 export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdated, canEdit = false }: Props) => {
   const [editing, setEditing] = useState(false)
+  const [roundName, setRoundName] = useState('')
   const [scheduledStart, setScheduledStart] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const startEdit = () => {
+    setRoundName(round.name)
     setScheduledStart(toDatetimeLocal(round.scheduled_start_time))
     setError(null)
     setEditing(true)
@@ -58,11 +60,18 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
   }
 
   const handleSave = async () => {
+    if (!roundName.trim()) {
+      setError('Round name is required.')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const isoValue = scheduledStart ? new Date(scheduledStart).toISOString() : null
-      const updated = await RoundAPI.update(round.roundid, { scheduled_start_time: isoValue })
+      const updated = await RoundAPI.update(round.roundid, {
+        name: roundName.trim(),
+        scheduled_start_time: isoValue,
+      })
       onUpdated(updated)
       setEditing(false)
     } catch (e: any) {
@@ -85,6 +94,20 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
         )}
 
         <Grid container spacing={{ xs: 1, sm: 2 }}>
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="body2" color="text.secondary">Round Name</Typography>
+            {editing ? (
+              <TextField
+                size="small"
+                value={roundName}
+                onChange={e => setRoundName(e.target.value)}
+                sx={{ mt: 0.5 }}
+              />
+            ) : (
+              <Typography variant="body1">{round.name}</Typography>
+            )}
+          </Grid>
+
           <Grid item xs={12} sm={6} md={4}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">

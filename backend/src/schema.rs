@@ -477,6 +477,8 @@ diesel::table! {
         scheduled_question_eighteen_id -> Nullable<Uuid>,
         scheduled_question_nineteen_id -> Nullable<Uuid>,
         scheduled_question_twenty_id -> Nullable<Uuid>,
+        #[max_length = 64]
+        name -> Varchar,
     }
 }
 

@@ -1,6 +1,7 @@
 export interface RoundTS {
   roundid: string;
   did: string;
+  name: string;
   scheduled_start_time: string | null;
   created_at: string;
   updated_at: string;
@@ -8,6 +9,7 @@ export interface RoundTS {
 
 export interface NewRoundPayload {
   did: string;
+  name: string;
   scheduled_start_time: string; // ISO 8601 datetime string
 }
 
@@ -40,7 +42,7 @@ export const RoundAPI = {
     if (!response.ok) throw new Error(`Round not found (${response.status})`);
     return response.json();
   },
-  update: async (id: string, payload: { scheduled_start_time: string | null }): Promise<RoundTS> => {
+  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null }): Promise<RoundTS> => {
     const response = await fetch(`/api/rounds/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

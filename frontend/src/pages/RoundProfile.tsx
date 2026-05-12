@@ -13,14 +13,6 @@ import { useAuth } from '../hooks/useAuth'
 import { RoundProfileOverviewPage } from './RoundProfileOverviewPage'
 import { RoundProfileGamesPage } from './RoundProfileGamesPage'
 
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return 'Round'
-  return new Date(iso).toLocaleString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  })
-}
-
 export const RoundProfile = (props: { childRoute?: string }) => {
   const { roundid } = useParams()
   if (!roundid) return <></>
@@ -58,14 +50,14 @@ export const RoundProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Round:<br />{formatDateTime(round.scheduled_start_time)}</>} navItems={navItems}>
+    <ProfileLayout title={<>Round:<br />{round.name}</>} navItems={navItems}>
       <Stack spacing={3}>
 
         <Breadcrumbs aria-label="breadcrumb">
           <Link color="inherit" to="/">Home</Link>
           <Link color="inherit" to={`/tournament/${tournament.tid}/overview`}>{tournament.tname}</Link>
           <Link color="inherit" to={`/division/${division.did}/overview`}>{division.dname}</Link>
-          <Typography color="text.primary">{formatDateTime(round.scheduled_start_time)}</Typography>
+          <Typography color="text.primary">{round.name}</Typography>
         </Breadcrumbs>
 
         <Box sx={{ overflowX: 'auto' }}>

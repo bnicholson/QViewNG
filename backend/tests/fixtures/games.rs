@@ -19,6 +19,7 @@ pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connect
         .build_and_insert(db)
         .unwrap();
     let round = RoundBuilder::new_default(division.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
     let room = RoomBuilder::new_default("Room 1", tour.tid)
@@ -245,10 +246,12 @@ pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) { 
 
 
     let round_1 = RoundBuilder::new_default(div_1.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
     let round_2 = RoundBuilder::new_default(div_1.did)
+        .set_name("2")
         .build_and_insert(db)
         .unwrap();
 
@@ -409,10 +412,12 @@ pub fn seed_get_games_of_division(db: &mut database::Connection) -> (Uuid, Game,
 
 
     let round_1_of_div_1 = RoundBuilder::new_default(div_1.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
     let round_1_of_div_2 = RoundBuilder::new_default(div_2.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
@@ -576,10 +581,12 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
 
 
     let round_1_of_tour_1 = RoundBuilder::new_default(div_1_of_tour_1.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
     let round_1_of_tour_2 = RoundBuilder::new_default(div_1_of_tour_2.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
@@ -702,10 +709,12 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
 
 
     let round_1 = RoundBuilder::new_default(div_1.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
     let round_2 = RoundBuilder::new_default(div_1.did)
+        .set_name("2")
         .build_and_insert(db)
         .unwrap();
 
@@ -828,10 +837,12 @@ pub fn seed_get_games_of_team(db: &mut database::Connection) -> (Uuid, Game, Gam
 
 
     let round_1 = RoundBuilder::new_default(div_1.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
     let round_2 = RoundBuilder::new_default(div_1.did)
+        .set_name("2")
         .build_and_insert(db)
         .unwrap();
 
@@ -954,10 +965,12 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
 
 
     let round_1 = RoundBuilder::new_default(div_1.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
     let round_2 = RoundBuilder::new_default(div_1.did)
+        .set_name("2")
         .build_and_insert(db)
         .unwrap();
 
@@ -1099,6 +1112,7 @@ pub fn arrange_game_delete_works_integration_test(
         .build_and_insert(db)
         .unwrap();
     let round = RoundBuilder::new_default(division.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
     let room_1 = RoomBuilder::new_default("Room 1", tournament.tid)
@@ -1164,6 +1178,7 @@ pub fn arrange_game_update_works_integration_test(
         .build_and_insert(db)
         .unwrap();
     let round = RoundBuilder::new_default(division.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
     let room = RoomBuilder::new_default("Room 1", tournament.tid)
@@ -1220,6 +1235,7 @@ pub fn arrange_game_create_works_integration_test(
         .build_and_insert(db)
         .unwrap();
     let round = RoundBuilder::new_default(division.did)
+        .set_name("1")
         .build_and_insert(db)
         .unwrap();
     let quizmaster = UserBuilder::new_default("Quizmaster")
