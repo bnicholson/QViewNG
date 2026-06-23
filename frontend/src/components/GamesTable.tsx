@@ -48,7 +48,7 @@ function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolea
             background: '#f9fafb',
             whiteSpace: 'nowrap',
           }}>
-            View<br/>Profile
+            View
           </button>
         </Link>
       ),
