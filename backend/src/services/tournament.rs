@@ -29,7 +29,6 @@ impl TournamentWithRooms {
 #[openapi(paths(
     index,
     read,
-    read_today,
     // create,
     // update,
     destroy
@@ -112,15 +111,6 @@ async fn read(
     }
 }
 
-#[utoipa::path(
-        get,
-        path = "/tournaments/today",
-        responses(
-            (status = 200, description = "Tournaments found successfully", body = Tournament),
-            (status = 404, description = "Tournament not found")
-        )
-    )
-]
 #[get("/today")]
 async fn read_today(
     db: Data<Database>,
@@ -132,35 +122,6 @@ async fn read_today(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    // convert the query from the api call from timestamps in millis since 1970
-    // to an actual 
-    let now = Utc::now();
-    let from_dt = (now.timestamp()-(7*24*3600))*1000;
-    let to_dt = (now.timestamp() + (7*24*3600))*1000;
-
-    tracing::debug!("{} /api/tournaments/today {:?} {:?} {:?}",line!(), now, from_dt, to_dt);
-
-    let result = models::tournament::read_between_dates(&mut db, from_dt, to_dt);
-    println!("Results: {:?} {:?} {:?}", from_dt, to_dt, result);
-
-    if result.is_ok() {
-        HttpResponse::Ok().json(result.unwrap())
-    } else {
-        HttpResponse::InternalServerError().finish()
-    }
-}
-
-#[get("/today-max-100")]
-async fn read_today_max_100(
-    db: Data<Database>,
-    req: HttpRequest,
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    println!("Inside /api/tournaments/today-max-100");
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-
     // use 1 month (31 days) as the base for obtaining tournaments from server, into the past and into the future
     let days_before_and_after: i64 = 31;
     let days_before_and_after_in_milliseconds: i64 = (days_before_and_after*24*3600)*1000;
@@ -168,7 +129,7 @@ async fn read_today_max_100(
     let from_dt = today.timestamp_millis() - days_before_and_after_in_milliseconds;
     let to_dt   = today.timestamp_millis() + days_before_and_after_in_milliseconds;
 
-    tracing::debug!("{} /api/tournaments/today-max-100 {:?} {:?} {:?}",line!(), today, from_dt, to_dt);
+    tracing::debug!("{} /api/tournaments/today {:?} {:?} {:?}",line!(), today, from_dt, to_dt);
 
     let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt);
     println!("Tournaments Result: {:?} {:?} {:?}", from_dt, to_dt, result_tournaments);
@@ -631,7 +592,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(get_between_dates)
         .service(read_today)
-        .service(read_today_max_100)
         .service(read)
         .service(read_rooms)
         .service(read_rounds)

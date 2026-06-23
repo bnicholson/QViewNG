@@ -123,66 +123,6 @@ async fn get_by_id_works() {
 }
 
 #[actix_web::test]
-async fn get_todays_works() {
-
-    // Arrange:
-    
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-    
-    fixtures::tournaments::seed_tournaments_for_get_today(&mut conn);
-
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    // Act:
-
-    let req = test::TestRequest::get()
-        .uri("/api/tournaments/today")
-        .to_request();
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-    
-    let body: Vec<Tournament> = test::read_body_json(resp).await;
-    assert_eq!(body.iter().count(), 2);
-    
-    let today: NaiveDate = Local::now().date_naive();
-
-    let mut tour_today_exactly: &Tournament = &body[0];
-    let mut tour_20_day_range_including_today: &Tournament = &body[1];
-
-    if &body[1].fromdate == &today {
-        tour_today_exactly = &body[1];
-        tour_20_day_range_including_today = &body[0];
-    }
-
-    assert_eq!(tour_today_exactly.tname, "Today Exactly");
-    assert_eq!(tour_today_exactly.fromdate, today);
-    assert_eq!(tour_today_exactly.todate, today);
-    
-    let tour_min_ten: NaiveDate = today - Duration::days(10);
-    let tour_plus_ten: NaiveDate = today + Duration::days(10);
-    assert_eq!(tour_20_day_range_including_today.tname, "20 Days, Including Today");
-    assert_eq!(tour_20_day_range_including_today.fromdate, tour_min_ten);
-    assert_eq!(tour_20_day_range_including_today.todate, tour_plus_ten);
-
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), "/api/tournaments/today");
-}
-
-#[actix_web::test]
 async fn get_all_in_date_range_works() {
 
     // Arrange:
@@ -1297,7 +1237,7 @@ async fn get_all_quizzers_of_tournament_works() {
 }
 
 #[actix_web::test]
-async fn get_today_max_100_works() {
+async fn get_today_works() {
 
     // Arrange:
 
@@ -1314,7 +1254,7 @@ async fn get_today_max_100_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = "/api/tournaments/today-max-100";
+    let uri = "/api/tournaments/today";
     let req = test::TestRequest::get()
         .uri(uri)
         .to_request();
