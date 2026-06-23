@@ -1,5 +1,6 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
-use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource}, role::AppRole, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, users_roles::NewUsersRole}};
+use serde::{Deserialize, Serialize};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource}, role::AppRole, room::Room, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, users_roles::NewUsersRole}};
 use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
@@ -9,6 +10,20 @@ use utoipa::OpenApi;
 use diesel::{QueryResult};
 use crate::database::Database;
 use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TournamentWithRooms {
+    pub tournament: Tournament,
+    pub rooms: Vec<Room>,
+}
+impl TournamentWithRooms {
+    pub fn new(tournament: Tournament, rooms: Vec<Room>) -> Self {
+        Self {
+            tournament,
+            rooms
+        }
+    }
+}
 
 #[derive(OpenApi)]
 #[openapi(paths(
@@ -133,6 +148,65 @@ async fn read_today(
     } else {
         HttpResponse::InternalServerError().finish()
     }
+}
+
+#[get("/today-max-100")]
+async fn read_today_max_100(
+    db: Data<Database>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    println!("Inside /api/tournaments/today-max-100");
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    // use 1 month (31 days) as the base for obtaining tournaments from server, into the past and into the future
+    let days_before_and_after: i64 = 31;
+    let days_before_and_after_in_milliseconds: i64 = (days_before_and_after*24*3600)*1000;
+    let today = Utc::now();
+    let from_dt = today.timestamp_millis() - days_before_and_after_in_milliseconds;
+    let to_dt   = today.timestamp_millis() + days_before_and_after_in_milliseconds;
+
+    tracing::debug!("{} /api/tournaments/today-max-100 {:?} {:?} {:?}",line!(), today, from_dt, to_dt);
+
+    let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt);
+    println!("Tournaments Result: {:?} {:?} {:?}", from_dt, to_dt, result_tournaments);
+
+    if !result_tournaments.is_ok() {
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    let mut tournaments = result_tournaments.unwrap();
+    let max_tournaments_to_send_in_response = 100;
+    while tournaments.len() > max_tournaments_to_send_in_response {
+        tournaments.remove(0);
+        tournaments.pop();
+    }
+
+    let mut tournaments_with_rooms = Vec::<TournamentWithRooms>::new();
+    let pagination_params_vals = PaginationParams {
+        page: 0,
+        page_size: 100,
+    };
+    for tournament in tournaments {
+        let rooms_result = models::room::read_all_rooms_of_tournament(&mut db, tournament.tid, &pagination_params_vals);
+        println!("Tournament Rooms Result: {:?}", rooms_result);
+        if !rooms_result.is_ok() {
+            return HttpResponse::NotFound().finish();
+        }
+        let rooms = rooms_result.unwrap();
+
+        // Construct the object to be returned in the response
+        let tournament_with_rooms = TournamentWithRooms::new(
+            tournament.clone(),
+            rooms.clone()
+        );
+
+        tournaments_with_rooms.push(tournament_with_rooms);
+    }
+
+    return HttpResponse::Ok().json(tournaments_with_rooms);
 }
 
 #[get("/{id}/divisions")]
@@ -557,6 +631,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(get_between_dates)
         .service(read_today)
+        .service(read_today_max_100)
         .service(read)
         .service(read_rooms)
         .service(read_rounds)

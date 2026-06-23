@@ -1,4 +1,4 @@
-use backend::{database, models::{equipmentregistration::EquipmentRegistration, tournament::{NewTournament, Tournament, TournamentBuilder}, tournament_admin::{NewTournamentAdmin, TournamentAdmin, TournamentAdminBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::{User, UserBuilder}}};
+use backend::{database, models::{equipmentregistration::EquipmentRegistration, room::Room, tournament::{NewTournament, Tournament, TournamentBuilder}, tournament_admin::{NewTournamentAdmin, TournamentAdmin, TournamentAdminBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::{User, UserBuilder}}};
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
 use crate::fixtures::{self,divisions::{seed_division_with_name, seed_divisions_with_names}, equipmentregistrations::seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
 
@@ -341,6 +341,34 @@ pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> (
         .unwrap();
 
     (tournament, owner)
+}
+
+pub fn arrange_today_max_100_works(db: &mut database::Connection) -> (Tournament, Vec<Room>, Tournament) {
+    let owner = UserBuilder::new_default("Today Max 100 Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let today = Local::now().date_naive();
+    let two_months_from_today: NaiveDate = today.checked_add_months(Months::new(2)).unwrap();
+
+    let tour_in_window = TournamentBuilder::new_default("Today Max 100 In Window")
+        .set_fromdate(today)
+        .set_todate(today)
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let rooms = seed_rooms_with_names(db, tour_in_window.tid, "Room Alpha", "Room Beta", "Room Gamma");
+
+    let tour_out_of_window = TournamentBuilder::new_default("Today Max 100 Out Of Window")
+        .set_fromdate(two_months_from_today)
+        .set_todate(two_months_from_today)
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tour_in_window, rooms, tour_out_of_window)
 }
 
 pub fn arrange_delete_admin_works_integration_test(db: &mut database::Connection) -> (Tournament, User, TournamentAdmin) {

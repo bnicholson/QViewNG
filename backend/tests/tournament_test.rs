@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
-use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::common::{EntityResponse, PagedResponse}};
+use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::{common::{EntityResponse, PagedResponse}, tournament::TournamentWithRooms}};
 use backend::models::{division::Division, tournament::Tournament};
 use backend::database::Database;
 use serde_json::json;
@@ -1294,4 +1294,60 @@ async fn get_all_quizzers_of_tournament_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_today_max_100_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tour_in_window, rooms, _tour_out_of_window) =
+        fixtures::tournaments::arrange_today_max_100_works(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = "/api/tournaments/today-max-100";
+    let req = test::TestRequest::get()
+        .uri(uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<TournamentWithRooms> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 1);
+    assert_eq!(body[0].tournament.tid, tour_in_window.tid);
+    assert_eq!(body[0].tournament.tname, "Today Max 100 In Window");
+    assert_eq!(body[0].rooms.len(), 3);
+
+    let mut room_alpha_idx = 10;
+    for idx in 0..3 {
+        if body[0].rooms[idx].name == "Room Alpha" {
+            room_alpha_idx = idx;
+        }
+    }
+    assert_ne!(room_alpha_idx, 10);
+    assert_eq!(body[0].rooms[room_alpha_idx].tid, tour_in_window.tid);
+    assert_eq!(body[0].rooms[room_alpha_idx].roomid, rooms[0].roomid);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), uri);
 }
