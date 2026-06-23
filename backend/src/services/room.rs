@@ -94,6 +94,24 @@ async fn read_games(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
+        Ok(games) => HttpResponse::Ok().json(games),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+#[get("/{id}/games-detailed")]
+async fn read_games_detailed(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
     let games_list = match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
         Ok(g) => g,
         Err(_) => return HttpResponse::NotFound().finish(),
@@ -393,6 +411,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(read_games)
+        .service(read_games_detailed)
         .service(read_equipmentregistrations)
         .service(create)
         .service(update)

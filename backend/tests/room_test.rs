@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGamePayload}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGamePayload}};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -500,9 +500,66 @@ async fn get_all_games_of_room_works() {
     let req = test::TestRequest::get()
         .uri(&uri)
         .to_request();
-    
+
     // Act:
-    
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Game> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut game_1_idx = 10;
+    let mut game_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].gid == game_2.gid {
+            game_1_idx = idx;
+        }
+        if body[idx].gid == game_4.gid {
+            game_2_idx = idx;
+        }
+    }
+    assert_ne!(game_1_idx, 10);
+    assert_ne!(game_2_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_games_detailed_of_room_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (game_2, game_4) = fixtures::games::seed_get_games_of_room(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/rooms/{}/games-detailed?page={}&page_size={}", game_2.roomid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -510,9 +567,7 @@ async fn get_all_games_of_room_works() {
 
     let body: Vec<RoomGamePayload> = test::read_body_json(resp).await;
 
-    let len = 2;
-
-    assert_eq!(body.len(), len);
+    assert_eq!(body.len(), 2);
 
     let game_2_item = body.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
     let game_4_item = body.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
