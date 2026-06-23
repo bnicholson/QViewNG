@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::common::PagedResponse};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGamePayload}};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -508,25 +508,56 @@ async fn get_all_games_of_room_works() {
 
     // Assert:
 
-    let body: Vec<Game> = test::read_body_json(resp).await;
+    let body: Vec<RoomGamePayload> = test::read_body_json(resp).await;
 
     let len = 2;
 
     assert_eq!(body.len(), len);
 
-    let mut game_1_idx = 10;
-    let mut game_2_idx = 10;
-    for idx in 0..len {
-        if body[idx].gid == game_2.gid {
-            game_1_idx = idx;
-        }
-        if body[idx].gid == game_4.gid {
-            game_2_idx = idx;
-        }
+    let game_2_item = body.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
+    let game_4_item = body.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
+
+    // game_2 is in the earlier round (Round 1), game_4 is in the later round (Round 2)
+    assert_eq!(game_2_item.seqnum, 1);
+    assert_eq!(game_4_item.seqnum, 2);
+    assert_eq!(body[0].gameid, game_2.gid);
+    assert_eq!(body[1].gameid, game_4.gid);
+
+    // Common fields for both games (same tournament + division)
+    for item in [game_2_item, game_4_item] {
+        assert_eq!(item.tname, "Tour 1");
+        assert_eq!(item.dname, "Div 1");
+        assert_eq!(item.tid, game_2.tournamentid);
+        assert_eq!(item.did, game_2.divisionid);
+        // No center team in this fixture
+        assert_eq!(item.centerteam.name, "");
+        assert!(item.centerteam.quizzers.is_empty());
     }
-    assert_ne!(game_1_idx, 10);
-    assert_ne!(game_2_idx, 10);
-    
+
+    // game_2: round 1, left=Team 3, right=Team 4
+    assert_eq!(game_2_item.roundid, game_2.roundid);
+    assert_eq!(game_2_item.roundname, "Round 1");
+    assert_eq!(game_2_item.leftteam.name, "Team 3");
+    assert_eq!(game_2_item.rightteam.name, "Team 4");
+    assert_eq!(game_2_item.leftteam.quizzers.len(), 2);
+    assert!(game_2_item.leftteam.quizzers.contains(&"QuizzerT3A Den".to_string()));
+    assert!(game_2_item.leftteam.quizzers.contains(&"QuizzerT3B Den".to_string()));
+    assert_eq!(game_2_item.rightteam.quizzers.len(), 2);
+    assert!(game_2_item.rightteam.quizzers.contains(&"QuizzerT4A Den".to_string()));
+    assert!(game_2_item.rightteam.quizzers.contains(&"QuizzerT4B Den".to_string()));
+
+    // game_4: round 2, left=Team 3, right=Team 2
+    assert_eq!(game_4_item.roundid, game_4.roundid);
+    assert_eq!(game_4_item.roundname, "Round 2");
+    assert_eq!(game_4_item.leftteam.name, "Team 3");
+    assert_eq!(game_4_item.rightteam.name, "Team 2");
+    assert_eq!(game_4_item.leftteam.quizzers.len(), 2);
+    assert!(game_4_item.leftteam.quizzers.contains(&"QuizzerT3A Den".to_string()));
+    assert!(game_4_item.leftteam.quizzers.contains(&"QuizzerT3B Den".to_string()));
+    assert_eq!(game_4_item.rightteam.quizzers.len(), 2);
+    assert!(game_4_item.rightteam.quizzers.contains(&"QuizzerT2A Den".to_string()));
+    assert!(game_4_item.rightteam.quizzers.contains(&"QuizzerT2B Den".to_string()));
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());

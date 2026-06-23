@@ -1,4 +1,5 @@
 use backend::{database, models::{division::{Division, DivisionBuilder}, game::{Game, GameBuilder, NewGame}, game_statsgroup::GameStatsGroupBuilder, gameevent::{GameEvent, GameEventCode, GameEventBuilder}, room::{Room, RoomBuilder}, round::{Round, RoundBuilder}, statsgroup::{StatsGroup, StatsGroupBuilder}, team::{Team, TeamBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
+use chrono::TimeZone;
 use diesel::prelude::*;
 use uuid::Uuid;
 use backend::schema::games;
@@ -683,6 +684,31 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
         .unwrap();
 
 
+    let q_t2_a = UserBuilder::new_default("QuizzerT2A")
+        .set_hash_password("qt2aPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let q_t2_b = UserBuilder::new_default("QuizzerT2B")
+        .set_hash_password("qt2bPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let q_t3_a = UserBuilder::new_default("QuizzerT3A")
+        .set_hash_password("qt3aPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let q_t3_b = UserBuilder::new_default("QuizzerT3B")
+        .set_hash_password("qt3bPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let q_t4_a = UserBuilder::new_default("QuizzerT4A")
+        .set_hash_password("qt4aPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let q_t4_b = UserBuilder::new_default("QuizzerT4B")
+        .set_hash_password("qt4bPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
     let team_1 = TeamBuilder::new_default(div_1.did)
         .set_name("Team 1")
         .set_coachid(coach_1.id)
@@ -692,29 +718,37 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
     let team_2 = TeamBuilder::new_default(div_1.did)
         .set_name("Team 2")
         .set_coachid(coach_2.id)
+        .set_quizzer_one_id(q_t2_a.id)
+        .set_quizzer_two_id(q_t2_b.id)
         .build_and_insert(db)
         .unwrap();
 
     let team_3 = TeamBuilder::new_default(div_1.did)
         .set_name("Team 3")
         .set_coachid(coach_3.id)
+        .set_quizzer_one_id(q_t3_a.id)
+        .set_quizzer_two_id(q_t3_b.id)
         .build_and_insert(db)
         .unwrap();
 
     let team_4 = TeamBuilder::new_default(div_1.did)
         .set_name("Team 4")
         .set_coachid(coach_4.id)
+        .set_quizzer_one_id(q_t4_a.id)
+        .set_quizzer_two_id(q_t4_b.id)
         .build_and_insert(db)
         .unwrap();
 
 
     let round_1 = RoundBuilder::new_default(div_1.did)
-        .set_name("1")
+        .set_name("Round 1")
+        .set_scheduled_start_time(chrono::Utc.with_ymd_and_hms(2055, 5, 23, 9, 0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
 
     let round_2 = RoundBuilder::new_default(div_1.did)
-        .set_name("2")
+        .set_name("Round 2")
+        .set_scheduled_start_time(chrono::Utc.with_ymd_and_hms(2055, 5, 23, 11, 0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
 

@@ -1,5 +1,7 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use crate::auth::{is_rbac_and_abac_authorized, policies::{room::RoomPolicyResource, PolicyContext, UserContext}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, room::{NewRoom, Room, RoomChangeset}};
@@ -7,6 +9,27 @@ use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoomGameTeam {
+    pub name: String,
+    pub quizzers: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoomGamePayload {
+    pub seqnum: i64,
+    pub gameid: Uuid,
+    pub roundid: Uuid,
+    pub roundname: String,
+    pub did: Uuid,
+    pub dname: String,
+    pub tid: Uuid,
+    pub tname: String,
+    pub leftteam: RoomGameTeam,
+    pub centerteam: RoomGameTeam,
+    pub rightteam: RoomGameTeam,
+}
 
 // #[derive(OpenApi)]
 // #[openapi(paths(index))]
@@ -71,10 +94,124 @@ async fn read_games(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
-        Ok(rounds) => HttpResponse::Ok().json(rounds),
-        Err(_) => HttpResponse::NotFound().finish(),
+    let games_list = match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
+        Ok(g) => g,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+
+    if games_list.is_empty() {
+        return HttpResponse::Ok().json(Vec::<RoomGamePayload>::new());
     }
+
+    // Can assume all games for a given room belong to the same tournament.
+    let tournament = match models::tournament::read(&mut db, games_list[0].tournamentid) {
+        Ok(t) => t,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+
+    let mut rounds_cache: HashMap<Uuid, models::round::Round> = HashMap::new();
+    let mut divisions_cache: HashMap<Uuid, models::division::Division> = HashMap::new();
+    let mut teams_cache: HashMap<Uuid, models::team::Team> = HashMap::new();
+    let mut quizzers_cache: HashMap<Uuid, String> = HashMap::new();
+
+    let mut items: Vec<RoomGamePayload> = Vec::with_capacity(games_list.len());
+
+    for g in games_list.into_iter() {
+        if !rounds_cache.contains_key(&g.roundid) {
+            match models::round::read(&mut db, g.roundid) {
+                Ok(r) => { rounds_cache.insert(g.roundid, r); },
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            }
+        }
+        if !divisions_cache.contains_key(&g.divisionid) {
+            match models::division::read(&mut db, g.divisionid) {
+                Ok(d) => { divisions_cache.insert(g.divisionid, d); },
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            }
+        }
+
+        let mut team_ids: Vec<Uuid> = vec![g.leftteamid, g.rightteamid];
+        if let Some(ct) = g.centerteamid {
+            team_ids.push(ct);
+        }
+        for team_id in team_ids {
+            if !teams_cache.contains_key(&team_id) {
+                let team = match models::team::read(&mut db, team_id) {
+                    Ok(t) => t,
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                };
+                for qid in [
+                    team.quizzer_one_id,
+                    team.quizzer_two_id,
+                    team.quizzer_three_id,
+                    team.quizzer_four_id,
+                    team.quizzer_five_id,
+                    team.quizzer_six_id,
+                ].into_iter().flatten() {
+                    if !quizzers_cache.contains_key(&qid) {
+                        match models::user::read(&mut db, qid) {
+                            Ok(u) => { quizzers_cache.insert(qid, format!("{} {}", u.fname, u.lname)); },
+                            Err(_) => return HttpResponse::InternalServerError().finish(),
+                        }
+                    }
+                }
+                teams_cache.insert(team_id, team);
+            }
+        }
+
+        let build_team_payload = |team_id_opt: Option<Uuid>| -> RoomGameTeam {
+            match team_id_opt.and_then(|team_id| teams_cache.get(&team_id)) {
+                Some(team) => {
+                    let quizzers: Vec<String> = [
+                        team.quizzer_one_id,
+                        team.quizzer_two_id,
+                        team.quizzer_three_id,
+                        team.quizzer_four_id,
+                        team.quizzer_five_id,
+                        team.quizzer_six_id,
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|qid| quizzers_cache.get(&qid).cloned())
+                    .collect();
+                    RoomGameTeam { name: team.name.clone(), quizzers }
+                }
+                None => RoomGameTeam { name: String::new(), quizzers: Vec::new() },
+            }
+        };
+
+        let roundname = rounds_cache.get(&g.roundid).map(|r| r.name.clone()).unwrap_or_default();
+        let dname = divisions_cache.get(&g.divisionid).map(|d| d.dname.clone()).unwrap_or_default();
+
+        items.push(RoomGamePayload {
+            seqnum: 0,
+            gameid: g.gid,
+            roundid: g.roundid,
+            roundname,
+            did: g.divisionid,
+            dname,
+            tid: tournament.tid,
+            tname: tournament.tname.clone(),
+            leftteam: build_team_payload(Some(g.leftteamid)),
+            centerteam: build_team_payload(g.centerteamid),
+            rightteam: build_team_payload(Some(g.rightteamid)),
+        });
+    }
+
+    // Order by the round's scheduled start time (earliest first). Games whose
+    // round has no scheduled start time sort last. Then assign seqnum starting at 1.
+    items.sort_by_key(|item| {
+        rounds_cache
+            .get(&item.roundid)
+            .and_then(|r| r.scheduled_start_time)
+            .map(|dt| (0i8, dt.timestamp_nanos_opt().unwrap_or(i64::MAX)))
+            .unwrap_or((1i8, i64::MAX))
+    });
+    for (idx, item) in items.iter_mut().enumerate() {
+        item.seqnum = (idx as i64) + 1;
+    }
+
+    HttpResponse::Ok().json(items)
 }
 
 #[get("/{id}/equipmentregistrations")]
