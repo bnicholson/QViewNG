@@ -57,7 +57,8 @@ const tournamentEmptyState: TournamentChangesetTS = {
   shortinfo: "",
   tname: "",
   todate: null,
-  venue: ""
+  venue: "",
+  pairing_code: ""
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -136,7 +137,8 @@ export const TournamentEditorDialog = (props: Props) => {
       contactemail: tournament.contactemail,
       is_public: true,
       shortinfo: tournament.shortinfo,
-      info: tournament.info
+      info: tournament.info,
+      pairing_code: tournament.pairing_code
     };
 
     // now send the data to the backend microservice
@@ -390,6 +392,22 @@ export const TournamentEditorDialog = (props: Props) => {
                   value={tournament.contactemail}
                   onChange={(event) => {
                     setTournament(state => ({ ...state, contactemail: event.target.value as string }));
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
+              <Grid item xs={6}>
+                <InputLabel>Pairing Code (6-digit)</InputLabel>
+                <TextField
+                  variant="outlined"
+                  placeholder="Pairing Code"
+                  value={tournament.pairing_code}
+                  inputProps={{ maxLength: 64 }}
+                  onChange={(event) => {
+                    setTournament(state => ({ ...state, pairing_code: event.target.value as string }));
                   }}
                 />
               </Grid>
