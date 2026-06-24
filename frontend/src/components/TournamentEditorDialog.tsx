@@ -15,6 +15,9 @@ import TextField from '@mui/material/TextField'
 import dayjs, { Dayjs } from 'dayjs'
 import AppBar from '@mui/material/AppBar'
 import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
 import Toolbar from '@mui/material/Toolbar'
 import CloseIcon from '@mui/icons-material/Close'
 import Slide from '@mui/material/Slide'
@@ -84,12 +87,16 @@ export const TournamentEditorDialog = (props: Props) => {
   const [alertopened, setAlertOpened] = useState(false);
   const [errormsg, setErrorMsg] = useState<string>("Simple error message");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
+  const [pairingCodeWarningOpen, setPairingCodeWarningOpen] = useState(false);
+  const [pairingCodeWarningAcknowledged, setPairingCodeWarningAcknowledged] = useState(false);
 
   /** Call this whenever the tournament editor is closed. */
   const resetState = () => {
     setTournament(tournamentEmptyState);
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("Simple error message");
+    setPairingCodeWarningOpen(false);
+    setPairingCodeWarningAcknowledged(false);
   };
 
   // If the initial tournament changes or the dialog opens, set or clear the initial fields.
@@ -410,6 +417,11 @@ export const TournamentEditorDialog = (props: Props) => {
                     placeholder="Pairing Code"
                     value={tournament.pairing_code ?? ""}
                     inputProps={{ maxLength: 64 }}
+                    onFocus={() => {
+                      if (!pairingCodeWarningAcknowledged) {
+                        setPairingCodeWarningOpen(true);
+                      }
+                    }}
                     onChange={(event) => {
                       setTournament(state => ({ ...state, pairing_code: event.target.value as string }));
                     }}
@@ -462,6 +474,30 @@ export const TournamentEditorDialog = (props: Props) => {
         onConfirm={confirmDialog.onConfirm}
         title={confirmDialog.title}
       />
+      <Dialog
+        open={pairingCodeWarningOpen}
+        onClose={() => {
+          setPairingCodeWarningOpen(false);
+          setPairingCodeWarningAcknowledged(true);
+        }}
+      >
+        <DialogContent>
+          <DialogContentText sx={{ whiteSpace: 'pre-line' }}>
+            {"Pairing code allows QuizMachine to receive Games from QView. Changing the pairing code means all future pairings will need to use the new code. Changing the pairing code does not recall Games that QuizMachine has already received from QView.\n\nIt is recommended to change the pairing code only if it is discovered that the pairing code has been leaked or compromised and no longer ensures pairing is limited only to Tournament Managers and Admins."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center' }}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setPairingCodeWarningOpen(false);
+              setPairingCodeWarningAcknowledged(true);
+            }}
+          >
+            I Understand
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog >
   )
 };
