@@ -276,6 +276,7 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
       />
       <TournamentEditorDialog
         isOpen={editorOpen}
+        canViewPairingCode={isTournamentManager || isSuperUser}
         onCancel={() => setEditorOpen(false)}
         onSave={handleCreated}
       />

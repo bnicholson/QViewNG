@@ -66,7 +66,7 @@ impl TournamentBuilder {
             shortinfo: Some("Winter Olympics".to_string()),
             info: Some("Shawn White did excellent in the halfpipe.".to_string()),
             owner_id: None,
-            pairing_code: Some("PAIRDEFAULT".to_string()),
+            pairing_code: None
         }
     }
     
@@ -173,9 +173,9 @@ impl TournamentBuilder {
         if self.owner_id.is_none() {
             errors.push("owner_id is required".to_string());
         }
-        if self.pairing_code.is_none() {
-            errors.push("pairing_code is required".to_string());
-        }
+        // if self.pairing_code.is_none() {
+        //     errors.push("pairing_code is required".to_string());
+        // }
 
         if !errors.is_empty() {
             return Err(errors);
@@ -184,6 +184,9 @@ impl TournamentBuilder {
         Ok(true)
     }
     pub fn build(self) -> Result<NewTournament, Vec<String>> {
+
+        let pairing_code = format!("{:06}", rand::random_range(0..=999_999u32));
+
         match self.validate_all_are_some() {
             Err(e) => {
                 Err(e)
@@ -205,7 +208,7 @@ impl TournamentBuilder {
                     info: self.info.unwrap(),
                     owner_id: self.owner_id.unwrap(),
                     creator_id: self.owner_id.unwrap(),
-                    pairing_code: self.pairing_code.unwrap(),
+                    pairing_code: self.pairing_code.unwrap_or(pairing_code),
                 })
             }
         }

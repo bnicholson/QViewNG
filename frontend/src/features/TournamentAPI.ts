@@ -53,8 +53,12 @@ export const TournamentAPI = {
     const result = await response.json();
     return result.map((tournament: Tournament) => dateStringToDayjs(tournament));
   },
-  getById: async (tid: string): Promise<TournamentTS> => {
-    const response = await fetch(`/api/tournaments/${tid}`);
+  getById: async (tid: string, accessToken?: string): Promise<TournamentTS> => {
+    const response = await fetch(`/api/tournaments/${tid}`, {
+      headers: {
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
+    });
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error('Tournament not found');

@@ -26,7 +26,7 @@ import { useAuth } from '../hooks/useAuth'
 
 export const TournamentProfile = (props: { childRoute?: string }) => {
 
-  const { session } = useAuth();
+  const { session, accessToken } = useAuth();
 
   const { tid } = useParams();
   if (tid === undefined) return (<></>)
@@ -41,7 +41,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
   useEffect(() => {
     setIsLoading(true)
-    const cancellable = makeCancellable(TournamentAPI.getById(tid));
+    const cancellable = makeCancellable(TournamentAPI.getById(tid, accessToken));
     try {
       cancellable.promise
         .then((returnedTournament: TournamentTS) => {
@@ -65,7 +65,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
       }
     }
     setIsLoading(false)
-  }, [tid])
+  }, [tid, accessToken])
 
   useEffect(() => {
     if (!tournament || !session) {
@@ -97,6 +97,11 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
   const isOwnerOrSuperUser =
     (session?.hasRole('super_user') ?? false) ||
     (session?.userId === tournament?.owner_id);
+
+  const canViewPairingCode =
+    (session?.hasRole('super_user') ?? false) ||
+    (session?.hasRole('tournament_manager') ?? false) ||
+    (session?.hasRole('tournament_admin') ?? false);
 
   if (notFound) return <Navigate to="/404" replace />
   if (stillLoading()) return <div>Loading Tournament...</div>
@@ -139,7 +144,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'register/team'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
           {props.childRoute === 'register/gear'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" />}
           {props.childRoute === 'register/volunteer'&& <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" />}
-          {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} onEdit={() => setTournamentEditorIsOpen(true)} />}
+          {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCode={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser}/>}
           {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')} showSensitiveColumns={isOwnerOrSuperUser}/>}
           {props.childRoute === 'rounds'            && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}/>}
@@ -156,6 +161,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
         <TournamentEditorDialog
           initialTournament={tournament}
           isOpen={tournamentEditorIsOpen}
+          canViewPairingCode={canViewPairingCode}
           onCancel={() => setTournamentEditorIsOpen(false)}
           onSave={t => { setTournament(t); setTournamentEditorIsOpen(false); }}
         />

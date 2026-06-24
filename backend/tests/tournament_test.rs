@@ -83,43 +83,101 @@ async fn get_all_works() {
 async fn get_by_id_works() {
 
     // Arrange:
-    
+
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
-    
+
     let tournaments = fixtures::tournaments::seed_tournaments(&mut conn);
+    let user = fixtures::users::seed_user(&mut conn);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
             .configure(configure_routes)
     ).await;
-    
-        let uri = format!("/api/tournaments/{}", &tournaments[0].tid);
-        let req = test::TestRequest::get()
+
+    let uri = format!("/api/tournaments/{}", &tournaments[0].tid);
+
+    // Act + Assert: an unauthenticated request gets the tournament without pairing_code.
+
+    let anon_req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    let anon_resp = test::call_service(&app, anon_req).await;
+    assert_eq!(anon_resp.status(), StatusCode::OK);
+
+    let anon_body: serde_json::Value = test::read_body_json(anon_resp).await;
+    assert_eq!(anon_body.get("tname").and_then(|v| v.as_str()), Some("Q2025"));
+    assert_eq!(
+        anon_body.get("tid").and_then(|v| v.as_str()),
+        Some(tournaments[0].tid.to_string().as_str())
+    );
+    assert_eq!(anon_body.get("organization").and_then(|v| v.as_str()), Some("Nazarene"));
+    assert!(
+        anon_body.get("pairing_code").is_none(),
+        "pairing_code must be hidden from unauthenticated callers"
+    );
+
+    // Act + Assert: a `member`-only request also gets the tournament without pairing_code.
+
+    let member_token = common::make_token(
+        user.id,
+        vec!["member".to_string()],
+        vec!["tournament:read".to_string()],
+    );
+    let member_req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .insert_header(("Authorization", format!("Bearer {}", member_token)))
+        .to_request();
+
+    let member_resp = test::call_service(&app, member_req).await;
+    assert_eq!(member_resp.status(), StatusCode::OK);
+
+    let member_body: serde_json::Value = test::read_body_json(member_resp).await;
+    assert!(
+        member_body.get("pairing_code").is_none(),
+        "pairing_code must be hidden from `member` callers"
+    );
+
+    // Act + Assert: TournamentManager, TournamentAdmin, and SuperUser all see pairing_code.
+
+    for role in [
+        AppRole::TournamentManager.as_str(),
+        AppRole::TournamentAdmin.as_str(),
+        AppRole::SuperUser.as_str(),
+    ] {
+        let privileged_token = common::make_token(
+            user.id,
+            vec![role.to_string()],
+            vec!["tournament:read".to_string()],
+        );
+        let privileged_req = test::TestRequest::get()
             .uri(uri.as_str())
+            .insert_header(("Authorization", format!("Bearer {}", privileged_token)))
             .to_request();
 
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+        let privileged_resp = test::call_service(&app, privileged_req).await;
+        assert_eq!(privileged_resp.status(), StatusCode::OK);
 
-    // Assert:
-    
-    let body: Tournament = test::read_body_json(resp).await;
-    assert_eq!(body.tname, "Q2025");
-    assert_eq!(body.tid.to_string().as_str(), tournaments[0].tid.to_string().as_str());
-    assert_eq!(body.organization, "Nazarene");
+        let privileged_body: serde_json::Value = test::read_body_json(privileged_resp).await;
+        assert_eq!(
+            privileged_body.get("pairing_code").and_then(|v| v.as_str()),
+            Some(tournaments[0].pairing_code.as_str()),
+            "{} must receive pairing_code in the response",
+            role
+        );
+    }
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), format!("/api/tournaments/{}", &tournaments[0].tid));
+    // 1 anon + 1 member + 3 privileged = 5 calls
+    assert_eq!(apicalllog_records.iter().count(), 5);
+    assert!(apicalllog_records.iter().all(|r| r.method.as_str() == "GET"));
+    assert!(apicalllog_records.iter().all(|r| r.uri.as_str() == uri));
 }
 
 #[actix_web::test]

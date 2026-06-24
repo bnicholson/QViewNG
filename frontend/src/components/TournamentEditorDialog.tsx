@@ -72,12 +72,13 @@ const Item = styled(Paper)(({ theme }) => ({
 interface Props {
   initialTournament?: TournamentTS;
   isOpen: boolean;
+  canViewPairingCode: boolean;
   onCancel: VoidFunction;
   onSave: (tournament: TournamentTS) => void;
 }
 
 export const TournamentEditorDialog = (props: Props) => {
-  const { initialTournament, isOpen, onCancel, onSave } = props;
+  const { initialTournament, isOpen, canViewPairingCode, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const [tournament, setTournament] = useState<TournamentChangesetTS>(initialTournament ? initialTournament : tournamentEmptyState);
   const [alertopened, setAlertOpened] = useState(false);
@@ -138,8 +139,10 @@ export const TournamentEditorDialog = (props: Props) => {
       is_public: true,
       shortinfo: tournament.shortinfo,
       info: tournament.info,
-      pairing_code: tournament.pairing_code
     };
+    if (canViewPairingCode) {
+      tournamentCS.pairing_code = tournament.pairing_code;
+    }
 
     // now send the data to the backend microservice
     let result: TournamentCreateUpdateResult;
@@ -397,22 +400,24 @@ export const TournamentEditorDialog = (props: Props) => {
               </Grid>
             </Grid>
           </ListItem>
-          <ListItem>
-            <Grid container>
-              <Grid item xs={6}>
-                <InputLabel>Pairing Code (6-digit)</InputLabel>
-                <TextField
-                  variant="outlined"
-                  placeholder="Pairing Code"
-                  value={tournament.pairing_code}
-                  inputProps={{ maxLength: 64 }}
-                  onChange={(event) => {
-                    setTournament(state => ({ ...state, pairing_code: event.target.value as string }));
-                  }}
-                />
+          {canViewPairingCode && (
+            <ListItem>
+              <Grid container>
+                <Grid item xs={6}>
+                  <InputLabel>Pairing Code (6-digit)</InputLabel>
+                  <TextField
+                    variant="outlined"
+                    placeholder="Pairing Code"
+                    value={tournament.pairing_code ?? ""}
+                    inputProps={{ maxLength: 64 }}
+                    onChange={(event) => {
+                      setTournament(state => ({ ...state, pairing_code: event.target.value as string }));
+                    }}
+                  />
+                </Grid>
               </Grid>
-            </Grid>
-          </ListItem>
+            </ListItem>
+          )}
           <ListItem>
             <Grid container>
               <Grid item xs={12}>

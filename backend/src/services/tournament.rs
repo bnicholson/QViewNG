@@ -98,17 +98,36 @@ async fn index(
 async fn read(
     db: Data<Database>,
     item_id: Path<Uuid>,
-    req: HttpRequest  
+    req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match models::tournament::read(&mut db, item_id.into_inner()) {
-        Ok(tournament) => HttpResponse::Ok().json(tournament),
-        Err(_) => HttpResponse::NotFound().finish(),
+    let tournament = match models::tournament::read(&mut db, item_id.into_inner()) {
+        Ok(t) => t,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+
+    let can_view_pairing_code = req
+        .extensions()
+        .get::<UserContext>()
+        .map(|ctx| ctx.roles.iter().any(|r| {
+            r == AppRole::SuperUser.as_str()
+                || r == AppRole::TournamentManager.as_str()
+                || r == AppRole::TournamentAdmin.as_str()
+        }))
+        .unwrap_or(false);
+
+    let mut body = serde_json::to_value(&tournament).unwrap();
+    if !can_view_pairing_code {
+        if let Some(obj) = body.as_object_mut() {
+            obj.remove("pairing_code");
+        }
     }
+
+    HttpResponse::Ok().json(body)
 }
 
 #[get("/today")]

@@ -9,10 +9,11 @@ import type { TournamentTS } from '../features/TournamentAPI'
 interface TournamentOverviewPageProps {
   tournament: TournamentTS
   isTournamentUpdate: boolean
+  canViewPairingCode: boolean
   onEdit: () => void
 }
 
-export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, onEdit }: TournamentOverviewPageProps) => {
+export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canViewPairingCode, onEdit }: TournamentOverviewPageProps) => {
   const navigate = useNavigate()
   return (
     <Box>
@@ -64,12 +65,14 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, onEdit 
           <Typography variant="body2" color="text.secondary">Contact Email</Typography>
           <Typography variant="body1">{tournament.contactemail}</Typography>
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Typography variant="body2" color="text.secondary">Pairing Code</Typography>
-          <Typography variant="body1" sx={{ fontFamily: 'monospace', letterSpacing: 1 }}>
-            {tournament.pairing_code}
-          </Typography>
-        </Grid>
+        {canViewPairingCode && (
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="body2" color="text.secondary">Pairing Code</Typography>
+            <Typography variant="body1" sx={{ fontFamily: 'monospace', letterSpacing: 1 }}>
+              {tournament.pairing_code}
+            </Typography>
+          </Grid>
+        )}
         <Grid item xs={12} sm={6}>
           <Typography variant="body2" color="text.secondary">Short Info</Typography>
           <Typography variant="body1">{tournament.shortinfo}</Typography>
