@@ -377,6 +377,8 @@ async fn create(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
+    let pairing_code = format!("{:06}", rand::random_range(0..=999_999u32));
+
     let item = NewTournament {
         organization: payload.organization,
         tname: payload.tname,
@@ -393,6 +395,7 @@ async fn create(
         info: payload.info,
         owner_id: user_ctx.user_id,
         creator_id: user_ctx.user_id,
+        pairing_code,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);

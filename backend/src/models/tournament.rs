@@ -26,6 +26,7 @@ pub struct TournamentBuilder {
     shortinfo : Option<String>,
     info: Option<String>,
     owner_id: Option<Uuid>,
+    pairing_code: Option<String>,
 }
 
 impl TournamentBuilder {
@@ -45,6 +46,7 @@ impl TournamentBuilder {
             shortinfo: None,
             info: None,
             owner_id: None,
+            pairing_code: None,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -64,6 +66,7 @@ impl TournamentBuilder {
             shortinfo: Some("Winter Olympics".to_string()),
             info: Some("Shawn White did excellent in the halfpipe.".to_string()),
             owner_id: None,
+            pairing_code: Some("PAIRDEFAULT".to_string()),
         }
     }
     
@@ -123,6 +126,10 @@ impl TournamentBuilder {
         self.owner_id = Some(owner_id);
         self
     }
+    pub fn set_pairing_code(mut self, pairing_code: &str) -> Self {
+        self.pairing_code = Some(pairing_code.to_string());
+        self
+    }
     fn validate_all_are_some(&self) -> Result<bool, Vec<String>> {
 
         let mut errors = Vec::new();
@@ -166,6 +173,9 @@ impl TournamentBuilder {
         if self.owner_id.is_none() {
             errors.push("owner_id is required".to_string());
         }
+        if self.pairing_code.is_none() {
+            errors.push("pairing_code is required".to_string());
+        }
 
         if !errors.is_empty() {
             return Err(errors);
@@ -195,6 +205,7 @@ impl TournamentBuilder {
                     info: self.info.unwrap(),
                     owner_id: self.owner_id.unwrap(),
                     creator_id: self.owner_id.unwrap(),
+                    pairing_code: self.pairing_code.unwrap(),
                 })
             }
         }
@@ -250,6 +261,7 @@ pub struct Tournament {
     pub owner_id: Uuid,
     pub registration_is_open: bool,
     pub creator_id: Uuid,
+    pub pairing_code: String,
 }
 
 #[derive(
@@ -277,6 +289,7 @@ pub struct NewTournament {
     pub info: String,
     pub owner_id: Uuid,
     pub creator_id: Uuid,
+    pub pairing_code: String,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -318,6 +331,7 @@ pub struct TournamentChangeset {
     pub shortinfo: Option<String>,
     pub info: Option<String>,
     pub registration_is_open: Option<bool>,
+    pub pairing_code: Option<String>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {

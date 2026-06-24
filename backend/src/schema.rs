@@ -596,6 +596,8 @@ diesel::table! {
         owner_id -> Uuid,
         registration_is_open -> Bool,
         creator_id -> Uuid,
+        #[max_length = 64]
+        pairing_code -> Varchar,
     }
 }
 

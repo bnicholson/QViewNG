@@ -201,17 +201,6 @@ interface ScheduleChangeset {
   stats: string;
 }
 
-interface Todo {
-  id: ID;
-  text: string;
-  created_at: UTC;
-  updated_at: UTC;
-}
-
-interface TodoChangeset {
-  text: string;
-}
-
 interface Tournament {
   tid: BigId;
   organization: string;
@@ -231,6 +220,7 @@ interface Tournament {
   created_at: UTC;
   updated_at: UTC;
   owner_id: string;
+  pairing_code: string;
 }
 
 interface TournamentChangeset {
@@ -248,6 +238,7 @@ interface TournamentChangeset {
   is_public: boolean;
   shortinfo: string;
   info: string;
+  pairing_code: string;
 }
 
 interface FileInfo {
