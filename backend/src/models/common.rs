@@ -18,6 +18,13 @@ pub struct PaginationParams {
     pub page_size: i64,
 }
 
+#[derive(serde::Deserialize)]
+pub struct ReadGamesDetailedParams {
+    pub page: i64,
+    pub page_size: i64,
+    pub pairing_code: String,
+}
+
 impl PaginationParams {
     pub const MAX_PAGE_SIZE: u16 = 100;
 }

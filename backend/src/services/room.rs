@@ -2,7 +2,7 @@ use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use crate::auth::{is_rbac_and_abac_authorized, policies::{room::RoomPolicyResource, PolicyContext, UserContext}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext, room::RoomPolicyResource}}, models::common::ReadGamesDetailedParams};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, room::{NewRoom, Room, RoomChangeset}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
@@ -85,7 +85,7 @@ async fn read(
 #[get("/{id}/games")]
 async fn read_games(
     db: Data<Database>,
-    tour_id: Path<Uuid>,
+    room_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
     req: HttpRequest
 ) -> HttpResponse {
@@ -94,7 +94,7 @@ async fn read_games(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
+    match models::game::read_all_games_of_room(&mut db, room_id.into_inner(), &params) {
         Ok(games) => HttpResponse::Ok().json(games),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -103,8 +103,8 @@ async fn read_games(
 #[get("/{id}/games-detailed")]
 async fn read_games_detailed(
     db: Data<Database>,
-    tour_id: Path<Uuid>,
-    Query(params): Query<PaginationParams>,
+    room_id: Path<Uuid>,
+    Query(params): Query<ReadGamesDetailedParams>,
     req: HttpRequest
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
@@ -112,7 +112,12 @@ async fn read_games_detailed(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let games_list = match models::game::read_all_games_of_room(&mut db, tour_id.into_inner(), &params) {
+    let pagination_params = PaginationParams {
+        page: params.page,
+        page_size: params.page_size
+    };
+
+    let games_list = match models::game::read_all_games_of_room(&mut db, room_id.into_inner(), &pagination_params) {
         Ok(g) => g,
         Err(_) => return HttpResponse::NotFound().finish(),
     };
@@ -126,6 +131,10 @@ async fn read_games_detailed(
         Ok(t) => t,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
+
+    if tournament.pairing_code != params.pairing_code {
+        return HttpResponse::Unauthorized().finish(); 
+    }
 
     let mut rounds_cache: HashMap<Uuid, models::round::Round> = HashMap::new();
     let mut divisions_cache: HashMap<Uuid, models::division::Division> = HashMap::new();
