@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGamePayload}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGamesPayload}};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -553,7 +553,15 @@ async fn get_all_games_detailed_of_room_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/rooms/{}/games-detailed?page={}&page_size={}", game_2.roomid, PAGE_NUM, PAGE_SIZE);
+    // TournamentBuilder::new_default sets pairing_code to "PAIRDEFAULT".
+    let pairing_code = "PAIRDEFAULT";
+
+    // ── Success: correct pairing_code returns games ───────────────────────────
+
+    let uri = format!(
+        "/api/rooms/{}/games-detailed?page={}&page_size={}&pairing_code={}",
+        game_2.roomid, PAGE_NUM, PAGE_SIZE, pairing_code
+    );
     let req = test::TestRequest::get()
         .uri(&uri)
         .to_request();
@@ -565,18 +573,19 @@ async fn get_all_games_detailed_of_room_works() {
 
     // Assert:
 
-    let body: Vec<RoomGamePayload> = test::read_body_json(resp).await;
+    let body: RoomGamesPayload = test::read_body_json(resp).await;
+    assert_eq!(body.http_status, "200");
+    assert_eq!(body.http_message, "OK");
+    assert_eq!(body.games.len(), 2);
 
-    assert_eq!(body.len(), 2);
-
-    let game_2_item = body.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
-    let game_4_item = body.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
+    let game_2_item = body.games.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
+    let game_4_item = body.games.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
 
     // game_2 is in the earlier round (Round 1), game_4 is in the later round (Round 2)
     assert_eq!(game_2_item.seqnum, 1);
     assert_eq!(game_4_item.seqnum, 2);
-    assert_eq!(body[0].gameid, game_2.gid);
-    assert_eq!(body[1].gameid, game_4.gid);
+    assert_eq!(body.games[0].gameid, game_2.gid);
+    assert_eq!(body.games[1].gameid, game_4.gid);
 
     // Common fields for both games (same tournament + division)
     for item in [game_2_item, game_4_item] {
@@ -613,13 +622,47 @@ async fn get_all_games_detailed_of_room_works() {
     assert!(game_4_item.rightteam.quizzers.contains(&"QuizzerT2A Den".to_string()));
     assert!(game_4_item.rightteam.quizzers.contains(&"QuizzerT2B Den".to_string()));
 
-    // Check that ApiCalllog is recording API calls for this endpoint:
+    // ── Fail: incorrect pairing_code returns 401 with an empty games payload ──
+
+    let bad_pc_uri = format!(
+        "/api/rooms/{}/games-detailed?page={}&page_size={}&pairing_code=WRONGCODE",
+        game_2.roomid, PAGE_NUM, PAGE_SIZE
+    );
+    let bad_pc_req = test::TestRequest::get()
+        .uri(&bad_pc_uri)
+        .to_request();
+    let bad_pc_resp = test::call_service(&app, bad_pc_req).await;
+    assert_eq!(bad_pc_resp.status(), StatusCode::UNAUTHORIZED);
+
+    let bad_pc_body: RoomGamesPayload = test::read_body_json(bad_pc_resp).await;
+    assert_eq!(bad_pc_body.http_status, "401");
+    assert_eq!(bad_pc_body.http_message, "Unauthorized");
+    assert!(bad_pc_body.games.is_empty());
+
+    // ── Fail: missing pairing_code query param fails to deserialize (400) ─────
+
+    let no_pc_uri = format!(
+        "/api/rooms/{}/games-detailed?page={}&page_size={}",
+        game_2.roomid, PAGE_NUM, PAGE_SIZE
+    );
+    let no_pc_req = test::TestRequest::get()
+        .uri(&no_pc_uri)
+        .to_request();
+    let no_pc_resp = test::call_service(&app, no_pc_req).await;
+    assert_eq!(no_pc_resp.status(), StatusCode::BAD_REQUEST);
+
+    // Check that ApiCalllog is recording API calls for this endpoint. The 400
+    // path short-circuits before the handler logs, so only the 200 + 401 calls
+    // make it into the log.
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    for record in apicalllog_records.iter() {
+        assert_eq!(record.method.as_str(), "GET");
+    }
+    assert!(apicalllog_records.iter().any(|r| r.uri == uri));
+    assert!(apicalllog_records.iter().any(|r| r.uri == bad_pc_uri));
 }
 
 #[actix_web::test]

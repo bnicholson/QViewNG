@@ -1,17 +1,9 @@
-// use chrono::{Utc,DateTime};
 use uuid::Uuid;
 
-// #[tsync::tsync]
 pub type ID = i32;
 
-// #[tsync::tsync]
 pub type BigId = i64;
 
-// #[tsync::tsync]
-// #[derive(serde::Deserialize)]
-// pub type UTC = DateTime<Utc>;
-
-// #[tsync::tsync]
 #[derive(serde::Deserialize)]
 pub struct PaginationParams {
     pub page: i64,
@@ -26,10 +18,9 @@ pub struct ReadGamesDetailedParams {
 }
 
 impl PaginationParams {
-    pub const MAX_PAGE_SIZE: u16 = 100;
+    pub const MAX_PAGE_SIZE: u16 = 1000;
 }
 
-// #[tsync::tsync]
 #[derive(serde::Deserialize)]
 pub struct SearchDateParams {
     pub from_date: i64,

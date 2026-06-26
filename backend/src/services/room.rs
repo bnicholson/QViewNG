@@ -17,7 +17,7 @@ pub struct RoomGameTeam {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RoomGamePayload {
+pub struct RoomGame {
     pub seqnum: i64,
     pub gameid: Uuid,
     pub roundid: Uuid,
@@ -29,6 +29,13 @@ pub struct RoomGamePayload {
     pub leftteam: RoomGameTeam,
     pub centerteam: RoomGameTeam,
     pub rightteam: RoomGameTeam,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoomGamesPayload {
+    pub http_status: String,
+    pub http_message: String,
+    pub games: Vec<RoomGame>
 }
 
 // #[derive(OpenApi)]
@@ -123,17 +130,32 @@ async fn read_games_detailed(
     };
 
     if games_list.is_empty() {
-        return HttpResponse::Ok().json(Vec::<RoomGamePayload>::new());
+        return HttpResponse::Ok().json(RoomGamesPayload {
+            http_status: "200".to_string(),
+            http_message: "OK".to_string(),
+            games: Vec::new(),
+        });
     }
+
+    let internal_server_error_payload = RoomGamesPayload {
+        http_status: "500".to_string(),
+        http_message: "Internal Server Error".to_string(),
+        games: Vec::new()
+    };
 
     // Can assume all games for a given room belong to the same tournament.
     let tournament = match models::tournament::read(&mut db, games_list[0].tournamentid) {
         Ok(t) => t,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
     };
 
     if tournament.pairing_code != params.pairing_code {
-        return HttpResponse::Unauthorized().finish(); 
+        let unauthorized_payload = RoomGamesPayload {
+            http_status: "401".to_string(),
+            http_message: "Unauthorized".to_string(),
+            games: Vec::new()
+        };
+        return HttpResponse::Unauthorized().json(unauthorized_payload);
     }
 
     let mut rounds_cache: HashMap<Uuid, models::round::Round> = HashMap::new();
@@ -141,19 +163,19 @@ async fn read_games_detailed(
     let mut teams_cache: HashMap<Uuid, models::team::Team> = HashMap::new();
     let mut quizzers_cache: HashMap<Uuid, String> = HashMap::new();
 
-    let mut items: Vec<RoomGamePayload> = Vec::with_capacity(games_list.len());
+    let mut items: Vec<RoomGame> = Vec::with_capacity(games_list.len());
 
     for g in games_list.into_iter() {
         if !rounds_cache.contains_key(&g.roundid) {
             match models::round::read(&mut db, g.roundid) {
                 Ok(r) => { rounds_cache.insert(g.roundid, r); },
-                Err(_) => return HttpResponse::InternalServerError().finish(),
+                Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
             }
         }
         if !divisions_cache.contains_key(&g.divisionid) {
             match models::division::read(&mut db, g.divisionid) {
                 Ok(d) => { divisions_cache.insert(g.divisionid, d); },
-                Err(_) => return HttpResponse::InternalServerError().finish(),
+                Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
             }
         }
 
@@ -165,7 +187,7 @@ async fn read_games_detailed(
             if !teams_cache.contains_key(&team_id) {
                 let team = match models::team::read(&mut db, team_id) {
                     Ok(t) => t,
-                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                    Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
                 };
                 for qid in [
                     team.quizzer_one_id,
@@ -178,7 +200,7 @@ async fn read_games_detailed(
                     if !quizzers_cache.contains_key(&qid) {
                         match models::user::read(&mut db, qid) {
                             Ok(u) => { quizzers_cache.insert(qid, format!("{} {}", u.fname, u.lname)); },
-                            Err(_) => return HttpResponse::InternalServerError().finish(),
+                            Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
                         }
                     }
                 }
@@ -210,7 +232,7 @@ async fn read_games_detailed(
         let roundname = rounds_cache.get(&g.roundid).map(|r| r.name.clone()).unwrap_or_default();
         let dname = divisions_cache.get(&g.divisionid).map(|d| d.dname.clone()).unwrap_or_default();
 
-        items.push(RoomGamePayload {
+        items.push(RoomGame {
             seqnum: 0,
             gameid: g.gid,
             roundid: g.roundid,
@@ -238,7 +260,13 @@ async fn read_games_detailed(
         item.seqnum = (idx as i64) + 1;
     }
 
-    HttpResponse::Ok().json(items)
+    let payload = RoomGamesPayload {
+        http_status: "200".to_string(),
+        http_message: "OK".to_string(),
+        games: items
+    };
+
+    HttpResponse::Ok().json(payload)
 }
 
 #[get("/{id}/equipmentregistrations")]
