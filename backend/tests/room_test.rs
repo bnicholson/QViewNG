@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGamesPayload}};
+use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGame}};
 use backend::models::room::Room;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
@@ -573,19 +573,20 @@ async fn get_all_games_detailed_of_room_works() {
 
     // Assert:
 
-    let body: RoomGamesPayload = test::read_body_json(resp).await;
-    assert_eq!(body.http_status, "200");
-    assert_eq!(body.http_message, "OK");
-    assert_eq!(body.games.len(), 2);
+    let body: EntityResponse<Vec<RoomGame>> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 200);
+    assert_eq!(body.message, "OK");
+    let games = body.data.expect("data missing from success payload");
+    assert_eq!(games.len(), 2);
 
-    let game_2_item = body.games.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
-    let game_4_item = body.games.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
+    let game_2_item = games.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
+    let game_4_item = games.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
 
     // game_2 is in the earlier round (Round 1), game_4 is in the later round (Round 2)
     assert_eq!(game_2_item.seqnum, 1);
     assert_eq!(game_4_item.seqnum, 2);
-    assert_eq!(body.games[0].gameid, game_2.gid);
-    assert_eq!(body.games[1].gameid, game_4.gid);
+    assert_eq!(games[0].gameid, game_2.gid);
+    assert_eq!(games[1].gameid, game_4.gid);
 
     // Common fields for both games (same tournament + division)
     for item in [game_2_item, game_4_item] {
@@ -634,10 +635,10 @@ async fn get_all_games_detailed_of_room_works() {
     let bad_pc_resp = test::call_service(&app, bad_pc_req).await;
     assert_eq!(bad_pc_resp.status(), StatusCode::UNAUTHORIZED);
 
-    let bad_pc_body: RoomGamesPayload = test::read_body_json(bad_pc_resp).await;
-    assert_eq!(bad_pc_body.http_status, "401");
-    assert_eq!(bad_pc_body.http_message, "Unauthorized");
-    assert!(bad_pc_body.games.is_empty());
+    let bad_pc_body: EntityResponse<Vec<RoomGame>> = test::read_body_json(bad_pc_resp).await;
+    assert_eq!(bad_pc_body.code, 401);
+    assert_eq!(bad_pc_body.message, "Unauthorized");
+    assert!(bad_pc_body.data.expect("data missing from unauthorized payload").is_empty());
 
     // ── Fail: missing pairing_code query param fails to deserialize (400) ─────
 

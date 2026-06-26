@@ -1,3 +1,4 @@
+use actix_http::ws::OpCode;
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -29,13 +30,6 @@ pub struct RoomGame {
     pub leftteam: RoomGameTeam,
     pub centerteam: RoomGameTeam,
     pub rightteam: RoomGameTeam,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RoomGamesPayload {
-    pub http_status: String,
-    pub http_message: String,
-    pub games: Vec<RoomGame>
 }
 
 // #[derive(OpenApi)]
@@ -130,17 +124,17 @@ async fn read_games_detailed(
     };
 
     if games_list.is_empty() {
-        return HttpResponse::Ok().json(RoomGamesPayload {
-            http_status: "200".to_string(),
-            http_message: "OK".to_string(),
-            games: Vec::new(),
+        return HttpResponse::Ok().json(EntityResponse::<Vec<RoomGame>> {
+            code: 200,
+            message: "OK".to_string(),
+            data: Some(Vec::<RoomGame>::new()),
         });
     }
 
-    let internal_server_error_payload = RoomGamesPayload {
-        http_status: "500".to_string(),
-        http_message: "Internal Server Error".to_string(),
-        games: Vec::new()
+    let internal_server_error_payload = EntityResponse::<Vec<RoomGame>> {
+        code: 500,
+        message: "Internal Server Error".to_string(),
+        data: Some(Vec::<RoomGame>::new())
     };
 
     // Can assume all games for a given room belong to the same tournament.
@@ -150,10 +144,10 @@ async fn read_games_detailed(
     };
 
     if tournament.pairing_code != params.pairing_code {
-        let unauthorized_payload = RoomGamesPayload {
-            http_status: "401".to_string(),
-            http_message: "Unauthorized".to_string(),
-            games: Vec::new()
+        let unauthorized_payload = EntityResponse::<Vec<RoomGame>> {
+            code: 401,
+            message: "Unauthorized".to_string(),
+            data: Some(Vec::<RoomGame>::new())
         };
         return HttpResponse::Unauthorized().json(unauthorized_payload);
     }
@@ -260,10 +254,10 @@ async fn read_games_detailed(
         item.seqnum = (idx as i64) + 1;
     }
 
-    let payload = RoomGamesPayload {
-        http_status: "200".to_string(),
-        http_message: "OK".to_string(),
-        games: items
+    let payload = EntityResponse::<Vec<RoomGame>> {
+        code: 200,
+        message: "OK".to_string(),
+        data: Some(items)
     };
 
     HttpResponse::Ok().json(payload)
