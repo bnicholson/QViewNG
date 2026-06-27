@@ -1324,22 +1324,25 @@ async fn get_today_works() {
 
     // Assert:
 
-    let body: Vec<TournamentWithRooms> = test::read_body_json(resp).await;
+    let body: EntityResponse<Vec<TournamentWithRooms>> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 200);
+    assert_eq!(body.message, "OK");
+    let tournaments_with_rooms = body.data.expect("data missing from read_today payload");
 
-    assert_eq!(body.len(), 1);
-    assert_eq!(body[0].tournament.tid, tour_in_window.tid);
-    assert_eq!(body[0].tournament.tname, "Today Max 100 In Window");
-    assert_eq!(body[0].rooms.len(), 3);
+    assert_eq!(tournaments_with_rooms.len(), 1);
+    assert_eq!(tournaments_with_rooms[0].tournament.tid, tour_in_window.tid);
+    assert_eq!(tournaments_with_rooms[0].tournament.tname, "Today Max 100 In Window");
+    assert_eq!(tournaments_with_rooms[0].rooms.len(), 3);
 
     let mut room_alpha_idx = 10;
     for idx in 0..3 {
-        if body[0].rooms[idx].name == "Room Alpha" {
+        if tournaments_with_rooms[0].rooms[idx].name == "Room Alpha" {
             room_alpha_idx = idx;
         }
     }
     assert_ne!(room_alpha_idx, 10);
-    assert_eq!(body[0].rooms[room_alpha_idx].tid, tour_in_window.tid);
-    assert_eq!(body[0].rooms[room_alpha_idx].roomid, rooms[0].roomid);
+    assert_eq!(tournaments_with_rooms[0].rooms[room_alpha_idx].tid, tour_in_window.tid);
+    assert_eq!(tournaments_with_rooms[0].rooms[room_alpha_idx].roomid, rooms[0].roomid);
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);

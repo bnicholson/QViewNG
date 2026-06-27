@@ -153,8 +153,14 @@ async fn read_today(
     let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt);
     println!("Tournaments Result: {:?} {:?} {:?}", from_dt, to_dt, result_tournaments);
 
+    let internal_server_error_payload = EntityResponse::<String> {
+        code: 500,
+        message: "Internal Server Error".to_string(),
+        data: None
+    };
+
     if !result_tournaments.is_ok() {
-        return HttpResponse::InternalServerError().finish();
+        return HttpResponse::InternalServerError().json(internal_server_error_payload);
     }
 
     let mut tournaments = result_tournaments.unwrap();
@@ -173,7 +179,12 @@ async fn read_today(
         let rooms_result = models::room::read_all_rooms_of_tournament(&mut db, tournament.tid, &pagination_params_vals);
         println!("Tournament Rooms Result: {:?}", rooms_result);
         if !rooms_result.is_ok() {
-            return HttpResponse::NotFound().finish();
+            let not_found_payload = EntityResponse::<Vec<String>> {
+                code: 404,
+                message: "Not Found".to_string(),
+                data: None
+            };
+            return HttpResponse::NotFound().json(not_found_payload);
         }
         let rooms = rooms_result.unwrap();
 
@@ -182,11 +193,17 @@ async fn read_today(
             tournament.clone(),
             rooms.clone()
         );
-
+        
         tournaments_with_rooms.push(tournament_with_rooms);
     }
 
-    return HttpResponse::Ok().json(tournaments_with_rooms);
+    let payload = EntityResponse::<Vec<TournamentWithRooms>> {
+        code: 200,
+        message: "OK".to_string(),
+        data: Some(tournaments_with_rooms)
+    };
+
+    return HttpResponse::Ok().json(payload);
 }
 
 #[get("/{id}/divisions")]

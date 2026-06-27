@@ -134,7 +134,7 @@ async fn read_games_detailed(
     let internal_server_error_payload = EntityResponse::<Vec<RoomGame>> {
         code: 500,
         message: "Internal Server Error".to_string(),
-        data: Some(Vec::<RoomGame>::new())
+        data: None
     };
 
     // Can assume all games for a given room belong to the same tournament.
