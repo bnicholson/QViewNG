@@ -13,9 +13,9 @@ use crate::models::common::*;
 
 // #[tsync::tsync]
 #[derive( Debug, Serialize, Deserialize, Clone, Queryable, Insertable, Identifiable, AsChangeset)]
-#[diesel(table_name = crate::schema::eventlogs)]
+#[diesel(table_name = crate::schema::gameeventlogs)]
 #[diesel(primary_key(evid))]
-pub struct Eventlog {
+pub struct GameEventlog {
     pub evid: BigId,                                                // event identifier (unique) -- also ensure all events are unique
     pub created_at: DateTime<Utc>,                                            // used to ensure we have a unique timestamp to the millisecond    
     pub clientkey: String,                                          // what key/client did this come from
@@ -36,15 +36,16 @@ pub struct Eventlog {
     pub ts: String,                                                 // timestamp from the clients viewpoint
     pub clientip: String,                                           // client ip address 
     pub md5digest: String,                                          // used to ensure we don't have corruption in transmission
-    pub nonce: String,                                              // part of the corruption avoidance 
-    pub s1s: String                                                 // sha1hashsum -- ensures   
+    pub nonce: String,                                              // part of the corruption avoidance
+    pub s1s: String,                                                // sha1hashsum -- ensures
+    pub gid: String                                                 // game UUID (Rust Uuid stored as its string representation)
 }
 
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::eventlogs)]
+#[diesel(table_name = crate::schema::gameeventlogs)]
 #[diesel(primary_key(evid))]
-pub struct EventlogChangeset {
+pub struct GameEventlogChangeset {
     pub clientkey: String,                                          // what key/client did this come from
     pub organization: String,                                       // what org sent this
     pub bldgroom: String,                                           // what building is the room in    
@@ -63,15 +64,16 @@ pub struct EventlogChangeset {
     pub ts: String,                                                 // timestamp from the clients viewpoint
     pub clientip: String,                                           // clientip
     pub md5digest: String,                                          // used to ensure we don't have corruption in transmission
-    pub nonce: String,                                              // part of the corruption avoidance 
-    pub s1s: String                                                 // sha1hashsum -- ensures   
+    pub nonce: String,                                              // part of the corruption avoidance
+    pub s1s: String,                                                // sha1hashsum -- ensures
+    pub gid: String                                                 // game UUID (Rust Uuid stored as its string representation)
 }
 
-// Create an empty eventlogchangeset
+// Create an empty gameeventlogchangeset
 //
-pub fn empty_changeset() -> EventlogChangeset {
+pub fn empty_changeset() -> GameEventlogChangeset {
 
-    return EventlogChangeset {
+    return GameEventlogChangeset {
             clientkey: "".to_string(),                                          // what key/client did this come from
             organization: "Nazarene".to_string(),                               // what org sent this - defaults to Nazarene for now
             bldgroom: "".to_string(),                                           // what building is the room in    
@@ -90,8 +92,9 @@ pub fn empty_changeset() -> EventlogChangeset {
             ts: "".to_string(),                                                 // timestamp from the clients viewpoint
             clientip: "".to_string(),                                           // clientip
             md5digest: "".to_string(),                                          // used to ensure we don't have corruption in transmission
-            nonce: "".to_string(),                                              // part of the corruption avoidance 
-            s1s: "".to_string()                                                 // sha1hashsum -- ensures 
+            nonce: "".to_string(),                                              // part of the corruption avoidance
+            s1s: "".to_string(),                                                // sha1hashsum -- ensures
+            gid: "".to_string()                                                 // game UUID (Rust Uuid as string)
         }
 }
 
@@ -128,14 +131,14 @@ pub fn empty_changeset() -> EventlogChangeset {
 //    create(db, &entry)
 //}
 
-pub fn write_eventlog(db: &mut database::Connection, entry: EventlogChangeset) -> QueryResult<Eventlog> {
-    // use crate::schema::eventlogs::dsl::*;
-    // now write the eventlog entry
+pub fn write_gameeventlog(db: &mut database::Connection, entry: GameEventlogChangeset) -> QueryResult<GameEventlog> {
+    // use crate::schema::gameeventlogs::dsl::*;
+    // now write the gameeventlog entry
     create(db, &entry)
 }
 
-pub fn create(db: &mut database::Connection, item: &EventlogChangeset) -> QueryResult<Eventlog> {
-    use crate::schema::eventlogs::dsl::*;
-    insert_into(eventlogs).values(item).get_result::<Eventlog>(db)
+pub fn create(db: &mut database::Connection, item: &GameEventlogChangeset) -> QueryResult<GameEventlog> {
+    use crate::schema::gameeventlogs::dsl::*;
+    insert_into(gameeventlogs).values(item).get_result::<GameEventlog>(db)
 }
 

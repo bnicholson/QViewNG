@@ -148,7 +148,19 @@ diesel::table! {
 }
 
 diesel::table! {
-    eventlogs (evid) {
+    extensioncords (id) {
+        id -> Int8,
+        #[max_length = 64]
+        color -> Varchar,
+        #[max_length = 64]
+        length -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    gameeventlogs (evid) {
         evid -> Int8,
         created_at -> Timestamptz,
         #[max_length = 64]
@@ -187,18 +199,8 @@ diesel::table! {
         nonce -> Varchar,
         #[max_length = 32]
         s1s -> Varchar,
-    }
-}
-
-diesel::table! {
-    extensioncords (id) {
-        id -> Int8,
         #[max_length = 64]
-        color -> Varchar,
-        #[max_length = 64]
-        length -> Varchar,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
+        gid -> Varchar,
     }
 }
 
@@ -705,8 +707,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     equipment,
     equipmentregistrations,
     equipmentsets,
-    eventlogs,
     extensioncords,
+    gameeventlogs,
     gameevents,
     games,
     games_statsgroups,

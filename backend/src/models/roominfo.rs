@@ -7,6 +7,8 @@ use utoipa::ToSchema;
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct RoomInfoData {
     pub clientkey: String,
+    #[serde(default)]
+    pub gid: String,                                 // game UUID (Rust Uuid stored as its string representation)
     pub bldgroom: String,
     #[schema(value_type = String, format = DateTime)]
     pub chkd_in: DateTime<Utc>,
@@ -29,6 +31,7 @@ impl RoomInfoData {
     pub fn to_roominfo_data(&mut self) -> RoomInfoData<> {
         RoomInfoData {
             clientkey: self.clientkey.to_string(),
+            gid: self.gid.to_string(),
             bldgroom: self.bldgroom.to_string(),
             chkd_in: self.chkd_in,
             client_time: self.client_time,
@@ -51,6 +54,7 @@ impl RoomInfoData {
 pub fn empty() -> RoomInfoData<> {
     RoomInfoData {
         clientkey: "".to_string(),
+        gid: "".to_string(),
         bldgroom: "".to_string(),
         chkd_in: Utc::now(),
         client_time: Utc::now(),

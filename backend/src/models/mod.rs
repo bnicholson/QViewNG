@@ -4,7 +4,7 @@ pub mod common;
 pub mod division;
 pub mod apicalllog;
 pub mod roominfo;
-pub mod eventlog;
+pub mod gameeventlog;
 pub mod game;
 pub mod gameevent;
 pub mod room;

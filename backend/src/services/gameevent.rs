@@ -8,7 +8,7 @@ use uuid::Uuid;
 use base64::{self, Engine};
 use sha1::{Sha1, Digest};
 use diesel::result::Error as DBError;
-use crate::models::{eventlog, roominfo};
+use crate::models::{gameeventlog, roominfo};
 // use crate::models::gameevent::{self,GameEvent};
 use crate::models::game::{self,GameChangeset};
 use crate::database::{self,Database};
@@ -29,7 +29,7 @@ pub async fn write(
 
     // First let's get an eventlog structure, a game structure, and
     // an empty quiz events structure
-    let mut eventlog_entry: eventlog::EventlogChangeset = eventlog::empty_changeset();
+    let mut gameeventlog_entry: gameeventlog::GameEventlogChangeset = gameeventlog::empty_changeset();
     let mut game_entry: GameChangeset = GameChangeset::empty();
     let mut gameevent_entry = NewGameEvent::empty();
     let mut roominfo_entry = roominfo::empty();
@@ -55,21 +55,21 @@ pub async fn write(
         match s.as_str() {
             "bldgroom" => {
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.bldgroom = (&tmp).to_string();
+                gameeventlog_entry.bldgroom = (&tmp).to_string();
                 roominfo_entry.bldgroom = tmp;
                 field_count += 1;               
             },
             "key" => {  // key4server - uniquely identifies a particular client
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.clientkey = (&tmp).to_string();
+                gameeventlog_entry.clientkey = (&tmp).to_string();
                 roominfo_entry.clientkey = (&tmp).to_string();
                 game_entry.clientkey = Some(tmp);
                 field_count += 1;
             },
-            "gid" => { // UUID of Game; TODO: fix this code to be specific to Game ID, not tournament
+            "gid" => { // UUID of Game
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.tournament = tmp.clone();
-                roominfo_entry.tournament = tmp.clone();
+                gameeventlog_entry.gid = tmp.clone();
+                roominfo_entry.gid = tmp.clone();
                 match Uuid::parse_str(&tmp) {
                     Ok(uuid) => { game_entry.tournamentid = Some(uuid); field_count += 1; },
                     Err(e) => log::error!("{:?} {:?} Failed to parse tournamentid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
@@ -84,7 +84,7 @@ pub async fn write(
             },
             "tn" => { // Tournament Name
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.tournament = tmp.clone();
+                gameeventlog_entry.tournament = tmp.clone();
                 roominfo_entry.tournament = tmp.clone();
                 match Uuid::parse_str(&tmp) {
                     Ok(uuid) => { game_entry.tournamentid = Some(uuid); field_count += 1; },
@@ -93,7 +93,7 @@ pub async fn write(
             },
             "dn" => { // Division Name
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.division = tmp.clone();
+                gameeventlog_entry.division = tmp.clone();
                 roominfo_entry.division = tmp.clone();
                 match Uuid::parse_str(&tmp) {
                     Ok(uuid) => { game_entry.divisionid = Some(uuid); field_count += 1; },
@@ -102,7 +102,7 @@ pub async fn write(
             },
             "rm" => { // Room
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.room = tmp.clone();
+                gameeventlog_entry.room = tmp.clone();
                 roominfo_entry.room = tmp.clone();
                 match Uuid::parse_str(&tmp) {
                     Ok(uuid) => { game_entry.roomid = Some(uuid); field_count += 1; },
@@ -111,7 +111,7 @@ pub async fn write(
             },
             "rd" => { // Round
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.round = tmp.clone();
+                gameeventlog_entry.round = tmp.clone();
                 roominfo_entry.round = tmp.clone();
                 match Uuid::parse_str(&tmp) {
                     Ok(uuid) => { game_entry.roundid = Some(uuid); field_count += 1; },
@@ -121,7 +121,7 @@ pub async fn write(
             "qn" => { // Question #
                 qn_str = pair.1.replace("+"," ");
                 let qn = pair.1.trim().parse().unwrap(); 
-                eventlog_entry.question = qn;
+                gameeventlog_entry.question = qn;
                 gameevent_entry.question = qn;
                 roominfo_entry.question = qn;
                 field_count += 1;
@@ -129,45 +129,45 @@ pub async fn write(
             "e" => { // event number
                 e_str = pair.1.replace("+"," ");
                 let e = pair.1.trim().parse().unwrap();
-                eventlog_entry.eventnum = e;
+                gameeventlog_entry.eventnum = e;
                 gameevent_entry.eventnum = e;
                 field_count +=1;
             },
             "n" => { // quizzer or team name
                 let tmp = pair.1.replace("+"," ");
                 gameevent_entry.name = (&tmp).to_string();
-                eventlog_entry.name = tmp;
+                gameeventlog_entry.name = tmp;
                 field_count +=1;
             },
             "t" => { // team # (0-2)
                 t_str = pair.1.replace("+"," ");
                 let t = pair.1.trim().parse().unwrap();
                 gameevent_entry.team = t;
-                eventlog_entry.team = t;
+                gameeventlog_entry.team = t;
                 field_count +=1;
             },
             "q" => { // quizzer # (0-4)
                 q_str = pair.1.replace("+"," "); 
                 let q = pair.1.trim().parse().unwrap();
                 gameevent_entry.quizzer = q;
-                eventlog_entry.quizzer = q;
+                gameeventlog_entry.quizzer = q;
                 field_count +=1;
             }, 
             "ec" => { // Event type/class (TC, BE, QT, ...
                 gameevent_entry.event = pair.1.to_string();
-                eventlog_entry.event = pair.1.to_string();
+                gameeventlog_entry.event = pair.1.to_string();
                 field_count += 1;
             }, 
             "p1" => { // parameter 1
                 let tmp = pair.1.replace("+"," ");
                 gameevent_entry.parm1 = (&tmp).to_string();
-                eventlog_entry.parm1 = tmp;
+                gameeventlog_entry.parm1 = tmp;
                 field_count += 1;
             }, 
             "p2" => { // parameter 2 - depends upon what ec is
                 let tmp = pair.1.replace("+"," ");
                 gameevent_entry.parm2 = (&tmp).to_string();
-                eventlog_entry.parm2 = tmp;
+                gameeventlog_entry.parm2 = tmp;
                 field_count += 1;
             }, 
             "ts" => { // timestamp from the client
@@ -175,29 +175,29 @@ pub async fn write(
                 let secs : i64 = pair.1.trim().parse().unwrap();
                 ts = Utc.timestamp_opt(secs,0).unwrap();
                 gameevent_entry.clientts = ts;
-                eventlog_entry.ts = pair.1.to_string();
+                gameeventlog_entry.ts = pair.1.to_string();
                 roominfo_entry.client_time = ts;                field_count += 1;
             }, 
             "md5" => {  // md5 hashsum
                 let tmp = pair.1.replace("+"," ");
                 gameevent_entry.md5digest = (&tmp).to_string();
-                eventlog_entry.md5digest = tmp;
+                gameeventlog_entry.md5digest = tmp;
                 field_count += 1;
             },
             "nonce" => {
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.nonce = tmp;
+                gameeventlog_entry.nonce = tmp;
                 field_count += 1;
             },
             "s1s" => {
                 let tmp = pair.1.replace("+","+");
-                eventlog_entry.s1s = tmp;
+                gameeventlog_entry.s1s = tmp;
                 field_count += 1;
             },
             "myip" => {
                 // this is optional should only be there sometimes.
                 let tmp = pair.1.replace("+"," ");
-                eventlog_entry.clientip = (&tmp).to_string();
+                gameeventlog_entry.clientip = (&tmp).to_string();
                 roominfo_entry.clientip = tmp;
             }
             _ => {
@@ -234,38 +234,38 @@ pub async fn write(
         }
     };
 
-    sha1hasher.update(&&eventlog_entry.nonce);
+    sha1hasher.update(&&gameeventlog_entry.nonce);
     sha1hasher.update(gameevent_psk);
-    sha1hasher.update(&eventlog_entry.bldgroom);
-	sha1hasher.update(&eventlog_entry.clientkey);
+    sha1hasher.update(&gameeventlog_entry.bldgroom);
+	sha1hasher.update(&gameeventlog_entry.clientkey);
 	sha1hasher.update(&tk);
-	sha1hasher.update(&eventlog_entry.tournament);
-	sha1hasher.update(&eventlog_entry.division);
-    sha1hasher.update(&eventlog_entry.room);
-    sha1hasher.update(&eventlog_entry.round);
+	sha1hasher.update(&gameeventlog_entry.tournament);
+	sha1hasher.update(&gameeventlog_entry.division);
+    sha1hasher.update(&gameeventlog_entry.room);
+    sha1hasher.update(&gameeventlog_entry.round);
 	sha1hasher.update(&qn_str);
     sha1hasher.update(&e_str);
-    sha1hasher.update(&eventlog_entry.name);
+    sha1hasher.update(&gameeventlog_entry.name);
     sha1hasher.update(&t_str);
     sha1hasher.update(&q_str);
-    sha1hasher.update(&eventlog_entry.event);
-    sha1hasher.update(&eventlog_entry.parm1);
-    sha1hasher.update(&eventlog_entry.parm2);
+    sha1hasher.update(&gameeventlog_entry.event);
+    sha1hasher.update(&gameeventlog_entry.parm1);
+    sha1hasher.update(&gameeventlog_entry.parm2);
     let rslt = sha1hasher.finalize();
     let rsltbase64 = base64::engine::general_purpose::STANDARD.encode(rslt);
 
     // now grab the result of the sha1hashing
 	log::info!("{:?} {:?} GameEvent: Org: {} BldgRoom: {}, Key: {}, Tk: {}, TN: {}, DN: {}, Room: {}, Round: {}, Question: {}, EventNumber: {} Name: {} Team: {} Quizzer: {}, EC: {}, Parm1: {} Parm2: {}, Timestamp: {}, Host: {}, MD5: {}, Nonce: {} {}, Sha1sum: {} Calculated sha1sum: {}",
-        module_path!(),line!(), org, &eventlog_entry.bldgroom, &eventlog_entry.clientkey, tk, &eventlog_entry.tournament, &eventlog_entry.division, 
-        &eventlog_entry.room, &eventlog_entry.round, &eventlog_entry.question, &eventlog_entry.eventnum, &eventlog_entry.name,
-        &eventlog_entry.team, &eventlog_entry.quizzer, &eventlog_entry.event, &eventlog_entry.parm1, &eventlog_entry.parm2, 
-        ts, &eventlog_entry.clientip, &eventlog_entry.md5digest, &eventlog_entry.nonce, &eventlog_entry.nonce.len(), &eventlog_entry.s1s, rsltbase64 );   
+        module_path!(),line!(), org, &gameeventlog_entry.bldgroom, &gameeventlog_entry.clientkey, tk, &gameeventlog_entry.tournament, &gameeventlog_entry.division, 
+        &gameeventlog_entry.room, &gameeventlog_entry.round, &gameeventlog_entry.question, &gameeventlog_entry.eventnum, &gameeventlog_entry.name,
+        &gameeventlog_entry.team, &gameeventlog_entry.quizzer, &gameeventlog_entry.event, &gameeventlog_entry.parm1, &gameeventlog_entry.parm2, 
+        ts, &gameeventlog_entry.clientip, &gameeventlog_entry.md5digest, &gameeventlog_entry.nonce, &gameeventlog_entry.nonce.len(), &gameeventlog_entry.s1s, rsltbase64 );   
     
     // now make sure we didn't have any corrupted data.  If so print an error and get out
-    if !&eventlog_entry.s1s.eq(&rsltbase64) {
+    if !&gameeventlog_entry.s1s.eq(&rsltbase64) {
         // oh boy!!!
-        log::error!("{} {} /api/gameevent Sha1sums don't match {} {}",module_path!(), line!(), &eventlog_entry.s1s, rsltbase64);
-        let error_content = format!("Sha1sums don't match! {} {}",&eventlog_entry.s1s, &rsltbase64);
+        log::error!("{} {} /api/gameevent Sha1sums don't match {} {}",module_path!(), line!(), &gameeventlog_entry.s1s, rsltbase64);
+        let error_content = format!("Sha1sums don't match! {} {}",&gameeventlog_entry.s1s, &rsltbase64);
         return Ok(
             HttpResponse::BadRequest()
                 .content_type("text/html; charset=utf-8")
@@ -276,7 +276,7 @@ pub async fn write(
     // now lets log all this information to the eventlog table.
     // This is a file on disk in QMServer.  But we'll put it
     // on the database in the eventlog table for Qview
-    match eventlog::write_eventlog(mdb, eventlog_entry) {
+    match gameeventlog::write_gameeventlog(mdb, gameeventlog_entry) {
         Ok(_eventlog) => {
             // okay we wrote to eventlog - do nothing
         },
