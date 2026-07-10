@@ -1,8 +1,8 @@
 use actix_web::{Error, get, HttpResponse, HttpRequest, post, Result, web::{Data, Json, Query}};
-use crate::models::{self, common::PaginationParams, gameevent::{self, GameEvent, NewGameEvent}};
+use crate::models::{self, common::{GameEventParams, PaginationParams}, gameevent::{self, GameEvent, NewGameEvent}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
-use chrono::{ Utc, TimeZone };
+use chrono::{ DateTime, TimeZone, Utc };
 use uuid::Uuid;
 // use std::file;
 use base64::{self, Engine};
@@ -27,14 +27,10 @@ pub async fn write(
 
     log::info!("Inside 'write' fn for endpoint '{}'", req.full_url());
 
-    // log this api call (*Actually let's do this in one place: Let the endpoint fn do the api call logging.)
-    // let mut db = db.get_connection().expect("Failed to get connection");
-    // apicalllog::create(&mut db, &req);
-
     // First let's get an eventlog structure, a game structure, and
     // an empty quiz events structure
-    let mut eventlog_entry = eventlog::empty_changeset();
-    let mut game_entry = GameChangeset::empty();
+    let mut eventlog_entry: eventlog::EventlogChangeset = eventlog::empty_changeset();
+    let mut game_entry: GameChangeset = GameChangeset::empty();
     let mut gameevent_entry = NewGameEvent::empty();
     let mut roominfo_entry = roominfo::empty();
 
@@ -69,6 +65,15 @@ pub async fn write(
                 roominfo_entry.clientkey = (&tmp).to_string();
                 game_entry.clientkey = Some(tmp);
                 field_count += 1;
+            },
+            "gid" => { // UUID of Game; TODO: fix this code to be specific to Game ID, not tournament
+                let tmp = pair.1.replace("+"," ");
+                eventlog_entry.tournament = tmp.clone();
+                roominfo_entry.tournament = tmp.clone();
+                match Uuid::parse_str(&tmp) {
+                    Ok(uuid) => { game_entry.tournamentid = Some(uuid); field_count += 1; },
+                    Err(e) => log::error!("{:?} {:?} Failed to parse tournamentid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
+                }
             },
             "tk" => {   // tournament key - short id for a particular tournament
                 tk = pair.1.replace("+"," ");   // currently used except to ensure we don't have corruption
@@ -168,11 +173,10 @@ pub async fn write(
             "ts" => { // timestamp from the client
                 println!("TS Input = {:?}",pair.1);
                 let secs : i64 = pair.1.trim().parse().unwrap();
-                ts = Utc.timestamp(secs,0);
+                ts = Utc.timestamp_opt(secs,0).unwrap();
                 gameevent_entry.clientts = ts;
                 eventlog_entry.ts = pair.1.to_string();
-                roominfo_entry.client_time = ts;
-                field_count += 1;
+                roominfo_entry.client_time = ts;                field_count += 1;
             }, 
             "md5" => {  // md5 hashsum
                 let tmp = pair.1.replace("+"," ");
@@ -294,47 +298,49 @@ pub async fn write(
     
     // now let's create an entry in the games table
     // Handle errors while we create the entry
-    match game::create_update(mdb, &game_entry) {
-        Ok(output) => {
-            // update the gameevent gid so we have the correct one to write
-            // the gameevent to the Quizzes table
-            gameevent_entry.gid = output.gid;
-            gid = output.gid;
-            log::info!("Inserted/Updated a Game {:?}",output)            
-        },
-        Err(e) => {
-            let error_content = format!("Game write failure {}", e);
-            match e {
-                // the most likely cause here is a Unique constraint - the row
-                // already exists in the database.  We'll ignore those and
-                // panic or log the others
-                DBError::DatabaseError(dbek,e) => match dbek {
-                    diesel::result::DatabaseErrorKind::UniqueViolation => {
-                        // do nothing here.  This is a normal case when another event 
-                        // comes in for this quiz.
-                        log::error!("{:?} {:?} Error {:?} {:?}", module_path!(),line!(), dbek, e);
-                    },
-                    _ => {
-                        // Okay this error is a database error but not a unique violation
-                        log::error!("{:?} {:?} DB Create error {:?} {:?} {:?}",module_path!(), line!(),dbek, e ,game_entry);
-                    },
-                },
-                _ => {
-                    // this is some error but not a database error
-                    log::error!("{:?} {:?} DB Create error {:?} {:?}",module_path!(), line!(),e,game_entry);
-                },
-            };
-
-            return Ok(
-                HttpResponse::BadRequest()
-                    .content_type("text/html; charset=utf-8")
-                    .body(error_content)
-            )
-        },
-    };
+    // PREVIOUS IMPLEMENTATION: By the time a game event is received from QuizMachine the Game has been 
+    //      created in QView and the Game received from QView by QuizMachine; this is the current workflow 
+    //      assumption here and so no game needs to be created here.
+    // match game::create_update(mdb, &game_entry) {
+    //     Ok(output) => {
+    //         // update the gameevent gid so we have the correct one to write
+    //         // the gameevent to the Quizzes table
+    //         gameevent_entry.gid = output.gid;
+    //         gid = output.gid;
+    //         log::info!("Inserted/Updated a Game {:?}",output)            
+    //     },
+    //     Err(e) => {
+    //         let error_content = format!("Game write failure {}", e);
+    //         match e {
+    //             // the most likely cause here is a Unique constraint - the row
+    //             // already exists in the database.  We'll ignore those and
+    //             // panic or log the others
+    //             DBError::DatabaseError(dbek,e) => match dbek {
+    //                 diesel::result::DatabaseErrorKind::UniqueViolation => {
+    //                     // do nothing here.  This is a normal case when another event 
+    //                     // comes in for this quiz.
+    //                     log::error!("{:?} {:?} Error {:?} {:?}", module_path!(),line!(), dbek, e);
+    //                 },
+    //                 _ => {
+    //                     // Okay this error is a database error but not a unique violation
+    //                     log::error!("{:?} {:?} DB Create error {:?} {:?} {:?}",module_path!(), line!(),dbek, e ,game_entry);
+    //                 },
+    //             },
+    //             _ => {
+    //                 // this is some error but not a database error
+    //                 log::error!("{:?} {:?} DB Create error {:?} {:?}",module_path!(), line!(),e,game_entry);
+    //             },
+    //         };
+    //         return Ok(
+    //             HttpResponse::BadRequest()
+    //                 .content_type("text/html; charset=utf-8")
+    //                 .body(error_content)
+    //         )
+    //     },
+    // };
 
     // send an update to the cache for this room.  Rounds in  Progress (tickertape)
-    roominfo::update_roominfo(&mut roominfo_entry);
+    // roominfo::update_roominfo(&mut roominfo_entry);
 
     // now let's write an entry in the quizzes event table
     // Handle errors while we create the entry - this is a database insert or update
@@ -402,21 +408,101 @@ fn print_type_of<T>(_: &T) {
 //         )
 //     )
 // ]
-#[get("")]
+#[get("/create")]
 async fn index(
     db: Data<Database>,
-    Query(url_params): Query<PaginationParams>,
+    Query(url_params): Query<GameEventParams>,
     req: HttpRequest
 ) -> HttpResponse {
+    // This endpoint is intentionally NOT ReST compliant; while being a GET endpoint it is used to persist GameEvents
+    // to the DB and then lets the client know the request has been successfully received
+
     let mut db = db.get_connection().expect("Failed to get connection");
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    let bad_request_response_body = EntityResponse::<bool> { 
+        code: 400, 
+        message: "Bad Request".to_string(), 
+        data: None
+    };
+    let client_ts: DateTime<Utc> = match url_params.ts.as_str().parse() {
+        Ok(n) => {
+            let option = DateTime::from_timestamp(n, 0);
+            if let Some(ts) = option {
+                ts
+            }
+            else {
+                eprintln!("400 Bad Request");
+                return HttpResponse::BadRequest().json(bad_request_response_body);
+            }
+        }
+        Err(e) => {
+            eprintln!("parse error: {e}");
+            let option = DateTime::from_timestamp(0, 0);
+            if let Some(ts) = option {
+                ts
+            }
+            else {
+                return HttpResponse::BadRequest().json(bad_request_response_body);
+            }
+        }
+    };
+
+    let game_id = match Uuid::parse_str(url_params.gid.as_str()) {
+        Ok(gid) => gid,
+        Err(e) => {
+            eprintln!("parse error: {e}");
+            return HttpResponse::BadRequest().json(bad_request_response_body);
+        },
+    };
+
+    let new_game_event = NewGameEvent {
+        gid: game_id,
+        question: url_params.qn,
+        eventnum: url_params.e,
+        name: url_params.n,
+        team: url_params.t,
+        quizzer: url_params.q,
+        event: url_params.ec,
+        parm1: url_params.p1,
+        parm2: url_params.p2,
+        clientts: client_ts,
+        serverts: Utc::now(),
+        md5digest: url_params.md5,
+    };
+
+    let result: QueryResult<GameEvent> = models::gameevent::create(&mut db, &new_game_event);
+
+    let response: EntityResponse<GameEvent> = process_response(result, "get");
     
-    match (models::gameevent::read_all(&mut db, &url_params), models::gameevent::count(&mut db)) {
-        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        _ => HttpResponse::InternalServerError().finish(),
+    match response.code {
+        409 => HttpResponse::Conflict().json(response),
+        // 201 => HttpResponse::Created().json(response),
+        200 => HttpResponse::Ok().insert_header(("sha1sum", "gjjjyff")).json(response),
+        _ => HttpResponse::InternalServerError().json(response)
     }
+    
+    // let ok_response_body = EntityResponse::<bool> { 
+    //     code: 200, 
+    //     message: "OK".to_string(), r
+    //     data: None
+    // };
+    // HttpResponse::Ok().json(ok_response_body)
+
+    // match (models::gameevent::create(&mut db, &game_event), models::gameevent::count(&mut db)) {
+    //     (Ok(items), Ok(count)) => {
+    //     },
+    //     _ => {
+    //         let response_body = EntityResponse::<bool> { 
+    //             code: 500, 
+    //             message: "Internal Server Error".to_string(), 
+    //             data: None
+    //         };
+    //         HttpResponse::InternalServerError().json(response_body)
+    //     }
+    // }
 }
 
 // pub async fn index_playground(

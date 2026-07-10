@@ -46,6 +46,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::round::endpoints(web::scope("/rounds")))
             .service(services::team::endpoints(web::scope("/teams")))
             .service(services::game::endpoints(web::scope("/games")))
+            .service(services::gameevent::endpoints(web::scope("/gameevents")))
             .service(services::role::endpoints(web::scope("/roles")))
             .service(services::permission::endpoints(web::scope("/permissions")))
             .service(services::users_roles::endpoints(web::scope("/usersroles")))

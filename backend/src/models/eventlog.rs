@@ -48,10 +48,10 @@ pub struct EventlogChangeset {
     pub clientkey: String,                                          // what key/client did this come from
     pub organization: String,                                       // what org sent this
     pub bldgroom: String,                                           // what building is the room in    
-    pub tournament: String,                                         // tournament
-    pub division: String,                                           // division
-    pub room: String,                                               // room
-    pub round: String,                                              // round
+    pub tournament: String,                                         // tournament name
+    pub division: String,                                           // division name
+    pub room: String,                                               // room name
+    pub round: String,                                              // round name
     pub question: i32,                                              // question
     pub eventnum: i32,                                              // event number
     pub name: String,                                               // name of the quizzer or team
