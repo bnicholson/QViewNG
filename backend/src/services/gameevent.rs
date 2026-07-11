@@ -47,17 +47,13 @@ pub async fn write(
     let mut t_str = String::new();
     let mut q_str = String::new();
     let mut ts = Utc::now();
-    let mut gid = Uuid::nil();
     let mut field_count = 0;
     for pair in psiter {
 
         let s = String::from(pair.0);
         match s.as_str() {
             "bldgroom" => {
-                let tmp = pair.1.replace("+"," ");
-                gameeventlog_entry.bldgroom = (&tmp).to_string();
-                roominfo_entry.bldgroom = tmp;
-                field_count += 1;               
+                // do nothing; let match arm for "rm" take care of this; keep this arm to verify it is a valid parameter
             },
             "key" => {  // key4server - uniquely identifies a particular client
                 let tmp = pair.1.replace("+"," ");
@@ -85,39 +81,32 @@ pub async fn write(
             "tn" => { // Tournament Name
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.tournament = tmp.clone();
-                roominfo_entry.tournament = tmp.clone();
-                match Uuid::parse_str(&tmp) {
-                    Ok(uuid) => { game_entry.tournamentid = Some(uuid); field_count += 1; },
-                    Err(e) => log::error!("{:?} {:?} Failed to parse tournamentid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
-                }
+                roominfo_entry.tournament = tmp;
+                field_count += 1;
             },
             "dn" => { // Division Name
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.division = tmp.clone();
-                roominfo_entry.division = tmp.clone();
-                match Uuid::parse_str(&tmp) {
-                    Ok(uuid) => { game_entry.divisionid = Some(uuid); field_count += 1; },
-                    Err(e) => log::error!("{:?} {:?} Failed to parse divisionid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
-                }
+                roominfo_entry.division = tmp;
+                field_count += 1;
             },
-            "rm" => { // Room
+            "rm" => { // Room Name
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.room = tmp.clone();
                 roominfo_entry.room = tmp.clone();
-                match Uuid::parse_str(&tmp) {
-                    Ok(uuid) => { game_entry.roomid = Some(uuid); field_count += 1; },
-                    Err(e) => log::error!("{:?} {:?} Failed to parse roomid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
-                }
+
+                // also add as the building room (since QView only uses 'room' to describe both it must be unique among all rooms, regardless of building; the building should be included in naming scheme of the room if desired)
+                gameeventlog_entry.bldgroom = tmp.clone();
+                roominfo_entry.bldgroom = tmp;
+
+                field_count += 2;  // include "bldgroom" param in count here and not in its own branch
             },
-            "rd" => { // Round
+            "rd" => { // Round Name (Note: QuizMachine sequential lookup requires that this is an integer with no characters (1, 2, 3, 4, etc.); there should be no letters being received for this query parameter)
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.round = tmp.clone();
-                roominfo_entry.round = tmp.clone();
-                match Uuid::parse_str(&tmp) {
-                    Ok(uuid) => { game_entry.roundid = Some(uuid); field_count += 1; },
-                    Err(e) => log::error!("{:?} {:?} Failed to parse roundid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
-                }
-            }, 
+                roominfo_entry.round = tmp;
+                field_count += 1;
+            },
             "qn" => { // Question #
                 qn_str = pair.1.replace("+"," ");
                 let qn = pair.1.trim().parse().unwrap(); 
@@ -176,7 +165,8 @@ pub async fn write(
                 ts = Utc.timestamp_opt(secs,0).unwrap();
                 gameevent_entry.clientts = ts;
                 gameeventlog_entry.ts = pair.1.to_string();
-                roominfo_entry.client_time = ts;                field_count += 1;
+                roominfo_entry.client_time = ts;
+                field_count += 1;
             }, 
             "md5" => {  // md5 hashsum
                 let tmp = pair.1.replace("+"," ");
@@ -209,7 +199,8 @@ pub async fn write(
 
     // Check to make sure we got all the parameters
     let content = "bad parameters";
-    if field_count != 19 {
+    if field_count != 20 {
+        log::error!("{} {} write() to return 400 BadRequest. Number of field_counted = {}", module_path!(), line!(), field_count);
         return Ok(
             HttpResponse::BadRequest()
                 .content_type("text/html; charset=utf-8")
@@ -224,7 +215,7 @@ pub async fn write(
     // we had issues with the network (firewalls, app firewalls, etc) corrupting or 
     // giving false 200s.  This avoids that.
     // Grab the HOST:PORT the web server should run on.
-    let gameevent_psk = match std::env::var("QUIZEVENT_PSK") {
+    let gameevent_psk = match std::env::var("GAMEEVENT_PSK") {
         Ok(gameevent_psk) => {
             gameevent_psk
         },
@@ -264,7 +255,7 @@ pub async fn write(
     // now make sure we didn't have any corrupted data.  If so print an error and get out
     if !&gameeventlog_entry.s1s.eq(&rsltbase64) {
         // oh boy!!!
-        log::error!("{} {} /api/gameevent Sha1sums don't match {} {}",module_path!(), line!(), &gameeventlog_entry.s1s, rsltbase64);
+        log::error!("{} {} /api/gameevents/create Sha1sums don't match {} {}",module_path!(), line!(), &gameeventlog_entry.s1s, rsltbase64);
         let error_content = format!("Sha1sums don't match! {} {}",&gameeventlog_entry.s1s, &rsltbase64);
         return Ok(
             HttpResponse::BadRequest()
@@ -371,6 +362,7 @@ pub async fn write(
                 },
             };
 
+            log::error!("{} {} write() to return 400 BadRequest", module_path!(), line!());
             return Ok(
                 HttpResponse::BadRequest()
                     .content_type("text/html; charset=utf-8")
@@ -422,67 +414,94 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let bad_request_response_body = EntityResponse::<bool> { 
-        code: 400, 
-        message: "Bad Request".to_string(), 
-        data: None
-    };
-    let client_ts: DateTime<Utc> = match url_params.ts.as_str().parse() {
-        Ok(n) => {
-            let option = DateTime::from_timestamp(n, 0);
-            if let Some(ts) = option {
-                ts
+    // let bad_request_response_body = EntityResponse::<bool> {
+    //     code: 400,
+    //     message: "Bad Request".to_string(),
+    //     data: None
+    // };
+
+    match write(&mut db, req).await {
+        Ok(response) => {
+            // write() succeeded at the Result level; it may still carry a non-2xx
+            // status (e.g. a validation BadRequest). Log those but pass them through
+            // so the client sees the real status and body.
+            if !response.status().is_success() {
+                log::error!("{} {} write() returned a non-OK response: {}", module_path!(), line!(), response.status());
             }
-            else {
-                eprintln!("400 Bad Request");
-                return HttpResponse::BadRequest().json(bad_request_response_body);
-            }
+            return response;
         }
         Err(e) => {
-            eprintln!("parse error: {e}");
-            let option = DateTime::from_timestamp(0, 0);
-            if let Some(ts) = option {
-                ts
-            }
-            else {
-                return HttpResponse::BadRequest().json(bad_request_response_body);
-            }
+            // write() itself errored out; report a 500 to the client.
+            log::error!("{} {} write() failed: {:?}", module_path!(), line!(), e);
+            let internal_error_response_body = EntityResponse::<bool> {
+                code: 500,
+                message: "Internal Server Error".to_string(),
+                data: None,
+            };
+            return HttpResponse::InternalServerError().json(internal_error_response_body);
         }
-    };
-
-    let game_id = match Uuid::parse_str(url_params.gid.as_str()) {
-        Ok(gid) => gid,
-        Err(e) => {
-            eprintln!("parse error: {e}");
-            return HttpResponse::BadRequest().json(bad_request_response_body);
-        },
-    };
-
-    let new_game_event = NewGameEvent {
-        gid: game_id,
-        question: url_params.qn,
-        eventnum: url_params.e,
-        name: url_params.n,
-        team: url_params.t,
-        quizzer: url_params.q,
-        event: url_params.ec,
-        parm1: url_params.p1,
-        parm2: url_params.p2,
-        clientts: client_ts,
-        serverts: Utc::now(),
-        md5digest: url_params.md5,
-    };
-
-    let result: QueryResult<GameEvent> = models::gameevent::create(&mut db, &new_game_event);
-
-    let response: EntityResponse<GameEvent> = process_response(result, "get");
-    
-    match response.code {
-        409 => HttpResponse::Conflict().json(response),
-        // 201 => HttpResponse::Created().json(response),
-        200 => HttpResponse::Ok().insert_header(("sha1sum", "gjjjyff")).json(response),
-        _ => HttpResponse::InternalServerError().json(response)
     }
+
+    //
+
+    // let client_ts: DateTime<Utc> = match url_params.ts.as_str().parse() {
+    //     Ok(n) => {
+    //         let option = DateTime::from_timestamp(n, 0);
+    //         if let Some(ts) = option {
+    //             ts
+    //         }
+    //         else {
+    //             eprintln!("400 Bad Request");
+    //             return HttpResponse::BadRequest().json(bad_request_response_body);
+    //         }
+    //     }
+    //     Err(e) => {
+    //         eprintln!("parse error: {e}");
+    //         let option = DateTime::from_timestamp(0, 0);
+    //         if let Some(ts) = option {
+    //             ts
+    //         }
+    //         else {
+    //             return HttpResponse::BadRequest().json(bad_request_response_body);
+    //         }
+    //     }
+    // };
+
+    // let game_id = match Uuid::parse_str(url_params.gid.as_str()) {
+    //     Ok(gid) => gid,
+    //     Err(e) => {
+    //         eprintln!("parse error: {e}");
+    //         return HttpResponse::BadRequest().json(bad_request_response_body);
+    //     },
+    // };
+
+    // let new_game_event = NewGameEvent {
+    //     gid: game_id,
+    //     question: url_params.qn,
+    //     eventnum: url_params.e,
+    //     name: url_params.n,
+    //     team: url_params.t,
+    //     quizzer: url_params.q,
+    //     event: url_params.ec,
+    //     parm1: url_params.p1,
+    //     parm2: url_params.p2,
+    //     clientts: client_ts,
+    //     serverts: Utc::now(),
+    //     md5digest: url_params.md5,
+    // };
+
+    // let result: QueryResult<GameEvent> = models::gameevent::create(&mut db, &new_game_event);
+
+    // let response: EntityResponse<GameEvent> = process_response(result, "get");
+    
+    // match response.code {
+    //     409 => HttpResponse::Conflict().json(response),
+    //     // 201 => HttpResponse::Created().json(response),
+    //     200 => HttpResponse::Ok().insert_header(("sha1sum", "gjjjyff")).json(response),
+    //     _ => HttpResponse::InternalServerError().json(response)
+    // }
+
+    //
     
     // let ok_response_body = EntityResponse::<bool> { 
     //     code: 200, 
