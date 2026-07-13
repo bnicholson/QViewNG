@@ -53,7 +53,10 @@ pub async fn write(
         let s = String::from(pair.0);
         match s.as_str() {
             "bldgroom" => {
-                // do nothing; let match arm for "rm" take care of this; keep this arm to verify it is a valid parameter
+                let tmp = pair.1.replace("+"," ");
+                gameeventlog_entry.bldgroom = (&tmp).to_string();
+                roominfo_entry.bldgroom = tmp;
+                field_count += 1;    
             },
             "key" => {  // key4server - uniquely identifies a particular client
                 let tmp = pair.1.replace("+"," ");
@@ -67,8 +70,11 @@ pub async fn write(
                 gameeventlog_entry.gid = tmp.clone();
                 roominfo_entry.gid = tmp.clone();
                 match Uuid::parse_str(&tmp) {
-                    Ok(uuid) => { game_entry.tournamentid = Some(uuid); field_count += 1; },
-                    Err(e) => log::error!("{:?} {:?} Failed to parse tournamentid as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
+                    Ok(uuid) => {
+                        gameevent_entry.gid = uuid;
+                        field_count += 1; 
+                    },
+                    Err(e) => log::error!("{:?} {:?} Failed to parse Game ID ('gid' query param) as UUID '{}': {:?}", module_path!(), line!(), tmp, e),
                 }
             },
             "tk" => {   // tournament key - short id for a particular tournament
@@ -95,11 +101,7 @@ pub async fn write(
                 gameeventlog_entry.room = tmp.clone();
                 roominfo_entry.room = tmp.clone();
 
-                // also add as the building room (since QView only uses 'room' to describe both it must be unique among all rooms, regardless of building; the building should be included in naming scheme of the room if desired)
-                gameeventlog_entry.bldgroom = tmp.clone();
-                roominfo_entry.bldgroom = tmp;
-
-                field_count += 2;  // include "bldgroom" param in count here and not in its own branch
+                field_count += 1;
             },
             "rd" => { // Round Name (Note: QuizMachine sequential lookup requires that this is an integer with no characters (1, 2, 3, 4, etc.); there should be no letters being received for this query parameter)
                 let tmp = pair.1.replace("+"," ");
@@ -151,6 +153,7 @@ pub async fn write(
                 let tmp = pair.1.replace("+"," ");
                 gameevent_entry.parm1 = (&tmp).to_string();
                 gameeventlog_entry.parm1 = tmp;
+                log::debug!("{}:{} - Parsed query param 'p1' = {}", module_path!(),line!(), gameeventlog_entry.parm1);
                 field_count += 1;
             }, 
             "p2" => { // parameter 2 - depends upon what ec is
@@ -182,6 +185,7 @@ pub async fn write(
             "s1s" => {
                 let tmp = pair.1.replace("+","+");
                 gameeventlog_entry.s1s = tmp;
+                log::debug!("{}:{} - Parsed query param 's1s' = {}", module_path!(),line!(), gameeventlog_entry.s1s);
                 field_count += 1;
             },
             "myip" => {
@@ -226,15 +230,15 @@ pub async fn write(
     };
 
     sha1hasher.update(&&gameeventlog_entry.nonce);
-    sha1hasher.update(gameevent_psk);
+    sha1hasher.update(&gameevent_psk);
     sha1hasher.update(&gameeventlog_entry.bldgroom);
-	sha1hasher.update(&gameeventlog_entry.clientkey);
+	sha1hasher.update(&gameeventlog_entry.clientkey);  // key4Server
 	sha1hasher.update(&tk);
 	sha1hasher.update(&gameeventlog_entry.tournament);
 	sha1hasher.update(&gameeventlog_entry.division);
     sha1hasher.update(&gameeventlog_entry.room);
     sha1hasher.update(&gameeventlog_entry.round);
-	sha1hasher.update(&qn_str);
+	sha1hasher.update(&qn_str);  // question number
     sha1hasher.update(&e_str);
     sha1hasher.update(&gameeventlog_entry.name);
     sha1hasher.update(&t_str);
@@ -267,7 +271,7 @@ pub async fn write(
     // now lets log all this information to the eventlog table.
     // This is a file on disk in QMServer.  But we'll put it
     // on the database in the eventlog table for Qview
-    match gameeventlog::write_gameeventlog(mdb, gameeventlog_entry) {
+    match gameeventlog::write_gameeventlog(mdb, gameeventlog_entry.clone()) {
         Ok(_eventlog) => {
             // okay we wrote to eventlog - do nothing
         },
@@ -282,54 +286,6 @@ pub async fn write(
         }
     }
 
-    // first lets see if we have the game cached.  This will give us the gid for
-    // this event.  If gid is <= 0 then this is the first event for this
-    // clientkey, org, tournament, division, room, round.
-    // let mut gid = game::get_gid_from_cache(&game_entry);  // will reintroduce caching at a later time
-    
-    // now let's create an entry in the games table
-    // Handle errors while we create the entry
-    // PREVIOUS IMPLEMENTATION: By the time a game event is received from QuizMachine the Game has been 
-    //      created in QView and the Game received from QView by QuizMachine; this is the current workflow 
-    //      assumption here and so no game needs to be created here.
-    // match game::create_update(mdb, &game_entry) {
-    //     Ok(output) => {
-    //         // update the gameevent gid so we have the correct one to write
-    //         // the gameevent to the Quizzes table
-    //         gameevent_entry.gid = output.gid;
-    //         gid = output.gid;
-    //         log::info!("Inserted/Updated a Game {:?}",output)            
-    //     },
-    //     Err(e) => {
-    //         let error_content = format!("Game write failure {}", e);
-    //         match e {
-    //             // the most likely cause here is a Unique constraint - the row
-    //             // already exists in the database.  We'll ignore those and
-    //             // panic or log the others
-    //             DBError::DatabaseError(dbek,e) => match dbek {
-    //                 diesel::result::DatabaseErrorKind::UniqueViolation => {
-    //                     // do nothing here.  This is a normal case when another event 
-    //                     // comes in for this quiz.
-    //                     log::error!("{:?} {:?} Error {:?} {:?}", module_path!(),line!(), dbek, e);
-    //                 },
-    //                 _ => {
-    //                     // Okay this error is a database error but not a unique violation
-    //                     log::error!("{:?} {:?} DB Create error {:?} {:?} {:?}",module_path!(), line!(),dbek, e ,game_entry);
-    //                 },
-    //             },
-    //             _ => {
-    //                 // this is some error but not a database error
-    //                 log::error!("{:?} {:?} DB Create error {:?} {:?}",module_path!(), line!(),e,game_entry);
-    //             },
-    //         };
-    //         return Ok(
-    //             HttpResponse::BadRequest()
-    //                 .content_type("text/html; charset=utf-8")
-    //                 .body(error_content)
-    //         )
-    //     },
-    // };
-
     // send an update to the cache for this room.  Rounds in  Progress (tickertape)
     // roominfo::update_roominfo(&mut roominfo_entry);
 
@@ -337,10 +293,10 @@ pub async fn write(
     // Handle errors while we create the entry - this is a database insert or update
     match gameevent::create_update_game_event(mdb, &gameevent_entry) {
         Ok(output) => {
-            log::info!("Inserted/Updated a Quizevent {:?}",output)
+            log::info!("Inserted/Updated a GameEvent: {:?}",output)
         },
         Err(err) => {
-            let error_content = format!("Quizevent write failure {}", err);
+            let error_content = format!("GameEvent write failure {}", err);
             match err {
                 // the most likely cause here is a Unique constraint - the row
                 // already exists in the database.  We'll ignore those and
@@ -372,9 +328,18 @@ pub async fn write(
     
     }
 
+    let mut sha1hasher_for_response_header = Sha1::new();
+    sha1hasher_for_response_header.update(&gameeventlog_entry.nonce);
+    sha1hasher_for_response_header.update(&gameevent_psk);
+    let rslt_for_response_header = sha1hasher_for_response_header.finalize();
+    // base64-encode the raw digest bytes into a String suitable for a header value
+    let sha1sum_for_response_header = base64::engine::general_purpose::STANDARD.encode(rslt_for_response_header);
+
+    log::debug!("{}:{} Generated sha1sum for response header = {}", module_path!(), line!(), &sha1sum_for_response_header);
     Ok(
         HttpResponse::Ok()
             .content_type("text/html; charset=utf-8")
+            .insert_header(("sha1sum", sha1sum_for_response_header))
             .body("Inserted/Updated")
     )
 }
@@ -403,7 +368,7 @@ fn print_type_of<T>(_: &T) {
 #[get("/create")]
 async fn index(
     db: Data<Database>,
-    Query(url_params): Query<GameEventParams>,
+    //Query(url_params): Query<GameEventParams>,
     req: HttpRequest
 ) -> HttpResponse {
     // This endpoint is intentionally NOT ReST compliant; while being a GET endpoint it is used to persist GameEvents
@@ -413,12 +378,6 @@ async fn index(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
-
-    // let bad_request_response_body = EntityResponse::<bool> {
-    //     code: 400,
-    //     message: "Bad Request".to_string(),
-    //     data: None
-    // };
 
     match write(&mut db, req).await {
         Ok(response) => {
@@ -441,87 +400,6 @@ async fn index(
             return HttpResponse::InternalServerError().json(internal_error_response_body);
         }
     }
-
-    //
-
-    // let client_ts: DateTime<Utc> = match url_params.ts.as_str().parse() {
-    //     Ok(n) => {
-    //         let option = DateTime::from_timestamp(n, 0);
-    //         if let Some(ts) = option {
-    //             ts
-    //         }
-    //         else {
-    //             eprintln!("400 Bad Request");
-    //             return HttpResponse::BadRequest().json(bad_request_response_body);
-    //         }
-    //     }
-    //     Err(e) => {
-    //         eprintln!("parse error: {e}");
-    //         let option = DateTime::from_timestamp(0, 0);
-    //         if let Some(ts) = option {
-    //             ts
-    //         }
-    //         else {
-    //             return HttpResponse::BadRequest().json(bad_request_response_body);
-    //         }
-    //     }
-    // };
-
-    // let game_id = match Uuid::parse_str(url_params.gid.as_str()) {
-    //     Ok(gid) => gid,
-    //     Err(e) => {
-    //         eprintln!("parse error: {e}");
-    //         return HttpResponse::BadRequest().json(bad_request_response_body);
-    //     },
-    // };
-
-    // let new_game_event = NewGameEvent {
-    //     gid: game_id,
-    //     question: url_params.qn,
-    //     eventnum: url_params.e,
-    //     name: url_params.n,
-    //     team: url_params.t,
-    //     quizzer: url_params.q,
-    //     event: url_params.ec,
-    //     parm1: url_params.p1,
-    //     parm2: url_params.p2,
-    //     clientts: client_ts,
-    //     serverts: Utc::now(),
-    //     md5digest: url_params.md5,
-    // };
-
-    // let result: QueryResult<GameEvent> = models::gameevent::create(&mut db, &new_game_event);
-
-    // let response: EntityResponse<GameEvent> = process_response(result, "get");
-    
-    // match response.code {
-    //     409 => HttpResponse::Conflict().json(response),
-    //     // 201 => HttpResponse::Created().json(response),
-    //     200 => HttpResponse::Ok().insert_header(("sha1sum", "gjjjyff")).json(response),
-    //     _ => HttpResponse::InternalServerError().json(response)
-    // }
-
-    //
-    
-    // let ok_response_body = EntityResponse::<bool> { 
-    //     code: 200, 
-    //     message: "OK".to_string(), r
-    //     data: None
-    // };
-    // HttpResponse::Ok().json(ok_response_body)
-
-    // match (models::gameevent::create(&mut db, &game_event), models::gameevent::count(&mut db)) {
-    //     (Ok(items), Ok(count)) => {
-    //     },
-    //     _ => {
-    //         let response_body = EntityResponse::<bool> { 
-    //             code: 500, 
-    //             message: "Internal Server Error".to_string(), 
-    //             data: None
-    //         };
-    //         HttpResponse::InternalServerError().json(response_body)
-    //     }
-    // }
 }
 
 // pub async fn index_playground(
