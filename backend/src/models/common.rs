@@ -54,5 +54,5 @@ pub struct GameEventParams {
     pub ts: String,         // &ts=1783464615  // "timestamp"
     pub md5: String,        // &md5=804d745c4c2b61b7b3901a7502c10d43  // "md5digest"
     pub nonce: String,      // &nonce=2567764725361350931648290373801246491543638377087318691787425923628932249
-    pub s1s: String,        // &s1s=zC1sd1w7%2bkJYyr4bBThttP7ujkI%3d  // "SHA1 checksum"
+    pub s3s: String,        // &s3s=zC1sd1w7%2bkJYyr4bBThttP7ujkI%3d  // "SHA3-512 checksum"
 }

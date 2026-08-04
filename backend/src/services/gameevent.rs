@@ -6,7 +6,7 @@ use chrono::{ DateTime, TimeZone, Utc };
 use uuid::Uuid;
 // use std::file;
 use base64::{self, Engine};
-use sha1::{Sha1, Digest};
+use sha3::{Sha3_512, Digest};
 use diesel::result::Error as DBError;
 use crate::models::{gameeventlog, roominfo};
 // use crate::models::gameevent::{self,GameEvent};
@@ -182,10 +182,10 @@ pub async fn write(
                 gameeventlog_entry.nonce = tmp;
                 field_count += 1;
             },
-            "s1s" => {
+            "s3s" => {
                 let tmp = pair.1.replace("+","+");
-                gameeventlog_entry.s1s = tmp;
-                log::debug!("{}:{} - Parsed query param 's1s' = {}", module_path!(),line!(), gameeventlog_entry.s1s);
+                gameeventlog_entry.s3s = tmp;
+                log::debug!("{}:{} - Parsed query param 's3s' = {}", module_path!(),line!(), gameeventlog_entry.s3s);
                 field_count += 1;
             },
             "myip" => {
@@ -212,10 +212,10 @@ pub async fn write(
         )
     }
 
-    // create the sha1 object
-    let mut sha1hasher = Sha1::new();
+    // create the sha3-512 object
+    let mut sha3_512_hasher = Sha3_512::new();
 
-    // the following code calculates and checks the sha1sum of all the GET parameters.
+    // the following code calculates and checks the sha3-512 sum of all the GET parameters.
     // we had issues with the network (firewalls, app firewalls, etc) corrupting or 
     // giving false 200s.  This avoids that.
     // Grab the HOST:PORT the web server should run on.
@@ -229,38 +229,38 @@ pub async fn write(
         }
     };
 
-    sha1hasher.update(&&gameeventlog_entry.nonce);
-    sha1hasher.update(&gameevent_psk);
-    sha1hasher.update(&gameeventlog_entry.bldgroom);
-	sha1hasher.update(&gameeventlog_entry.clientkey);  // key4Server
-	sha1hasher.update(&tk);
-	sha1hasher.update(&gameeventlog_entry.tournament);
-	sha1hasher.update(&gameeventlog_entry.division);
-    sha1hasher.update(&gameeventlog_entry.room);
-    sha1hasher.update(&gameeventlog_entry.round);
-	sha1hasher.update(&qn_str);  // question number
-    sha1hasher.update(&e_str);
-    sha1hasher.update(&gameeventlog_entry.name);
-    sha1hasher.update(&t_str);
-    sha1hasher.update(&q_str);
-    sha1hasher.update(&gameeventlog_entry.event);
-    sha1hasher.update(&gameeventlog_entry.parm1);
-    sha1hasher.update(&gameeventlog_entry.parm2);
-    let rslt = sha1hasher.finalize();
+    sha3_512_hasher.update(&&gameeventlog_entry.nonce);
+    sha3_512_hasher.update(&gameevent_psk);
+    sha3_512_hasher.update(&gameeventlog_entry.bldgroom);
+	sha3_512_hasher.update(&gameeventlog_entry.clientkey);  // key4Server
+	sha3_512_hasher.update(&tk);
+	sha3_512_hasher.update(&gameeventlog_entry.tournament);
+	sha3_512_hasher.update(&gameeventlog_entry.division);
+    sha3_512_hasher.update(&gameeventlog_entry.room);
+    sha3_512_hasher.update(&gameeventlog_entry.round);
+	sha3_512_hasher.update(&qn_str);  // question number
+    sha3_512_hasher.update(&e_str);
+    sha3_512_hasher.update(&gameeventlog_entry.name);
+    sha3_512_hasher.update(&t_str);
+    sha3_512_hasher.update(&q_str);
+    sha3_512_hasher.update(&gameeventlog_entry.event);
+    sha3_512_hasher.update(&gameeventlog_entry.parm1);
+    sha3_512_hasher.update(&gameeventlog_entry.parm2);
+    let rslt = sha3_512_hasher.finalize();
     let rsltbase64 = base64::engine::general_purpose::STANDARD.encode(rslt);
 
-    // now grab the result of the sha1hashing
-	log::info!("{:?} {:?} GameEvent: Org: {} BldgRoom: {}, Key: {}, Tk: {}, TN: {}, DN: {}, Room: {}, Round: {}, Question: {}, EventNumber: {} Name: {} Team: {} Quizzer: {}, EC: {}, Parm1: {} Parm2: {}, Timestamp: {}, Host: {}, MD5: {}, Nonce: {} {}, Sha1sum: {} Calculated sha1sum: {}",
+    // now grab the result of the sha3-512 hashing
+	log::info!("{:?} {:?} GameEvent: Org: {} BldgRoom: {}, Key: {}, Tk: {}, TN: {}, DN: {}, Room: {}, Round: {}, Question: {}, EventNumber: {} Name: {} Team: {} Quizzer: {}, EC: {}, Parm1: {} Parm2: {}, Timestamp: {}, Host: {}, MD5: {}, Nonce: {} {}, Sha3-512 sum: {} Calculated sha3-512 sum: {}",
         module_path!(),line!(), org, &gameeventlog_entry.bldgroom, &gameeventlog_entry.clientkey, tk, &gameeventlog_entry.tournament, &gameeventlog_entry.division, 
         &gameeventlog_entry.room, &gameeventlog_entry.round, &gameeventlog_entry.question, &gameeventlog_entry.eventnum, &gameeventlog_entry.name,
         &gameeventlog_entry.team, &gameeventlog_entry.quizzer, &gameeventlog_entry.event, &gameeventlog_entry.parm1, &gameeventlog_entry.parm2, 
-        ts, &gameeventlog_entry.clientip, &gameeventlog_entry.md5digest, &gameeventlog_entry.nonce, &gameeventlog_entry.nonce.len(), &gameeventlog_entry.s1s, rsltbase64 );   
+        ts, &gameeventlog_entry.clientip, &gameeventlog_entry.md5digest, &gameeventlog_entry.nonce, &gameeventlog_entry.nonce.len(), &gameeventlog_entry.s3s, rsltbase64 );   
     
     // now make sure we didn't have any corrupted data.  If so print an error and get out
-    if !&gameeventlog_entry.s1s.eq(&rsltbase64) {
+    if !&gameeventlog_entry.s3s.eq(&rsltbase64) {
         // oh boy!!!
-        log::error!("{} {} /api/gameevents/create Sha1sums don't match {} {}",module_path!(), line!(), &gameeventlog_entry.s1s, rsltbase64);
-        let error_content = format!("Sha1sums don't match! {} {}",&gameeventlog_entry.s1s, &rsltbase64);
+        log::error!("{} {} /api/gameevents/create Sha3-512 sums don't match {} {}",module_path!(), line!(), &gameeventlog_entry.s3s, rsltbase64);
+        let error_content = format!("Sha3-512 sums don't match! {} {}",&gameeventlog_entry.s3s, &rsltbase64);
         return Ok(
             HttpResponse::BadRequest()
                 .content_type("text/html; charset=utf-8")
@@ -328,18 +328,18 @@ pub async fn write(
     
     }
 
-    let mut sha1hasher_for_response_header = Sha1::new();
-    sha1hasher_for_response_header.update(&gameeventlog_entry.nonce);
-    sha1hasher_for_response_header.update(&gameevent_psk);
-    let rslt_for_response_header = sha1hasher_for_response_header.finalize();
+    let mut sha3_512_hasher_for_response_header = Sha3_512::new();
+    sha3_512_hasher_for_response_header.update(&gameeventlog_entry.nonce);
+    sha3_512_hasher_for_response_header.update(&gameevent_psk);
+    let rslt_for_response_header = sha3_512_hasher_for_response_header.finalize();
     // base64-encode the raw digest bytes into a String suitable for a header value
-    let sha1sum_for_response_header = base64::engine::general_purpose::STANDARD.encode(rslt_for_response_header);
+    let sha3_512_sum_for_response_header = base64::engine::general_purpose::STANDARD.encode(rslt_for_response_header);
 
-    log::debug!("{}:{} Generated sha1sum for response header = {}", module_path!(), line!(), &sha1sum_for_response_header);
+    log::debug!("{}:{} Generated sha3-512 sum for response header = {}", module_path!(), line!(), &sha3_512_sum_for_response_header);
     Ok(
         HttpResponse::Ok()
             .content_type("text/html; charset=utf-8")
-            .insert_header(("sha1sum", sha1sum_for_response_header))
+            .insert_header(("sha3512sum", sha3_512_sum_for_response_header))
             .body("Inserted/Updated")
     )
 }

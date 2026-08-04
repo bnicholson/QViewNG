@@ -197,8 +197,8 @@ diesel::table! {
         md5digest -> Varchar,
         #[max_length = 80]
         nonce -> Varchar,
-        #[max_length = 32]
-        s1s -> Varchar,
+        #[max_length = 128]
+        s3s -> Varchar,
         #[max_length = 64]
         gid -> Varchar,
     }

@@ -37,7 +37,7 @@ pub struct GameEventlog {
     pub clientip: String,                                           // client ip address 
     pub md5digest: String,                                          // used to ensure we don't have corruption in transmission
     pub nonce: String,                                              // part of the corruption avoidance
-    pub s1s: String,                                                // sha1hashsum -- ensures
+    pub s3s: String,                                                // sha3-512 hashsum -- ensures
     pub gid: String                                                 // game UUID (Rust Uuid stored as its string representation)
 }
 
@@ -65,7 +65,7 @@ pub struct GameEventlogChangeset {
     pub clientip: String,                                           // clientip
     pub md5digest: String,                                          // used to ensure we don't have corruption in transmission
     pub nonce: String,                                              // part of the corruption avoidance
-    pub s1s: String,                                                // sha1hashsum -- ensures
+    pub s3s: String,                                                // sha3-512 hashsum -- ensures
     pub gid: String                                                 // game UUID (Rust Uuid stored as its string representation)
 }
 
@@ -93,7 +93,7 @@ pub fn empty_changeset() -> GameEventlogChangeset {
             clientip: "".to_string(),                                           // clientip
             md5digest: "".to_string(),                                          // used to ensure we don't have corruption in transmission
             nonce: "".to_string(),                                              // part of the corruption avoidance
-            s1s: "".to_string(),                                                // sha1hashsum -- ensures
+            s3s: "".to_string(),                                                // sha3-512 hashsum -- ensures
             gid: "".to_string()                                                 // game UUID (Rust Uuid as string)
         }
 }
