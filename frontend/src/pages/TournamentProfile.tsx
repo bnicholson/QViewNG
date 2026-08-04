@@ -22,6 +22,7 @@ import { TournamentOverviewPage } from './TournamentOverviewPage'
 import { TournamentRegisterPage } from './TournamentRegisterPage'
 import { TournamentGearPage } from './TournamentGearPage'
 import TournamentGroupsTable from '../components/TournamentGroupsTable'
+import StatsGroupsPanel from '../components/StatsGroupsPanel'
 import { useAuth } from '../hooks/useAuth'
 
 export const TournamentProfile = (props: { childRoute?: string }) => {
@@ -154,7 +155,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'gear'              && canViewAdmins === true && <TournamentGearPage tid={String(tournament?.tid)} />}
           {props.childRoute === 'admins'            && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
           {props.childRoute === 'tournament-groups'  && <TournamentGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate('tournamentgroup:create')} showDeleteButton={canCreate('tournamentgroup:delete')} canEdit={isOwnerOrSuperUser} />}
-          {props.childRoute === 'stats-groups'      && <Typography color="text.secondary">Stats Groups coming soon.</Typography>}
+          {props.childRoute === 'stats-groups'      && <StatsGroupsPanel tid={String(tournament?.tid)} />}
           {props.childRoute === 'room-monitor'      && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>
 

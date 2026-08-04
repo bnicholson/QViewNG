@@ -1,0 +1,305 @@
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select, { type SelectChangeEvent } from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
+
+// ─── Presentational table matching the QView DataTableTemplate style ──────────
+// (No CRUD toolbar / pagination — these are read-only ranking tables.)
+
+interface StatsColumn<T> {
+  header: string;
+  render: (row: T) => ReactNode;
+}
+
+function StatsTable<T>({
+  columns,
+  rows,
+  getRowKey,
+}: {
+  columns: StatsColumn<T>[];
+  rows: T[];
+  getRowKey: (row: T, index: number) => string | number;
+}) {
+  return (
+    <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "60vh", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+        <thead>
+          <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
+            {columns.map((col) => (
+              <th
+                key={col.header}
+                style={{
+                  padding: "8px 14px",
+                  textAlign: "center",
+                  fontWeight: 600,
+                  fontSize: 12,
+                  color: "#6b7280",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} style={{ padding: "32px 14px", textAlign: "center", color: "#9ca3af" }}>
+                No data found.
+              </td>
+            </tr>
+          ) : (
+            rows.map((row, i) => (
+              <tr
+                key={getRowKey(row, i)}
+                style={{
+                  background: i % 2 === 0 ? "#fff" : "#fafafa",
+                  borderBottom: "1px solid #f3f4f6",
+                  transition: "background .1s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f7ff")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#fafafa")}
+              >
+                {columns.map((col) => (
+                  <td key={col.header} style={{ padding: "8px 14px", color: "#374151", whiteSpace: "nowrap" }}>
+                    {col.render(row)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Dummy data (placeholder until backend endpoints exist) ───────────────────
+
+interface TeamStatRow {
+  place: number;
+  name: string;
+  games: number;
+  wins: number;
+  losses: number;
+  olympicPoints: number;
+  modOlympicPoints: number;
+  totalPoints: number;
+  tieBreaker: string;
+}
+
+const DUMMY_TEAM_STATS: TeamStatRow[] = [
+  { place: 1, name: "Grace Fellowship A", games: 8, wins: 7, losses: 1, olympicPoints: 21, modOlympicPoints: 19, totalPoints: 1420, tieBreaker: "Head-to-Head" },
+  { place: 2, name: "Cornerstone Blue", games: 8, wins: 6, losses: 2, olympicPoints: 18, modOlympicPoints: 17, totalPoints: 1355, tieBreaker: "Total Points" },
+  { place: 3, name: "New Life Red", games: 8, wins: 5, losses: 3, olympicPoints: 15, modOlympicPoints: 14, totalPoints: 1240, tieBreaker: "—" },
+  { place: 4, name: "Trinity Eagles", games: 8, wins: 4, losses: 4, olympicPoints: 12, modOlympicPoints: 12, totalPoints: 1130, tieBreaker: "Olympic Points" },
+  { place: 5, name: "Living Water B", games: 8, wins: 2, losses: 6, olympicPoints: 6, modOlympicPoints: 7, totalPoints: 980, tieBreaker: "—" },
+  { place: 6, name: "Redeemer Gold", games: 8, wins: 1, losses: 7, olympicPoints: 3, modOlympicPoints: 4, totalPoints: 815, tieBreaker: "Head-to-Head" },
+];
+
+interface IndividualStatRow {
+  place: number;
+  individual: string;
+  teamName: string;
+  games: number;
+  score: number;
+  avg: number;
+  correct: number;
+  errors: number;
+  bonusPts: number;
+  bonusAttempts: number;
+}
+
+const DUMMY_INDIVIDUAL_STATS: IndividualStatRow[] = [
+  { place: 1, individual: "Isla Mackenzie", teamName: "Grace Fellowship A", games: 8, score: 1240, avg: 155.0, correct: 96, errors: 8, bonusPts: 180, bonusAttempts: 22 },
+  { place: 2, individual: "Noah Whitfield", teamName: "Cornerstone Blue", games: 8, score: 1180, avg: 147.5, correct: 91, errors: 11, bonusPts: 160, bonusAttempts: 20 },
+  { place: 3, individual: "Clara Hoffmann", teamName: "New Life Red", games: 8, score: 1055, avg: 131.9, correct: 84, errors: 9, bonusPts: 140, bonusAttempts: 19 },
+  { place: 4, individual: "Felix Almeida", teamName: "Trinity Eagles", games: 8, score: 990, avg: 123.8, correct: 78, errors: 13, bonusPts: 120, bonusAttempts: 17 },
+  { place: 5, individual: "Samuel Okafor", teamName: "Living Water B", games: 8, score: 870, avg: 108.8, correct: 69, errors: 15, bonusPts: 100, bonusAttempts: 15 },
+  { place: 6, individual: "Priya Nair", teamName: "Redeemer Gold", games: 8, score: 795, avg: 99.4, correct: 63, errors: 12, bonusPts: 90, bonusAttempts: 14 },
+];
+
+// ─── Filter option definitions ────────────────────────────────────────────────
+
+type DataView = "games" | "team" | "individual";
+
+const DATA_OPTIONS: { value: DataView; label: string }[] = [
+  { value: "games", label: "Games Selection" },
+  { value: "team", label: "Team Stats" },
+  { value: "individual", label: "Individual Stats" },
+];
+
+// Dummy stats-group options (non-divisions) shown alongside the tournament's
+// divisions in the "Divisions / Groups" dropdown. Placeholder until backend exists.
+const DUMMY_GROUPS: { value: string; label: string }[] = [
+  { value: "group-combined-experienced", label: "Combined Experienced" },
+  { value: "group-all-novice", label: "All Novice" },
+];
+
+// ─── Content sections ─────────────────────────────────────────────────────────
+
+function GamesSelectionSection() {
+  return (
+    <Box
+      sx={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "10px",
+        p: 6,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f9fafb",
+      }}
+    >
+      <Typography sx={{ fontSize: 15, fontWeight: 600, color: "#6b7280", letterSpacing: "0.02em" }}>
+        Games Selection Coming Soon
+      </Typography>
+    </Box>
+  );
+}
+
+function TeamStatsSection() {
+  const columns: StatsColumn<TeamStatRow>[] = [
+    { header: "Place", render: (r) => r.place },
+    { header: "Name", render: (r) => r.name },
+    { header: "# Games", render: (r) => r.games },
+    { header: "Wins", render: (r) => r.wins },
+    { header: "Losses", render: (r) => r.losses },
+    { header: "Olympic Points", render: (r) => r.olympicPoints },
+    { header: "Mod. Olympic Points", render: (r) => r.modOlympicPoints },
+    { header: "Total Points", render: (r) => r.totalPoints },
+    { header: "Tie Breaker (manual)", render: (r) => r.tieBreaker },
+  ];
+  return <StatsTable columns={columns} rows={DUMMY_TEAM_STATS} getRowKey={(r) => r.place} />;
+}
+
+function IndividualStatsSection() {
+  const blank = () => "";
+  const columns: StatsColumn<IndividualStatRow>[] = [
+    { header: "Place", render: (r) => r.place },
+    { header: "Individual", render: (r) => r.individual },
+    { header: "Team Name", render: (r) => r.teamName },
+    { header: "# Games", render: (r) => r.games },
+    { header: "Score", render: (r) => r.score },
+    { header: "Avg", render: (r) => r.avg.toFixed(1) },
+    { header: "Correct", render: (r) => r.correct },
+    { header: "Errors", render: (r) => r.errors },
+    { header: "Bonus Pts", render: (r) => r.bonusPts },
+    { header: "Bonus Attempts", render: (r) => r.bonusAttempts },
+    // Last 6 columns intentionally left without dummy data.
+    { header: "Errs 16+/5+", render: blank },
+    { header: "Generals", render: blank },
+    { header: "Memory", render: blank },
+    { header: "According", render: blank },
+    { header: "Context", render: blank },
+    { header: "Special", render: blank },
+  ];
+  return <StatsTable columns={columns} rows={DUMMY_INDIVIDUAL_STATS} getRowKey={(r) => r.place} />;
+}
+
+// ─── Main panel ───────────────────────────────────────────────────────────────
+
+export default function StatsGroupsPanel({ tid }: { tid: string }) {
+  const [divisions, setDivisions] = useState<DivisionTS[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>("");
+  const [dataView, setDataView] = useState<DataView>("games");
+
+  useEffect(() => {
+    let cancelled = false;
+    DivisionAPI.getByTournament(tid, 0, 100)
+      .then((result) => {
+        if (cancelled) return;
+        setDivisions(result);
+        // Default to the first division.
+        if (result.length > 0) setSelectedGroup(result[0].did);
+      })
+      .catch(() => console.error("Failed to load divisions for stats groups"));
+    return () => {
+      cancelled = true;
+    };
+  }, [tid]);
+
+  const handleGroupChange = (e: SelectChangeEvent) => setSelectedGroup(e.target.value);
+  const handleDataChange = (e: SelectChangeEvent) => setDataView(e.target.value as DataView);
+
+  const content = useMemo(() => {
+    switch (dataView) {
+      case "team":
+        return <TeamStatsSection />;
+      case "individual":
+        return <IndividualStatsSection />;
+      case "games":
+      default:
+        return <GamesSelectionSection />;
+    }
+  }, [dataView]);
+
+  return (
+    <Stack spacing={3}>
+      {/* ── Filter card ── */}
+      <Paper
+        variant="outlined"
+        sx={{ p: 2, borderRadius: "10px", borderColor: "#e5e7eb" }}
+      >
+        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel id="stats-groups-group-label">Divisions / Groups</InputLabel>
+            <Select
+              labelId="stats-groups-group-label"
+              id="stats-groups-group-select"
+              value={selectedGroup}
+              label="Divisions / Groups"
+              onChange={handleGroupChange}
+              displayEmpty
+            >
+              {divisions.length === 0 && DUMMY_GROUPS.length === 0 && (
+                <MenuItem value="" disabled>
+                  No divisions or groups
+                </MenuItem>
+              )}
+              {divisions.map((d) => (
+                <MenuItem key={d.did} value={d.did}>
+                  {d.dname} (Division)
+                </MenuItem>
+              ))}
+              {DUMMY_GROUPS.map((g) => (
+                <MenuItem key={g.value} value={g.value}>
+                  {g.label} (Group)
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel id="stats-groups-data-label">Data</InputLabel>
+            <Select
+              labelId="stats-groups-data-label"
+              id="stats-groups-data-select"
+              value={dataView}
+              label="Data"
+              onChange={handleDataChange}
+            >
+              {DATA_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
+      </Paper>
+
+      {/* ── Content ── */}
+      <Box>{content}</Box>
+    </Stack>
+  );
+}
