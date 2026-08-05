@@ -7,6 +7,9 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
+import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
 
 // ─── Presentational table matching the QView DataTableTemplate style ──────────
@@ -128,6 +131,25 @@ const DUMMY_INDIVIDUAL_STATS: IndividualStatRow[] = [
   { place: 6, individual: "Priya Nair", teamName: "Redeemer Gold", games: 8, score: 795, avg: 99.4, correct: 63, errors: 12, bonusPts: 90, bonusAttempts: 14 },
 ];
 
+// Game-selection rows (mirrors the Room Monitor table: one row per Room/Game).
+interface GameSelectionRow {
+  id: number;
+  room: string;
+  round: string;
+  question: number;
+  done: string;   // "Yes" | "No"
+  dataOk: string; // "Yes" | "No"
+  information: string;
+}
+
+const DUMMY_GAME_SELECTION: GameSelectionRow[] = [
+  { id: 1, room: "Room 1", round: "1", question: 20, done: "Yes", dataOk: "Yes", information: "Complete" },
+  { id: 2, room: "Room 2", round: "1", question: 18, done: "Yes", dataOk: "Yes", information: "Complete" },
+  { id: 3, room: "Room 3", round: "1", question: 21, done: "No",  dataOk: "Yes", information: "Game in progress" },
+  { id: 4, room: "Room 4", round: "2", question: 20, done: "Yes", dataOk: "No",  information: "Checksum mismatch on last event" },
+  { id: 5, room: "Room 5", round: "2", question: 19, done: "Yes", dataOk: "Yes", information: "Complete" },
+];
+
 // ─── Filter option definitions ────────────────────────────────────────────────
 
 type DataView = "games" | "team" | "individual";
@@ -148,22 +170,79 @@ const DUMMY_GROUPS: { value: string; label: string }[] = [
 // ─── Content sections ─────────────────────────────────────────────────────────
 
 function GamesSelectionSection() {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  const allSelected = DUMMY_GAME_SELECTION.length > 0 && selected.size === DUMMY_GAME_SELECTION.length;
+
+  const toggleRow = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected((prev) =>
+      prev.size === DUMMY_GAME_SELECTION.length ? new Set() : new Set(DUMMY_GAME_SELECTION.map((r) => r.id))
+    );
+  };
+
+  // A game isn't ready to include if it isn't Done or its data isn't OK.
+  const notReady = DUMMY_GAME_SELECTION.filter((r) => r.done !== "Yes" || r.dataOk !== "Yes");
+
+  const columns: ColumnDef<GameSelectionRow>[] = [
+    {
+      header: "Selected",
+      render: (r) => (
+        <input
+          type="checkbox"
+          checked={selected.has(r.id)}
+          onChange={() => toggleRow(r.id)}
+          style={{ cursor: "pointer" }}
+        />
+      ),
+    },
+    { header: "Room", render: (r) => r.room },
+    { header: "Round", render: (r) => r.round },
+    { header: "Question", render: (r) => r.question },
+    { header: "Done", render: (r) => r.done },
+    { header: "DataOk", render: (r) => r.dataOk },
+    { header: "Information", render: (r) => r.information },
+  ];
+
   return (
-    <Box
-      sx={{
-        border: "1px solid #e5e7eb",
-        borderRadius: "10px",
-        p: 6,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#f9fafb",
-      }}
-    >
-      <Typography sx={{ fontSize: 15, fontWeight: 600, color: "#6b7280", letterSpacing: "0.02em" }}>
-        Games Selection Coming Soon
-      </Typography>
-    </Box>
+    <Stack spacing={2}>
+      <Box>
+        <Button variant="outlined" size="small" onClick={toggleAll}>
+          {allSelected ? "Deselect All" : "Select All"}
+        </Button>
+      </Box>
+
+      {notReady.length > 0 && (
+        <Alert severity="warning">
+          {notReady.length} games are not ready to include either because they are not done or they are
+          missing data. Resend data for Games missing data from the Room Monitor page before including them.
+        </Alert>
+      )}
+
+      <DataTableTemplate<GameSelectionRow>
+        entityLabel="Game"
+        showCreateButton={false}
+        showDeleteButton={false}
+        dense
+        columns={columns}
+        rows={DUMMY_GAME_SELECTION}
+        totalCount={DUMMY_GAME_SELECTION.length}
+        getId={(r) => r.id}
+        onDelete={async () => {}}
+        page={0}
+        pageSize={DUMMY_GAME_SELECTION.length}
+        onPageChange={() => {}}
+        onPageSizeChange={() => {}}
+      />
+    </Stack>
   );
 }
 
