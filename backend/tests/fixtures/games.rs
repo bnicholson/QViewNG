@@ -1047,12 +1047,12 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
 }
 
 pub fn arrange_get_all_statsgroups_of_game_works_integration_test(db: &mut database::Connection) -> (Game, StatsGroup, StatsGroup) {
-    let (game, _, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
-    let statsgroup_1 = StatsGroupBuilder::new_default("Test StatsGroup for removing games")
+    let (game, tour, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
+    let statsgroup_1 = StatsGroupBuilder::new_default("Test StatsGroup for removing games", tour.tid)
         .set_description(Some("StatsGroup for testing removing games.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    let statsgroup_2 = StatsGroupBuilder::new_default("Test SG2")
+    let statsgroup_2 = StatsGroupBuilder::new_default("Test SG2", tour.tid)
         .set_description(Some("StatsGroup for testing removing games.".to_string()))
         .build_and_insert(db)
         .unwrap();

@@ -13,19 +13,25 @@ use chrono::{Utc,DateTime};
 pub struct StatsGroupBuilder {
     name: String,                              // Name of the statsgroup (human readable)
     description: Option<String>,               // Description of the statsgroup
+    tournament_id: Uuid,                       // Tournament the statsgroup belongs to (required)
+    division_id: Option<Uuid>,                 // Division the statsgroup is scoped to (optional)
 }
 
 impl StatsGroupBuilder {
-    pub fn new(statsgroup_name: &str) -> Self {
+    pub fn new(statsgroup_name: &str, tournament_id: Uuid) -> Self {
         Self {
             name: statsgroup_name.to_string(),
             description: None,
+            tournament_id,
+            division_id: None,
         }
     }
-    pub fn new_default(statsgroup_name: &str) -> Self {
+    pub fn new_default(statsgroup_name: &str, tournament_id: Uuid) -> Self {
         Self {
             name: statsgroup_name.to_string(),
             description: None,
+            tournament_id,
+            division_id: None,
         }
     }
     pub fn set_name(mut self, statsgroup_name: String) -> Self {
@@ -36,11 +42,21 @@ impl StatsGroupBuilder {
         self.description = description;
         self
     }
+    pub fn set_tournament_id(mut self, tournament_id: Uuid) -> Self {
+        self.tournament_id = tournament_id;
+        self
+    }
+    pub fn set_division_id(mut self, division_id: Option<Uuid>) -> Self {
+        self.division_id = division_id;
+        self
+    }
     pub fn build(self) -> Result<NewStatsGroup, Vec<String>> {
         Ok(
             NewStatsGroup {
                 name: self.name,
                 description: self.description,
+                tournament_id: self.tournament_id,
+                division_id: self.division_id,
             }
         )
     }
@@ -69,6 +85,8 @@ pub struct StatsGroup {
     pub description: Option<String>,               // Description of the statsgroup
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub tournament_id: Uuid,                       // Tournament the statsgroup belongs to (required)
+    pub division_id: Option<Uuid>,                 // Division the statsgroup is scoped to (optional)
 }
 
 #[derive(
@@ -81,6 +99,9 @@ pub struct StatsGroup {
 pub struct NewStatsGroup {
     pub name: String,                              // Name of the statsgroup (human readable)
     pub description: Option<String>,               // Description of the statsgroup
+    pub tournament_id: Uuid,                       // Tournament the statsgroup belongs to (required)
+    #[serde(default)]
+    pub division_id: Option<Uuid>,                 // Division the statsgroup is scoped to (optional)
 }
 
 // #[tsync::tsync]

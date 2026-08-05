@@ -2,20 +2,36 @@ use backend::{database, models::{division::DivisionBuilder, game::{Game, GameBui
 
 use crate::fixtures::games::{seed_1_game_with_minimum_required_dependencies, seed_2_games_1_round_with_minimum_required_dependencies};
 
-pub fn arrange_create_works_integration_test() -> NewStatsGroup {
-    StatsGroupBuilder::new_default("Test StatsGroup 2217")
+// StatsGroups now require a tournament_id (FK). Create a throwaway owner + tournament
+// and return its id for fixtures that don't otherwise have a tournament handy.
+fn seed_tournament_id(db: &mut database::Connection) -> uuid::Uuid {
+    let owner = UserBuilder::new_default("StatsGroup Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    TournamentBuilder::new_default("StatsGroup Tournament")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap()
+        .tid
+}
+
+pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> NewStatsGroup {
+    let tournament_id = seed_tournament_id(db);
+    StatsGroupBuilder::new_default("Test StatsGroup 2217", tournament_id)
         .set_description(Some("StatsGroup for integration test create.".to_string()))
         .build()
         .unwrap()
 }
 
 pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> (StatsGroup, StatsGroup) {
+    let tournament_id = seed_tournament_id(db);
     (
-        StatsGroupBuilder::new_default("Test StatsGroup 1")
+        StatsGroupBuilder::new_default("Test StatsGroup 1", tournament_id)
             .set_description(Some("This is StatsGroup 1's description.".to_string()))
             .build_and_insert(db)
             .unwrap(),
-        StatsGroupBuilder::new_default("Test StatsGroup 2")
+        StatsGroupBuilder::new_default("Test StatsGroup 2", tournament_id)
             .set_description(Some("This is StatsGroup 2's description.".to_string()))
             .build_and_insert(db)
             .unwrap()
@@ -23,33 +39,36 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
 }
 
 pub fn arrange_get_statsgroup_by_id_integration_test(db: &mut database::Connection) -> StatsGroup {
-    StatsGroupBuilder::new_default("Test StatsGroup 1")
+    let tournament_id = seed_tournament_id(db);
+    StatsGroupBuilder::new_default("Test StatsGroup 1", tournament_id)
         .set_description(Some("This is StatsGroup 1's description.".to_string()))
         .build_and_insert(db)
         .unwrap();
-    StatsGroupBuilder::new_default("Test StatsGroup 2")
+    StatsGroupBuilder::new_default("Test StatsGroup 2", tournament_id)
         .set_description(Some("This is StatsGroup 2's description.".to_string()))
         .build_and_insert(db)
         .unwrap()
 }
 
 pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> StatsGroup {
-    StatsGroupBuilder::new_default("Test StatsGroup 1")
+    let tournament_id = seed_tournament_id(db);
+    StatsGroupBuilder::new_default("Test StatsGroup 1", tournament_id)
         .set_description(Some("StatsGroup 1 testing update.".to_string()))
         .build_and_insert(db)
         .unwrap()
 }
 
 pub fn arrange_delete_works_integration_test(db: &mut database::Connection) -> StatsGroup {
-    StatsGroupBuilder::new_default("Test StatsGroup 1")
+    let tournament_id = seed_tournament_id(db);
+    StatsGroupBuilder::new_default("Test StatsGroup 1", tournament_id)
         .set_description(Some("StatsGroup 1 testing delete.".to_string()))
         .build_and_insert(db)
         .unwrap()
 }
 
 pub fn arrange_add_game_to_statsgroup_works_integration_test(db: &mut database::Connection) -> (StatsGroup, Game, NewGameStatsGroup) {
-    let (game, _, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
-    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for adding games")
+    let (game, tour, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
+    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for adding games", tour.tid)
         .set_description(Some("StatsGroup for testing adding games.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -60,8 +79,8 @@ pub fn arrange_add_game_to_statsgroup_works_integration_test(db: &mut database::
 }
 
 pub fn arrange_remove_game_from_statsgroup_works_integration_test(db: &mut database::Connection) -> (StatsGroup, Game, GameStatsGroup) {
-    let (game, _, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
-    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for removing games")
+    let (game, tour, _, _, _, _, _, _, _, _) = seed_1_game_with_minimum_required_dependencies(db);
+    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for removing games", tour.tid)
         .set_description(Some("StatsGroup for testing removing games.".to_string()))
         .build_and_insert(db)
         .unwrap();
@@ -72,9 +91,9 @@ pub fn arrange_remove_game_from_statsgroup_works_integration_test(db: &mut datab
 }
 
 pub fn arrange_get_all_games_of_statsgroup_works_integration_test(db: &mut database::Connection) -> (StatsGroup, Game, Game) {
-    let (game_1, game_2, _, _, _, _, _) = 
+    let (game_1, game_2, tour, _, _, _, _) =
         seed_2_games_1_round_with_minimum_required_dependencies(db);
-    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for getting all games")
+    let statsgroup = StatsGroupBuilder::new_default("Test StatsGroup for getting all games", tour.tid)
         .set_description(Some("StatsGroup for testing getting all games.".to_string()))
         .build_and_insert(db)
         .unwrap();
