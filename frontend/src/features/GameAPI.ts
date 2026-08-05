@@ -36,6 +36,21 @@ export interface PagedGames {
   items: GameTS[];
 }
 
+export interface GameEventTS {
+  gid: string;
+  question: number;
+  eventnum: number;
+  name: string;
+  team: number;
+  quizzer: number;
+  event: string;
+  parm1: string;
+  parm2: string;
+  clientts: string;
+  serverts: string;
+  md5digest: string;
+}
+
 export interface GameChangeset {
   org?: string;
   divisionid?: string;
@@ -83,6 +98,11 @@ export const GameAPI = {
       const text = await response.text();
       throw new Error(`Failed to create game (${response.status}): ${text}`);
     }
+    return response.json();
+  },
+  getGameevents: async (gid: string, page: number, size: number): Promise<GameEventTS[]> => {
+    const response = await fetch(`/api/games/${gid}/gameevents?page=${page}&page_size=${size}`);
+    if (!response.ok) throw new Error(`Failed to load game events (${response.status})`);
     return response.json();
   },
   getByRound: async (roundid: string, page: number, size: number): Promise<GameTS[]> =>
