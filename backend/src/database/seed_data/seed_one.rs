@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, game_statsgroup::GameStatsGroupBuilder, team::TeamBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
@@ -162,6 +162,20 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     let division_decades = DivisionBuilder::new_default("Decades", tour.tid)
         .set_shortinfo("Young at heart!".to_string())
         .set_is_public(true)
+        .build_and_insert(db)
+        .unwrap();
+
+    // One division-scoped statsgroup per division (games are linked to these below).
+    let sg_experienced = StatsGroupBuilder::new_default(&division_experienced.dname, tour.tid)
+        .set_division_id(Some(division_experienced.did))
+        .build_and_insert(db)
+        .unwrap();
+    let sg_novice = StatsGroupBuilder::new_default(&division_novice.dname, tour.tid)
+        .set_division_id(Some(division_novice.did))
+        .build_and_insert(db)
+        .unwrap();
+    let sg_decades = StatsGroupBuilder::new_default(&division_decades.dname, tour.tid)
+        .set_division_id(Some(division_decades.did))
         .build_and_insert(db)
         .unwrap();
 
@@ -1381,6 +1395,25 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .unwrap();
     seed_game_events(db, game.gid, &team_3_decades.name, &team_4_decades.name, game_no); game_no += 1;
     let _ = game_no;
+
+    // Add every game of each division to its division's statsgroup (games_statsgroups).
+    // Seeded games derive their divisionid from their round, so we can look them up per division.
+    let all_games_pagination = crate::models::common::PaginationParams {
+        page: 0,
+        page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
+    };
+    for (division_did, statsgroup_sgid) in [
+        (division_experienced.did, sg_experienced.sgid),
+        (division_novice.did, sg_novice.sgid),
+        (division_decades.did, sg_decades.sgid),
+    ] {
+        let games = crate::models::game::read_all_games_of_division(db, division_did, &all_games_pagination).unwrap();
+        for game in games {
+            GameStatsGroupBuilder::new(game.gid, statsgroup_sgid)
+                .build_and_insert(db)
+                .unwrap();
+        }
+    }
 
     // Assign member role to all coaches
     let member_role = crate::models::role::read_by_name(db, "member").unwrap();
