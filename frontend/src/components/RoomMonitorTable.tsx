@@ -17,17 +17,14 @@ interface RoomMonitorRow {
 }
 
 const columns: ColumnDef<RoomMonitorRow>[] = [
-  { header: 'BldgRoom',     render: (r) => r.bldgroom     },
-  { header: 'ChkdIn',       render: (r) => r.chkdin       },
-  { header: 'Tournament',   render: (r) => r.tournament   },
-  { header: 'Division',     render: (r) => r.division     },
+  { header: 'Check In',     render: (r) => r.chkdin       },
   { header: 'Room',         render: (r) => r.room         },
   { header: 'Round',        render: (r) => r.round        },
   { header: 'Question',     render: (r) => r.question     },
-  { header: 'Host/IP',      render: (r) => r.hostip       },
+  { header: 'Host IP',      render: (r) => r.hostip       },
   { header: 'QMVersion',    render: (r) => r.qmversion    },
   { header: 'Pending',      render: (r) => r.pending      },
-  { header: 'Status/Error', render: (r) => r.status_error },
+  { header: 'Status-Error', render: (r) => r.status_error },
   { header: 'Resend',       render: (r) => r.resend       },
 ];
 
@@ -52,16 +49,18 @@ export default function RoomMonitorTable({ tid: _tid }: { tid: string }) {
   return (
     <DataTableTemplate<RoomMonitorRow>
       entityLabel="Room Monitor"
+      showCreateButton={false}
+      showDeleteButton={false}
+      dense
       columns={columns}
       rows={PLACEHOLDER_ROWS}
       totalCount={PLACEHOLDER_ROWS.length}
       getId={(r) => String(r.id)}
       page={0}
       pageSize={PLACEHOLDER_ROWS.length}
-      onPageChange={() => { } }
-      onPageSizeChange={() => { }} 
-      onDelete={function (row: RoomMonitorRow): Promise<void> {
-        throw new Error('Function not implemented.');
-      } }    />
+      onPageChange={() => { }}
+      onPageSizeChange={() => { }}
+      onDelete={async () => { }}
+    />
   );
 }

@@ -254,6 +254,8 @@ export interface DataTableProps<T> {
   onPageChange: (page: number) => void;
   /** Called when the user selects a different page size */
   onPageSizeChange: (pageSize: number) => void;
+  /** Reduce each row's vertical padding for a denser table. Defaults to false. */
+  dense?: boolean;
 }
 
 export function DataTableTemplate<T>({
@@ -272,10 +274,12 @@ export function DataTableTemplate<T>({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  dense = false,
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
   const colSpan = columns.length + (showDeleteButton ? 1 : 0);
+  const cellPadY = dense ? 3 : 8;
 
   return (
     <div style={{ fontFamily: "inherit" }}>
@@ -361,7 +365,7 @@ export function DataTableTemplate<T>({
                 <th
                   key={col.header}
                   style={{
-                    padding: "8px 14px",
+                    padding: `${cellPadY}px 14px`,
                     textAlign: "center",
                     fontWeight: 600,
                     fontSize: 12,
@@ -402,7 +406,7 @@ export function DataTableTemplate<T>({
                   }
                 >
                   {columns.map((col) => (
-                    <td key={col.header} style={{ padding: "8px 14px", color: "#374151" }}>
+                    <td key={col.header} style={{ padding: `${cellPadY}px 14px`, color: "#374151" }}>
                       {col.render(row)}
                     </td>
                   ))}
