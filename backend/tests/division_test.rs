@@ -6,6 +6,9 @@ use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog, division::DivisionBuilder, game::Game}, services::common::PagedResponse};
 use backend::models::{division::Division,round::Round,team::Team};
+use backend::models::statsgroup::StatsGroup;
+use backend::models::game_statsgroup::GameStatsGroup;
+use diesel::prelude::*;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use chrono::{TimeZone, Utc};
@@ -69,6 +72,34 @@ async fn create_works() {
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
     assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), "/api/divisions");
+
+    // ── A parallel statsgroup should have been created for this division ──────
+    {
+        use backend::schema::statsgroups::dsl as sg;
+        let groups: Vec<StatsGroup> = sg::statsgroups
+            .filter(sg::division_id.eq(division.did))
+            .load(&mut conn)
+            .expect("failed to query statsgroups");
+        assert_eq!(groups.len(), 1, "expected exactly one parallel statsgroup for the division");
+        let statsgroup = &groups[0];
+        assert_eq!(statsgroup.division_id, Some(division.did));
+        assert_eq!(statsgroup.tournament_id, tournament.tid);
+
+        // Every game currently in the division should be linked to that statsgroup.
+        // A freshly-created division has no games yet, so this is zero here; the count
+        // must always match the number of games in the division.
+        use backend::schema::games_statsgroups::dsl as gsg;
+        let links: Vec<GameStatsGroup> = gsg::games_statsgroups
+            .filter(gsg::statsgroupid.eq(statsgroup.sgid))
+            .load(&mut conn)
+            .expect("failed to query games_statsgroups");
+        let division_game_count: i64 = backend::schema::games::dsl::games
+            .filter(backend::schema::games::dsl::divisionid.eq(division.did))
+            .count()
+            .get_result(&mut conn)
+            .expect("failed to count division games");
+        assert_eq!(links.len() as i64, division_game_count);
+    }
 
     // ── Success: tournament admin with division:create ───────────────────────
 

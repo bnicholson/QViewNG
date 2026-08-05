@@ -161,6 +161,33 @@ async fn create(
     
     let result: QueryResult<Division> = models::division::create(&mut conn, &item);
 
+    // On successful creation, also create a parallel statsgroup scoped to this division
+    // (division_id = the new division; tournament_id = its tournament), then add every game
+    // currently in the division to that statsgroup via games_statsgroups.
+    if let Ok(ref division) = result {
+        match models::statsgroup::StatsGroupBuilder::new_default(&division.dname, division.tid)
+            .set_division_id(Some(division.did))
+            .build_and_insert(&mut conn)
+        {
+            Ok(statsgroup) => {
+                let all_games = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+                match models::game::read_all_games_of_division(&mut conn, division.did, &all_games) {
+                    Ok(games) => {
+                        for game in games {
+                            if let Err(e) = models::game_statsgroup::GameStatsGroupBuilder::new(game.gid, statsgroup.sgid)
+                                .build_and_insert(&mut conn)
+                            {
+                                tracing::error!("{} Failed to add game {} to statsgroup {}: {:?}", line!(), game.gid, statsgroup.sgid, e);
+                            }
+                        }
+                    }
+                    Err(e) => tracing::error!("{} Failed to read games of division {}: {:?}", line!(), division.did, e),
+                }
+            }
+            Err(e) => tracing::error!("{} Failed to create parallel statsgroup for division {}: {:?}", line!(), division.did, e),
+        }
+    }
+
     let response: EntityResponse<Division> = process_response(result, "post");
     
     match response.code {
