@@ -30,7 +30,7 @@ interface LookupMaps {
   teams: Map<string, string>;
 }
 
-function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolean): ColumnDef<GameTS>[] {
+function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<GameTS>[] {
   return [
     {
       header: '',
@@ -79,30 +79,28 @@ function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolea
       header: 'Right Team',
       render: (g) => maps.teams.get(g.rightteamid) ?? g.rightteamid,
     },
-    {
-      header: 'Ruleset',
-      render: (g) => g.ruleset,
-    },
     ...(showSensitiveColumns ? [{
       header: 'Ignore',
       render: (g: GameTS) => <BoolBadge value={g.ignore} />,
     }] : []),
-    {
-      header: 'Created',
-      render: (g) => (
-        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>
-      ),
-    },
-    {
-      header: 'Last Modified',
-      render: (g) => (
-        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>
-      ),
-    },
+    ...(showAuditColumns ? [
+      {
+        header: 'Created',
+        render: (g: GameTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>
+        ),
+      },
+      {
+        header: 'Last Modified',
+        render: (g: GameTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>
+        ),
+      },
+    ] : []),
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean }) {
+export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean }) {
   const [games, setGames] = useState<GameTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
@@ -185,7 +183,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={gameColumns(tid, maps, showSensitiveColumns)}
+        columns={gameColumns(tid, maps, showSensitiveColumns, showAuditColumns)}
         rows={games}
         totalCount={totalCount}
         getId={(g) => g.gid}
