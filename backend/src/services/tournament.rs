@@ -224,6 +224,24 @@ async fn read_divisions(
     }
 }
 
+#[get("/{id}/statsgroups")]
+async fn read_statsgroups(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::statsgroup::read_all_statsgroups_of_tournament(&mut db, item_id.into_inner(), &params) {
+        Ok(statsgroups) => HttpResponse::Ok().json(statsgroups),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[get("/{id}/admins")]
 async fn read_admins(
     db: Data<Database>,
@@ -635,6 +653,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_rooms)
         .service(read_rounds)
         .service(read_divisions)
+        .service(read_statsgroups)
         .service(read_teams)
         .service(read_quizzers)
         .service(read_games)

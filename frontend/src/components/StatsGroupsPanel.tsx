@@ -7,10 +7,13 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
-import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
-import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
+import { GameAPI } from "../features/GameAPI";
+import { RoomAPI } from "../features/RoomAPI";
+import { RoundAPI } from "../features/RoundAPI";
+import { StatsGroupAPI, type StatsGroupTS } from "../features/StatsGroupAPI";
+import { DivisionAPI } from "../features/DivisionAPI";
 
 // ─── Presentational table matching the QView DataTableTemplate style ──────────
 // (No CRUD toolbar / pagination — these are read-only ranking tables.)
@@ -131,24 +134,17 @@ const DUMMY_INDIVIDUAL_STATS: IndividualStatRow[] = [
   { place: 6, individual: "Priya Nair", teamName: "Redeemer Gold", games: 8, score: 795, avg: 99.4, correct: 63, errors: 12, bonusPts: 90, bonusAttempts: 14 },
 ];
 
-// Game-selection rows (mirrors the Room Monitor table: one row per Room/Game).
+// One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
-  id: number;
+  gid: string;
+  division: string;
   room: string;
   round: string;
-  question: number;
-  done: string;   // "Yes" | "No"
-  dataOk: string; // "Yes" | "No"
+  question: string;
+  done: string;   // "Yes" | "No" — placeholder until game readiness is wired to real data
+  dataOk: string; // "Yes" | "No" — placeholder
   information: string;
 }
-
-const DUMMY_GAME_SELECTION: GameSelectionRow[] = [
-  { id: 1, room: "Room 1", round: "1", question: 20, done: "Yes", dataOk: "Yes", information: "Complete" },
-  { id: 2, room: "Room 2", round: "1", question: 18, done: "Yes", dataOk: "Yes", information: "Complete" },
-  { id: 3, room: "Room 3", round: "1", question: 21, done: "No",  dataOk: "Yes", information: "Game in progress" },
-  { id: 4, room: "Room 4", round: "2", question: 20, done: "Yes", dataOk: "No",  information: "Checksum mismatch on last event" },
-  { id: 5, room: "Room 5", round: "2", question: 19, done: "Yes", dataOk: "Yes", information: "Complete" },
-];
 
 // ─── Filter option definitions ────────────────────────────────────────────────
 
@@ -160,37 +156,58 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
   { value: "individual", label: "Individual Stats" },
 ];
 
-// Dummy stats-group options (non-divisions) shown alongside the tournament's
-// divisions in the "Divisions / Groups" dropdown. Placeholder until backend exists.
-const DUMMY_GROUPS: { value: string; label: string }[] = [
-  { value: "group-combined-experienced", label: "Combined Experienced" },
-  { value: "group-all-novice", label: "All Novice" },
-];
-
 // ─── Content sections ─────────────────────────────────────────────────────────
 
-function GamesSelectionSection() {
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+function GamesSelectionSection({ tid, statsGroupId }: { tid: string; statsGroupId: string }) {
+  const [rows, setRows] = useState<GameSelectionRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const allSelected = DUMMY_GAME_SELECTION.length > 0 && selected.size === DUMMY_GAME_SELECTION.length;
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      GameAPI.getByTournament(tid, 0, 500),
+      RoomAPI.getByTournament(tid, 0, 500),
+      RoundAPI.getByTournament(tid, 0, 500),
+      DivisionAPI.getByTournament(tid, 0, 500),
+      statsGroupId ? StatsGroupAPI.getGames(statsGroupId, 0, 500) : Promise.resolve([]),
+    ])
+      .then(([gamesResult, rooms, rounds, divisions, groupGames]) => {
+        if (cancelled) return;
+        const roomNames = new Map(rooms.map((r) => [r.roomid, r.name]));
+        const roundNames = new Map(rounds.map((r) => [r.roundid, r.name]));
+        const divisionNames = new Map(divisions.map((d) => [d.did, d.dname]));
+        setRows(
+          gamesResult.items.map((g) => ({
+            gid: g.gid,
+            division: divisionNames.get(g.divisionid) ?? g.divisionid,
+            room: roomNames.get(g.roomid) ?? g.roomid,
+            round: roundNames.get(g.roundid) ?? g.roundid,
+            question: "—",
+            done: "Yes",
+            dataOk: "Yes",
+            information: "",
+          }))
+        );
+        // Pre-select the games that are already in the selected stats group.
+        setSelected(new Set(groupGames.map((g) => g.gid)));
+      })
+      .catch(() => console.error("Failed to load games for stats group selection"));
+    return () => {
+      cancelled = true;
+    };
+  }, [tid, statsGroupId]);
 
-  const toggleRow = (id: number) => {
+  const toggleRow = (gid: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(gid)) next.delete(gid);
+      else next.add(gid);
       return next;
     });
   };
 
-  const toggleAll = () => {
-    setSelected((prev) =>
-      prev.size === DUMMY_GAME_SELECTION.length ? new Set() : new Set(DUMMY_GAME_SELECTION.map((r) => r.id))
-    );
-  };
-
   // A game isn't ready to include if it isn't Done or its data isn't OK.
-  const notReady = DUMMY_GAME_SELECTION.filter((r) => r.done !== "Yes" || r.dataOk !== "Yes");
+  const notReady = rows.filter((r) => r.done !== "Yes" || r.dataOk !== "Yes");
 
   const columns: ColumnDef<GameSelectionRow>[] = [
     {
@@ -198,12 +215,13 @@ function GamesSelectionSection() {
       render: (r) => (
         <input
           type="checkbox"
-          checked={selected.has(r.id)}
-          onChange={() => toggleRow(r.id)}
+          checked={selected.has(r.gid)}
+          onChange={() => toggleRow(r.gid)}
           style={{ cursor: "pointer" }}
         />
       ),
     },
+    { header: "Division", render: (r) => r.division },
     { header: "Room", render: (r) => r.room },
     { header: "Round", render: (r) => r.round },
     { header: "Question", render: (r) => r.question },
@@ -214,12 +232,6 @@ function GamesSelectionSection() {
 
   return (
     <Stack spacing={2}>
-      <Box>
-        <Button variant="outlined" size="small" onClick={toggleAll}>
-          {allSelected ? "Deselect All" : "Select All"}
-        </Button>
-      </Box>
-
       {notReady.length > 0 && (
         <Alert severity="warning">
           {notReady.length} games are not ready to include either because they are not done or they are
@@ -233,12 +245,12 @@ function GamesSelectionSection() {
         showDeleteButton={false}
         dense
         columns={columns}
-        rows={DUMMY_GAME_SELECTION}
-        totalCount={DUMMY_GAME_SELECTION.length}
-        getId={(r) => r.id}
+        rows={rows}
+        totalCount={rows.length}
+        getId={(r) => r.gid}
         onDelete={async () => {}}
         page={0}
-        pageSize={DUMMY_GAME_SELECTION.length}
+        pageSize={rows.length || 1}
         onPageChange={() => {}}
         onPageSizeChange={() => {}}
       />
@@ -288,20 +300,20 @@ function IndividualStatsSection() {
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export default function StatsGroupsPanel({ tid }: { tid: string }) {
-  const [divisions, setDivisions] = useState<DivisionTS[]>([]);
+  const [statsGroups, setStatsGroups] = useState<StatsGroupTS[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [dataView, setDataView] = useState<DataView>("games");
 
   useEffect(() => {
     let cancelled = false;
-    DivisionAPI.getByTournament(tid, 0, 100)
+    StatsGroupAPI.getByTournament(tid, 0, 200)
       .then((result) => {
         if (cancelled) return;
-        setDivisions(result);
-        // Default to the first division.
-        if (result.length > 0) setSelectedGroup(result[0].did);
+        setStatsGroups(result);
+        // Default to the first stats group.
+        if (result.length > 0) setSelectedGroup(result[0].sgid);
       })
-      .catch(() => console.error("Failed to load divisions for stats groups"));
+      .catch(() => console.error("Failed to load stats groups for tournament"));
     return () => {
       cancelled = true;
     };
@@ -318,12 +330,12 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
         return <IndividualStatsSection />;
       case "games":
       default:
-        return <GamesSelectionSection />;
+        return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} />;
     }
-  }, [dataView]);
+  }, [dataView, tid, selectedGroup]);
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={1.5}>
       {/* ── Filter card ── */}
       <Paper
         variant="outlined"
@@ -340,19 +352,14 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
               onChange={handleGroupChange}
               displayEmpty
             >
-              {divisions.length === 0 && DUMMY_GROUPS.length === 0 && (
+              {statsGroups.length === 0 && (
                 <MenuItem value="" disabled>
-                  No divisions or groups
+                  No stats groups
                 </MenuItem>
               )}
-              {divisions.map((d) => (
-                <MenuItem key={d.did} value={d.did}>
-                  {d.dname} (Division)
-                </MenuItem>
-              ))}
-              {DUMMY_GROUPS.map((g) => (
-                <MenuItem key={g.value} value={g.value}>
-                  {g.label} (Group)
+              {statsGroups.map((sg) => (
+                <MenuItem key={sg.sgid} value={sg.sgid}>
+                  {sg.name}{sg.division_id ? " (Division)" : " (Group)"}
                 </MenuItem>
               ))}
             </Select>

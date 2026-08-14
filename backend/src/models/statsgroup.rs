@@ -148,6 +148,20 @@ pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     statsgroups.count().get_result(db)
 }
 
+pub fn read_all_statsgroups_of_tournament(db: &mut database::Connection, tid: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<StatsGroup>> {
+    use crate::schema::statsgroups::dsl::*;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    statsgroups
+        .filter(tournament_id.eq(tid))
+        .order(created_at.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<StatsGroup>(db)
+}
+
 pub fn read_all_statsgroups_of_game(db: &mut database::Connection, game_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<StatsGroup>> {
     use crate::schema::games_statsgroups::dsl::*;
     use crate::schema::statsgroups::dsl::*;
