@@ -200,3 +200,92 @@ pub fn delete(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> 
     use crate::schema::statsgroups::dsl::*;
     diesel::delete(statsgroups.filter(sgid.eq(sg_id))).execute(db)
 }
+
+// ─── Team standings for a statsgroup ──────────────────────────────────────────
+
+/// Aggregated standings row for one team within a statsgroup.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct TeamStat {
+    pub place: i32,                 // 1-based standings rank within the statsgroup
+    pub name: String,               // team name
+    pub games: i32,                 // number of (scored) games the team played
+    pub wins: i32,                  // games placed 1st
+    pub losses: i32,                // games not placed 1st
+    pub olympic_points: i32,        // per-game placement points: 2/1/0 for 1st/2nd/3rd
+    pub mod_olympic_points: i32,    // modified olympic points (same as olympic for now)
+    pub total_points: i32,          // sum of final scores across games
+    pub tie_breaker: String,        // manual tie-break rule (blank until set)
+}
+
+struct TeamStatAgg {
+    games: i32,
+    wins: i32,
+    losses: i32,
+    olympic_points: i32,
+    total_points: i32,
+}
+
+/// Computes team standings for a statsgroup by running the score calculator over
+/// each of the statsgroup's games and aggregating per team (keyed by team name).
+/// Games whose event stream can't be scored are skipped.
+pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<TeamStat>> {
+    use std::collections::HashMap;
+
+    let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+    let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
+
+    let mut agg: HashMap<String, TeamStatAgg> = HashMap::new();
+
+    for game in games {
+        let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
+        // Skip games whose event stream is invalid / cannot be scored.
+        let results = match crate::models::gameevent::calculate_team_results_for_game(game.gid, events) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        for result in results {
+            if result.name.trim().is_empty() {
+                continue;
+            }
+            let entry = agg.entry(result.name.clone()).or_insert(TeamStatAgg {
+                games: 0, wins: 0, losses: 0, olympic_points: 0, total_points: 0,
+            });
+            entry.games += 1;
+            entry.total_points += result.score;
+            if result.rank == 1 {
+                entry.wins += 1;
+            } else {
+                entry.losses += 1;
+            }
+            // Olympic points: 1st -> 2, 2nd -> 1, 3rd (or worse) -> 0.
+            entry.olympic_points += (3 - result.rank).max(0);
+        }
+    }
+
+    let mut stats: Vec<TeamStat> = agg
+        .into_iter()
+        .map(|(name, a)| TeamStat {
+            place: 0,
+            name,
+            games: a.games,
+            wins: a.wins,
+            losses: a.losses,
+            olympic_points: a.olympic_points,
+            mod_olympic_points: a.olympic_points, // same as olympic for now
+            total_points: a.total_points,
+            tie_breaker: String::new(),
+        })
+        .collect();
+
+    // Standings order: most wins, then most total points (name as a stable final tiebreak).
+    stats.sort_by(|a, b| {
+        b.wins.cmp(&a.wins)
+            .then(b.total_points.cmp(&a.total_points))
+            .then(a.name.cmp(&b.name))
+    });
+    for (idx, stat) in stats.iter_mut().enumerate() {
+        stat.place = (idx + 1) as i32;
+    }
+
+    Ok(stats)
+}

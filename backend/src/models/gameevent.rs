@@ -209,8 +209,8 @@ impl GameEventCalculator {
                     mut_self.current_question = game_event.question;
                 },
                 GameEventCode::QT => {
-                    // could check: if 'Nazarene' then good, else throw error
-                    if game_event.name != "Nazarene" {
+                    // could check: if 'N' then good, else throw error
+                    if game_event.name != "N" {
                         errors.push(format!["Game type is something other than 'Nazarene' but rules are implemented only for 'Nazarene'. Specified organization: {}", game_event.name]);
                     }
                 },
@@ -775,6 +775,39 @@ impl GameEventCalculator {
     //     }
     //     self
     // }
+}
+
+/// A single team's outcome for one game, extracted from the score calculator.
+#[derive(Debug, Clone)]
+pub struct TeamGameResult {
+    pub team: i32,      // team index within the game (0/1/2)
+    pub name: String,   // team name (from the TN event)
+    pub score: i32,     // final score
+    pub rank: i32,      // competitive placement rank (1 = 1st place)
+}
+
+/// Runs the score calculator over a single game's events and returns each team's
+/// final score and placement rank. Returns Err (with the calculator's messages)
+/// if the event stream is invalid / cannot be scored.
+pub fn calculate_team_results_for_game(
+    game_id: Uuid,
+    game_events: Vec<GameEvent>,
+) -> Result<Vec<TeamGameResult>, Vec<String>> {
+    let calculator = GameEventCalculator::new(game_id, game_events);
+    let calculated = calculator.calculate_current_game_scores_and_counts()?;
+    // The calculator only assigns team ranks during overtime (questions past regulation),
+    // so for a normal game we compute the final competitive ranking from the scores here.
+    let scores: Vec<i32> = calculated.teams.values().map(|team| team.score).collect();
+    Ok(calculated
+        .teams
+        .iter()
+        .map(|(team_idx, team)| TeamGameResult {
+            team: *team_idx,
+            name: team.name.clone(),
+            score: team.score,
+            rank: scores.iter().filter(|&&s| s > team.score).count() as i32 + 1,
+        })
+        .collect())
 }
 
 #[derive(Clone, Debug)]
@@ -2340,26 +2373,6 @@ impl GameEvent {
         }
     }
 }
-
-// impl GameEvent {
-//     pub fn empty() -> Self {
-//         // Now populate the quizzes event
-//         return Self {
-//             gid: Uuid::nil(),
-//             question: -1,
-//             eventnum: -1,
-//             name: "".to_string(),
-//             team: -1,
-//             quizzer: -1,
-//             event: "".to_string(),
-//             parm1: "".to_string(),
-//             parm2: "".to_string(),
-//             clientts: Utc::now(),
-//             serverts: Utc::now(),
-//             md5digest: "".to_string()
-//         }
-//     }
-// }
 
 trait SortGameEvents {
     fn sort(&mut self);

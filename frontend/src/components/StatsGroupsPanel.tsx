@@ -12,7 +12,7 @@ import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { GameAPI } from "../features/GameAPI";
 import { RoomAPI } from "../features/RoomAPI";
 import { RoundAPI } from "../features/RoundAPI";
-import { StatsGroupAPI, type StatsGroupTS } from "../features/StatsGroupAPI";
+import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
 
 // ─── Presentational table matching the QView DataTableTemplate style ──────────
@@ -90,27 +90,6 @@ function StatsTable<T>({
 }
 
 // ─── Dummy data (placeholder until backend endpoints exist) ───────────────────
-
-interface TeamStatRow {
-  place: number;
-  name: string;
-  games: number;
-  wins: number;
-  losses: number;
-  olympicPoints: number;
-  modOlympicPoints: number;
-  totalPoints: number;
-  tieBreaker: string;
-}
-
-const DUMMY_TEAM_STATS: TeamStatRow[] = [
-  { place: 1, name: "Grace Fellowship A", games: 8, wins: 7, losses: 1, olympicPoints: 21, modOlympicPoints: 19, totalPoints: 1420, tieBreaker: "Head-to-Head" },
-  { place: 2, name: "Cornerstone Blue", games: 8, wins: 6, losses: 2, olympicPoints: 18, modOlympicPoints: 17, totalPoints: 1355, tieBreaker: "Total Points" },
-  { place: 3, name: "New Life Red", games: 8, wins: 5, losses: 3, olympicPoints: 15, modOlympicPoints: 14, totalPoints: 1240, tieBreaker: "—" },
-  { place: 4, name: "Trinity Eagles", games: 8, wins: 4, losses: 4, olympicPoints: 12, modOlympicPoints: 12, totalPoints: 1130, tieBreaker: "Olympic Points" },
-  { place: 5, name: "Living Water B", games: 8, wins: 2, losses: 6, olympicPoints: 6, modOlympicPoints: 7, totalPoints: 980, tieBreaker: "—" },
-  { place: 6, name: "Redeemer Gold", games: 8, wins: 1, losses: 7, olympicPoints: 3, modOlympicPoints: 4, totalPoints: 815, tieBreaker: "Head-to-Head" },
-];
 
 interface IndividualStatRow {
   place: number;
@@ -258,19 +237,56 @@ function GamesSelectionSection({ tid, statsGroupId }: { tid: string; statsGroupI
   );
 }
 
-function TeamStatsSection() {
-  const columns: StatsColumn<TeamStatRow>[] = [
+function TeamStatsSection({ statsGroupId }: { statsGroupId: string }) {
+  const [rows, setRows] = useState<TeamStatTS[]>([]);
+
+  useEffect(() => {
+    if (!statsGroupId) {
+      setRows([]);
+      return;
+    }
+    let cancelled = false;
+    StatsGroupAPI.getTeamStats(statsGroupId)
+      .then((result) => {
+        if (!cancelled) setRows(result);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [statsGroupId]);
+
+  const columns: ColumnDef<TeamStatTS>[] = [
     { header: "Place", render: (r) => r.place },
     { header: "Name", render: (r) => r.name },
     { header: "# Games", render: (r) => r.games },
     { header: "Wins", render: (r) => r.wins },
     { header: "Losses", render: (r) => r.losses },
-    { header: "Olympic Points", render: (r) => r.olympicPoints },
-    { header: "Mod. Olympic Points", render: (r) => r.modOlympicPoints },
-    { header: "Total Points", render: (r) => r.totalPoints },
-    { header: "Tie Breaker (manual)", render: (r) => r.tieBreaker },
+    { header: "Olympic Points", render: (r) => r.olympic_points },
+    { header: "Mod. Olympic Points", render: (r) => r.mod_olympic_points },
+    { header: "Total Points", render: (r) => r.total_points },
+    { header: "Tie Breaker (manual)", render: (r) => r.tie_breaker || "—" },
   ];
-  return <StatsTable columns={columns} rows={DUMMY_TEAM_STATS} getRowKey={(r) => r.place} />;
+
+  return (
+    <DataTableTemplate<TeamStatTS>
+      entityLabel="Team"
+      showCreateButton={false}
+      showDeleteButton={false}
+      dense
+      columns={columns}
+      rows={rows}
+      totalCount={rows.length}
+      getId={(r) => r.name}
+      onDelete={async () => {}}
+      page={0}
+      pageSize={rows.length || 1}
+      onPageChange={() => {}}
+      onPageSizeChange={() => {}}
+    />
+  );
 }
 
 function IndividualStatsSection() {
@@ -325,7 +341,7 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
   const content = useMemo(() => {
     switch (dataView) {
       case "team":
-        return <TeamStatsSection />;
+        return <TeamStatsSection statsGroupId={selectedGroup} />;
       case "individual":
         return <IndividualStatsSection />;
       case "games":

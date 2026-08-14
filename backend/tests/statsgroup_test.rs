@@ -438,3 +438,66 @@ async fn remove_game_from_statsgroup_works() {
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }
+
+#[actix_web::test]
+async fn team_stats_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/statsgroups/{}/teamstats", statsgroup.sgid);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<backend::models::statsgroup::TeamStat> = test::read_body_json(resp).await;
+    assert_eq!(body.len(), 2);
+
+    // Standings are ordered by wins desc, then total points desc.
+    // Red answered 4 tossups (80 pts) and wins; Blue answered 2 (40 pts).
+    let red = &body[0];
+    assert_eq!(red.name.as_str(), "Red Team");
+    assert_eq!(red.place, 1);
+    assert_eq!(red.games, 1);
+    assert_eq!(red.wins, 1);
+    assert_eq!(red.losses, 0);
+    assert_eq!(red.total_points, 80);
+    assert_eq!(red.olympic_points, 2);
+    assert_eq!(red.mod_olympic_points, 2);
+
+    let blue = &body[1];
+    assert_eq!(blue.name.as_str(), "Blue Team");
+    assert_eq!(blue.place, 2);
+    assert_eq!(blue.games, 1);
+    assert_eq!(blue.wins, 0);
+    assert_eq!(blue.losses, 1);
+    assert_eq!(blue.total_points, 40);
+    assert_eq!(blue.olympic_points, 1);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
