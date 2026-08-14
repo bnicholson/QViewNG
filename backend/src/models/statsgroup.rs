@@ -289,3 +289,105 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
 
     Ok(stats)
 }
+
+// ─── Individual (quizzer) standings for a statsgroup ──────────────────────────
+
+/// Aggregated individual-stats row for one quizzer within a statsgroup.
+/// Only the first ten fields are populated; the remaining detail columns shown
+/// in the UI (Errs 16+/5+, Generals, Memory, According, Context, Special) are
+/// intentionally left out of this computation for now.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct IndividualStat {
+    pub place: i32,             // 1-based rank within the statsgroup (by score)
+    pub individual: String,     // quizzer name
+    pub team_name: String,      // the quizzer's team name
+    pub games: i32,             // number of (scored) games the quizzer played
+    pub score: i32,             // total individual points across games
+    pub avg: f64,               // score / games
+    pub correct: i32,           // correct tossups
+    pub errors: i32,            // erroneous tossups
+    pub bonus_pts: i32,         // points from correct bonuses
+    pub bonus_attempts: i32,    // correct + erroneous bonus attempts
+}
+
+struct IndividualStatAgg {
+    games: i32,
+    score: i32,
+    correct: i32,
+    errors: i32,
+    bonus_pts: i32,
+    bonus_attempts: i32,
+}
+
+/// Computes individual (per-quizzer) stats for a statsgroup by running the score
+/// calculator over each of the statsgroup's games and aggregating per quizzer
+/// (keyed by team name + quizzer name). Games that can't be scored are skipped.
+pub fn read_individual_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<IndividualStat>> {
+    use std::collections::HashMap;
+
+    let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+    let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
+
+    // Keyed by (team name, quizzer name) so quizzers with the same name on
+    // different teams are not merged.
+    let mut agg: HashMap<(String, String), IndividualStatAgg> = HashMap::new();
+
+    for game in games {
+        let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
+        let results = match crate::models::gameevent::calculate_quizzer_results_for_game(game.gid, events) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        for result in results {
+            if result.name.trim().is_empty() {
+                continue;
+            }
+            let entry = agg.entry((result.team_name.clone(), result.name.clone())).or_insert(IndividualStatAgg {
+                games: 0, score: 0, correct: 0, errors: 0, bonus_pts: 0, bonus_attempts: 0,
+            });
+            entry.games += 1;
+            entry.score += result.score;
+            entry.correct += result.correct;
+            entry.errors += result.errors;
+            entry.bonus_pts += result.bonus_pts;
+            entry.bonus_attempts += result.bonus_attempts;
+        }
+    }
+
+    let mut stats: Vec<IndividualStat> = agg
+        .into_iter()
+        .map(|((team_name, individual), a)| IndividualStat {
+            place: 0,
+            individual,
+            team_name,
+            games: a.games,
+            score: a.score,
+            avg: if a.games > 0 { a.score as f64 / a.games as f64 } else { 0.0 },
+            correct: a.correct,
+            errors: a.errors,
+            bonus_pts: a.bonus_pts,
+            bonus_attempts: a.bonus_attempts,
+        })
+        .collect();
+
+    // Rank individuals by score (desc), then correct tossups (desc), then errors (asc).
+    stats.sort_by(|a, b| {
+        b.score.cmp(&a.score)
+            .then(b.correct.cmp(&a.correct))
+            .then(a.errors.cmp(&b.errors))
+    });
+    // Competitive ranking: quizzers with identical (score, correct, errors) share a place,
+    // and the next distinct quizzer's place is its position in the list.
+    let mut current_place = 0i32;
+    let mut prev_key: Option<(i32, i32, i32)> = None;
+    for (idx, stat) in stats.iter_mut().enumerate() {
+        let key = (stat.score, stat.correct, stat.errors);
+        if prev_key != Some(key) {
+            current_place = (idx + 1) as i32;
+            prev_key = Some(key);
+        }
+        stat.place = current_place;
+    }
+
+    Ok(stats)
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -12,106 +12,8 @@ import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { GameAPI } from "../features/GameAPI";
 import { RoomAPI } from "../features/RoomAPI";
 import { RoundAPI } from "../features/RoundAPI";
-import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS } from "../features/StatsGroupAPI";
+import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
-
-// ─── Presentational table matching the QView DataTableTemplate style ──────────
-// (No CRUD toolbar / pagination — these are read-only ranking tables.)
-
-interface StatsColumn<T> {
-  header: string;
-  render: (row: T) => ReactNode;
-}
-
-function StatsTable<T>({
-  columns,
-  rows,
-  getRowKey,
-}: {
-  columns: StatsColumn<T>[];
-  rows: T[];
-  getRowKey: (row: T, index: number) => string | number;
-}) {
-  return (
-    <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "60vh", borderRadius: 10, border: "1px solid #e5e7eb" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
-            {columns.map((col) => (
-              <th
-                key={col.header}
-                style={{
-                  padding: "8px 14px",
-                  textAlign: "center",
-                  fontWeight: 600,
-                  fontSize: 12,
-                  color: "#6b7280",
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {col.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} style={{ padding: "32px 14px", textAlign: "center", color: "#9ca3af" }}>
-                No data found.
-              </td>
-            </tr>
-          ) : (
-            rows.map((row, i) => (
-              <tr
-                key={getRowKey(row, i)}
-                style={{
-                  background: i % 2 === 0 ? "#fff" : "#fafafa",
-                  borderBottom: "1px solid #f3f4f6",
-                  transition: "background .1s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f7ff")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#fafafa")}
-              >
-                {columns.map((col) => (
-                  <td key={col.header} style={{ padding: "8px 14px", color: "#374151", whiteSpace: "nowrap" }}>
-                    {col.render(row)}
-                  </td>
-                ))}
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ─── Dummy data (placeholder until backend endpoints exist) ───────────────────
-
-interface IndividualStatRow {
-  place: number;
-  individual: string;
-  teamName: string;
-  games: number;
-  score: number;
-  avg: number;
-  correct: number;
-  errors: number;
-  bonusPts: number;
-  bonusAttempts: number;
-}
-
-const DUMMY_INDIVIDUAL_STATS: IndividualStatRow[] = [
-  { place: 1, individual: "Isla Mackenzie", teamName: "Grace Fellowship A", games: 8, score: 1240, avg: 155.0, correct: 96, errors: 8, bonusPts: 180, bonusAttempts: 22 },
-  { place: 2, individual: "Noah Whitfield", teamName: "Cornerstone Blue", games: 8, score: 1180, avg: 147.5, correct: 91, errors: 11, bonusPts: 160, bonusAttempts: 20 },
-  { place: 3, individual: "Clara Hoffmann", teamName: "New Life Red", games: 8, score: 1055, avg: 131.9, correct: 84, errors: 9, bonusPts: 140, bonusAttempts: 19 },
-  { place: 4, individual: "Felix Almeida", teamName: "Trinity Eagles", games: 8, score: 990, avg: 123.8, correct: 78, errors: 13, bonusPts: 120, bonusAttempts: 17 },
-  { place: 5, individual: "Samuel Okafor", teamName: "Living Water B", games: 8, score: 870, avg: 108.8, correct: 69, errors: 15, bonusPts: 100, bonusAttempts: 15 },
-  { place: 6, individual: "Priya Nair", teamName: "Redeemer Gold", games: 8, score: 795, avg: 99.4, correct: 63, errors: 12, bonusPts: 90, bonusAttempts: 14 },
-];
 
 // One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
@@ -260,7 +162,7 @@ function TeamStatsSection({ statsGroupId }: { statsGroupId: string }) {
 
   const columns: ColumnDef<TeamStatTS>[] = [
     { header: "Place", render: (r) => r.place },
-    { header: "Name", render: (r) => r.name },
+    { header: "Name", render: (r) => <span style={{ whiteSpace: "nowrap" }}>{r.name}</span> },
     { header: "# Games", render: (r) => r.games },
     { header: "Wins", render: (r) => r.wins },
     { header: "Losses", render: (r) => r.losses },
@@ -289,20 +191,40 @@ function TeamStatsSection({ statsGroupId }: { statsGroupId: string }) {
   );
 }
 
-function IndividualStatsSection() {
+function IndividualStatsSection({ statsGroupId }: { statsGroupId: string }) {
+  const [rows, setRows] = useState<IndividualStatTS[]>([]);
+
+  useEffect(() => {
+    if (!statsGroupId) {
+      setRows([]);
+      return;
+    }
+    let cancelled = false;
+    StatsGroupAPI.getIndividualStats(statsGroupId)
+      .then((result) => {
+        if (!cancelled) setRows(result);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [statsGroupId]);
+
   const blank = () => "";
-  const columns: StatsColumn<IndividualStatRow>[] = [
+  const columns: ColumnDef<IndividualStatTS>[] = [
     { header: "Place", render: (r) => r.place },
-    { header: "Individual", render: (r) => r.individual },
-    { header: "Team Name", render: (r) => r.teamName },
+    { header: "Individual", render: (r) => <span style={{ whiteSpace: "nowrap" }}>{r.individual}</span> },
+    { header: "Team Name", render: (r) => <span style={{ whiteSpace: "nowrap" }}>{r.team_name}</span> },
     { header: "# Games", render: (r) => r.games },
     { header: "Score", render: (r) => r.score },
     { header: "Avg", render: (r) => r.avg.toFixed(1) },
     { header: "Correct", render: (r) => r.correct },
     { header: "Errors", render: (r) => r.errors },
-    { header: "Bonus Pts", render: (r) => r.bonusPts },
-    { header: "Bonus Attempts", render: (r) => r.bonusAttempts },
-    // Last 6 columns intentionally left without dummy data.
+    { header: "Bonus Pts", render: (r) => r.bonus_pts },
+    { header: "Bonus Attempts", render: (r) => r.bonus_attempts },
+    // Remaining detail columns are intentionally left blank for now.
     { header: "Errs 16+/5+", render: blank },
     { header: "Generals", render: blank },
     { header: "Memory", render: blank },
@@ -310,7 +232,24 @@ function IndividualStatsSection() {
     { header: "Context", render: blank },
     { header: "Special", render: blank },
   ];
-  return <StatsTable columns={columns} rows={DUMMY_INDIVIDUAL_STATS} getRowKey={(r) => r.place} />;
+
+  return (
+    <DataTableTemplate<IndividualStatTS>
+      entityLabel="Individual"
+      showCreateButton={false}
+      showDeleteButton={false}
+      dense
+      columns={columns}
+      rows={rows}
+      totalCount={rows.length}
+      getId={(r) => `${r.team_name}-${r.individual}`}
+      onDelete={async () => {}}
+      page={0}
+      pageSize={rows.length || 1}
+      onPageChange={() => {}}
+      onPageSizeChange={() => {}}
+    />
+  );
 }
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
@@ -343,7 +282,7 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
       case "team":
         return <TeamStatsSection statsGroupId={selectedGroup} />;
       case "individual":
-        return <IndividualStatsSection />;
+        return <IndividualStatsSection statsGroupId={selectedGroup} />;
       case "games":
       default:
         return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} />;

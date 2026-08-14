@@ -810,6 +810,58 @@ pub fn calculate_team_results_for_game(
         .collect())
 }
 
+/// A single quizzer's individual results for one game, extracted from the calculator.
+#[derive(Debug, Clone)]
+pub struct QuizzerGameResult {
+    pub team_name: String,     // the quizzer's team name
+    pub name: String,          // the quizzer's name
+    pub score: i32,            // individual points: tossups + bonuses + quiz-out
+    pub correct: i32,          // correct tossups
+    pub errors: i32,           // erroneous tossups
+    pub bonus_pts: i32,        // points from correct bonuses
+    pub bonus_attempts: i32,   // correct + erroneous bonus attempts
+}
+
+/// Runs the score calculator over a single game's events and returns each quizzer's
+/// individual counts and points. Returns Err if the event stream cannot be scored.
+pub fn calculate_quizzer_results_for_game(
+    game_id: Uuid,
+    game_events: Vec<GameEvent>,
+) -> Result<Vec<QuizzerGameResult>, Vec<String>> {
+    let calculator = GameEventCalculator::new(game_id, game_events);
+    let calculated = calculator.calculate_current_game_scores_and_counts()?;
+
+    let tossup_award = calculated.options.point_award_for_correct_tossup;
+    let bonus_award = calculated.options.point_award_for_correct_bonus;
+    let quiz_out_award = calculated.options.point_award_for_quizzing_out;
+
+    let mut results = Vec::new();
+    for (_team_idx, team) in calculated.teams.iter() {
+        for (_seat, quizzer) in team.quizzers.iter() {
+            let correct = quizzer.correct_tossups.len() as i32;
+            let errors = quizzer.errors_on_tossups.len() as i32;
+            let bonus_correct = quizzer.correct_bonuses.len() as i32;
+            let bonus_errors = quizzer.errors_on_bonuses.len() as i32;
+            let bonus_pts = bonus_correct * bonus_award;
+            // A quiz-out only awards points when it happens without an erroneous tossup.
+            let quizzed_out_without_error =
+                quizzer.question_quizzed_out_on != -1 && quizzer.errors_on_tossups.is_empty();
+            let quiz_out_pts = if quizzed_out_without_error { quiz_out_award } else { 0 };
+
+            results.push(QuizzerGameResult {
+                team_name: team.name.clone(),
+                name: quizzer.name.clone(),
+                score: correct * tossup_award + bonus_pts + quiz_out_pts,
+                correct,
+                errors,
+                bonus_pts,
+                bonus_attempts: bonus_correct + bonus_errors,
+            });
+        }
+    }
+    Ok(results)
+}
+
 #[derive(Clone, Debug)]
 struct TeamForGameEventStreamBuilder {
     name: String,

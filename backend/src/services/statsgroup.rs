@@ -91,6 +91,23 @@ async fn read_team_stats(
     }
 }
 
+#[get("/{id}/individualstats")]
+async fn read_individual_stats(
+    db: Data<Database>,
+    sg_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    match models::statsgroup::read_individual_stats_of_statsgroup(&mut db, sg_id.into_inner()) {
+        Ok(individual_stats) => HttpResponse::Ok().json(individual_stats),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -228,6 +245,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_games)
         .service(read_team_stats)
+        .service(read_individual_stats)
         .service(create)
         .service(add_game)
         .service(update)

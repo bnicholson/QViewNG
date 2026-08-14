@@ -501,3 +501,78 @@ async fn team_stats_works() {
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
+
+#[actix_web::test]
+async fn individual_stats_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // Reuses the same example game: Red #1 answers 4 tossups (80 pts), Blue #1
+    // answers 2 (40 pts); the other eight rostered quizzers score nothing.
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/statsgroups/{}/individualstats", statsgroup.sgid);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<backend::models::statsgroup::IndividualStat> = test::read_body_json(resp).await;
+
+    // Both teams' full five-quizzer rosters appear (10 quizzers total).
+    assert_eq!(body.len(), 10);
+
+    let find = |team: &str, individual: &str| {
+        body.iter().find(|s| s.team_name == team && s.individual == individual).unwrap().clone()
+    };
+
+    // Top scorer: Red #1.
+    let red1 = find("Red Team", "Red #1");
+    assert_eq!(red1.place, 1);
+    assert_eq!(red1.games, 1);
+    assert_eq!(red1.score, 80);
+    assert!((red1.avg - 80.0).abs() < 1e-9);
+    assert_eq!(red1.correct, 4);
+    assert_eq!(red1.errors, 0);
+    assert_eq!(red1.bonus_pts, 0);
+    assert_eq!(red1.bonus_attempts, 0);
+
+    // Second: Blue #1.
+    let blue1 = find("Blue Team", "Blue #1");
+    assert_eq!(blue1.place, 2);
+    assert_eq!(blue1.games, 1);
+    assert_eq!(blue1.score, 40);
+    assert!((blue1.avg - 40.0).abs() < 1e-9);
+    assert_eq!(blue1.correct, 2);
+
+    // A non-scoring rostered quizzer still appears with a game played and zero score.
+    let red2 = find("Red Team", "Red #2");
+    assert_eq!(red2.games, 1);
+    assert_eq!(red2.score, 0);
+    assert_eq!(red2.correct, 0);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}

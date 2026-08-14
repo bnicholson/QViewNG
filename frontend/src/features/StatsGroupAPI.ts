@@ -22,6 +22,19 @@ export interface TeamStatTS {
   tie_breaker: string;
 }
 
+export interface IndividualStatTS {
+  place: number;
+  individual: string;
+  team_name: string;
+  games: number;
+  score: number;
+  avg: number;
+  correct: number;
+  errors: number;
+  bonus_pts: number;
+  bonus_attempts: number;
+}
+
 export const StatsGroupAPI = {
   getByTournament: async (tid: string, page: number, size: number): Promise<StatsGroupTS[]> =>
     (await fetch(`/api/tournaments/${tid}/statsgroups?page=${page}&page_size=${size}`)).json(),
@@ -32,6 +45,12 @@ export const StatsGroupAPI = {
   getTeamStats: async (sgid: string): Promise<TeamStatTS[]> => {
     const res = await fetch(`/api/statsgroups/${sgid}/teamstats`);
     if (!res.ok) throw new Error(`Failed to load team stats (${res.status})`);
+    return res.json();
+  },
+  // Computed individual (per-quizzer) stats for a stats group.
+  getIndividualStats: async (sgid: string): Promise<IndividualStatTS[]> => {
+    const res = await fetch(`/api/statsgroups/${sgid}/individualstats`);
+    if (!res.ok) throw new Error(`Failed to load individual stats (${res.status})`);
     return res.json();
   },
 };
