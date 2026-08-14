@@ -7,6 +7,7 @@ pub mod roominfo;
 pub mod gameeventlog;
 pub mod game;
 pub mod gameevent;
+pub mod gameevent_import;
 pub mod room;
 pub mod round;
 pub mod user;

@@ -1180,8 +1180,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
     // Experienced rooms 1-3, Novice rooms 4-5, Decades rooms 6-7
 
     // Each game below is bound so we can seed a plausible game-event stream for it
-    // via seed_game_events(). `game_no` gives per-game variance in the dummy events.
-    let mut game_no: usize = 0;
+    // via seed_game_events().
 
     // Div: Experienced — 15 games across 5 rounds (3 games/round)
     // Room rotation per round: R1→[1,2,3], R2→[2,3,1], R3→[3,1,2], R4→[1,3,2], R5→[2,1,3]
@@ -1192,21 +1191,21 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_1.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_experienced, &team_6_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_experienced, &team_6_experienced);
     let game = GameBuilder::new_default(room_2.roomid, round_1_experienced.roundid)
         .set_leftteamid(team_2_experienced.teamid)
         .set_rightteamid(team_5_experienced.teamid)
         .set_quizmasterid(qm_2.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_2_experienced, &team_5_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_2_experienced, &team_5_experienced);
     let game = GameBuilder::new_default(room_3.roomid, round_1_experienced.roundid)
         .set_leftteamid(team_3_experienced.teamid)
         .set_rightteamid(team_4_experienced.teamid)
         .set_quizmasterid(qm_3.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_3_experienced, &team_4_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_3_experienced, &team_4_experienced);
     // Round 2: (t1e,t5e)→rm2, (t6e,t4e)→rm3, (t2e,t3e)→rm1
     let game = GameBuilder::new_default(room_2.roomid, round_2_experienced.roundid)
         .set_leftteamid(team_1_experienced.teamid)
@@ -1214,21 +1213,21 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_2.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_experienced, &team_5_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_experienced, &team_5_experienced);
     let game = GameBuilder::new_default(room_3.roomid, round_2_experienced.roundid)
         .set_leftteamid(team_6_experienced.teamid)
         .set_rightteamid(team_4_experienced.teamid)
         .set_quizmasterid(qm_3.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_6_experienced, &team_4_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_6_experienced, &team_4_experienced);
     let game = GameBuilder::new_default(room_1.roomid, round_2_experienced.roundid)
         .set_leftteamid(team_2_experienced.teamid)
         .set_rightteamid(team_3_experienced.teamid)
         .set_quizmasterid(qm_1.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_2_experienced, &team_3_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_2_experienced, &team_3_experienced);
     // Round 3: (t1e,t4e)→rm3, (t5e,t3e)→rm1, (t6e,t2e)→rm2
     let game = GameBuilder::new_default(room_3.roomid, round_3_experienced.roundid)
         .set_leftteamid(team_1_experienced.teamid)
@@ -1236,21 +1235,21 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_3.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_experienced, &team_4_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_experienced, &team_4_experienced);
     let game = GameBuilder::new_default(room_1.roomid, round_3_experienced.roundid)
         .set_leftteamid(team_5_experienced.teamid)
         .set_rightteamid(team_3_experienced.teamid)
         .set_quizmasterid(qm_1.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_5_experienced, &team_3_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_5_experienced, &team_3_experienced);
     let game = GameBuilder::new_default(room_2.roomid, round_3_experienced.roundid)
         .set_leftteamid(team_6_experienced.teamid)
         .set_rightteamid(team_2_experienced.teamid)
         .set_quizmasterid(qm_2.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_6_experienced, &team_2_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_6_experienced, &team_2_experienced);
     // Round 4: (t1e,t3e)→rm1, (t4e,t2e)→rm3, (t5e,t6e)→rm2
     let game = GameBuilder::new_default(room_1.roomid, round_4_experienced.roundid)
         .set_leftteamid(team_1_experienced.teamid)
@@ -1258,21 +1257,21 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_1.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_experienced, &team_3_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_experienced, &team_3_experienced);
     let game = GameBuilder::new_default(room_3.roomid, round_4_experienced.roundid)
         .set_leftteamid(team_4_experienced.teamid)
         .set_rightteamid(team_2_experienced.teamid)
         .set_quizmasterid(qm_3.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_4_experienced, &team_2_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_4_experienced, &team_2_experienced);
     let game = GameBuilder::new_default(room_2.roomid, round_4_experienced.roundid)
         .set_leftteamid(team_5_experienced.teamid)
         .set_rightteamid(team_6_experienced.teamid)
         .set_quizmasterid(qm_2.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_5_experienced, &team_6_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_5_experienced, &team_6_experienced);
     // Round 5: (t1e,t2e)→rm2, (t3e,t6e)→rm1, (t4e,t5e)→rm3
     let game = GameBuilder::new_default(room_2.roomid, round_5_experienced.roundid)
         .set_leftteamid(team_1_experienced.teamid)
@@ -1280,21 +1279,21 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_2.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_experienced, &team_2_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_experienced, &team_2_experienced);
     let game = GameBuilder::new_default(room_1.roomid, round_5_experienced.roundid)
         .set_leftteamid(team_3_experienced.teamid)
         .set_rightteamid(team_6_experienced.teamid)
         .set_quizmasterid(qm_1.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_3_experienced, &team_6_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_3_experienced, &team_6_experienced);
     let game = GameBuilder::new_default(room_3.roomid, round_5_experienced.roundid)
         .set_leftteamid(team_4_experienced.teamid)
         .set_rightteamid(team_5_experienced.teamid)
         .set_quizmasterid(qm_3.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_4_experienced, &team_5_experienced, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_4_experienced, &team_5_experienced);
 
     // Div: Novice — 6 games across 3 rounds (2 games/round)
     // Fixed team alternates between rm4 and rm5 each round
@@ -1305,14 +1304,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_4.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_novice, &team_4_novice, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_novice, &team_4_novice);
     let game = GameBuilder::new_default(room_5.roomid, round_1_novice.roundid)
         .set_leftteamid(team_2_novice.teamid)
         .set_rightteamid(team_3_novice.teamid)
         .set_quizmasterid(qm_5.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_2_novice, &team_3_novice, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_2_novice, &team_3_novice);
     // Round 2: (t1n,t3n)→rm5, (t4n,t2n)→rm4
     let game = GameBuilder::new_default(room_5.roomid, round_2_novice.roundid)
         .set_leftteamid(team_1_novice.teamid)
@@ -1320,14 +1319,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_5.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_novice, &team_3_novice, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_novice, &team_3_novice);
     let game = GameBuilder::new_default(room_4.roomid, round_2_novice.roundid)
         .set_leftteamid(team_4_novice.teamid)
         .set_rightteamid(team_2_novice.teamid)
         .set_quizmasterid(qm_4.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_4_novice, &team_2_novice, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_4_novice, &team_2_novice);
     // Round 3: (t1n,t2n)→rm4, (t3n,t4n)→rm5
     let game = GameBuilder::new_default(room_4.roomid, round_3_novice.roundid)
         .set_leftteamid(team_1_novice.teamid)
@@ -1335,14 +1334,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(qm_4.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_novice, &team_2_novice, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_novice, &team_2_novice);
     let game = GameBuilder::new_default(room_5.roomid, round_3_novice.roundid)
         .set_leftteamid(team_3_novice.teamid)
         .set_rightteamid(team_4_novice.teamid)
         .set_quizmasterid(qm_5.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_3_novice, &team_4_novice, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_3_novice, &team_4_novice);
 
     // Div: Decades — 6 games across 3 rounds (2 games/round)
     // Fixed team alternates between rm6 and rm7 each round
@@ -1353,7 +1352,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_decades, &team_4_decades, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_decades, &team_4_decades);
     let game = GameBuilder::new_default(room_7.roomid, round_1_decades.roundid)
         .set_leftteamid(team_2_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
@@ -1361,7 +1360,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_contentjudgeid(Some(tour_owner.id))
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_2_decades, &team_3_decades, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_2_decades, &team_3_decades);
     // Round 2: (t1d,t3d)→rm7, (t4d,t2d)→rm6
     let game = GameBuilder::new_default(room_7.roomid, round_2_decades.roundid)
         .set_leftteamid(team_1_decades.teamid)
@@ -1370,14 +1369,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_contentjudgeid(Some(tour_owner.id))
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_decades, &team_3_decades, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_decades, &team_3_decades);
     let game = GameBuilder::new_default(room_6.roomid, round_2_decades.roundid)
         .set_leftteamid(team_4_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
         .set_quizmasterid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_4_decades, &team_2_decades, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_4_decades, &team_2_decades);
     // Round 3: (t1d,t2d)→rm6, (t3d,t4d)→rm7
     let game = GameBuilder::new_default(room_6.roomid, round_3_decades.roundid)
         .set_leftteamid(team_1_decades.teamid)
@@ -1385,7 +1384,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_quizmasterid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_1_decades, &team_2_decades, game_no); game_no += 1;
+    seed_game_events(db, game.gid, &team_1_decades, &team_2_decades);
     let game = GameBuilder::new_default(room_7.roomid, round_3_decades.roundid)
         .set_leftteamid(team_3_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
@@ -1393,8 +1392,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection) {
         .set_contentjudgeid(Some(tour_owner.id))
         .build_and_insert(db)
         .unwrap();
-    seed_game_events(db, game.gid, &team_3_decades, &team_4_decades, game_no); game_no += 1;
-    let _ = game_no;
+    seed_game_events(db, game.gid, &team_3_decades, &team_4_decades);
 
     // Add every game of each division to its division's statsgroup (games_statsgroups).
     // Seeded games derive their divisionid from their round, so we can look them up per division.
@@ -1507,14 +1505,13 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
 ///     error) followed by the other team's bonus attempt (BC/BE), or an NJ (no jump).
 ///
 /// Quizzer names come from the actual Users associated with each team (quizzer_one_id..six_id).
-/// `variant` introduces game-to-game variance (question count, who answers, timestamps) while
-/// keeping the generated data deterministic and reproducible across re-seeds.
+/// Each successive event is stamped one minute after the previous. The generated data is
+/// deterministic and reproducible: game-to-game variance comes from a PRNG seeded by the game id.
 fn seed_game_events(
     db: &mut database::Connection,
     gid: Uuid,
     left_team: &Team,
     right_team: &Team,
-    variant: usize,
 ) {
     // Real quizzer names for each team, pulled from the associated User records.
     let left_quizzers = team_quizzer_names(db, left_team);
@@ -1524,12 +1521,12 @@ fn seed_game_events(
         return;
     }
 
-    // Deterministic base timestamp, staggered per game.
-    let base = Utc.with_ymd_and_hms(2055, 5, 23, 9, 0, 0).unwrap()
-        + Duration::minutes((variant as i64) * 25);
+    // Each successive game event is stamped one minute after the previous.
+    let mut ts = Utc::now();
 
-    // Tiny deterministic PRNG (LCG) seeded from `variant`, so the dummy data is reproducible.
-    let mut rng: u64 = 0x9E3779B97F4A7C15 ^ (variant as u64).wrapping_mul(0xD1B54A32D192ED03);
+    // Tiny deterministic PRNG (LCG) seeded from the game id, so each game varies reproducibly.
+    let raw = gid.as_u128();
+    let mut rng: u64 = (raw as u64) ^ ((raw >> 64) as u64);
     let mut next = move |n: u64| -> u64 {
         rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
         (rng >> 33) % n.max(1)
@@ -1542,25 +1539,23 @@ fn seed_game_events(
 
     // ── Question 1: initialization block ──
     let mut ev = 0i32;
-    insert_game_event(db, gid, 1, ev, "Tournament", 0, 0, GameEventCode::RM, base); ev += 1;
-    insert_game_event(db, gid, 1, ev, "N", 0, 0, GameEventCode::QT, base); ev += 1;
+    insert_game_event(db, gid, 1, ev, "Tournament", 0, 0, GameEventCode::RM, ts); ev += 1; ts = ts + Duration::minutes(1);
+    insert_game_event(db, gid, 1, ev, "N", 0, 0, GameEventCode::QT, ts); ev += 1; ts = ts + Duration::minutes(1);
     for (team_num, team_name, quizzers) in teams {
-        insert_game_event(db, gid, 1, ev, team_name, team_num, team_num, GameEventCode::TN, base); ev += 1;
+        insert_game_event(db, gid, 1, ev, team_name, team_num, team_num, GameEventCode::TN, ts); ev += 1; ts = ts + Duration::minutes(1);
         for (seat, quizzer_name) in quizzers.iter().enumerate() {
-            insert_game_event(db, gid, 1, ev, quizzer_name, team_num, seat as i32, GameEventCode::QN, base); ev += 1;
+            insert_game_event(db, gid, 1, ev, quizzer_name, team_num, seat as i32, GameEventCode::QN, ts); ev += 1; ts = ts + Duration::minutes(1);
         }
         // Captain in seat 0; co-captain in seat 1 when the team has a second quizzer.
-        insert_game_event(db, gid, 1, ev, &quizzers[0], team_num, 0, GameEventCode::SC, base); ev += 1;
+        insert_game_event(db, gid, 1, ev, &quizzers[0], team_num, 0, GameEventCode::SC, ts); ev += 1; ts = ts + Duration::minutes(1);
         if quizzers.len() >= 2 {
-            insert_game_event(db, gid, 1, ev, &quizzers[1], team_num, 1, GameEventCode::SS, base); ev += 1;
+            insert_game_event(db, gid, 1, ev, &quizzers[1], team_num, 1, GameEventCode::SS, ts); ev += 1; ts = ts + Duration::minutes(1);
         }
     }
 
-    // ── Toss-up questions (15–20 per game, varying by game) ──
-    let total_questions = 15 + (variant % 6) as i32;
-    let mut ts = base;
+    // ── Toss-up questions ──
+    let total_questions: i32 = 20;
     for q in 1..=total_questions {
-        ts = ts + Duration::seconds(18 + next(20) as i64);
         // Question 1 continues after the init block above; later questions start at eventnum 0.
         let mut qev = if q == 1 { ev } else { 0 };
 
@@ -1572,21 +1567,21 @@ fn seed_game_events(
         match next(10) {
             0..=5 => {
                 // Toss-up answered correctly.
-                insert_game_event(db, gid, q, qev, &quizzer_name, answering_team, seat, GameEventCode::TC, ts); qev += 1;
+                insert_game_event(db, gid, q, qev, &quizzer_name, answering_team, seat, GameEventCode::TC, ts); qev += 1; ts = ts + Duration::minutes(1);
             }
             6..=8 => {
                 // Toss-up error, then the other team attempts the bonus.
-                insert_game_event(db, gid, q, qev, &quizzer_name, answering_team, seat, GameEventCode::TE, ts); qev += 1;
+                insert_game_event(db, gid, q, qev, &quizzer_name, answering_team, seat, GameEventCode::TE, ts); qev += 1; ts = ts + Duration::minutes(1);
                 let other_team = 1 - answering_team;
                 let other_quizzers = if other_team == 0 { &left_quizzers } else { &right_quizzers };
                 let other_seat = next(other_quizzers.len() as u64) as i32;
                 let other_name = other_quizzers[other_seat as usize].clone();
                 let bonus = if next(2) == 0 { GameEventCode::BC } else { GameEventCode::BE };
-                insert_game_event(db, gid, q, qev, &other_name, other_team, other_seat, bonus, ts); qev += 1;
+                insert_game_event(db, gid, q, qev, &other_name, other_team, other_seat, bonus, ts); qev += 1; ts = ts + Duration::minutes(1);
             }
             _ => {
                 // No jump on the toss-up.
-                insert_game_event(db, gid, q, qev, "No Jump", 0, 0, GameEventCode::NJ, ts); qev += 1;
+                insert_game_event(db, gid, q, qev, "No Jump", 0, 0, GameEventCode::NJ, ts); qev += 1; ts = ts + Duration::minutes(1);
             }
         }
         let _ = qev;

@@ -379,6 +379,63 @@ async fn read_games(
     }
 }
 
+#[get("/{id}/gamestatuses")]
+async fn read_game_statuses(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::game::read_game_statuses_of_tournament(&mut conn, tour_id.into_inner()) {
+        Ok(statuses) => HttpResponse::Ok().json(statuses),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct GameEventImportRequest {
+    csv: String,
+}
+
+#[post("/{id}/gameevents/import/preview")]
+async fn import_gameevents_preview(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Json(body): Json<GameEventImportRequest>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    // Dry run: parse, match and validate only — no writes.
+    let preview = models::gameevent_import::preview(&mut conn, tour_id.into_inner(), &body.csv);
+    HttpResponse::Ok().json(preview)
+}
+
+#[post("/{id}/gameevents/import/commit")]
+async fn import_gameevents_commit(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Json(body): Json<GameEventImportRequest>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::gameevent_import::commit(&mut conn, tour_id.into_inner(), &body.csv) {
+        Ok(result) => HttpResponse::Ok().json(result),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/tournamentgroups")]
 async fn read_tournamentgroups(
     db: Data<Database>,
@@ -657,6 +714,9 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_teams)
         .service(read_quizzers)
         .service(read_games)
+        .service(read_game_statuses)
+        .service(import_gameevents_preview)
+        .service(import_gameevents_commit)
         .service(read_admins)
         .service(read_tournamentgroups)
         .service(read_equipmentregistrations)

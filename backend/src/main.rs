@@ -5,6 +5,7 @@ use backend::database;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use backend::routes::configure_routes;
+use chrono::Utc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -44,10 +45,14 @@ async fn main() -> std::io::Result<()> {
     let db = database::Database::new("DATABASE_URL");
     
     // Change commented/uncommented if you want to populate your DB with data:
+    // let start_time_for_db_pop = Utc::now();
     // let mut conn = db.get_connection().expect("Failed to get connection.");
     // database::clean_db::clean_database(&mut conn);
     // database::seed_data::system_default_data::insert_system_default_data(&mut conn);
     // database::seed_data::seed_one::insert_seed_data_one(&mut conn);
+    // let end_time_for_db_pop = Utc::now();
+    // let duration_for_db_pop = end_time_for_db_pop.naive_utc() - start_time_for_db_pop.naive_utc();
+    // println!("DB Population Time Duration: {}", duration_for_db_pop);
     // let conn = conn;
     // drop(conn);
     

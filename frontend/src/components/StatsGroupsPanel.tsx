@@ -14,6 +14,7 @@ import { RoomAPI } from "../features/RoomAPI";
 import { RoundAPI } from "../features/RoundAPI";
 import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
+import ImportGameEventsButton from "./ImportGameEventsButton";
 
 // One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
@@ -39,7 +40,7 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
 
 // ─── Content sections ─────────────────────────────────────────────────────────
 
-function GamesSelectionSection({ tid, statsGroupId }: { tid: string; statsGroupId: string }) {
+function GamesSelectionSection({ tid, statsGroupId, refreshKey }: { tid: string; statsGroupId: string; refreshKey: number }) {
   const [rows, setRows] = useState<GameSelectionRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -50,24 +51,29 @@ function GamesSelectionSection({ tid, statsGroupId }: { tid: string; statsGroupI
       RoomAPI.getByTournament(tid, 0, 500),
       RoundAPI.getByTournament(tid, 0, 500),
       DivisionAPI.getByTournament(tid, 0, 500),
+      GameAPI.getStatuses(tid),
       statsGroupId ? StatsGroupAPI.getGames(statsGroupId, 0, 500) : Promise.resolve([]),
     ])
-      .then(([gamesResult, rooms, rounds, divisions, groupGames]) => {
+      .then(([gamesResult, rooms, rounds, divisions, statuses, groupGames]) => {
         if (cancelled) return;
         const roomNames = new Map(rooms.map((r) => [r.roomid, r.name]));
         const roundNames = new Map(rounds.map((r) => [r.roundid, r.name]));
         const divisionNames = new Map(divisions.map((d) => [d.did, d.dname]));
+        const statusByGid = new Map(statuses.map((s) => [s.gid, s]));
         setRows(
-          gamesResult.items.map((g) => ({
-            gid: g.gid,
-            division: divisionNames.get(g.divisionid) ?? g.divisionid,
-            room: roomNames.get(g.roomid) ?? g.roomid,
-            round: roundNames.get(g.roundid) ?? g.roundid,
-            question: "—",
-            done: "Yes",
-            dataOk: "Yes",
-            information: "",
-          }))
+          gamesResult.items.map((g) => {
+            const status = statusByGid.get(g.gid);
+            return {
+              gid: g.gid,
+              division: divisionNames.get(g.divisionid) ?? g.divisionid,
+              room: roomNames.get(g.roomid) ?? g.roomid,
+              round: roundNames.get(g.roundid) ?? g.roundid,
+              question: "—",
+              done: status?.done ? "Yes" : "No",
+              dataOk: status?.data_ok ? "Yes" : "No",
+              information: "",
+            };
+          })
         );
         // Pre-select the games that are already in the selected stats group.
         setSelected(new Set(groupGames.map((g) => g.gid)));
@@ -76,7 +82,7 @@ function GamesSelectionSection({ tid, statsGroupId }: { tid: string; statsGroupI
     return () => {
       cancelled = true;
     };
-  }, [tid, statsGroupId]);
+  }, [tid, statsGroupId, refreshKey]);
 
   const toggleRow = (gid: string) => {
     setSelected((prev) => {
@@ -258,6 +264,8 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
   const [statsGroups, setStatsGroups] = useState<StatsGroupTS[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [dataView, setDataView] = useState<DataView>("games");
+  // Bumped after a game-events import closes, to re-fetch the Game Selection table.
+  const [gamesRefreshKey, setGamesRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,9 +293,9 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
         return <IndividualStatsSection statsGroupId={selectedGroup} />;
       case "games":
       default:
-        return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} />;
+        return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} refreshKey={gamesRefreshKey} />;
     }
-  }, [dataView, tid, selectedGroup]);
+  }, [dataView, tid, selectedGroup, gamesRefreshKey]);
 
   return (
     <Stack spacing={1.5}>
@@ -336,6 +344,10 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
               ))}
             </Select>
           </FormControl>
+
+          {dataView === "games" && (
+            <ImportGameEventsButton tid={tid} onImported={() => setGamesRefreshKey((k) => k + 1)} />
+          )}
         </Stack>
       </Paper>
 

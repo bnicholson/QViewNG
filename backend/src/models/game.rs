@@ -703,3 +703,42 @@ pub fn delete(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<
 //         },
 //     }
 // }
+// ─── Per-game readiness status (for the Game Selection view) ──────────────────
+
+/// Whether a game's recorded events are internally valid and whether the game is complete.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct GameStatus {
+    pub gid: Uuid,
+    pub done: bool,     // has a question-20 record and all ties are resolved (distinct final scores)
+    pub data_ok: bool,  // the game has events that score without error
+}
+
+/// Computes readiness status for every game in a tournament by scoring each game's events.
+pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournament_id: Uuid) -> QueryResult<Vec<GameStatus>> {
+    let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+    let games = read_all_games_of_tournament(db, tournament_id, &pagination)?;
+
+    let mut statuses = Vec::with_capacity(games.len());
+    for game in games {
+        let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
+        let has_events = !events.is_empty();
+        let has_question_20 = events.iter().any(|e| e.question >= 20);
+
+        let results = crate::models::gameevent::calculate_team_results_for_game(game.gid, events);
+        // Data is OK when there are events and they score without error.
+        let data_ok = has_events && results.is_ok();
+        // Ties are resolved when no two teams share the same final score.
+        let ties_resolved = match &results {
+            Ok(teams) if !teams.is_empty() => {
+                let mut scores: Vec<i32> = teams.iter().map(|t| t.score).collect();
+                scores.sort_unstable();
+                scores.windows(2).all(|w| w[0] != w[1])
+            }
+            _ => false,
+        };
+        let done = data_ok && has_question_20 && ties_resolved;
+
+        statuses.push(GameStatus { gid: game.gid, done, data_ok });
+    }
+    Ok(statuses)
+}

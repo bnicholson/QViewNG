@@ -36,6 +36,12 @@ export interface PagedGames {
   items: GameTS[];
 }
 
+export interface GameStatusTS {
+  gid: string;
+  done: boolean;
+  data_ok: boolean;
+}
+
 export interface GameEventTS {
   gid: string;
   question: number;
@@ -88,6 +94,9 @@ export const GameAPI = {
   },
   getByTournament: async (tid: string, page: number, size: number): Promise<PagedGames> =>
     (await fetch(`/api/tournaments/${tid}/games?page=${page}&page_size=${size}`)).json(),
+  // Per-game readiness (done / data_ok) for every game in a tournament.
+  getStatuses: async (tid: string): Promise<GameStatusTS[]> =>
+    (await fetch(`/api/tournaments/${tid}/gamestatuses`)).json(),
   create: async (game: NewGamePayload): Promise<GameTS> => {
     const response = await fetch('/api/games', {
       method: 'POST',
