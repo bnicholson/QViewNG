@@ -426,6 +426,11 @@ diesel::table! {
         ping_qm_version -> Nullable<Varchar>,
         ping_client_ts -> Nullable<Timestamptz>,
         ping_jobspending -> Nullable<Int4>,
+        #[max_length = 32]
+        ping_room -> Nullable<Varchar>,
+        #[max_length = 64]
+        ping_round -> Nullable<Varchar>,
+        ping_game_id -> Nullable<Uuid>,
     }
 }
 
@@ -680,7 +685,6 @@ diesel::joinable!(equipmentregistrations -> tournaments (tournamentid));
 diesel::joinable!(equipmentsets -> users (equipmentownerid));
 diesel::joinable!(gameevents -> games (gid));
 diesel::joinable!(games -> divisions (divisionid));
-diesel::joinable!(games -> rooms (roomid));
 diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gameid));

@@ -143,6 +143,9 @@ pub struct Room {
     pub ping_qm_version: Option<String>,        // latest QuizMachine version reported by the room's client
     pub ping_client_ts: Option<DateTime<Utc>>,  // latest client timestamp reported by the room's client
     pub ping_jobspending: Option<i32>,          // latest jobs-pending count reported by the room's client
+    pub ping_room: Option<String>,              // latest room name reported by the room's client
+    pub ping_round: Option<String>,             // latest round name reported by the room's client
+    pub ping_game_id: Option<Uuid>,             // optional game the room's client last pinged about
 }
 
 #[derive(
@@ -177,6 +180,9 @@ pub struct RoomChangeset {
     pub ping_qm_version: Option<String>,        // latest QuizMachine version reported by the room's client
     pub ping_client_ts: Option<DateTime<Utc>>,  // latest client timestamp reported by the room's client
     pub ping_jobspending: Option<i32>,          // latest jobs-pending count reported by the room's client
+    pub ping_room: Option<String>,              // latest room name reported by the room's client
+    pub ping_round: Option<String>,             // latest round name reported by the room's client
+    pub ping_game_id: Option<Uuid>,             // optional game the room's client last pinged about
 }
 
 pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room> {
