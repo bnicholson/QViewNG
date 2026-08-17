@@ -40,6 +40,7 @@ export interface GameStatusTS {
   gid: string;
   done: boolean;
   data_ok: boolean;
+  next_question: number | null;
 }
 
 export interface GameEventTS {

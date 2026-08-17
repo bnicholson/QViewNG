@@ -711,6 +711,7 @@ pub struct GameStatus {
     pub gid: Uuid,
     pub done: bool,     // has a question-20 record and all ties are resolved (distinct final scores)
     pub data_ok: bool,  // the game has events that score without error
+    pub next_question: Option<i32>, // highest recorded question number + 1 (None if no events)
 }
 
 /// Computes readiness status for every game in a tournament by scoring each game's events.
@@ -723,6 +724,8 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
         let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
         let has_events = !events.is_empty();
         let has_question_20 = events.iter().any(|e| e.question >= 20);
+        // The next question to be played: highest recorded question number + 1.
+        let next_question = events.iter().map(|e| e.question).max().map(|m| m + 1);
 
         let results = crate::models::gameevent::calculate_team_results_for_game(game.gid, events);
         // Data is OK when there are events and they score without error.
@@ -738,7 +741,7 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
         };
         let done = data_ok && has_question_20 && ties_resolved;
 
-        statuses.push(GameStatus { gid: game.gid, done, data_ok });
+        statuses.push(GameStatus { gid: game.gid, done, data_ok, next_question });
     }
     Ok(statuses)
 }

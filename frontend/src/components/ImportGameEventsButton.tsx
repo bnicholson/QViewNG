@@ -96,7 +96,7 @@ export default function ImportGameEventsButton({ tid, onImported }: { tid: strin
   return (
     <>
       <Button variant="outlined" size="small" onClick={openFilePicker}>
-        Import Game Events
+        Import (SneakerNet)
       </Button>
       <input
         ref={fileInputRef}

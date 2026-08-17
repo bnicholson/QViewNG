@@ -46,6 +46,18 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
   const [rows, setRows] = useState<GameSelectionRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Display order: Selected (checked first), then Division, Room, Round.
+  const sortedRows = useMemo(() => {
+    const selectedRank = (r: GameSelectionRow) => (selected.has(r.gid) ? 0 : 1);
+    return [...rows].sort(
+      (a, b) =>
+        selectedRank(a) - selectedRank(b) ||
+        a.division.localeCompare(b.division, undefined, { numeric: true }) ||
+        a.room.localeCompare(b.room, undefined, { numeric: true }) ||
+        a.round.localeCompare(b.round, undefined, { numeric: true })
+    );
+  }, [rows, selected]);
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -70,7 +82,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
               division: divisionNames.get(g.divisionid) ?? g.divisionid,
               room: roomNames.get(g.roomid) ?? g.roomid,
               round: roundNames.get(g.roundid) ?? g.roundid,
-              question: "—",
+              question: status?.next_question != null ? String(status.next_question) : "—",
               done: status?.done ? "Yes" : "No",
               dataOk: status?.data_ok ? "Yes" : "No",
               information: "",
@@ -91,7 +103,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
     onExportReady({
       filename: "game-selection",
       columns: ["Selected", "Division", "Room", "Round", "Question", "Done", "DataOk", "Information"],
-      rows: rows.map((r) => [
+      rows: sortedRows.map((r) => [
         selected.has(r.gid) ? "Yes" : "No",
         r.division,
         r.room,
@@ -102,7 +114,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
         r.information,
       ]),
     });
-  }, [rows, selected, onExportReady]);
+  }, [sortedRows, selected, onExportReady]);
 
   const toggleRow = (gid: string) => {
     setSelected((prev) => {
@@ -152,12 +164,12 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
         showDeleteButton={false}
         dense
         columns={columns}
-        rows={rows}
-        totalCount={rows.length}
+        rows={sortedRows}
+        totalCount={sortedRows.length}
         getId={(r) => r.gid}
         onDelete={async () => {}}
         page={0}
-        pageSize={rows.length || 1}
+        pageSize={sortedRows.length || 1}
         onPageChange={() => {}}
         onPageSizeChange={() => {}}
       />

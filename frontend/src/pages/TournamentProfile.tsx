@@ -120,7 +120,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Gear',         to: `/tournament/${tid}/gear`,          visible: canViewAdmins === true },
     { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`,       visible: canViewAdmins === true },
     { kind: 'route', label: 'Tournament Groups', to: `/tournament/${tid}/tournament-groups` },
-    { kind: 'route', label: 'Stats Groups', to: `/tournament/${tid}/stats-groups` },
+    { kind: 'route', label: 'Server / Stats Groups', to: `/tournament/${tid}/stats-groups` },
   ]
 
   const navItems = allNavItems
