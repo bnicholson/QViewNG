@@ -211,7 +211,8 @@ pub struct Game {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub clientkey: String,
-    pub resend_gameevents_request_ts: Option<DateTime<Utc>>
+    pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
+    pub resend_gameevents_response: Option<String>
 }
 
 #[derive(
@@ -261,7 +262,8 @@ pub struct GameChangeset {
     pub quizmasterid: Option<Uuid>,
     pub contentjudgeid: Option<Uuid>,
     pub clientkey: Option<String>,
-    pub resend_gameevents_request_ts: Option<DateTime<Utc>>
+    pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
+    pub resend_gameevents_response: Option<String>
 }
 
 impl GameChangeset {
@@ -280,7 +282,8 @@ impl GameChangeset {
             quizmasterid: None,
             contentjudgeid: None,
             clientkey: None,
-            resend_gameevents_request_ts: None
+            resend_gameevents_request_ts: None,
+            resend_gameevents_response: None
         }
     }
 }

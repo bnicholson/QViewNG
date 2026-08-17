@@ -248,6 +248,8 @@ diesel::table! {
         #[max_length = 64]
         clientkey -> Varchar,
         resend_gameevents_request_ts -> Nullable<Timestamptz>,
+        #[max_length = 256]
+        resend_gameevents_response -> Nullable<Varchar>,
     }
 }
 
