@@ -15,6 +15,8 @@ import { RoundAPI } from "../features/RoundAPI";
 import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
 import ImportGameEventsButton from "./ImportGameEventsButton";
+import ExportTableButton from "./ExportTableButton";
+import type { ExportPayload } from "../features/exportTable";
 
 // One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
@@ -40,7 +42,7 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
 
 // ─── Content sections ─────────────────────────────────────────────────────────
 
-function GamesSelectionSection({ tid, statsGroupId, refreshKey }: { tid: string; statsGroupId: string; refreshKey: number }) {
+function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }: { tid: string; statsGroupId: string; refreshKey: number; onExportReady: (p: ExportPayload) => void }) {
   const [rows, setRows] = useState<GameSelectionRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -83,6 +85,24 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey }: { tid: string;
       cancelled = true;
     };
   }, [tid, statsGroupId, refreshKey]);
+
+  // Publish the full table (all rows) for export, reflecting live selection state.
+  useEffect(() => {
+    onExportReady({
+      filename: "game-selection",
+      columns: ["Selected", "Division", "Room", "Round", "Question", "Done", "DataOk", "Information"],
+      rows: rows.map((r) => [
+        selected.has(r.gid) ? "Yes" : "No",
+        r.division,
+        r.room,
+        r.round,
+        r.question,
+        r.done,
+        r.dataOk,
+        r.information,
+      ]),
+    });
+  }, [rows, selected, onExportReady]);
 
   const toggleRow = (gid: string) => {
     setSelected((prev) => {
@@ -145,7 +165,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey }: { tid: string;
   );
 }
 
-function TeamStatsSection({ statsGroupId }: { statsGroupId: string }) {
+function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
   const [rows, setRows] = useState<TeamStatTS[]>([]);
 
   useEffect(() => {
@@ -165,6 +185,14 @@ function TeamStatsSection({ statsGroupId }: { statsGroupId: string }) {
       cancelled = true;
     };
   }, [statsGroupId]);
+
+  useEffect(() => {
+    onExportReady({
+      filename: "team-stats",
+      columns: ["Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Tie Breaker (manual)"],
+      rows: rows.map((r) => [r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points, r.total_points, r.tie_breaker || ""]),
+    });
+  }, [rows, onExportReady]);
 
   const columns: ColumnDef<TeamStatTS>[] = [
     { header: "Place", render: (r) => r.place },
@@ -197,7 +225,7 @@ function TeamStatsSection({ statsGroupId }: { statsGroupId: string }) {
   );
 }
 
-function IndividualStatsSection({ statsGroupId }: { statsGroupId: string }) {
+function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
   const [rows, setRows] = useState<IndividualStatTS[]>([]);
 
   useEffect(() => {
@@ -217,6 +245,20 @@ function IndividualStatsSection({ statsGroupId }: { statsGroupId: string }) {
       cancelled = true;
     };
   }, [statsGroupId]);
+
+  useEffect(() => {
+    onExportReady({
+      filename: "individual-stats",
+      columns: [
+        "Place", "Individual", "Team Name", "# Games", "Score", "Avg", "Correct", "Errors", "Bonus Pts", "Bonus Attempts",
+        "Errs 16+/5+", "Generals", "Memory", "According", "Context", "Special",
+      ],
+      rows: rows.map((r) => [
+        r.place, r.individual, r.team_name, r.games, r.score, r.avg.toFixed(1), r.correct, r.errors, r.bonus_pts, r.bonus_attempts,
+        "", "", "", "", "", "",
+      ]),
+    });
+  }, [rows, onExportReady]);
 
   const blank = () => "";
   const columns: ColumnDef<IndividualStatTS>[] = [
@@ -266,6 +308,13 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
   const [dataView, setDataView] = useState<DataView>("games");
   // Bumped after a game-events import closes, to re-fetch the Game Selection table.
   const [gamesRefreshKey, setGamesRefreshKey] = useState(0);
+  // Full-table export payload for the active view (published by the active section).
+  const [exportPayload, setExportPayload] = useState<ExportPayload | null>(null);
+
+  // Clear stale export data when switching views (the new section republishes on load).
+  useEffect(() => {
+    setExportPayload(null);
+  }, [dataView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,12 +337,12 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
   const content = useMemo(() => {
     switch (dataView) {
       case "team":
-        return <TeamStatsSection statsGroupId={selectedGroup} />;
+        return <TeamStatsSection statsGroupId={selectedGroup} onExportReady={setExportPayload} />;
       case "individual":
-        return <IndividualStatsSection statsGroupId={selectedGroup} />;
+        return <IndividualStatsSection statsGroupId={selectedGroup} onExportReady={setExportPayload} />;
       case "games":
       default:
-        return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} refreshKey={gamesRefreshKey} />;
+        return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} refreshKey={gamesRefreshKey} onExportReady={setExportPayload} />;
     }
   }, [dataView, tid, selectedGroup, gamesRefreshKey]);
 
@@ -348,6 +397,11 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
           {dataView === "games" && (
             <ImportGameEventsButton tid={tid} onImported={() => setGamesRefreshKey((k) => k + 1)} />
           )}
+
+          <ExportTableButton
+            getPayload={() => exportPayload}
+            disabled={!exportPayload || exportPayload.rows.length === 0}
+          />
         </Stack>
       </Paper>
 
