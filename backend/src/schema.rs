@@ -433,6 +433,9 @@ diesel::table! {
         #[max_length = 64]
         ping_round -> Nullable<Varchar>,
         ping_game_id -> Nullable<Uuid>,
+        #[max_length = 32]
+        ping_host_ip -> Nullable<Varchar>,
+        ping_last_checkin_ts -> Nullable<Timestamptz>,
     }
 }
 

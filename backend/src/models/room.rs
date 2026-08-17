@@ -146,6 +146,8 @@ pub struct Room {
     pub ping_room: Option<String>,              // latest room name reported by the room's client
     pub ping_round: Option<String>,             // latest round name reported by the room's client
     pub ping_game_id: Option<Uuid>,             // optional game the room's client last pinged about
+    pub ping_host_ip: Option<String>,           // latest host/IP reported by the room's client
+    pub ping_last_checkin_ts: Option<DateTime<Utc>>, // timestamp of the last check-in (ping) from the room's client
 }
 
 #[derive(
@@ -183,6 +185,30 @@ pub struct RoomChangeset {
     pub ping_room: Option<String>,              // latest room name reported by the room's client
     pub ping_round: Option<String>,             // latest round name reported by the room's client
     pub ping_game_id: Option<Uuid>,             // optional game the room's client last pinged about
+    pub ping_host_ip: Option<String>,           // latest host/IP reported by the room's client
+    pub ping_last_checkin_ts: Option<DateTime<Utc>>, // timestamp of the last check-in (ping) from the room's client
+}
+
+impl RoomChangeset {
+    pub fn empty() -> Self {
+        Self {
+            name: None,
+            building: None,
+            comments: None,
+            clientkey: None,
+            quizmaster_id: None,
+            contentjudge_id: None,
+            ping_question_number: None,
+            ping_qm_version: None,
+            ping_client_ts: None,
+            ping_jobspending: None,
+            ping_room: None,
+            ping_round: None,
+            ping_game_id: None,
+            ping_host_ip: None,
+            ping_last_checkin_ts: None,
+        }
+    }
 }
 
 pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room> {
