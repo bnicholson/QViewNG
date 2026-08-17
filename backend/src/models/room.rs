@@ -139,6 +139,10 @@ pub struct Room {
     pub clientkey: String,                      // registration key from the QuizMachine client, used here for ID
     pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
     pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
+    pub ping_question_number: Option<i32>,      // latest question number reported by the room's client
+    pub ping_qm_version: Option<String>,        // latest QuizMachine version reported by the room's client
+    pub ping_client_ts: Option<DateTime<Utc>>,  // latest client timestamp reported by the room's client
+    pub ping_jobspending: Option<i32>,          // latest jobs-pending count reported by the room's client
 }
 
 #[derive(
@@ -169,6 +173,10 @@ pub struct RoomChangeset {
     pub clientkey: Option<String>,
     pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
     pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
+    pub ping_question_number: Option<i32>,      // latest question number reported by the room's client
+    pub ping_qm_version: Option<String>,        // latest QuizMachine version reported by the room's client
+    pub ping_client_ts: Option<DateTime<Utc>>,  // latest client timestamp reported by the room's client
+    pub ping_jobspending: Option<i32>,          // latest jobs-pending count reported by the room's client
 }
 
 pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room> {

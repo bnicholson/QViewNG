@@ -421,6 +421,11 @@ diesel::table! {
         clientkey -> Varchar,
         quizmaster_id -> Nullable<Uuid>,
         contentjudge_id -> Nullable<Uuid>,
+        ping_question_number -> Nullable<Int4>,
+        #[max_length = 32]
+        ping_qm_version -> Nullable<Varchar>,
+        ping_client_ts -> Nullable<Timestamptz>,
+        ping_jobspending -> Nullable<Int4>,
     }
 }
 
