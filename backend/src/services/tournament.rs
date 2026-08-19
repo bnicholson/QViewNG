@@ -379,6 +379,23 @@ async fn read_games(
     }
 }
 
+#[get("/{id}/roommonitor")]
+async fn read_room_monitor(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::room::read_room_monitor_of_tournament(&mut conn, tour_id.into_inner()) {
+        Ok(rows) => HttpResponse::Ok().json(rows),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/gamestatuses")]
 async fn read_game_statuses(
     db: Data<Database>,
@@ -715,6 +732,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_quizzers)
         .service(read_games)
         .service(read_game_statuses)
+        .service(read_room_monitor)
         .service(import_gameevents_preview)
         .service(import_gameevents_commit)
         .service(read_admins)

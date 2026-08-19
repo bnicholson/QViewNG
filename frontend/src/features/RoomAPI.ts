@@ -26,7 +26,25 @@ export interface PagedRooms {
   items: RoomTS[];
 }
 
+export interface RoomMonitorRowTS {
+  roomid: string;
+  check_in: string | null;
+  client_ts: string | null;
+  room: string | null;
+  round: string | null;
+  question: number | null;
+  host_ip: string | null;
+  qm_version: string | null;
+  pending: number | null;
+  resend: string | null;
+  game_in_progress: boolean;
+  data_incomplete: boolean;
+}
+
 export const RoomAPI = {
+  // Live Room Monitor rows (latest ping + referenced game's resend status) for a tournament.
+  getMonitorByTournament: async (tid: string): Promise<RoomMonitorRowTS[]> =>
+    (await fetch(`/api/tournaments/${tid}/roommonitor`)).json(),
   get: async (page: number, size: number): Promise<PagedRooms> =>
     (await fetch(`/api/rooms?page=${page}&page_size=${size}`)).json(),
   getByTournament: async (tid: string, page: number, size: number): Promise<RoomTS[]> =>

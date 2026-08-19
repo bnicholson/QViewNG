@@ -373,6 +373,7 @@ async fn index(
 ) -> HttpResponse {
     // This endpoint is intentionally NOT ReST compliant; while being a GET endpoint it is used to persist GameEvents
     // to the DB and then lets the client know the request has been successfully received
+    // Resent gameevents are received here also.
 
     let mut db = db.get_connection().expect("Failed to get connection");
 
@@ -488,32 +489,32 @@ async fn index(
 //     }
 // }
 
-#[post("")]
-async fn create(
-    db: Data<Database>,
-    Json(item): Json<NewGameEvent>,
-    req: HttpRequest
-) -> Result<HttpResponse, Error> {
+// #[post("")]
+// async fn create(
+//     db: Data<Database>,
+//     Json(item): Json<NewGameEvent>,
+//     req: HttpRequest
+// ) -> Result<HttpResponse, Error> {
 
-    let mut conn = db.get_connection().expect("Failed to get connection");
+//     let mut conn = db.get_connection().expect("Failed to get connection");
     
-    tracing::debug!("{} GameEvent model create {:?}", line!(), item);
+//     tracing::debug!("{} GameEvent model create {:?}", line!(), item);
 
-    // log this api call
-    models::apicalllog::create(&mut conn, &req);
+//     // log this api call
+//     models::apicalllog::create(&mut conn, &req);
     
-    let result: QueryResult<GameEvent> = models::gameevent::create(&mut conn, &item);
+//     let result: QueryResult<GameEvent> = models::gameevent::create(&mut conn, &item);
 
-    let response: EntityResponse<GameEvent> = process_response(result, "post");
+//     let response: EntityResponse<GameEvent> = process_response(result, "post");
     
-    match response.code {
-        400 => Ok(HttpResponse::BadRequest().json(response)),
-        409 => Ok(HttpResponse::Conflict().json(response)),
-        201 => Ok(HttpResponse::Created().json(response)),
-        200 => Ok(HttpResponse::Ok().json(response)),
-        _ => Ok(HttpResponse::InternalServerError().json(response))
-    }
-}
+//     match response.code {
+//         400 => Ok(HttpResponse::BadRequest().json(response)),
+//         409 => Ok(HttpResponse::Conflict().json(response)),
+//         201 => Ok(HttpResponse::Created().json(response)),
+//         200 => Ok(HttpResponse::Ok().json(response)),
+//         _ => Ok(HttpResponse::InternalServerError().json(response))
+//     }
+// }
 
 
 // #[post("")]
@@ -562,20 +563,12 @@ async fn create(
 //     } else {
 //         HttpResponse::InternalServerError().finish()
 //     }
-// }
-
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
-        .service(create);
-}
-
-// pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
-//     return scope
-//         .service(index)
 //         .service(read)
 //         .service(create)
 //         .service(update)
 //         .service(destroy);
-// }
+}

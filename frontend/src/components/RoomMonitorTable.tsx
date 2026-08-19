@@ -1,66 +1,99 @@
+import { useEffect, useState } from 'react';
 import { DataTableTemplate, type ColumnDef } from './DataTableTemplate';
+import { RoomAPI, type RoomMonitorRowTS } from '../features/RoomAPI';
 
-interface RoomMonitorRow {
-  id: number;
-  bldgroom: string;
-  chkdin: string;
-  tournament: string;
-  division: string;
-  room: string;
-  round: string;
-  question: number;
-  hostip: string;
-  qmversion: string;
-  pending: number;
-  status_error: string;
-  resend: string;
+const POLL_MS = 60_000;                 // refresh the monitor every 60 seconds
+const STALE_MS = 2 * 60 * 1000;         // a room in-progress whose client_ts is > 2 min old is "late"
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
-const columns: ColumnDef<RoomMonitorRow>[] = [
-  { header: 'Check In',     render: (r) => r.chkdin       },
-  { header: 'Room',         render: (r) => r.room         },
-  { header: 'Round',        render: (r) => r.round        },
-  { header: 'Question',     render: (r) => r.question     },
-  { header: 'Host IP',      render: (r) => r.hostip       },
-  { header: 'QMVersion',    render: (r) => r.qmversion    },
-  { header: 'Pending',      render: (r) => r.pending      },
-  { header: 'Status-Error', render: (r) => r.status_error },
-  { header: 'Resend',       render: (r) => r.resend       },
+function orDash(v: string | number | null): string | number {
+  return v === null || v === undefined || v === '' ? '—' : v;
+}
+
+// A room is "not communicating" when a game is in progress but its client-reported
+// timestamp (ping_client_ts) is more than STALE_MS old.
+function isLate(r: RoomMonitorRowTS, now: number): boolean {
+  if (!r.game_in_progress || !r.client_ts) return false;
+  const t = new Date(r.client_ts).getTime();
+  return !isNaN(t) && now - t > STALE_MS;
+}
+
+// All applicable Status-Error messages for a row (both shown when both apply).
+function statusMessages(r: RoomMonitorRowTS, now: number): string[] {
+  const messages: string[] = [];
+  if (isLate(r, now)) messages.push('Room not communicating?? Late??');
+  if (r.data_incomplete) messages.push('Data Incomplete. Resend Advised.');
+  return messages;
+}
+
+// Whether the row should be highlighted (red background / white text).
+function isAlert(r: RoomMonitorRowTS, now: number): boolean {
+  return isLate(r, now) || r.data_incomplete;
+}
+
+const columns: ColumnDef<RoomMonitorRowTS>[] = [
+  { header: 'Check In',     render: (r) => formatDateTime(r.check_in) },
+  { header: 'Room',         render: (r) => orDash(r.room)             },
+  { header: 'Round',        render: (r) => orDash(r.round)            },
+  { header: 'Question',     render: (r) => orDash(r.question)         },
+  { header: 'Host IP',      render: (r) => orDash(r.host_ip)          },
+  { header: 'QMVersion',    render: (r) => orDash(r.qm_version)       },
+  { header: 'Pending',      render: (r) => orDash(r.pending)          },
+  {
+    header: 'Status-Error',
+    render: (r) => statusMessages(r, Date.now()).map((m, i) => <div key={i}>{m}</div>),
+  },
+  { header: 'Resend',       render: (r) => (r.resend ? `Response: ${r.resend}` : '—') },
 ];
 
-// Placeholder rows matching the legacy RoomMonitor component
-const PLACEHOLDER_ROWS: RoomMonitorRow[] = Array.from({ length: 5 }, (_, i) => ({
-  id: i,
-  bldgroom: 'Jester 103',
-  chkdin: '11:03',
-  tournament: 'Q2022',
-  division: 'Local-Experienced',
-  room: 'Jester 103',
-  round: 'Tues07d',
-  question: 21,
-  hostip: '192.168.4.23',
-  qmversion: '5.4 J30',
-  pending: 33,
-  status_error: 'Missing a quizzer',
-  resend: 'resend 33',
-}));
+export default function RoomMonitorTable({ tid }: { tid: string }) {
+  const [rows, setRows] = useState<RoomMonitorRowTS[]>([]);
+  // A ticking value so the "late" evaluation re-renders even between polls.
+  const [, setTick] = useState(0);
 
-export default function RoomMonitorTable({ tid: _tid }: { tid: string }) {
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      RoomAPI.getMonitorByTournament(tid)
+        .then((result) => {
+          if (!cancelled) setRows(result);
+        })
+        .catch(() => console.error('Failed to load room monitor data'));
+    };
+    load();
+    const poll = setInterval(load, POLL_MS);
+    const tick = setInterval(() => setTick((t) => t + 1), POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      clearInterval(tick);
+    };
+  }, [tid]);
+
+  // Only show rooms that have historically checked in.
+  const visibleRows = rows.filter((r) => r.check_in);
+
   return (
-    <DataTableTemplate<RoomMonitorRow>
+    <DataTableTemplate<RoomMonitorRowTS>
       entityLabel="Room Monitor"
       showCreateButton={false}
       showDeleteButton={false}
       dense
       columns={columns}
-      rows={PLACEHOLDER_ROWS}
-      totalCount={PLACEHOLDER_ROWS.length}
-      getId={(r) => String(r.id)}
+      rows={visibleRows}
+      totalCount={visibleRows.length}
+      getId={(r) => r.roomid}
       page={0}
-      pageSize={PLACEHOLDER_ROWS.length}
+      pageSize={visibleRows.length || 1}
       onPageChange={() => { }}
       onPageSizeChange={() => { }}
       onDelete={async () => { }}
+      getRowStyle={(r) => (isAlert(r, Date.now()) ? { background: '#c0392b', color: '#ffffff' } : undefined)}
     />
   );
 }

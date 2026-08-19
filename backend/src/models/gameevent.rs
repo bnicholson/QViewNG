@@ -203,6 +203,31 @@ impl GameEventCalculator {
             else {
                 println!["TOP of Calc: Question = {}, EventNum = {}, Event = {}", game_event.question, game_event.eventnum, game_event.event];
             }
+
+            // Guard: any in-game event that operates on an existing team/quizzer must find
+            // them first. If not, exit immediately rather than panicking on an unwrap deeper
+            // in the handler. (RM/QT/IP/OP/TN/NJ/A+/A-/DE create or don't touch teams.)
+            let event_code = game_event.event.as_str();
+            let requires_team = matches!(
+                event_code,
+                "TC" | "TE" | "BC" | "BE" | "QO" | "EO" | "C-" | "FC" | "F-" | "SB" | "TO" | "SC" | "SS" | "QN"
+            );
+            if requires_team && !mut_self.teams.contains_key(&game_event.team) {
+                errors.push(format!("Team not found: {}", game_event.team));
+                return Err(errors);
+            }
+            let requires_quizzer = matches!(event_code, "TC" | "TE" | "BC" | "BE" | "QO" | "EO" | "F-");
+            if requires_quizzer {
+                let quizzer_exists = mut_self
+                    .teams
+                    .get(&game_event.team)
+                    .map_or(false, |team| team.quizzers.contains_key(&game_event.quizzer));
+                if !quizzer_exists {
+                    errors.push(format!("Quizzer not found: seat {} on team {}", game_event.quizzer, game_event.team));
+                    return Err(errors);
+                }
+            }
+
             match string_to_gameeventcode(game_event.event.as_str()) {
                 GameEventCode::RM => {
                     // no impact
@@ -306,8 +331,14 @@ impl GameEventCalculator {
                         .cocaptain = (game_event.quizzer, true);
                 },
                 GameEventCode::TC => {
-                    let original_quizzers_with_at_least_one_correct_tossup = mut_self.teams[&game_event.team].clone().quizzers_with_at_least_one_correct_tossup();
-                    
+                    let original_quizzers_with_at_least_one_correct_tossup = match mut_self.teams.get(&game_event.team) {
+                        Some(team) => team.clone().quizzers_with_at_least_one_correct_tossup(),
+                        None => {
+                            errors.push(format!("Team not found: {}", game_event.team));
+                            return Err(errors);
+                        }
+                    };
+
                     if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
 
                         let tie_exists = {
@@ -352,7 +383,13 @@ impl GameEventCalculator {
                         team.score += award;
                     }
                     // 3rd, 4th, and 5th person bonuses:
-                    let new_quizzers_with_at_least_one_correct_tossup = mut_self.teams[&game_event.team].clone().quizzers_with_at_least_one_correct_tossup();
+                    let new_quizzers_with_at_least_one_correct_tossup = match mut_self.teams.get(&game_event.team) {
+                        Some(team) => team.clone().quizzers_with_at_least_one_correct_tossup(),
+                        None => {
+                            errors.push(format!("Team not found: {}", game_event.team));
+                            return Err(errors);
+                        }
+                    };
                     let third_fourth_fifth_person_bonus_award_amount = mut_self.options.third_fourth_and_fifth_person_bonus_award_amount;
                     let is_third_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 2 && new_quizzers_with_at_least_one_correct_tossup == 3;
                     let is_fourth_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 3 && new_quizzers_with_at_least_one_correct_tossup == 4;
@@ -417,8 +454,15 @@ impl GameEventCalculator {
                     // EO will be handled by EO game_event; don't do anything for it here.
                     
                     // for team:
-                    if game_event.question >= self.options.start_error_zone_deductions 
-                        || mut_self.teams[&game_event.team].clone().errors_result_in_team_point_deduction()
+                    let team_errors_cause_deduction = match mut_self.teams.get(&game_event.team) {
+                        Some(team) => team.clone().errors_result_in_team_point_deduction(),
+                        None => {
+                            errors.push(format!("Team not found: {}", game_event.team));
+                            return Err(errors);
+                        }
+                    };
+                    if game_event.question >= self.options.start_error_zone_deductions
+                        || team_errors_cause_deduction
                         || quizzer_error_count >= mut_self.options.individual_error_begin_deduction_count as usize {
                         let deduction = mut_self.options.point_deduction_for_error_on_tossup;
                         if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
@@ -492,11 +536,13 @@ impl GameEventCalculator {
                         .question_quizzed_out_on = game_event.question;
                     // award points if no errors while quizzing-out (QO w/o):
                     let award = mut_self.options.point_award_for_quizzing_out;
-                    let is_quiz_out_without_error =  mut_self
-                        .teams[&game_event.team]
-                        .quizzers[&game_event.quizzer]
-                        .errors_on_tossups
-                        .iter().count() == 0;
+                    let is_quiz_out_without_error = match mut_self.teams.get(&game_event.team) {
+                        Some(team) => team.quizzers[&game_event.quizzer].errors_on_tossups.iter().count() == 0,
+                        None => {
+                            errors.push(format!("Team not found: {}", game_event.team));
+                            return Err(errors);
+                        }
+                    };
                     println!["is_quiz_out_without_error: {}", is_quiz_out_without_error];
                     if is_quiz_out_without_error {
                         if let Some(team) = mut_self.teams.get_mut(&game_event.team) {

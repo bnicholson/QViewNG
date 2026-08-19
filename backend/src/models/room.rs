@@ -286,3 +286,144 @@ pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize
     use crate::schema::rooms::dsl::*;
     diesel::delete(rooms.filter(roomid.eq(item_id))).execute(db)
 }
+
+// ─── Room Monitor (per-room live ping + resend status for a tournament) ────────
+
+/// One row of the Room Monitor: a room's latest ping data plus the referenced
+/// game's resend status. `status_error` is intentionally left out for now.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct RoomMonitorRow {
+    pub roomid: Uuid,
+    pub check_in: Option<DateTime<Utc>>,   // ping_last_checkin_ts (server receive time)
+    pub client_ts: Option<DateTime<Utc>>,  // ping_client_ts (client-reported time; used for the "late" check)
+    pub room: Option<String>,              // ping_room
+    pub round: Option<String>,             // ping_round
+    pub question: Option<i32>,             // ping_question_number
+    pub host_ip: Option<String>,           // ping_host_ip
+    pub qm_version: Option<String>,        // ping_qm_version
+    pub pending: Option<i32>,              // ping_jobspending
+    pub resend: Option<String>,            // referenced game's resend_gameevents_response
+    pub game_in_progress: bool,            // referenced game has started (gameplay) but is not finished
+    pub data_incomplete: bool,             // retrieved events have a gap in questions or sub-events
+}
+
+// Event codes that make up round initialization (no gameplay yet).
+const ROOM_MONITOR_INIT_CODES: [&str; 8] = ["RM", "QT", "IP", "OP", "TN", "QN", "SC", "SS"];
+
+/// True if the game's events are sequentially incomplete: a question number is missing
+/// (they must run 1..=max) or a question is missing a sub-event (eventnum must run 0..=max).
+fn events_have_gaps(events: &[crate::models::gameevent::GameEvent]) -> bool {
+    use std::collections::{BTreeMap, HashSet};
+
+    if events.is_empty() {
+        return false;
+    }
+
+    // Question numbers must be contiguous from 1 through the maximum.
+    let mut questions: Vec<i32> = events.iter().map(|e| e.question).collect();
+    questions.sort_unstable();
+    questions.dedup();
+    for (idx, q) in questions.iter().enumerate() {
+        if *q != (idx as i32 + 1) {
+            return true;
+        }
+    }
+
+    // Within each question, event numbers must run 0 through the maximum with no gaps.
+    let mut by_question: BTreeMap<i32, Vec<i32>> = BTreeMap::new();
+    for e in events {
+        by_question.entry(e.question).or_default().push(e.eventnum);
+    }
+    for (_question, eventnums) in &by_question {
+        let set: HashSet<i32> = eventnums.iter().copied().collect();
+        let max = eventnums.iter().copied().max().unwrap_or(0);
+        for n in 0..=max {
+            if !set.contains(&n) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+/// Finds the game referenced by a room's latest ping: by ping_game_id if present,
+/// otherwise by the composite key (this room + a round matching ping_round).
+fn referenced_game(db: &mut database::Connection, room: &Room) -> Option<crate::models::game::Game> {
+    if let Some(gid) = room.ping_game_id {
+        if let Ok(game) = crate::models::game::read(db, gid) {
+            return Some(game);
+        }
+    }
+    // Composite fallback: a game in this room whose round name matches ping_round.
+    let round_name = room.ping_round.as_ref()?;
+    use crate::schema::games::dsl as g;
+    use crate::schema::rounds::dsl as r;
+    g::games
+        .inner_join(r::rounds.on(g::roundid.eq(r::roundid)))
+        .filter(g::roomid.eq(room.roomid))
+        .filter(r::name.eq(round_name))
+        .select(crate::models::game::Game::as_select())
+        .first::<crate::models::game::Game>(db)
+        .ok()
+}
+
+/// Builds the Room Monitor rows for every room in a tournament.
+pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament_id: Uuid) -> QueryResult<Vec<RoomMonitorRow>> {
+    let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+    let all_rooms = read_all_rooms_of_tournament(db, tournament_id, &pagination)?;
+
+    let mut monitor = Vec::with_capacity(all_rooms.len());
+    for room in all_rooms {
+        let game = referenced_game(db, &room);
+        let resend = game.as_ref().and_then(|g| g.resend_gameevents_response.clone());
+
+        // Started = at least one non-initialization (gameplay) event.
+        // Finished = reached question 20 with all ties resolved (distinct final scores),
+        // matching the Game Selection "Done" definition.
+        // data_incomplete = the retrieved events have a gap in question numbers or in a
+        // question's sub-event (eventnum) sequence.
+        let (game_in_progress, data_incomplete) = match &game {
+            Some(g) => {
+                let events = crate::models::gameevent::read_all_gameevents_of_game(db, g.gid, &pagination)
+                    .unwrap_or_default();
+
+                // Validate sequential integrity of the retrieved events.
+                let data_incomplete = events_have_gaps(&events);
+
+                let has_events = !events.is_empty();
+                let started = events.iter().any(|e| !ROOM_MONITOR_INIT_CODES.contains(&e.event.as_str()));
+                let has_question_20 = events.iter().any(|e| e.question >= 20);
+
+                let results = crate::models::gameevent::calculate_team_results_for_game(g.gid, events);
+                let ties_resolved = match &results {
+                    Ok(teams) if !teams.is_empty() => {
+                        let mut scores: Vec<i32> = teams.iter().map(|t| t.score).collect();
+                        scores.sort_unstable();
+                        scores.windows(2).all(|w| w[0] != w[1])
+                    }
+                    _ => false,
+                };
+                let finished = has_events && results.is_ok() && has_question_20 && ties_resolved;
+                (started && !finished, data_incomplete)
+            }
+            None => (false, false),
+        };
+
+        monitor.push(RoomMonitorRow {
+            roomid: room.roomid,
+            check_in: room.ping_last_checkin_ts,
+            client_ts: room.ping_client_ts,
+            room: room.ping_room.clone(),
+            round: room.ping_round.clone(),
+            question: room.ping_question_number,
+            host_ip: room.ping_host_ip.clone(),
+            qm_version: room.ping_qm_version.clone(),
+            pending: room.ping_jobspending,
+            resend,
+            game_in_progress,
+            data_incomplete,
+        });
+    }
+    Ok(monitor)
+}

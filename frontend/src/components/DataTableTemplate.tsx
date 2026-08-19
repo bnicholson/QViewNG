@@ -256,6 +256,8 @@ export interface DataTableProps<T> {
   onPageSizeChange: (pageSize: number) => void;
   /** Reduce each row's vertical padding for a denser table. Defaults to false. */
   dense?: boolean;
+  /** Optional per-row override of the row background and/or text color. */
+  getRowStyle?: (row: T) => { background?: string; color?: string } | undefined;
 }
 
 export function DataTableTemplate<T>({
@@ -275,6 +277,7 @@ export function DataTableTemplate<T>({
   onPageChange,
   onPageSizeChange,
   dense = false,
+  getRowStyle,
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
@@ -392,21 +395,24 @@ export function DataTableTemplate<T>({
                 </td>
               </tr>
             ) : (
-              safeRows.map((row, i) => (
+              safeRows.map((row, i) => {
+                const custom = getRowStyle?.(row);
+                const baseBg = i % 2 === 0 ? "#fff" : "#fafafa";
+                const rowBg = custom?.background ?? baseBg;
+                const cellColor = custom?.color ?? "#374151";
+                return (
                 <tr
                   key={getId(row)}
                   style={{
-                    background: i % 2 === 0 ? "#fff" : "#fafafa",
+                    background: rowBg,
                     borderBottom: "1px solid #f3f4f6",
                     transition: "background .1s",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f7ff")}
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#fafafa")
-                  }
+                  onMouseEnter={(e) => (e.currentTarget.style.background = custom?.background ?? "#f0f7ff")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = rowBg)}
                 >
                   {columns.map((col) => (
-                    <td key={col.header} style={{ padding: `${cellPadY}px 14px`, color: "#374151" }}>
+                    <td key={col.header} style={{ padding: `${cellPadY}px 14px`, color: cellColor }}>
                       {col.render(row)}
                     </td>
                   ))}
@@ -416,7 +422,8 @@ export function DataTableTemplate<T>({
                     </td>
                   )}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
