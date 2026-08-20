@@ -157,7 +157,7 @@ export default function ProfileLayout({ title, subtitle, navItems, children }: P
               >
                 <ListItemText
                   primary={item.label}
-                  primaryTypographyProps={{ fontSize: '0.875rem' }}
+                  primaryTypographyProps={{ fontSize: '0.875rem', sx: { whiteSpace: 'pre-line' } }}
                 />
               </ListItemButton>
             )

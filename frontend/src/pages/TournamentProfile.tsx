@@ -112,7 +112,6 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`     },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
     { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
-    { kind: 'route', label: 'Room Monitor', to: `/tournament/${tid}/room-monitor`, requiredPermission: 'roommonitor:read' },
     { kind: 'route', label: 'Teams',        to: `/tournament/${tid}/teams`        },
     { kind: 'route', label: 'Quizzers',     to: `/tournament/${tid}/quizzers`     },
     { kind: 'route', label: 'Rounds',       to: `/tournament/${tid}/rounds`       },
@@ -120,7 +119,8 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Gear',         to: `/tournament/${tid}/gear`,          visible: canViewAdmins === true },
     { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`,       visible: canViewAdmins === true },
     { kind: 'route', label: 'Tournament Groups', to: `/tournament/${tid}/tournament-groups` },
-    { kind: 'route', label: 'Server / Stats Groups', to: `/tournament/${tid}/stats-groups` },
+    { kind: 'route', label: 'Server Monitor', to: `/tournament/${tid}/room-monitor`, requiredPermission: 'roommonitor:read' },
+    { kind: 'route', label: 'Server Stats', to: `/tournament/${tid}/stats-groups` },
   ]
 
   const navItems = allNavItems
