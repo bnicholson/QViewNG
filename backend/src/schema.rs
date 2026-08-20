@@ -224,6 +224,7 @@ diesel::table! {
         #[max_length = 32]
         md5digest -> Varchar,
         qm_registration_key -> Nullable<Varchar>,
+        source -> Nullable<Varchar>,
     }
 }
 

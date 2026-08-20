@@ -2271,6 +2271,7 @@ pub struct GameEventBuilder {
     parm2: Option<String>,
     clientts: Option<DateTime<Utc>>,
     md5digest: Option<String>,
+    source: Option<String>,
 }
 
 impl GameEventBuilder {
@@ -2287,6 +2288,7 @@ impl GameEventBuilder {
             parm2: None,
             clientts: None,
             md5digest: None,
+            source: None,
         }
     }
     pub fn new_default(game_id: Uuid) -> Self {
@@ -2302,6 +2304,7 @@ impl GameEventBuilder {
             parm2: Some("".to_string()),
             clientts: Some(Utc::now()),
             md5digest: Some("".to_string()),
+            source: None,
         }
     }
     pub fn new_empty(event: String) -> Self {
@@ -2316,7 +2319,8 @@ impl GameEventBuilder {
             parm1: Some("".to_string()),
             parm2: Some("".to_string()),
             clientts: Some(Utc::now()),
-            md5digest: Some("".to_string())
+            md5digest: Some("".to_string()),
+            source: None,
         }
     }
     pub fn set_gid(mut self, val: Uuid) -> Self {
@@ -2365,6 +2369,10 @@ impl GameEventBuilder {
     }
     pub fn set_md5digest(mut self, val: Option<String>) -> Self {
         self.md5digest = val;
+        self
+    }
+    pub fn set_source(mut self, val: Option<String>) -> Self {
+        self.source = val;
         self
     }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
@@ -2421,6 +2429,7 @@ impl GameEventBuilder {
                         serverts: Utc::now(),
                         md5digest: self.md5digest.unwrap(),
                         qm_registration_key: None,
+                        source: self.source.clone(),
                     }
                 )
             }
@@ -2460,6 +2469,7 @@ pub struct GameEvent {
     pub serverts: DateTime<Utc>,
     pub md5digest: String,
     pub qm_registration_key: Option<String>,
+    pub source: Option<String>,
 }
 impl GameEvent {
     pub fn new_from_new_game_event(new_game_event: NewGameEvent) -> Self {
@@ -2477,6 +2487,7 @@ impl GameEvent {
             serverts: new_game_event.serverts,
             md5digest: new_game_event.md5digest,
             qm_registration_key: new_game_event.qm_registration_key.clone(),
+            source: new_game_event.source.clone(),
         }
     }
 }
@@ -2515,6 +2526,7 @@ pub struct NewGameEvent {
     pub serverts: DateTime<Utc>,
     pub md5digest: String,
     pub qm_registration_key: Option<String>,
+    pub source: Option<String>,
 }
 
 impl NewGameEvent {
@@ -2534,6 +2546,7 @@ impl NewGameEvent {
             serverts: Utc::now(),
             md5digest: "".to_string(),
             qm_registration_key: None,
+            source: None,
         }
     }
 }
@@ -2551,6 +2564,7 @@ pub struct GameEventChangeset {
     pub serverts: DateTime<Utc>,
     pub md5digest: String,
     pub qm_registration_key: Option<String>,
+    pub source: Option<String>,
 }
 
 impl GameEventChangeset {
@@ -2566,6 +2580,7 @@ impl GameEventChangeset {
             serverts: item.serverts,
             md5digest: item.md5digest.clone(),
             qm_registration_key: item.qm_registration_key.clone(),
+            source: item.source.clone(),
         }
     }
 }

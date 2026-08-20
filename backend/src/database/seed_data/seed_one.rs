@@ -1632,6 +1632,7 @@ fn insert_game_event(
         .set_quizzer(Some(quizzer))
         .set_event(Some(event))
         .set_clientts(Some(ts))
+        .set_source(Some("seed data".to_string()))
         .build_and_insert(db)
         .unwrap();
 }

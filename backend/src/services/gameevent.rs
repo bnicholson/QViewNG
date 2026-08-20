@@ -32,6 +32,7 @@ pub async fn write(
     let mut gameeventlog_entry: gameeventlog::GameEventlogChangeset = gameeventlog::empty_changeset();
     let mut game_entry: GameChangeset = GameChangeset::empty();
     let mut gameevent_entry = NewGameEvent::empty();
+    gameevent_entry.source = Some("qview network".to_string());
     let mut roominfo_entry = roominfo::empty();
 
     // Okay, it's now time to search all the parameters and set the associated 

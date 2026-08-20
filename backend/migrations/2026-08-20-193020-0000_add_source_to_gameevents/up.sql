@@ -1,0 +1,1 @@
+ALTER TABLE gameevents ADD COLUMN source VARCHAR;

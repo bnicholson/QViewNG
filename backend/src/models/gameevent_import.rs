@@ -352,6 +352,7 @@ fn build(db: &mut database::Connection, tournament_id: Uuid, csv: &str) -> (Impo
             serverts: Utc::now(),
             md5digest: String::new(),
             qm_registration_key: None,
+            source: Some("sneakernet import".to_string()),
         }).collect();
 
         importable.push(ImportableGame {
