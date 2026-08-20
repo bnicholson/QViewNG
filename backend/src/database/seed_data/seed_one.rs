@@ -3,14 +3,12 @@ use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
 
-pub fn insert_seed_data_one(db: &mut database::Connection) {
-    add_tour_1_demo(db);
+pub fn insert_seed_data_one(db: &mut database::Connection, include_gameevents: bool) {
+    add_tour_1_demo(db, include_gameevents);
     create_tournament_applicants(db);
 }
 
-pub fn add_tour_1_demo(db: &mut database::Connection) {
-
-    let include_gameevents = false;
+pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) {
 
     // Add Touranment Manager (*owner of Tour One):
 

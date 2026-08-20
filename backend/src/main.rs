@@ -49,7 +49,8 @@ async fn main() -> std::io::Result<()> {
     // let mut conn = db.get_connection().expect("Failed to get connection.");
     // database::clean_db::clean_database(&mut conn);
     // database::seed_data::system_default_data::insert_system_default_data(&mut conn);
-    // database::seed_data::seed_one::insert_seed_data_one(&mut conn);
+    // let include_gameevents: bool = false;
+    // database::seed_data::seed_one::insert_seed_data_one(&mut conn, include_gameevents);
     // let end_time_for_db_pop = Utc::now();
     // let duration_for_db_pop = end_time_for_db_pop.naive_utc() - start_time_for_db_pop.naive_utc();
     // println!("DB Population Time Duration: {}", duration_for_db_pop);
