@@ -411,60 +411,48 @@ pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParam
         .load::<Game>(db_conn)
 }
 
+/// Loads a page of games matching `games::<$col> == $val`, ordered by Division name,
+/// then Start Time (the round's scheduled start; unscheduled sorts last via Postgres'
+/// default ASC NULLS LAST), then Room name, with gid as a stable tiebreak. The ORDER BY
+/// runs in SQL over joined tables so the ordering is stable across pages and the database
+/// only materializes the requested page.
+macro_rules! read_games_ordered {
+    ($db:expr, $pagination:expr, $col:ident, $val:expr) => {{
+        use crate::schema::{games, divisions, rounds, rooms};
+        let page_size = $pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+        let offset_val = $pagination.page * page_size;
+        games::table
+            .inner_join(divisions::table.on(games::divisionid.eq(divisions::did)))
+            .inner_join(rounds::table.on(games::roundid.eq(rounds::roundid)))
+            .inner_join(rooms::table.on(games::roomid.eq(rooms::roomid)))
+            .filter(games::$col.eq($val))
+            .order((
+                divisions::dname.asc(),
+                rounds::scheduled_start_time.asc(),
+                rooms::name.asc(),
+                games::gid.asc(),
+            ))
+            .select(games::all_columns)
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Game>($db)
+    }};
+}
+
 pub fn read_all_games_of_round(db_conn: &mut database::Connection, round_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
-    use crate::schema::games::dsl::*;
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-
-    games
-        .filter(roundid.eq(round_id))
-        .order(gid)
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Game>(db_conn)
+    read_games_ordered!(db_conn, pagination, roundid, round_id)
 }
 
 pub fn read_all_games_of_division(db: &mut database::Connection, division_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
-    use crate::schema::games::dsl::*;
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-
-    games
-        .filter(divisionid.eq(division_id))
-        .order(gid)
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Game>(db)
+    read_games_ordered!(db, pagination, divisionid, division_id)
 }
 
 pub fn read_all_games_of_tournament(db: &mut database::Connection, tournament_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
-    use crate::schema::games::dsl::*;
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-
-    games
-        .filter(tournamentid.eq(tournament_id))
-        .order(gid)
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Game>(db)
+    read_games_ordered!(db, pagination, tournamentid, tournament_id)
 }
 
 pub fn read_all_games_of_room(db: &mut database::Connection, room_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
-    use crate::schema::games::dsl::*;
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-
-    games
-        .filter(roomid.eq(room_id))
-        .order(gid)
-        .limit(page_size)
-        .offset(offset_val)
-        .load::<Game>(db)
+    read_games_ordered!(db, pagination, roomid, room_id)
 }
 
 pub fn read_all_games_of_team(db: &mut database::Connection, team_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {

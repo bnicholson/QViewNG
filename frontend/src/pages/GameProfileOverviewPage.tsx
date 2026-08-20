@@ -20,6 +20,7 @@ import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import type { TournamentTS } from '../features/TournamentAPI'
+import { computeRoomRoundSequence } from '../utils/gameRoundSequence'
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
@@ -84,6 +85,8 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
   const [lookups, setLookups] = useState<Lookups | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // This game's 1-based ordinal among its room's games, ordered by start time.
+  const [roundOrdinal, setRoundOrdinal] = useState<number | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -96,6 +99,20 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
       setLookups({ divisions, rooms, rounds, teams: teamResult.items, users: userResult.items })
     }).catch(() => setError('Failed to load lookup data.'))
   }, [tournament.tid])
+
+  // Number this game within its room (by start time) using all of the room's games.
+  useEffect(() => {
+    if (!lookups) return
+    let cancelled = false
+    GameAPI.getByRoom(game.roomid, 0, 1000)
+      .then(roomGames => {
+        if (cancelled) return
+        const roundStartById = new Map(lookups.rounds.map(r => [r.roundid, r.scheduled_start_time]))
+        setRoundOrdinal(computeRoomRoundSequence(roomGames, roundStartById).get(game.gid) ?? null)
+      })
+      .catch(() => { if (!cancelled) setRoundOrdinal(null) })
+    return () => { cancelled = true }
+  }, [game.gid, game.roomid, lookups])
 
   const startEdit = () => {
     setForm({
@@ -244,9 +261,9 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
             )}
           </Grid>
 
-          {/* Round */}
+          {/* Start Time */}
           <Grid item xs={12} sm={6} md={4}>
-            <Typography variant="body2" color="text.secondary">Round</Typography>
+            <Typography variant="body2" color="text.secondary">Start Time</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.roundid} onChange={e => set({ roundid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
                 {lookups?.rounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{formatDateTime(r.scheduled_start_time)}</MenuItem>)}
@@ -254,6 +271,12 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
             ) : (
               <Typography variant="body1"><ProfileLink to={`/round/${game.roundid}/overview`} label={formatDateTime(roundMap.get(game.roundid))} /></Typography>
             )}
+          </Grid>
+
+          {/* Round (this game's ordinal within its room) */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="body2" color="text.secondary">Round</Typography>
+            <Typography variant="body1">{roundOrdinal ?? '—'}</Typography>
           </Grid>
 
           {/* Left Team */}

@@ -7,6 +7,7 @@ import { RoomAPI } from '../features/RoomAPI';
 import { RoundAPI } from '../features/RoundAPI';
 import { TeamAPI } from '../features/TeamAPI';
 import { GameEditorDialog } from './GameEditorDialog';
+import { computeRoomRoundSequence } from '../utils/gameRoundSequence';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -30,7 +31,7 @@ interface LookupMaps {
   teams: Map<string, string>;
 }
 
-function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<GameTS>[] {
+function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, number>, showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<GameTS>[] {
   return [
     {
       header: '',
@@ -58,7 +59,7 @@ function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolea
       render: (g) => maps.divisions.get(g.divisionid) ?? g.divisionid,
     },
     {
-      header: 'Round',
+      header: 'Start Time',
       render: (g) => (
         <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
       ),
@@ -66,6 +67,10 @@ function gameColumns(tid: string, maps: LookupMaps, showSensitiveColumns: boolea
     {
       header: 'Room',
       render: (g) => maps.rooms.get(g.roomid) ?? g.roomid,
+    },
+    {
+      header: 'Round',
+      render: (g) => roomSequence.get(g.gid) ?? '—',
     },
     {
       header: 'Left Team',
@@ -109,6 +114,9 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
     rounds: new Map(),
     teams: new Map(),
   });
+  // game id -> its 1-based ordinal among its room's games (by start time). Built
+  // from ALL of the tournament's games so it's correct regardless of the page shown.
+  const [roomSequence, setRoomSequence] = useState<Map<string, number>>(new Map());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -130,19 +138,23 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
       RoomAPI.get(0, 100),
       RoundAPI.get(0, 200),
       TeamAPI.get(0, 200),
+      // All of the tournament's games, used only to number each game within its room.
+      GameAPI.getByTournament(tid, 0, 1000),
     ])
-      .then(([gameResult, divResult, roomResult, roundResult, teamResult]) => {
+      .then(([gameResult, divResult, roomResult, roundResult, teamResult, allGamesResult]) => {
         setPage(p);
         setPageSize(ps);
         const { items, count } = gameResult;
         setTotalCount(count ?? (items.length < ps ? p * ps + items.length : (p + 2) * ps));
         setGames(items);
+        const roundStartById = new Map(roundResult.items.map(r => [r.roundid, r.scheduled_start_time]));
         setMaps({
           divisions: new Map(divResult.items.map(d => [d.did, d.dname])),
           rooms: new Map(roomResult.items.map(r => [r.roomid, r.name])),
-          rounds: new Map(roundResult.items.map(r => [r.roundid, r.scheduled_start_time])),
+          rounds: roundStartById,
           teams: new Map(teamResult.items.map(t => [t.teamid, t.name])),
         });
+        setRoomSequence(computeRoomRoundSequence(allGamesResult.items, roundStartById));
       })
       .catch(() => console.error('Failed to load games'));
   }, [tid, did, roundid, roomid]);
@@ -174,7 +186,6 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
     loadGames(page, pageSize);
   }, [loadGames, page, pageSize]);
 
-
   return (
     <>
       <DataTableTemplate<GameTS>
@@ -183,7 +194,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={gameColumns(tid, maps, showSensitiveColumns, showAuditColumns)}
+        columns={gameColumns(tid, maps, roomSequence, showSensitiveColumns, showAuditColumns)}
         rows={games}
         totalCount={totalCount}
         getId={(g) => g.gid}
