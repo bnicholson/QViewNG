@@ -146,8 +146,10 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     },
   ];
 
-  // Only show rooms that have historically checked in.
-  const visibleRows = rows.filter((r) => r.check_in);
+  // Only show rooms that have historically checked in, ordered by room name.
+  const visibleRows = rows
+    .filter((r) => r.check_in)
+    .sort((a, b) => (a.room ?? '').localeCompare(b.room ?? '', undefined, { numeric: true }));
 
   return (
     <DataTableTemplate<RoomMonitorRowTS>
