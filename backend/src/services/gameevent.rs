@@ -62,6 +62,7 @@ pub async fn write(
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.clientkey = (&tmp).to_string();
                 roominfo_entry.clientkey = (&tmp).to_string();
+                gameevent_entry.qm_registration_key = Some(tmp.clone());
                 game_entry.clientkey = Some(tmp);
                 field_count += 1;
             },

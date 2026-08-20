@@ -351,6 +351,7 @@ fn build(db: &mut database::Connection, tournament_id: Uuid, csv: &str) -> (Impo
             clientts: parse_ts(&row.client_ts),
             serverts: Utc::now(),
             md5digest: String::new(),
+            qm_registration_key: None,
         }).collect();
 
         importable.push(ImportableGame {
