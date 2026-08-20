@@ -2611,6 +2611,43 @@ pub fn read_all_gameevents_of_game(db: &mut database::Connection, game_id: Uuid,
         .load::<GameEvent>(db)
 }
 
+/// True if a game's events are sequentially incomplete: a question number is missing
+/// (they must run 1..=max) or a question is missing a sub-event (eventnum must run 0..=max).
+pub fn events_have_gaps(events: &[GameEvent]) -> bool {
+    use std::collections::{BTreeMap, HashSet};
+
+    if events.is_empty() {
+        return false;
+    }
+
+    // Question numbers must be contiguous from 1 through the maximum.
+    let mut questions: Vec<i32> = events.iter().map(|e| e.question).collect();
+    questions.sort_unstable();
+    questions.dedup();
+    for (idx, q) in questions.iter().enumerate() {
+        if *q != (idx as i32 + 1) {
+            return true;
+        }
+    }
+
+    // Within each question, event numbers must run 0 through the maximum with no gaps.
+    let mut by_question: BTreeMap<i32, Vec<i32>> = BTreeMap::new();
+    for e in events {
+        by_question.entry(e.question).or_default().push(e.eventnum);
+    }
+    for (_question, eventnums) in &by_question {
+        let set: HashSet<i32> = eventnums.iter().copied().collect();
+        let max = eventnums.iter().copied().max().unwrap_or(0);
+        for n in 0..=max {
+            if !set.contains(&n) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 pub fn create_update_game_event(db: &mut database::Connection, item: &NewGameEvent) -> QueryResult<GameEvent> {
     use crate::schema::gameevents::dsl::*;
 

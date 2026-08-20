@@ -212,7 +212,8 @@ pub struct Game {
     pub updated_at: DateTime<Utc>,
     pub clientkey: String,
     pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
-    pub resend_gameevents_response: Option<String>
+    pub resend_gameevents_response: Option<String>,
+    pub resend_request_sent_ts: Option<DateTime<Utc>>
 }
 
 #[derive(
@@ -263,7 +264,8 @@ pub struct GameChangeset {
     pub contentjudgeid: Option<Uuid>,
     pub clientkey: Option<String>,
     pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
-    pub resend_gameevents_response: Option<String>
+    pub resend_gameevents_response: Option<String>,
+    pub resend_request_sent_ts: Option<DateTime<Utc>>
 }
 
 impl GameChangeset {
@@ -283,7 +285,8 @@ impl GameChangeset {
             contentjudgeid: None,
             clientkey: None,
             resend_gameevents_request_ts: None,
-            resend_gameevents_response: None
+            resend_gameevents_response: None,
+            resend_request_sent_ts: None
         }
     }
 }
@@ -665,6 +668,19 @@ pub fn read_all_games_of_statsgroup(db: &mut database::Connection, sg_id: Uuid, 
         .limit(page_size)
         .offset(offset_val)
         .load::<Game>(db)
+}
+
+/// Flags a game so the next ping from its room returns a "resend all events" command:
+/// sets resend_gameevents_request_ts to now and clears resend_request_sent_ts so the fresh
+/// request is considered live (not yet sent).
+pub fn request_gameevents_resend(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::games::dsl::{games, gid, resend_gameevents_request_ts, resend_request_sent_ts};
+    diesel::update(games.filter(gid.eq(item_id)))
+        .set((
+            resend_gameevents_request_ts.eq(Utc::now()),
+            resend_request_sent_ts.eq(None::<DateTime<Utc>>),
+        ))
+        .execute(db_conn)
 }
 
 pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {

@@ -94,6 +94,23 @@ async fn read_gameevents(
     }
 }
 
+#[post("/{id}/request-resend")]
+async fn request_resend(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::game::request_gameevents_resend(&mut conn, item_id.into_inner()) {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -287,6 +304,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_statsgroups)
         .service(read_gameevents)
+        .service(request_resend)
         .service(create)
         .service(update)
         .service(destroy);

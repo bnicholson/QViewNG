@@ -303,49 +303,13 @@ pub struct RoomMonitorRow {
     pub qm_version: Option<String>,        // ping_qm_version
     pub pending: Option<i32>,              // ping_jobspending
     pub resend: Option<String>,            // referenced game's resend_gameevents_response
+    pub game_id: Option<Uuid>,             // referenced game (target of a resend request), if any
     pub game_in_progress: bool,            // referenced game has started (gameplay) but is not finished
     pub data_incomplete: bool,             // retrieved events have a gap in questions or sub-events
 }
 
 // Event codes that make up round initialization (no gameplay yet).
 const ROOM_MONITOR_INIT_CODES: [&str; 8] = ["RM", "QT", "IP", "OP", "TN", "QN", "SC", "SS"];
-
-/// True if the game's events are sequentially incomplete: a question number is missing
-/// (they must run 1..=max) or a question is missing a sub-event (eventnum must run 0..=max).
-fn events_have_gaps(events: &[crate::models::gameevent::GameEvent]) -> bool {
-    use std::collections::{BTreeMap, HashSet};
-
-    if events.is_empty() {
-        return false;
-    }
-
-    // Question numbers must be contiguous from 1 through the maximum.
-    let mut questions: Vec<i32> = events.iter().map(|e| e.question).collect();
-    questions.sort_unstable();
-    questions.dedup();
-    for (idx, q) in questions.iter().enumerate() {
-        if *q != (idx as i32 + 1) {
-            return true;
-        }
-    }
-
-    // Within each question, event numbers must run 0 through the maximum with no gaps.
-    let mut by_question: BTreeMap<i32, Vec<i32>> = BTreeMap::new();
-    for e in events {
-        by_question.entry(e.question).or_default().push(e.eventnum);
-    }
-    for (_question, eventnums) in &by_question {
-        let set: HashSet<i32> = eventnums.iter().copied().collect();
-        let max = eventnums.iter().copied().max().unwrap_or(0);
-        for n in 0..=max {
-            if !set.contains(&n) {
-                return true;
-            }
-        }
-    }
-
-    false
-}
 
 /// Finds the game referenced by a room's latest ping: by ping_game_id if present,
 /// otherwise by the composite key (this room + a round matching ping_round).
@@ -389,7 +353,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                     .unwrap_or_default();
 
                 // Validate sequential integrity of the retrieved events.
-                let data_incomplete = events_have_gaps(&events);
+                let data_incomplete = crate::models::gameevent::events_have_gaps(&events);
 
                 let has_events = !events.is_empty();
                 let started = events.iter().any(|e| !ROOM_MONITOR_INIT_CODES.contains(&e.event.as_str()));
@@ -421,6 +385,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
             qm_version: room.ping_qm_version.clone(),
             pending: room.ping_jobspending,
             resend,
+            game_id: game.as_ref().map(|g| g.gid),
             game_in_progress,
             data_incomplete,
         });

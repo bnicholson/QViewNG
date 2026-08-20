@@ -37,6 +37,7 @@ export interface RoomMonitorRowTS {
   qm_version: string | null;
   pending: number | null;
   resend: string | null;
+  game_id: string | null;
   game_in_progress: boolean;
   data_incomplete: boolean;
 }

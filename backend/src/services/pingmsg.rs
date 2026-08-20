@@ -220,9 +220,27 @@ async fn index(
             room_changes.ping_last_checkin_ts = Some(Utc::now());
             let _ = crate::models::room::update(&mut conn, room.roomid, &room_changes);
 
-            // If a resend has been requested for the game, emit the command and record it.
             if let Some(game) = game {
-                if game.resend_gameevents_request_ts.is_some() {
+                // Revalidate the game's events on every ping for sequential completeness.
+                let pagination = crate::models::common::PaginationParams {
+                    page: 0,
+                    page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
+                };
+                let events = crate::models::gameevent::read_all_gameevents_of_game(&mut conn, game.gid, &pagination)
+                    .unwrap_or_default();
+                let complete = !crate::models::gameevent::events_have_gaps(&events);
+
+                if complete {
+                    // All events accounted for — the resend request is fulfilled; blank the response.
+                    if game.resend_gameevents_response.is_some() {
+                        let mut changes = GameChangeset::empty();
+                        changes.resend_gameevents_response = Some(String::new());
+                        let _ = game::update(&mut conn, game.gid, &changes);
+                    }
+                } else if game.resend_gameevents_request_ts.is_some() && game.resend_request_sent_ts.is_none() {
+                    // Data is incomplete, a resend was requested, and it hasn't been sent yet:
+                    // issue the command exactly once, then stamp resend_request_sent_ts so future
+                    // pings won't resend it.
                     let resend_line = format!(
                         "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}",
                         percent_encode(&tn),
@@ -235,15 +253,34 @@ async fn index(
 
                     let mut changes = GameChangeset::empty();
                     changes.resend_gameevents_response = Some(resend_line);
+                    changes.resend_request_sent_ts = Some(Utc::now());
                     let _ = game::update(&mut conn, game.gid, &changes);
                 }
             }
         }
     }
 
-    HttpResponse::Ok()
+    // Send uncompressed: the QuizMachine client can't decode br/gzip, so opt this
+    // endpoint out of the app-wide Compress middleware by declaring identity encoding.
+    let response = HttpResponse::Ok()
         .content_type("text/plain; charset=utf-8")
-        .body(body)
+        .insert_header(actix_web::http::header::ContentEncoding::Identity)
+        .body(body.clone());
+
+    // Log the entire response being sent (status line, headers, and body).
+    let mut headers_dump = String::new();
+    for (name, value) in response.headers() {
+        headers_dump.push_str(&format!("{}: {}\n", name, value.to_str().unwrap_or("<non-utf8>")));
+    }
+    println!(
+        "pingmsg full response:\n{:?} {}\n{}\n{}",
+        response.head().version,
+        response.status(),
+        headers_dump,
+        body
+    );
+
+    response
 }
 
 // #[get("/{id}")]

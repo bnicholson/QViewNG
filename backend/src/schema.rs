@@ -250,6 +250,7 @@ diesel::table! {
         resend_gameevents_request_ts -> Nullable<Timestamptz>,
         #[max_length = 256]
         resend_gameevents_response -> Nullable<Varchar>,
+        resend_request_sent_ts -> Nullable<Timestamptz>,
     }
 }
 
