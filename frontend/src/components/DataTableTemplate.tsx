@@ -295,13 +295,12 @@ export function DataTableTemplate<T>({
           marginBottom: 16,
         }}
       >
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>
             {entityLabel}s
           </h2>
-          <p style={{ margin: "2px 0 0", fontSize: 13, color: "#666" }}>
-            {totalCount} {entityLabel.toLowerCase()}
-            {totalCount !== 1 ? "s" : ""}
+          <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
+            ({totalCount} row{totalCount !== 1 ? "s" : ""})
           </p>
         </div>
 
