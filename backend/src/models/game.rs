@@ -741,9 +741,22 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = read_all_games_of_tournament(db, tournament_id, &pagination)?;
 
-    let mut statuses = Vec::with_capacity(games.len());
-    for game in games {
+    // First pass: load each game's events and record the latest server timestamp among
+    // them. The timestamps let us tell, in the second pass, whether a game's teams have
+    // moved on to a later round (their next game has recorded events after this one ended).
+    let mut events_by_gid: HashMap<Uuid, Vec<crate::models::gameevent::GameEvent>> = HashMap::new();
+    let mut latest_serverts_by_gid: HashMap<Uuid, DateTime<Utc>> = HashMap::new();
+    for game in &games {
         let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
+        if let Some(latest) = events.iter().map(|e| e.serverts).max() {
+            latest_serverts_by_gid.insert(game.gid, latest);
+        }
+        events_by_gid.insert(game.gid, events);
+    }
+
+    let mut statuses = Vec::with_capacity(games.len());
+    for game in &games {
+        let events = events_by_gid.get(&game.gid).cloned().unwrap_or_default();
         let has_events = !events.is_empty();
         let has_question_20 = events.iter().any(|e| e.question >= 20);
         // The next question to be played: highest recorded question number + 1.
@@ -752,16 +765,45 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
         let results = crate::models::gameevent::calculate_team_results_for_game(game.gid, events);
         // Data is OK when there are events and they score without error.
         let data_ok = has_events && results.is_ok();
-        // Ties are resolved when no two teams share the same final score.
+        // Ties are resolved when no two teams share the same placement rank. Ranks (not
+        // scores) are the right signal: an overtime game decides a winner via distinct ranks
+        // while the displayed score stays tied, so a score comparison would miss it.
         let ties_resolved = match &results {
             Ok(teams) if !teams.is_empty() => {
-                let mut scores: Vec<i32> = teams.iter().map(|t| t.score).collect();
-                scores.sort_unstable();
-                scores.windows(2).all(|w| w[0] != w[1])
+                let mut ranks: Vec<i32> = teams.iter().map(|t| t.rank).collect();
+                ranks.sort_unstable();
+                ranks.windows(2).all(|w| w[0] != w[1])
             }
             _ => false,
         };
-        let done = data_ok && has_question_20 && ties_resolved;
+
+        // A team has "moved on" when it appears in another game whose events were recorded
+        // after this game's last event. This resolves overtime games where the score stays
+        // tied (Q21+ decides a winner without changing the score): the ties_resolved score
+        // check can't detect the outcome, but the teams starting their next round proves the
+        // game is finished.
+        let team_moved_on = match latest_serverts_by_gid.get(&game.gid).copied() {
+            Some(this_game_end) => {
+                let this_teams: Vec<Uuid> = [Some(game.leftteamid), game.centerteamid, Some(game.rightteamid)]
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                games.iter().any(|other| {
+                    other.gid != game.gid
+                        && latest_serverts_by_gid
+                            .get(&other.gid)
+                            .is_some_and(|other_end| *other_end > this_game_end)
+                        && this_teams.iter().any(|t| {
+                            other.leftteamid == *t
+                                || other.rightteamid == *t
+                                || other.centerteamid == Some(*t)
+                        })
+                })
+            }
+            None => false,
+        };
+
+        let done = data_ok && has_question_20 && (ties_resolved || team_moved_on);
 
         statuses.push(GameStatus { gid: game.gid, done, data_ok, next_question });
     }

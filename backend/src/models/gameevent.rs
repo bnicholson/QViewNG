@@ -841,8 +841,10 @@ pub fn calculate_team_results_for_game(
 ) -> Result<Vec<TeamGameResult>, Vec<String>> {
     let calculator = GameEventCalculator::new(game_id, game_events);
     let calculated = calculator.calculate_current_game_scores_and_counts()?;
-    // The calculator only assigns team ranks during overtime (questions past regulation),
-    // so for a normal game we compute the final competitive ranking from the scores here.
+    // During overtime (questions past regulation) the calculator decides a winner and assigns
+    // real ranks even though the displayed score stays tied. If it did, honor those ranks;
+    // otherwise the game ended in regulation, so compute competitive ranking from the scores.
+    let overtime_ranks_assigned = calculated.teams.values().any(|team| team.rank >= 1);
     let scores: Vec<i32> = calculated.teams.values().map(|team| team.score).collect();
     Ok(calculated
         .teams
@@ -851,7 +853,11 @@ pub fn calculate_team_results_for_game(
             team: *team_idx,
             name: team.name.clone(),
             score: team.score,
-            rank: scores.iter().filter(|&&s| s > team.score).count() as i32 + 1,
+            rank: if overtime_ranks_assigned {
+                team.rank
+            } else {
+                scores.iter().filter(|&&s| s > team.score).count() as i32 + 1
+            },
         })
         .collect())
 }
