@@ -56,6 +56,7 @@ export interface GameEventTS {
   clientts: string;
   serverts: string;
   md5digest: string;
+  qm_registration_key: string | null;
 }
 
 export interface GameChangeset {

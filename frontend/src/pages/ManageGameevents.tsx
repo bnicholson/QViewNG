@@ -22,6 +22,7 @@ const COLUMNS: ColumnDef<GameEventTS>[] = [
   { header: "Seat #", render: (r) => r.quizzer },
   { header: "Client TS", render: (r) => formatDateTime(r.clientts) },
   { header: "Server TS", render: (r) => formatDateTime(r.serverts) },
+  { header: "QM Reg. Key", render: (r) => r.qm_registration_key ?? "" },
 ];
 
 export const ManageGameevents = () => {
