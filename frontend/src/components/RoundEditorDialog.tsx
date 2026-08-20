@@ -178,7 +178,7 @@ export const RoundEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select
                   value={form.did}
@@ -195,7 +195,7 @@ export const RoundEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Round Name (*required)</InputLabel>
                 <TextField
                   value={form.name}
@@ -205,7 +205,7 @@ export const RoundEditorDialog = (props: Props) => {
                   size="small"
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Scheduled Start Time (*required)</InputLabel>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DateTimePicker

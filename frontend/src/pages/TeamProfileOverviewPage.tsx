@@ -67,7 +67,7 @@ export const TeamProfileOverviewPage = ({ teamid }: { teamid: string }) => {
         </Typography>
         <Divider sx={{ mb: 2 }} />
         <Grid container spacing={{ xs: 1, sm: 2 }}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">
               <Link
@@ -80,7 +80,7 @@ export const TeamProfileOverviewPage = ({ teamid }: { teamid: string }) => {
               </Link>
             </Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Division</Typography>
             <Typography variant="body1">
               <Link
@@ -93,7 +93,7 @@ export const TeamProfileOverviewPage = ({ teamid }: { teamid: string }) => {
               </Link>
             </Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Coach</Typography>
             <Typography variant="body1">
               {coachUser ? (

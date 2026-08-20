@@ -166,7 +166,7 @@ export default function TournamentSettings() {
                 <List>
                     <ListItem>
                         <Grid container>
-                            <Grid item xs={5} >
+                            <Grid size={{ xs: 5 }} >
                                 <InputLabel>Organization</InputLabel>
                                 <Select
                                     labelId='demo-simple-select-label55'
@@ -181,7 +181,7 @@ export default function TournamentSettings() {
                                     <MenuItem value={"Other"}>Other</MenuItem>
                                 </Select>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <InputLabel>Tournament Name ( must be unique)</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -193,7 +193,7 @@ export default function TournamentSettings() {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={1}>
+                            <Grid size={{ xs: 1 }}>
                                 <Tooltip title="Save/Update these settings" arrow>
                                     <Button color="primary" onClick={handleTournamentEditorSave}>
                                         <SaveOutlinedIcon />
@@ -209,7 +209,7 @@ export default function TournamentSettings() {
                     </ListItem>
                     <ListItem>
                         <Grid container>
-                            <Grid item xs={6} md={4}>
+                            <Grid size={{ xs: 6, md: 4 }}>
                                 <InputLabel>Tournament Start Date</InputLabel>
                                 <Item>
                                     <DatePickerComponent
@@ -218,7 +218,7 @@ export default function TournamentSettings() {
                                     />
                                 </Item>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <InputLabel>Tournament End Date</InputLabel>
                                 <Item >
                                     <DatePickerComponent
@@ -231,7 +231,7 @@ export default function TournamentSettings() {
                     </ListItem>
                     <ListItem>
                         <Grid container>
-                            <Grid item xs={4}>
+                            <Grid size={{ xs: 4 }}>
                                 <InputLabel>Venue</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -243,7 +243,7 @@ export default function TournamentSettings() {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={4}>
+                            <Grid size={{ xs: 4 }}>
                                 <InputLabel>Visbility</InputLabel>
                                 <Select
                                     labelId='demo-simple-select-label55'
@@ -258,7 +258,7 @@ export default function TournamentSettings() {
                                     <MenuItem value={"False"}>Private</MenuItem>
                                 </Select>
                             </Grid>
-                            <Grid item xs={4}>
+                            <Grid size={{ xs: 4 }}>
                                 <InputLabel>Breadcrumb (short url name)</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -275,7 +275,7 @@ export default function TournamentSettings() {
                     </ListItem>
                     <ListItem>
                         <Grid container>
-                            <Grid item xs={4}>
+                            <Grid size={{ xs: 4 }}>
                                 <InputLabel>City</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -287,7 +287,7 @@ export default function TournamentSettings() {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={4}>
+                            <Grid size={{ xs: 4 }}>
                                 <InputLabel>Region/State/Province</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -299,7 +299,7 @@ export default function TournamentSettings() {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={4}>
+                            <Grid size={{ xs: 4 }}>
                                 <InputLabel>Country</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -312,7 +312,7 @@ export default function TournamentSettings() {
                                 />
                             </Grid>
 
-                            <Grid item xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <InputLabel>Contact </InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -324,7 +324,7 @@ export default function TournamentSettings() {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <InputLabel>Contact Email</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -337,7 +337,7 @@ export default function TournamentSettings() {
                                 />
                             </Grid>
 
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <InputLabel>One line of information about the tournament</InputLabel>
                                 <TextField
                                     variant="outlined"
@@ -350,7 +350,7 @@ export default function TournamentSettings() {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <Box>
                                     <InputLabel>Detailed Information.</InputLabel>
                                     <TextareaAutosize

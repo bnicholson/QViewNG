@@ -251,7 +251,7 @@ export const GameEditorDialog = (props: Props) => {
           {/* Row 1: Division, Room, Round */}
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value })}
                   displayEmpty fullWidth
@@ -260,7 +260,7 @@ export const GameEditorDialog = (props: Props) => {
                   {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Room (*required)</InputLabel>
                 <Select value={form.roomid} onChange={(e) => handleRoomChange(e.target.value)}
                   displayEmpty fullWidth
@@ -269,7 +269,7 @@ export const GameEditorDialog = (props: Props) => {
                   {rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
                   displayEmpty fullWidth
@@ -284,7 +284,7 @@ export const GameEditorDialog = (props: Props) => {
           {/* Row 2: Left Team, Center Team, Right Team */}
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Left Team (*required)</InputLabel>
                 <Select value={form.leftteamid} onChange={(e) => set({ leftteamid: e.target.value })}
                   displayEmpty fullWidth
@@ -293,7 +293,7 @@ export const GameEditorDialog = (props: Props) => {
                   {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Center Team</InputLabel>
                 <Select value={form.centerteamid} onChange={(e) => set({ centerteamid: e.target.value })}
                   displayEmpty fullWidth
@@ -303,7 +303,7 @@ export const GameEditorDialog = (props: Props) => {
                   {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Right Team (*required)</InputLabel>
                 <Select value={form.rightteamid} onChange={(e) => set({ rightteamid: e.target.value })}
                   displayEmpty fullWidth
@@ -321,7 +321,7 @@ export const GameEditorDialog = (props: Props) => {
               Note: At the time of Game creation, Games that have Rooms specified inherit the Quizmaster and Content Judge of the Room.
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Quizmaster (*required)</InputLabel>
                 <Select value={form.quizmasterid} onChange={(e) => set({ quizmasterid: e.target.value })}
                   displayEmpty fullWidth disabled={qmFromRoom}
@@ -337,7 +337,7 @@ export const GameEditorDialog = (props: Props) => {
                   <Typography variant="caption" color="text.secondary">Set by Room</Typography>
                 )}
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Content Judge</InputLabel>
                 <Select value={form.contentjudgeid} onChange={(e) => set({ contentjudgeid: e.target.value })}
                   displayEmpty fullWidth disabled={cjFromRoom}
@@ -360,7 +360,7 @@ export const GameEditorDialog = (props: Props) => {
           {/* Row 4: Org, Ruleset, Ignore */}
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Org (*required)</InputLabel>
                 <TextField
                   variant="outlined" fullWidth placeholder="Organization"
@@ -368,7 +368,7 @@ export const GameEditorDialog = (props: Props) => {
                   onChange={(e) => set({ org: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Ruleset (*required)</InputLabel>
                 <TextField
                   variant="outlined" fullWidth placeholder="Ruleset"
@@ -376,7 +376,7 @@ export const GameEditorDialog = (props: Props) => {
                   onChange={(e) => set({ ruleset: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'flex-end', pb: 1 }}>
+              <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex', alignItems: 'flex-end', pb: 1 }}>
                 <FormControlLabel
                   control={
                     <Switch

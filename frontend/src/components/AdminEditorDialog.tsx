@@ -168,7 +168,7 @@ export const AdminEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>User (*required)</InputLabel>
                 <Select
                   value={form.adminid}
@@ -188,7 +188,7 @@ export const AdminEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <InputLabel>Access Level (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -203,7 +203,7 @@ export const AdminEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Role Description</InputLabel>
                 <TextField
                   variant="outlined"

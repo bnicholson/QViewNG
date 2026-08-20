@@ -201,7 +201,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={5}>
+              <Grid size={{ xs: 5 }}>
                 <InputLabel>First Name *</InputLabel>
                 <TextField
                   variant="outlined"
@@ -214,7 +214,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
                   helperText={fieldErrors.fname}
                 />
               </Grid>
-              <Grid item xs={2}>
+              <Grid size={{ xs: 2 }}>
                 <InputLabel>Middle</InputLabel>
                 <TextField
                   variant="outlined"
@@ -224,7 +224,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
                   onChange={e => setField('mname', e.target.value)}
                 />
               </Grid>
-              <Grid item xs={5}>
+              <Grid size={{ xs: 5 }}>
                 <InputLabel>Last Name *</InputLabel>
                 <TextField
                   variant="outlined"
@@ -242,7 +242,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Username</InputLabel>
                 <TextField
                   variant="outlined"
@@ -255,7 +255,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
                   helperText={fieldErrors.username}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Email</InputLabel>
                 <TextField
                   variant="outlined"
@@ -273,7 +273,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Password</InputLabel>
                 <TextField
                   variant="outlined"

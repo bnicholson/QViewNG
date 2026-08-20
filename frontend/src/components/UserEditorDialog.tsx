@@ -212,7 +212,7 @@ export const UserEditorDialog = (props: Props) => {
           {/* Name row */}
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>First Name (*required)</InputLabel>
                 <TextField
                   variant="outlined" fullWidth placeholder="First Name"
@@ -220,7 +220,7 @@ export const UserEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, fname: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Middle Name</InputLabel>
                 <TextField
                   variant="outlined" fullWidth placeholder="Middle Name"
@@ -228,7 +228,7 @@ export const UserEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, mname: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Last Name (*required)</InputLabel>
                 <TextField
                   variant="outlined" fullWidth placeholder="Last Name"
@@ -242,7 +242,7 @@ export const UserEditorDialog = (props: Props) => {
           {/* Account row */}
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Username (*required)</InputLabel>
                 <TextField
                   variant="outlined" fullWidth placeholder="Username"
@@ -250,7 +250,7 @@ export const UserEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, username: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Email (*required)</InputLabel>
                 <TextField
                   variant="outlined" fullWidth type="email" placeholder="Email"
@@ -259,7 +259,7 @@ export const UserEditorDialog = (props: Props) => {
                 />
               </Grid>
               {!isEditMode && (
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <InputLabel>Password (*required)</InputLabel>
                   <TextField
                     variant="outlined" fullWidth type="password" placeholder="Password"
@@ -268,7 +268,7 @@ export const UserEditorDialog = (props: Props) => {
                   />
                 </Grid>
               )}
-              <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'flex-end', pb: 1 }}>
+              <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex', alignItems: 'flex-end', pb: 1 }}>
                 <FormControlLabel
                   control={
                     <Switch

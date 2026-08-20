@@ -78,7 +78,7 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
         )}
 
         <Grid container spacing={{ xs: 1, sm: 2 }}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">
               <Link
@@ -92,7 +92,7 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Division Name</Typography>
             {editing ? (
               <TextField size="small" value={dname} onChange={e => setDname(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
@@ -101,7 +101,7 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Breadcrumb</Typography>
             {editing ? (
               <TextField size="small" value={breadcrumb} onChange={e => setBreadcrumb(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
@@ -110,7 +110,7 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Visibility</Typography>
             {editing ? (
               <Select size="small" value={isPublic ? 'true' : 'false'} onChange={e => setIsPublic(e.target.value === 'true')} sx={{ mt: 0.5 }}>
@@ -122,17 +122,17 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Created</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(division.created_at)}</Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Last Modified</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(division.updated_at)}</Typography>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="body2" color="text.secondary">Short Info</Typography>
             {editing ? (
               <TextField size="small" value={shortinfo} onChange={e => setShortinfo(e.target.value)} fullWidth multiline minRows={2} sx={{ mt: 0.5 }} />

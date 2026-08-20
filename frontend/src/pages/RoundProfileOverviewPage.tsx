@@ -94,7 +94,7 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
         )}
 
         <Grid container spacing={{ xs: 1, sm: 2 }}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Round Name</Typography>
             {editing ? (
               <TextField
@@ -108,7 +108,7 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">
               <Link
@@ -122,7 +122,7 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Division</Typography>
             <Typography variant="body1">
               <Link
@@ -136,7 +136,7 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Scheduled Start Time</Typography>
             {editing ? (
               <TextField
@@ -151,12 +151,12 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Created</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(round.created_at)}</Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Last Modified</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(round.updated_at)}</Typography>
           </Grid>

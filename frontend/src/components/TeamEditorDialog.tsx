@@ -182,7 +182,7 @@ export const TeamEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Team Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -192,7 +192,7 @@ export const TeamEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select
                   value={form.did}
@@ -214,7 +214,7 @@ export const TeamEditorDialog = (props: Props) => {
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Coach (*required)</InputLabel>
                 <Select
                   value={form.coachid}

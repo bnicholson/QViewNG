@@ -146,7 +146,7 @@ export const CreateTournamentApplicantEditorDialog = ({
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>User ID</InputLabel>
                 <TextField
                   variant="outlined"
@@ -156,7 +156,7 @@ export const CreateTournamentApplicantEditorDialog = ({
                   size="small"
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Status</InputLabel>
                 <Select
                   value={status}
@@ -174,7 +174,7 @@ export const CreateTournamentApplicantEditorDialog = ({
 
           <ListItem>
             <Grid container>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Request Context</InputLabel>
                 <TextField
                   variant="outlined"

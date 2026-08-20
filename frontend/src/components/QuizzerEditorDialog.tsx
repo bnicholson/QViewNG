@@ -178,7 +178,7 @@ export const QuizzerEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>First Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -188,7 +188,7 @@ export const QuizzerEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, fname: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Middle Name</InputLabel>
                 <TextField
                   variant="outlined"
@@ -198,7 +198,7 @@ export const QuizzerEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, mname: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Last Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -212,7 +212,7 @@ export const QuizzerEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Username (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -222,7 +222,7 @@ export const QuizzerEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, username: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Email (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -233,7 +233,7 @@ export const QuizzerEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, email: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Password (*required)</InputLabel>
                 <TextField
                   variant="outlined"

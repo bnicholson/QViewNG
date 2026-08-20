@@ -152,7 +152,7 @@ export const TournamentGroupEditorDialog = ({ tid, isOpen, onCancel, onSave, ini
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Group Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -162,7 +162,7 @@ export const TournamentGroupEditorDialog = ({ tid, isOpen, onCancel, onSave, ini
                   onChange={e => setForm(s => ({ ...s, name: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Description</InputLabel>
                 <TextField
                   variant="outlined"

@@ -75,13 +75,13 @@ const Item = styled(Paper)(({ theme }) => ({
 interface Props {
   initialTournament?: TournamentTS;
   isOpen: boolean;
-  canViewPairingCode: boolean;
+  canViewPairingCode?: boolean;
   onCancel: VoidFunction;
   onSave: (tournament: TournamentTS) => void;
 }
 
 export const TournamentEditorDialog = (props: Props) => {
-  const { initialTournament, isOpen, canViewPairingCode, onCancel, onSave } = props;
+  const { initialTournament, isOpen, canViewPairingCode = false, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const [tournament, setTournament] = useState<TournamentChangesetTS>(initialTournament ? initialTournament : tournamentEmptyState);
   const [alertopened, setAlertOpened] = useState(false);
@@ -235,7 +235,7 @@ export const TournamentEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Name (*must be unique)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -247,7 +247,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 />
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={6} >
+              <Grid size={{ xs: 6 }} >
                 <InputLabel>Organization</InputLabel>
                 <Select
                   labelId='demo-simple-select-label55'
@@ -265,7 +265,7 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
-              <Grid item xs={6} md={4}>
+              <Grid size={{ xs: 6, md: 4 }}>
                 <InputLabel>Start Date</InputLabel>
                 <Item>
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -281,7 +281,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 </Item>
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>End Date</InputLabel>
                 <Item >
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -300,7 +300,7 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <InputLabel>Venue</InputLabel>
                 <TextField
                   variant="outlined"
@@ -312,7 +312,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 />
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <InputLabel>Visbility</InputLabel>
                 <Select
                   labelId='demo-simple-select-label55'
@@ -327,7 +327,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 </Select>
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <InputLabel>Breadcrumb (short url name)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -343,7 +343,7 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <InputLabel>City</InputLabel>
                 <TextField
                   variant="outlined"
@@ -355,7 +355,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 />
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <InputLabel>Region/State/Province</InputLabel>
                 <TextField
                   variant="outlined"
@@ -367,7 +367,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 />
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <InputLabel>Country</InputLabel>
                 <TextField
                   variant="outlined"
@@ -382,7 +382,7 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Contact </InputLabel>
                 <TextField
                   variant="outlined"
@@ -394,7 +394,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 />
               </Grid>
               &nbsp;&nbsp;
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Contact Email</InputLabel>
                 <TextField
                   variant="outlined"
@@ -410,7 +410,7 @@ export const TournamentEditorDialog = (props: Props) => {
           {canViewPairingCode && (
             <ListItem>
               <Grid container>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <InputLabel>Pairing Code (6-digit)</InputLabel>
                   <TextField
                     variant="outlined"
@@ -432,7 +432,7 @@ export const TournamentEditorDialog = (props: Props) => {
           )}
           <ListItem>
             <Grid container>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>One line of information about the tournament</InputLabel>
                 <TextField
                   variant="outlined"
@@ -448,7 +448,7 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Box>
                   <InputLabel>Detailed Information</InputLabel>
                   <TextareaAutosize

@@ -306,7 +306,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
         )}
 
         <Grid container spacing={{ xs: 1, sm: 2 }}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">
               <Link
@@ -320,7 +320,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Name</Typography>
             {editing ? (
               <TextField size="small" value={name} onChange={e => setName(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
@@ -329,7 +329,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Building</Typography>
             {editing ? (
               <TextField size="small" value={building} onChange={e => setBuilding(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
@@ -339,7 +339,7 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
           </Grid>
 
           {showSensitiveColumns && (
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <Typography variant="body2" color="text.secondary">Client Key</Typography>
               {editing ? (
                 <TextField size="small" value={clientkey} onChange={e => setClientkey(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
@@ -349,17 +349,17 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Created</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(room.created_at)}</Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Last Modified</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(room.updated_at)}</Typography>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="body2" color="text.secondary">Comments</Typography>
             {editing ? (
               <TextField size="small" value={comments} onChange={e => setComments(e.target.value)} fullWidth multiline minRows={2} sx={{ mt: 0.5 }} />

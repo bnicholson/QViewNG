@@ -203,7 +203,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
         <Grid container spacing={{ xs: 1, sm: 2 }}>
 
           {/* Tournament */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">
               <Link
@@ -218,7 +218,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Org */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Org</Typography>
             {editing && form ? (
               <TextField size="small" value={form.org} onChange={e => set({ org: e.target.value })} fullWidth sx={{ mt: 0.5 }} />
@@ -228,7 +228,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Ruleset */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Ruleset</Typography>
             {editing && form ? (
               <TextField size="small" value={form.ruleset} onChange={e => set({ ruleset: e.target.value })} fullWidth sx={{ mt: 0.5 }} />
@@ -238,7 +238,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Division */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Division</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.divisionid} onChange={e => set({ divisionid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -250,7 +250,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Room */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Room</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.roomid} onChange={e => set({ roomid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -262,7 +262,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Start Time */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Start Time</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.roundid} onChange={e => set({ roundid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -274,13 +274,13 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Round (this game's ordinal within its room) */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Round</Typography>
             <Typography variant="body1">{roundOrdinal ?? '—'}</Typography>
           </Grid>
 
           {/* Left Team */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Left Team</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.leftteamid} onChange={e => set({ leftteamid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -292,7 +292,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Center Team */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Center Team</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.centerteamid} onChange={e => set({ centerteamid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -309,7 +309,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Right Team */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Right Team</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.rightteamid} onChange={e => set({ rightteamid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -321,7 +321,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Quizmaster */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Quizmaster</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.quizmasterid} onChange={e => set({ quizmasterid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -333,7 +333,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
           {/* Content Judge */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Content Judge</Typography>
             {editing && form ? (
               <Select size="small" fullWidth value={form.contentjudgeid} onChange={e => set({ contentjudgeid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
@@ -351,7 +351,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
 
           {/* Ignore */}
           {canEdit && (
-            <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={{ display: 'flex', alignItems: 'center' }}>
               {editing && form ? (
                 <FormControlLabel
                   control={<Switch checked={form.ignore} onChange={e => set({ ignore: e.target.checked })} />}
@@ -367,11 +367,11 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           )}
 
           {/* Timestamps */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Created</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(game.created_at)}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Last Modified</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(game.updated_at)}</Typography>
           </Grid>

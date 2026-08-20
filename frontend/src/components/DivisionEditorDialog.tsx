@@ -175,7 +175,7 @@ export const DivisionEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Division Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -185,7 +185,7 @@ export const DivisionEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, dname: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Breadcrumb (short URL name)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -200,7 +200,7 @@ export const DivisionEditorDialog = (props: Props) => {
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Visibility</InputLabel>
                 <Select
                   value={form.is_public ? "true" : "false"}
@@ -215,7 +215,7 @@ export const DivisionEditorDialog = (props: Props) => {
 
           <ListItem>
             <Grid container>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Short Info (*required)</InputLabel>
                 <TextField
                   variant="outlined"

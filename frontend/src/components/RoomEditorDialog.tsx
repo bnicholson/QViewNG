@@ -174,7 +174,7 @@ export const RoomEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Room Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -184,7 +184,7 @@ export const RoomEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Building (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -199,7 +199,7 @@ export const RoomEditorDialog = (props: Props) => {
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Client Key (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -214,7 +214,7 @@ export const RoomEditorDialog = (props: Props) => {
 
           <ListItem>
             <Grid container>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Comments</InputLabel>
                 <TextareaAutosize
                   minRows={4}
