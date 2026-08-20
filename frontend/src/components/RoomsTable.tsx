@@ -36,7 +36,7 @@ function UserLink({ userId, userNames }: { userId: string | null; userNames: Rec
   );
 }
 
-function roomColumns(userNames: Record<string, string>, showSensitiveColumns: boolean): ColumnDef<RoomTS>[] {
+function roomColumns(userNames: Record<string, string>): ColumnDef<RoomTS>[] {
   return [
     {
       header: "Name",
@@ -63,10 +63,6 @@ function roomColumns(userNames: Record<string, string>, showSensitiveColumns: bo
       header: "Content Judge",
       render: (r) => <UserLink userId={r.contentjudge_id} userNames={userNames} />,
     },
-    ...(showSensitiveColumns ? [{
-      header: "Client Key",
-      render: (r: RoomTS) => r.clientkey,
-    }] : []),
     {
       header: "Comments",
       render: (r) => r.comments,
@@ -86,7 +82,7 @@ function roomColumns(userNames: Record<string, string>, showSensitiveColumns: bo
   ];
 }
 
-export default function RoomsTable({ tid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean }) {
+export default function RoomsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [rooms, setRooms] = useState<RoomTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -155,7 +151,7 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={roomColumns(userNames, showSensitiveColumns)}
+        columns={roomColumns(userNames)}
         rows={rooms}
         totalCount={totalCount}
         getId={(r) => r.roomid}
