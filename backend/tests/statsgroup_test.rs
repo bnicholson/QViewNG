@@ -11,6 +11,14 @@ use backend::services::common::EntityResponse;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
+// The stats view endpoints (games/teamstats/individualstats) are restricted to super users,
+// the tournament owner, and its admins. Tests authenticate as a super user, who bypasses the
+// owner/admin check regardless of the tournament.
+fn super_user_auth_header() -> (&'static str, String) {
+    let token = common::make_token(uuid::Uuid::new_v4(), vec!["super_user".to_string()], vec![]);
+    ("Authorization", format!("Bearer {}", token))
+}
+
 #[actix_web::test]
 async fn create_works() {
 
@@ -345,6 +353,7 @@ async fn get_all_games_of_statsgroup_works() {
     let uri = format!("/api/statsgroups/{}/games?page={}&page_size={}", statsgroup.sgid, PAGE_NUM, PAGE_SIZE);
     let req = test::TestRequest::get()
         .uri(&uri)
+        .insert_header(super_user_auth_header())
         .to_request();
     
     // Act:
@@ -421,6 +430,7 @@ async fn remove_game_from_statsgroup_works() {
     let get_games_uri = format!("/api/statsgroups/{}/games?page={}&page_size={}", statsgroup.sgid, PAGE_NUM, PAGE_SIZE);
     let get_games_req = test::TestRequest::get()
         .uri(&get_games_uri)
+        .insert_header(super_user_auth_header())
         .to_request();
 
     let get_games_resp = test::call_service(&app, get_games_req).await;
@@ -459,6 +469,7 @@ async fn team_stats_works() {
     let uri = format!("/api/statsgroups/{}/teamstats", statsgroup.sgid);
     let req = test::TestRequest::get()
         .uri(&uri)
+        .insert_header(super_user_auth_header())
         .to_request();
 
     // Act:
@@ -524,6 +535,7 @@ async fn individual_stats_works() {
     let uri = format!("/api/statsgroups/{}/individualstats", statsgroup.sgid);
     let req = test::TestRequest::get()
         .uri(&uri)
+        .insert_header(super_user_auth_header())
         .to_request();
 
     // Act:

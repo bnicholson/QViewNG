@@ -6,7 +6,7 @@ use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey}
 use chrono::{Utc, Duration};
 use uuid::Uuid;
 
-use crate::{auth::policies::{Policy, PolicyContext}, errors::AppError, models::role::AppRole};
+use crate::{auth::policies::{Policy, PolicyContext, UserContext}, errors::AppError, models::role::AppRole};
 
 pub(crate) const REFRESH_COOKIE: &str = "refresh_token";
 pub(crate) const ACCESS_EXPIRY_HOURS: i64 = 1;
@@ -102,6 +102,32 @@ pub(crate) fn clear_refresh_cookie() -> cookie::Cookie<'static> {
         .path("/api/auth")
         .max_age(cookie::time::Duration::seconds(0))
         .finish()
+}
+
+/// Access check for tournament-scoped, view-restricted sections (Server Monitor,
+/// Server Stats): allowed only for super users, the tournament's owner, or one of the
+/// tournament's admins. `user_ctx` is None for unauthenticated requests (always denied).
+pub(crate) fn can_view_tournament_restricted_section(
+    db: &mut crate::database::Connection,
+    tournament_id: Uuid,
+    user_ctx: Option<&UserContext>,
+) -> bool {
+    let ctx = match user_ctx {
+        Some(c) => c,
+        None => return false,
+    };
+    // Super users may view everything.
+    if ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
+        return true;
+    }
+    // The tournament's owner.
+    if let Ok(tournament) = crate::models::tournament::read(db, tournament_id) {
+        if tournament.owner_id == ctx.user_id {
+            return true;
+        }
+    }
+    // A tournament admin.
+    crate::models::tournament_admin::is_admin(db, tournament_id, ctx.user_id)
 }
 
 pub(crate) fn is_rbac_and_abac_authorized<R>(ctx: &PolicyContext<R>, permission: &str, resource_name: &str) -> Result<(), AppError>

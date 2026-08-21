@@ -236,7 +236,15 @@ async fn read_statsgroups(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match models::statsgroup::read_all_statsgroups_of_tournament(&mut db, item_id.into_inner(), &params) {
+    let tid = item_id.into_inner();
+
+    // Restricted to super users, the tournament owner, and tournament admins.
+    let user_ctx = req.extensions().get::<UserContext>().cloned();
+    if !crate::auth::can_view_tournament_restricted_section(&mut db, tid, user_ctx.as_ref()) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    match models::statsgroup::read_all_statsgroups_of_tournament(&mut db, tid, &params) {
         Ok(statsgroups) => HttpResponse::Ok().json(statsgroups),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -390,7 +398,15 @@ async fn read_room_monitor(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::room::read_room_monitor_of_tournament(&mut conn, tour_id.into_inner()) {
+    let tid = tour_id.into_inner();
+
+    // Restricted to super users, the tournament owner, and tournament admins.
+    let user_ctx = req.extensions().get::<UserContext>().cloned();
+    if !crate::auth::can_view_tournament_restricted_section(&mut conn, tid, user_ctx.as_ref()) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    match models::room::read_room_monitor_of_tournament(&mut conn, tid) {
         Ok(rows) => HttpResponse::Ok().json(rows),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }

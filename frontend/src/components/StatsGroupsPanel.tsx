@@ -14,6 +14,7 @@ import { RoomAPI } from "../features/RoomAPI";
 import { RoundAPI } from "../features/RoundAPI";
 import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
+import { useAuth } from "../hooks/useAuth";
 import ImportGameEventsButton from "./ImportGameEventsButton";
 import ExportTableButton from "./ExportTableButton";
 import type { ExportPayload } from "../features/exportTable";
@@ -43,6 +44,7 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
 // ─── Content sections ─────────────────────────────────────────────────────────
 
 function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }: { tid: string; statsGroupId: string; refreshKey: number; onExportReady: (p: ExportPayload) => void }) {
+  const { accessToken } = useAuth();
   const [rows, setRows] = useState<GameSelectionRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -66,7 +68,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
       RoundAPI.getByTournament(tid, 0, 500),
       DivisionAPI.getByTournament(tid, 0, 500),
       GameAPI.getStatuses(tid),
-      statsGroupId ? StatsGroupAPI.getGames(statsGroupId, 0, 500) : Promise.resolve([]),
+      statsGroupId ? StatsGroupAPI.getGames(statsGroupId, 0, 500, accessToken) : Promise.resolve([]),
     ])
       .then(([gamesResult, rooms, rounds, divisions, statuses, groupGames]) => {
         if (cancelled) return;
@@ -96,7 +98,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
     return () => {
       cancelled = true;
     };
-  }, [tid, statsGroupId, refreshKey]);
+  }, [tid, statsGroupId, refreshKey, accessToken]);
 
   // Publish the full table (all rows) for export, reflecting live selection state.
   useEffect(() => {
@@ -178,6 +180,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
 }
 
 function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
+  const { accessToken } = useAuth();
   const [rows, setRows] = useState<TeamStatTS[]>([]);
 
   useEffect(() => {
@@ -186,7 +189,7 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
       return;
     }
     let cancelled = false;
-    StatsGroupAPI.getTeamStats(statsGroupId)
+    StatsGroupAPI.getTeamStats(statsGroupId, accessToken)
       .then((result) => {
         if (!cancelled) setRows(result);
       })
@@ -196,7 +199,7 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
     return () => {
       cancelled = true;
     };
-  }, [statsGroupId]);
+  }, [statsGroupId, accessToken]);
 
   useEffect(() => {
     onExportReady({
@@ -238,6 +241,7 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
 }
 
 function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
+  const { accessToken } = useAuth();
   const [rows, setRows] = useState<IndividualStatTS[]>([]);
 
   useEffect(() => {
@@ -246,7 +250,7 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
       return;
     }
     let cancelled = false;
-    StatsGroupAPI.getIndividualStats(statsGroupId)
+    StatsGroupAPI.getIndividualStats(statsGroupId, accessToken)
       .then((result) => {
         if (!cancelled) setRows(result);
       })
@@ -256,7 +260,7 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
     return () => {
       cancelled = true;
     };
-  }, [statsGroupId]);
+  }, [statsGroupId, accessToken]);
 
   useEffect(() => {
     onExportReady({
@@ -315,6 +319,7 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export default function StatsGroupsPanel({ tid }: { tid: string }) {
+  const { accessToken } = useAuth();
   const [statsGroups, setStatsGroups] = useState<StatsGroupTS[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [dataView, setDataView] = useState<DataView>("games");
@@ -330,7 +335,7 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    StatsGroupAPI.getByTournament(tid, 0, 200)
+    StatsGroupAPI.getByTournament(tid, 0, 200, accessToken)
       .then((result) => {
         if (cancelled) return;
         setStatsGroups(result);
@@ -341,7 +346,7 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
     return () => {
       cancelled = true;
     };
-  }, [tid]);
+  }, [tid, accessToken]);
 
   const handleGroupChange = (e: SelectChangeEvent) => setSelectedGroup(e.target.value);
   const handleDataChange = (e: SelectChangeEvent) => setDataView(e.target.value as DataView);

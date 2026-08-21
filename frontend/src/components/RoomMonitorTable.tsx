@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DataTableTemplate, type ColumnDef } from './DataTableTemplate';
 import { RoomAPI, type RoomMonitorRowTS } from '../features/RoomAPI';
 import { GameAPI } from '../features/GameAPI';
+import { useAuth } from '../hooks/useAuth';
 
 const POLL_MS = 60_000;                 // refresh the monitor every 60 seconds
 const STALE_MS = 2 * 60 * 1000;         // a room in-progress whose client_ts is > 2 min old is "late"
@@ -57,6 +58,7 @@ const resendButtonDisabledStyle: React.CSSProperties = {
 };
 
 export default function RoomMonitorTable({ tid }: { tid: string }) {
+  const { accessToken } = useAuth();
   const [rows, setRows] = useState<RoomMonitorRowTS[]>([]);
   // A ticking value so the "late" evaluation re-renders even between polls.
   const [, setTick] = useState(0);
@@ -67,7 +69,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      RoomAPI.getMonitorByTournament(tid)
+      RoomAPI.getMonitorByTournament(tid, accessToken)
         .then((result) => {
           if (cancelled) return;
           setRows(result);
@@ -84,7 +86,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
       clearInterval(poll);
       clearInterval(tick);
     };
-  }, [tid]);
+  }, [tid, accessToken]);
 
   const handleResend = async (r: RoomMonitorRowTS) => {
     if (!r.game_id) return;

@@ -119,8 +119,8 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Gear',         to: `/tournament/${tid}/gear`,          visible: canViewAdmins === true },
     { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`,       visible: canViewAdmins === true },
     { kind: 'route', label: 'Tournament Groups', to: `/tournament/${tid}/tournament-groups` },
-    { kind: 'route', label: 'Server Monitor', to: `/tournament/${tid}/room-monitor`, requiredPermission: 'roommonitor:read' },
-    { kind: 'route', label: 'Server Stats', to: `/tournament/${tid}/stats-groups` },
+    { kind: 'route', label: 'Server Monitor', to: `/tournament/${tid}/room-monitor`, visible: isOwnerOrSuperUser || canViewAdmins === true },
+    { kind: 'route', label: 'Server Stats', to: `/tournament/${tid}/stats-groups`, visible: isOwnerOrSuperUser || canViewAdmins === true },
   ]
 
   const navItems = allNavItems
@@ -155,8 +155,8 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'gear'              && canViewAdmins === true && <TournamentGearPage tid={String(tournament?.tid)} />}
           {props.childRoute === 'admins'            && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
           {props.childRoute === 'tournament-groups'  && <TournamentGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate('tournamentgroup:create')} showDeleteButton={canCreate('tournamentgroup:delete')} canEdit={isOwnerOrSuperUser} />}
-          {props.childRoute === 'stats-groups'      && <StatsGroupsPanel tid={String(tournament?.tid)} />}
-          {props.childRoute === 'room-monitor'      && <RoomMonitorTable tid={String(tournament?.tid)}/>}
+          {props.childRoute === 'stats-groups'      && (isOwnerOrSuperUser || canViewAdmins) && <StatsGroupsPanel tid={String(tournament?.tid)} />}
+          {props.childRoute === 'room-monitor'      && (isOwnerOrSuperUser || canViewAdmins) && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>
 
         <TournamentEditorDialog

@@ -44,8 +44,14 @@ export interface RoomMonitorRowTS {
 
 export const RoomAPI = {
   // Live Room Monitor rows (latest ping + referenced game's resend status) for a tournament.
-  getMonitorByTournament: async (tid: string): Promise<RoomMonitorRowTS[]> =>
-    (await fetch(`/api/tournaments/${tid}/roommonitor`)).json(),
+  // Access is restricted server-side to super users, the tournament owner, and admins.
+  getMonitorByTournament: async (tid: string, accessToken?: string): Promise<RoomMonitorRowTS[]> => {
+    const res = await fetch(`/api/tournaments/${tid}/roommonitor`, {
+      headers: { ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) },
+    });
+    if (!res.ok) throw new Error(`Failed to load room monitor (${res.status})`);
+    return res.json();
+  },
   get: async (page: number, size: number): Promise<PagedRooms> =>
     (await fetch(`/api/rooms?page=${page}&page_size=${size}`)).json(),
   getByTournament: async (tid: string, page: number, size: number): Promise<RoomTS[]> =>
