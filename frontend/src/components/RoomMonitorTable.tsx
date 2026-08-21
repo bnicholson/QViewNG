@@ -67,16 +67,21 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
   const [requested, setRequested] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    // The endpoint is auth-gated (owner/admin/super user). On a fresh page load the
+    // access token is repopulated asynchronously, so wait for it before fetching —
+    // otherwise the first requests fire without a token and get a 403.
+    if (!accessToken) return;
     let cancelled = false;
     const load = () => {
       RoomAPI.getMonitorByTournament(tid, accessToken)
         .then((result) => {
           if (cancelled) return;
-          setRows(result);
+          // Guard against a non-array payload so a bad/error response can't crash the render.
+          setRows(Array.isArray(result) ? result : []);
           // Clear the transient "requested" notes on each refresh.
           setRequested(new Set());
         })
-        .catch(() => console.error('Failed to load room monitor data'));
+        .catch(() => { if (!cancelled) console.error('Failed to load room monitor data'); });
     };
     load();
     const poll = setInterval(load, POLL_MS);
