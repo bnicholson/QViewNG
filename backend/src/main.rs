@@ -13,7 +13,7 @@ async fn main() -> std::io::Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::from_filename(".env.dev").ok();
     #[cfg(not(debug_assertions))]
-    dotenvy::from_filename(".env").ok();
+    dotenvy::from_filename(".env.release").ok();
 
     #[cfg(debug_assertions)] {
         tracing_log::LogTracer::init().ok();
