@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "dev_original": "vite",
+    "predev": "node scripts/bump-version.js",
     "dev": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
     "start:frontend": "vite",
     "start:backend": "cd ../backend && cargo run --bin backend"
