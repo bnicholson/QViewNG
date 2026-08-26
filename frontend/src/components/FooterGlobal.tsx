@@ -1,5 +1,6 @@
 import { Box, Container, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
+import versionInfo from "../version.json";
 
 export default function FooterGlobal() {
     return (
@@ -27,7 +28,7 @@ export default function FooterGlobal() {
                 </Grid>
             </Container>
             <Box textAlign="center" pt={{ xs: 5, sm: 10 }} pb={{ xs: 5, sm: 0 }}>
-                QView by QuizStuff &reg; 2022-{new Date().getFullYear()}
+                QView by QuizStuff&reg; 2022-{new Date().getFullYear()} (v{versionInfo.version})
             </Box>
             </Typography>
         </Box>
