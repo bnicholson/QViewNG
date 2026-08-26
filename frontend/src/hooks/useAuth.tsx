@@ -81,6 +81,38 @@ interface AuthWrapperProps {
 
 const Context = createContext<AuthContext>(undefined as any)
 
+// Seeds the in-memory access token (and session) from the refresh cookie. Requires a prior
+// login, tracked by the `qview_session` flag. Returns true when a token is now present. This
+// is the single place the token gets minted from a refresh, shared by the periodic auth check
+// and by callers that need to guarantee a token before hitting an auth-gated endpoint.
+async function seedAccessToken(context: AuthContext): Promise<boolean> {
+  if (!localStorage.getItem('qview_session')) return false
+  try {
+    const response = await fetch('/api/auth/refresh', { method: 'POST' })
+    if (!response.ok) {
+      context.setAccessToken(undefined)
+      context.setSession(undefined)
+      localStorage.removeItem('qview_session')
+      return false
+    }
+    const responseJson = await response.json()
+    const parsedToken = parseJwt(responseJson.access_token) as AccessTokenClaims
+    const permissions = new Permissions(parsedToken.roles, parsedToken.permissions)
+    context.setAccessToken(responseJson.access_token)
+    context.setSession({
+      userId: parsedToken.sub,
+      expiresOnUTC: parsedToken.exp,
+      roles: permissions.roles,
+      permissions: permissions.permissions,
+      hasRole: permissions.hasRole,
+      hasPermission: permissions.hasPermission,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const AuthProvider = (props: AuthWrapperProps) => {
   const [accessToken, setAccessToken] = useState<string | undefined>()
   const [session, setSession] = useState<Session | undefined>()
@@ -162,6 +194,10 @@ export const useAuth = () => {
     }
   }
 
+  // Guarantees an access token is seeded (from the refresh cookie) when one is missing —
+  // used by auth-gated pages so a fresh login / reload reliably produces a usable token.
+  const refresh = useCallback(() => seedAccessToken(context), [context])
+
   return {
     accessToken: context.accessToken,
     session: context.session,
@@ -169,6 +205,7 @@ export const useAuth = () => {
     isAuthenticated: !!context.accessToken,
     login,
     logout,
+    refresh,
   }
 }
 
@@ -191,36 +228,7 @@ export const useAuthCheck = () => {
     }
 
     if (!context.accessToken || isExpiringSoon()) {
-      if (!localStorage.getItem('qview_session')) {
-        context.setCheckingAuth(false)
-        return
-      }
-
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        const responseJson = await response.json()
-        const parsedToken = parseJwt(responseJson.access_token) as AccessTokenClaims
-        const permissions = new Permissions(parsedToken.roles, parsedToken.permissions)
-
-        context.setAccessToken(responseJson.access_token)
-        context.setSession({
-          userId: parsedToken.sub,
-          expiresOnUTC: parsedToken.exp,
-          roles: permissions.roles,
-          permissions: permissions.permissions,
-          hasRole: permissions.hasRole,
-          hasPermission: permissions.hasPermission,
-        })
-      } else {
-        context.setAccessToken(undefined)
-        context.setSession(undefined)
-        localStorage.removeItem('qview_session')
-      }
-    } else {
-      // console.log(`${context.accessToken ? 'access token' : ''} ${isExpiringSoon() ? ' is not expiring' : ''}`)
+      await seedAccessToken(context)
     }
 
     context.setCheckingAuth(false)

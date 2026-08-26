@@ -1,6 +1,6 @@
 use crate::database;
 use crate::schema::{
-    activation_tokens, apicalllog, computers, create_tournament_applicants, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, projectors, roles, roles_permissions, rooms, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
+    activation_tokens, apicalllog, computers, create_tournament_applicants, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameeventlogs, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, projectors, roles, roles_permissions, rooms, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
 };
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};  // , MigrationHarness};
@@ -39,6 +39,10 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(users_roles::table)
         .execute(conn)
         .expect("Failed to clean users_roles");
+
+    diesel::delete(gameeventlogs::table)
+        .execute(conn)
+        .expect("Failed to clean gameeventlogs");
 
     diesel::delete(gameevents::table)
         .execute(conn)
