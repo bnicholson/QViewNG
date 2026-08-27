@@ -152,7 +152,6 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     { header: 'Room',         render: (r) => orDash(r.room)             },
     { header: 'Round',        render: (r) => orDash(r.round)            },
     { header: 'Question',     render: (r) => orDash(r.question)         },
-    { header: 'Host IP',      render: (r) => orDash(r.host_ip)          },
     { header: 'QMVersion',    render: (r) => orDash(r.qm_version)       },
     { header: 'Pending',      render: (r) => orDash(r.pending)          },
     {
