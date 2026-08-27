@@ -389,6 +389,47 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
             game_in_progress,
             data_incomplete,
         });
+
+        // While a room is currently reporting (recent check-in), also surface any of its OTHER
+        // games whose data has gaps — even though the ping is about a different (current) game —
+        // so a resend can be issued for them. Once such a game's data is whole again it no longer
+        // has gaps and drops off the monitor on the next poll.
+        let reporting = room
+            .ping_last_checkin_ts
+            .map(|c| Utc::now() - c <= chrono::Duration::minutes(2))
+            .unwrap_or(false);
+        if reporting {
+            let current_gid = game.as_ref().map(|g| g.gid);
+            let room_games =
+                crate::models::game::read_all_games_of_room(db, room.roomid, &pagination).unwrap_or_default();
+            for g in room_games {
+                if Some(g.gid) == current_gid {
+                    continue; // the current game already has its row above
+                }
+                let events = crate::models::gameevent::read_all_gameevents_of_game(db, g.gid, &pagination)
+                    .unwrap_or_default();
+                if events.is_empty() || !crate::models::gameevent::events_have_gaps(&events) {
+                    continue; // only surface games that have recorded events with gaps
+                }
+                let max_question = events.iter().map(|e| e.question).max();
+                let round_name = crate::models::round::read(db, g.roundid).ok().map(|r| r.name);
+                monitor.push(RoomMonitorRow {
+                    roomid: room.roomid,
+                    check_in: room.ping_last_checkin_ts,
+                    client_ts: room.ping_client_ts,
+                    room: room.ping_room.clone(),
+                    round: round_name,               // this game's own round, not the current ping's
+                    question: max_question,          // highest recorded question for this game
+                    host_ip: room.ping_host_ip.clone(),
+                    qm_version: room.ping_qm_version.clone(),
+                    pending: room.ping_jobspending,
+                    resend: g.resend_gameevents_response.clone(),
+                    game_id: Some(g.gid),
+                    game_in_progress: false,         // an extra (non-current) game isn't the in-progress one
+                    data_incomplete: true,           // it has gaps — that's why it's surfaced
+                });
+            }
+        }
     }
     Ok(monitor)
 }

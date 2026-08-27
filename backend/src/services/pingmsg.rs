@@ -220,33 +220,57 @@ async fn index(
             room_changes.ping_last_checkin_ts = Some(Utc::now());
             let _ = crate::models::room::update(&mut conn, room.roomid, &room_changes);
 
-            if let Some(game) = game {
-                // Revalidate the game's events on every ping for sequential completeness.
-                let pagination = crate::models::common::PaginationParams {
-                    page: 0,
-                    page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
-                };
-                let events = crate::models::gameevent::read_all_gameevents_of_game(&mut conn, game.gid, &pagination)
+            let _ = &game; // the current game is captured on the room above; resend is handled per-game below
+
+            // Process resend state for EVERY game in this room that has an active resend
+            // request or a stored resend response — not just the current ping game. This lets
+            // the operator resend a non-current game while the room is reporting, and clears a
+            // game's response once its data is whole again (so it drops off the Room Monitor).
+            let pagination = crate::models::common::PaginationParams {
+                page: 0,
+                page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
+            };
+            let resend_games: Vec<crate::models::game::Game> = {
+                use crate::schema::games::dsl as g;
+                g::games
+                    .filter(g::roomid.eq(room.roomid))
+                    .filter(
+                        g::resend_gameevents_request_ts.is_not_null()
+                            .or(g::resend_gameevents_response.is_not_null()),
+                    )
+                    .load::<crate::models::game::Game>(&mut conn)
+                    .unwrap_or_default()
+            };
+
+            for g in resend_games {
+                let events = crate::models::gameevent::read_all_gameevents_of_game(&mut conn, g.gid, &pagination)
                     .unwrap_or_default();
                 let complete = !crate::models::gameevent::events_have_gaps(&events);
 
                 if complete {
                     // All events accounted for — the resend request is fulfilled; blank the response.
-                    if game.resend_gameevents_response.is_some() {
+                    if g.resend_gameevents_response.as_deref().map_or(false, |s| !s.is_empty()) {
                         let mut changes = GameChangeset::empty();
                         changes.resend_gameevents_response = Some(String::new());
-                        let _ = game::update(&mut conn, game.gid, &changes);
+                        let _ = game::update(&mut conn, g.gid, &changes);
                     }
-                } else if game.resend_gameevents_request_ts.is_some() && game.resend_request_sent_ts.is_none() {
-                    // Data is incomplete, a resend was requested, and it hasn't been sent yet:
-                    // issue the command exactly once, then stamp resend_request_sent_ts so future
-                    // pings won't resend it.
+                } else if g.resend_gameevents_request_ts.is_some() && g.resend_request_sent_ts.is_none() {
+                    // Incomplete + a fresh resend request not yet sent: issue the command once for
+                    // THIS game's division/round (which may differ from the current ping), then
+                    // stamp resend_request_sent_ts so future pings won't repeat it.
+                    let div_name = crate::models::division::read(&mut conn, g.divisionid)
+                        .map(|d| d.dname)
+                        .unwrap_or_default();
+                    let round_name = crate::models::round::read(&mut conn, g.roundid)
+                        .map(|r| r.name)
+                        .unwrap_or_default();
                     let resend_line = format!(
-                        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}",
+                        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}&gameid={}",
                         percent_encode(&tn),
-                        percent_encode(&dn),
+                        percent_encode(&div_name),
                         percent_encode(&rm),
-                        percent_encode(&rd),
+                        percent_encode(&round_name),
+                        g.gid,
                     );
                     body.push_str(&resend_line);
                     body.push('\n');
@@ -254,7 +278,7 @@ async fn index(
                     let mut changes = GameChangeset::empty();
                     changes.resend_gameevents_response = Some(resend_line);
                     changes.resend_request_sent_ts = Some(Utc::now());
-                    let _ = game::update(&mut conn, game.gid, &changes);
+                    let _ = game::update(&mut conn, g.gid, &changes);
                 }
             }
         }

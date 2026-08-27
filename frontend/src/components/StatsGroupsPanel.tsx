@@ -15,6 +15,7 @@ import { RoundAPI } from "../features/RoundAPI";
 import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
 import { useAuth } from "../hooks/useAuth";
+import { Link } from "react-router-dom";
 import ImportGameEventsButton from "./ImportGameEventsButton";
 import ExportTableButton from "./ExportTableButton";
 import type { ExportPayload } from "../features/exportTable";
@@ -79,6 +80,8 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
         setRows(
           gamesResult.items.map((g) => {
             const status = statusByGid.get(g.gid);
+            // Data-incomplete alert: past regulation (question >= 20) but data isn't OK.
+            const dataAlert = status?.next_question != null && status.next_question >= 20 && !status.data_ok;
             return {
               gid: g.gid,
               division: divisionNames.get(g.divisionid) ?? g.divisionid,
@@ -87,7 +90,8 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
               question: status?.next_question != null ? String(status.next_question) : "—",
               done: status?.done ? "Yes" : "No",
               dataOk: status?.data_ok ? "Yes" : "No",
-              information: "",
+              // Shown in the Information column (and export) only under the red-row condition.
+              information: dataAlert ? "Data Incomplete. Resend Advised." : "",
             };
           })
         );
@@ -130,6 +134,10 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
   // A game isn't ready to include if it isn't Done or its data isn't OK.
   const notReady = rows.filter((r) => r.done !== "Yes" || r.dataOk !== "Yes");
 
+  // A game past regulation (question >= 20) that still has bad data is an alert — its row
+  // is shown with a red background.
+  const isDataAlert = (r: GameSelectionRow): boolean => Number(r.question) >= 20 && r.dataOk === "No";
+
   const columns: ColumnDef<GameSelectionRow>[] = [
     {
       header: "Selected",
@@ -147,8 +155,32 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
     { header: "Round", render: (r) => r.round },
     { header: "Question", render: (r) => r.question },
     { header: "Done", render: (r) => r.done },
-    { header: "DataOk", render: (r) => r.dataOk },
-    { header: "Information", render: (r) => r.information },
+    {
+      header: "DataOk",
+      render: (r) => {
+        // When a game has started (question >= 1) but its data isn't OK, link "No" to the
+        // Room Monitor so the user can issue a resend there.
+        const started = Number(r.question) >= 1;
+        if (r.dataOk === "No" && started) {
+          return (
+            <Link
+              to={`/tournament/${tid}/room-monitor`}
+              // White on the red alert rows, blue otherwise, so the link stays readable.
+              style={{ color: isDataAlert(r) ? "#ffffff" : "#2563eb", fontWeight: 600, textDecoration: "underline" }}
+              title="Data is missing — open the Room Monitor to resend"
+            >
+              No
+            </Link>
+          );
+        }
+        return r.dataOk;
+      },
+    },
+    {
+      // Only "Data Incomplete. Resend Advised.", shown under the same condition as the red row.
+      header: "Information",
+      render: (r) => (r.information ? <div>{r.information}</div> : null),
+    },
   ];
 
   return (
@@ -174,6 +206,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
         pageSize={sortedRows.length || 1}
         onPageChange={() => {}}
         onPageSizeChange={() => {}}
+        getRowStyle={(r) => (isDataAlert(r) ? { background: "#c0392b", color: "#ffffff" } : undefined)}
       />
     </Stack>
   );

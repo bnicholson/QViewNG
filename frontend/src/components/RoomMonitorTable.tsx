@@ -4,9 +4,9 @@ import { RoomAPI, type RoomMonitorRowTS } from '../features/RoomAPI';
 import { GameAPI } from '../features/GameAPI';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '@mui/material';
+import { isLate, statusMessages, resendButtonStyle, resendButtonDisabledStyle } from '../utils/roomMonitorStatus';
 
 const POLL_MS = 30_000;                 // refresh the monitor every 30 seconds
-const STALE_MS = 2 * 60 * 1000;         // a room in-progress whose client_ts is > 2 min old is "late"
 
 // A countdown "pie" that drains over `durationMs` and refills whenever `resetKey` changes
 // (i.e. when a server response arrives). Runs its own animation frame loop so only this
@@ -74,47 +74,10 @@ function orDash(v: string | number | null): string | number {
   return v === null || v === undefined || v === '' ? '—' : v;
 }
 
-// A room is "not communicating" when a game is in progress but its client-reported
-// timestamp (ping_client_ts) is more than STALE_MS old.
-function isLate(r: RoomMonitorRowTS, now: number): boolean {
-  if (!r.game_in_progress || !r.client_ts) return false;
-  const t = new Date(r.client_ts).getTime();
-  return !isNaN(t) && now - t > STALE_MS;
-}
-
-// All applicable Status-Error messages for a row (both shown when both apply).
-function statusMessages(r: RoomMonitorRowTS, now: number): string[] {
-  const messages: string[] = [];
-  if (isLate(r, now)) messages.push('Room not communicating?? Late??');
-  if (r.data_incomplete) messages.push('Data Incomplete. Resend Advised.');
-  return messages;
-}
-
 // Whether the row should be highlighted (red background / white text).
 function isAlert(r: RoomMonitorRowTS, now: number): boolean {
   return isLate(r, now) || r.data_incomplete;
 }
-
-const resendButtonStyle: React.CSSProperties = {
-  padding: '2px 10px',
-  fontSize: '0.75rem',
-  fontWeight: 600,
-  cursor: 'pointer',
-  borderRadius: 4,
-  border: '1px solid #d1d5db',
-  background: '#ffffff',
-  color: '#374151',
-};
-
-const resendButtonDisabledStyle: React.CSSProperties = {
-  ...resendButtonStyle,
-  cursor: 'not-allowed',
-  background: '#f3f4f6',
-  color: '#9ca3af',
-  // Use the `border` shorthand (not `borderColor`) to match the base style — mixing the two
-  // makes React remove `borderColor` on toggle, which logs a styling-bug warning.
-  border: '1px solid #e5e7eb',
-};
 
 export default function RoomMonitorTable({ tid }: { tid: string }) {
   const { accessToken, refresh } = useAuth();
@@ -163,19 +126,22 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     };
   }, [tid, accessToken]);
 
+  // requesting/requested are keyed by game id, since a room can now have several rows (its
+  // current game plus other games of that room whose data has gaps).
   const handleResend = async (r: RoomMonitorRowTS) => {
     if (!r.game_id) return;
-    setRequesting((prev) => new Set(prev).add(r.roomid));
+    const gid = r.game_id;
+    setRequesting((prev) => new Set(prev).add(gid));
     try {
-      console.log(`Resend update request sent to server for game ${r.game_id} (room ${r.room ?? r.roomid}).`);
-      await GameAPI.requestResend(r.game_id);
-      setRequested((prev) => new Set(prev).add(r.roomid));
+      console.log(`Resend update request sent to server for game ${gid} (room ${r.room ?? r.roomid}) at ${new Date().toLocaleString()}.`);
+      await GameAPI.requestResend(gid);
+      setRequested((prev) => new Set(prev).add(gid));
     } catch {
       alert('Failed to request resend.');
     } finally {
       setRequesting((prev) => {
         const next = new Set(prev);
-        next.delete(r.roomid);
+        next.delete(gid);
         return next;
       });
     }
@@ -196,8 +162,10 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     {
       header: 'Resend',
       render: (r) => {
+        const requestingThis = !!r.game_id && requesting.has(r.game_id);
+        const requestedThis = !!r.game_id && requested.has(r.game_id);
         // Only actionable when the round data is incomplete (a resend is warranted).
-        const disabled = !r.game_id || requesting.has(r.roomid) || !r.data_incomplete;
+        const disabled = !r.game_id || requestingThis || !r.data_incomplete;
         const title = !r.game_id
           ? 'No game associated with this room yet'
           : !r.data_incomplete
@@ -211,9 +179,9 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
             onClick={() => handleResend(r)}
             title={title}
           >
-            {requesting.has(r.roomid) ? '…' : 'Resend'}
+            {requestingThis ? '…' : 'Resend'}
           </button>
-          {requested.has(r.roomid) && (
+          {requestedThis && (
             <span style={{ fontSize: 12 }}>Requested — awaiting next ping</span>
           )}
           {/* The resend response is only relevant while data is still incomplete. */}
@@ -224,10 +192,16 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     },
   ];
 
-  // Only show rooms that have historically checked in, ordered by room name.
+  // Only show rooms that have historically checked in, ordered by room name (then round, then
+  // game id) so a room's several rows stay grouped and stably ordered.
   const visibleRows = rows
     .filter((r) => r.check_in)
-    .sort((a, b) => (a.room ?? '').localeCompare(b.room ?? '', undefined, { numeric: true }));
+    .sort(
+      (a, b) =>
+        (a.room ?? '').localeCompare(b.room ?? '', undefined, { numeric: true }) ||
+        (a.round ?? '').localeCompare(b.round ?? '', undefined, { numeric: true }) ||
+        (a.game_id ?? '').localeCompare(b.game_id ?? '')
+    );
 
   return (
     <>
@@ -243,7 +217,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
         columns={columns}
         rows={visibleRows}
         totalCount={visibleRows.length}
-        getId={(r) => r.roomid}
+        getId={(r) => `${r.roomid}:${r.game_id ?? ''}`}
         page={0}
         pageSize={visibleRows.length || 1}
         onPageChange={() => { }}

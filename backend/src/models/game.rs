@@ -750,9 +750,13 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
         // The next question to be played: highest recorded question number + 1.
         let next_question = events.iter().map(|e| e.question).max().map(|m| m + 1);
 
+        // A game can score without error yet still be missing events, so completeness (no
+        // sequential gaps in question/eventnum) must be part of "data OK". Computed before
+        // the calculator consumes `events`.
+        let has_gaps = crate::models::gameevent::events_have_gaps(&events);
         let results = crate::models::gameevent::calculate_team_results_for_game(game.gid, events);
-        // Data is OK when there are events and they score without error.
-        let data_ok = has_events && results.is_ok();
+        // Data is OK when there are events, they have no gaps, and they score without error.
+        let data_ok = has_events && !has_gaps && results.is_ok();
         // Ties are resolved when no two teams share the same placement rank. Ranks (not
         // scores) are the right signal: an overtime game decides a winner via distinct ranks
         // while the displayed score stays tied, so a score comparison would miss it.
