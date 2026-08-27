@@ -415,7 +415,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                 let round_name = crate::models::round::read(db, g.roundid).ok().map(|r| r.name);
                 monitor.push(RoomMonitorRow {
                     roomid: room.roomid,
-                    check_in: room.ping_last_checkin_ts,
+                    check_in: None,                  // only the current (ping) game shows a check-in
                     client_ts: room.ping_client_ts,
                     room: room.ping_room.clone(),
                     round: round_name,               // this game's own round, not the current ping's

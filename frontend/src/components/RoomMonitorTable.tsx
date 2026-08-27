@@ -192,10 +192,13 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     },
   ];
 
-  // Only show rooms that have historically checked in, ordered by room name (then round, then
-  // game id) so a room's several rows stay grouped and stably ordered.
+  // Show the rows of any room that has checked in. Only the current-game row carries a
+  // check-in timestamp; a room's extra (non-current) resend rows have none of their own, so
+  // keep them by matching on roomid. Ordered by room name (then round, then game id) so a
+  // room's several rows stay grouped and stably ordered.
+  const checkedInRoomIds = new Set(rows.filter((r) => r.check_in).map((r) => r.roomid));
   const visibleRows = rows
-    .filter((r) => r.check_in)
+    .filter((r) => checkedInRoomIds.has(r.roomid))
     .sort(
       (a, b) =>
         (a.room ?? '').localeCompare(b.room ?? '', undefined, { numeric: true }) ||
