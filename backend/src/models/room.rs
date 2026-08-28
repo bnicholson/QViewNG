@@ -306,6 +306,7 @@ pub struct RoomMonitorRow {
     pub game_id: Option<Uuid>,             // referenced game (target of a resend request), if any
     pub game_in_progress: bool,            // referenced game has started (gameplay) but is not finished
     pub data_incomplete: bool,             // retrieved events have a gap in questions or sub-events
+    pub resend_sent: bool,                 // a resend command for this game has been picked up by the room (resend_request_sent_ts set)
 }
 
 // Event codes that make up round initialization (no gameplay yet).
@@ -388,6 +389,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
             game_id: game.as_ref().map(|g| g.gid),
             game_in_progress,
             data_incomplete,
+            resend_sent: game.as_ref().map_or(false, |g| g.resend_request_sent_ts.is_some()),
         });
 
         // While a room is currently reporting (recent check-in), also surface any of its OTHER
@@ -427,6 +429,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                     game_id: Some(g.gid),
                     game_in_progress: false,         // an extra (non-current) game isn't the in-progress one
                     data_incomplete: true,           // it has gaps — that's why it's surfaced
+                    resend_sent: g.resend_request_sent_ts.is_some(),
                 });
             }
         }

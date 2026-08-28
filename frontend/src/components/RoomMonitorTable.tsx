@@ -86,9 +86,13 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
   const [refreshCount, setRefreshCount] = useState(0);
   // A ticking value so the "late" evaluation re-renders even between polls.
   const [, setTick] = useState(0);
-  // Rooms whose resend request is in flight, and those that have been requested (awaiting the next ping).
+  // Games whose resend request is in flight, and those requested but not yet picked up by the room.
   const [requesting, setRequesting] = useState<Set<string>>(new Set());
   const [requested, setRequested] = useState<Set<string>>(new Set());
+  // Poll sequence number, and — per game — the poll at which its resend was first seen as
+  // picked up by the room. Lets us show "received" on that poll and "failed" on later ones.
+  const pollSeqRef = useRef(0);
+  const [sentSeenAt, setSentSeenAt] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     // The endpoint is auth-gated (owner/admin/super user). On a fresh page load the
@@ -108,11 +112,35 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
         .then((result) => {
           if (cancelled) return;
           // Guard against a non-array payload so a bad/error response can't crash the render.
-          setRows(Array.isArray(result) ? result : []);
-          // Clear the transient "requested" notes on each refresh.
-          setRequested(new Set());
+          const rowsArr = Array.isArray(result) ? result : [];
+          setRows(rowsArr);
+
+          pollSeqRef.current += 1;
+          const seq = pollSeqRef.current;
+
+          // Once the room has picked up a resend (resend_sent), drop its "awaiting" note.
+          setRequested((prev) => {
+            const next = new Set(prev);
+            for (const r of rowsArr) if (r.game_id && r.resend_sent) next.delete(r.game_id);
+            return next;
+          });
+          // Record the poll at which each game's resend was first seen as sent (and still
+          // incomplete); clear it once the game is no longer sent+incomplete.
+          setSentSeenAt((prev) => {
+            const next = new Map(prev);
+            for (const r of rowsArr) {
+              if (!r.game_id) continue;
+              if (r.resend_sent && r.data_incomplete) {
+                if (!next.has(r.game_id)) next.set(r.game_id, seq);
+              } else {
+                next.delete(r.game_id);
+              }
+            }
+            return next;
+          });
+
           // Response is back — refill the countdown pie.
-          setRefreshCount((n) => n + 1);
+          setRefreshCount(seq);
         })
         .catch(() => { if (!cancelled) console.error('Failed to load room monitor data'); });
     };
@@ -161,15 +189,28 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     {
       header: 'Resend',
       render: (r) => {
-        const requestingThis = !!r.game_id && requesting.has(r.game_id);
-        const requestedThis = !!r.game_id && requested.has(r.game_id);
+        const gid = r.game_id;
+        const requestingThis = !!gid && requesting.has(gid);
+        const awaiting = !!gid && requested.has(gid);
         // Only actionable when the round data is incomplete (a resend is warranted).
-        const disabled = !r.game_id || requestingThis || !r.data_incomplete;
-        const title = !r.game_id
+        const disabled = !gid || requestingThis || !r.data_incomplete;
+        const title = !gid
           ? 'No game associated with this room yet'
           : !r.data_incomplete
             ? 'Round data is complete — no resend needed'
             : 'Resend all events on the next ping';
+
+        // Notice progression: after clicking, "awaiting" persists until the room picks up the
+        // request; on the poll it's picked up, "received"; on later polls still incomplete, "failed".
+        let notice: string | null = null;
+        if (awaiting) {
+          notice = 'Requested — awaiting next ping';
+        } else if (gid && r.resend_sent && r.data_incomplete) {
+          notice = sentSeenAt.get(gid) === pollSeqRef.current
+            ? 'Resend request received by room.'
+            : 'Room failed to resend game events. Please issue another resend request.';
+        }
+
         return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
           <button
@@ -180,11 +221,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
           >
             {requestingThis ? '…' : 'Resend'}
           </button>
-          {requestedThis && (
-            <span style={{ fontSize: 12 }}>Requested — awaiting next ping</span>
-          )}
-          {/* The resend response is only relevant while data is still incomplete. */}
-          {r.data_incomplete && r.resend && <span style={{ fontSize: 12 }}>Response: {r.resend}</span>}
+          {notice && <span style={{ fontSize: 12 }}>{notice}</span>}
         </div>
         );
       },

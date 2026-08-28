@@ -40,6 +40,7 @@ export interface RoomMonitorRowTS {
   game_id: string | null;
   game_in_progress: boolean;
   data_incomplete: boolean;
+  resend_sent: boolean;
 }
 
 export const RoomAPI = {
