@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography'
 import ProfileLayout from '../components/ProfileLayout'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
+import { AdminAPI } from '../features/AdminAPI'
 import { useAuth } from '../hooks/useAuth'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
@@ -23,6 +24,8 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
   const [division, setDivision] = useState<DivisionTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [notFound, setNotFound] = useState(false)
+  // Whether the current user is one of this tournament's admins (null while loading).
+  const [canViewAdmins, setCanViewAdmins] = useState<boolean | null>(null)
 
   useEffect(() => {
     DivisionAPI.getById(did)
@@ -34,6 +37,18 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
       .catch(() => setNotFound(true))
   }, [did])
 
+  // Resolve tournament-admin membership for the "Stats Groups" gate.
+  useEffect(() => {
+    if (!tournament || !session) { setCanViewAdmins(false); return }
+    if (session.hasRole('super_user') || session.userId === tournament.owner_id) {
+      setCanViewAdmins(true); return
+    }
+    setCanViewAdmins(null)
+    AdminAPI.getByTournament(String(tournament.tid), 0, 500)
+      .then(admins => setCanViewAdmins(admins.some(a => a.id === session.userId)))
+      .catch(() => setCanViewAdmins(false))
+  }, [tournament?.tid, session?.userId])
+
   if (notFound) return <Navigate to="/404" replace />
   if (!division || !tournament) return <div>Loading Division…</div>
 
@@ -41,13 +56,18 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
     (session?.hasRole('super_user') ?? false) ||
     (session?.userId === tournament.owner_id)
 
+  // Only super users, the tournament owner, and tournament admins may view Stats Groups.
+  const canViewStatsGroups = isOwnerOrSuperUser || canViewAdmins === true
+
   const navItems = [
     { kind: 'route' as const, label: 'Overview',     to: `/division/${did}/overview`     },
     { kind: 'route' as const, label: 'Teams',        to: `/division/${did}/teams`        },
     { kind: 'route' as const, label: 'Quizzers',     to: `/division/${did}/quizzers`     },
     { kind: 'route' as const, label: 'Rounds',       to: `/division/${did}/rounds`       },
     { kind: 'route' as const, label: 'Games',        to: `/division/${did}/games`        },
-    { kind: 'route' as const, label: 'Stats Groups', to: `/division/${did}/stats-groups` },
+    ...(canViewStatsGroups
+      ? [{ kind: 'route' as const, label: 'Stats Groups', to: `/division/${did}/stats-groups` }]
+      : []),
   ]
 
   return (
@@ -76,8 +96,14 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} did={did} />
           )}
-          {props.childRoute === 'stats-groups' && (
-            <Typography color="text.secondary">Stats Groups coming soon.</Typography>
+          {props.childRoute === 'stats-groups' && canViewStatsGroups && (
+            <Typography color="text.secondary">
+              Stats Groups coming soon. For now, navigate to{' '}
+              <Link to={`/tournament/${tournament.tid}/stats-groups`} style={{ color: '#2563eb' }}>
+                Tournament &gt; Server: Stats
+              </Link>
+              {' '}and set Division = &quot;{division.dname}&quot;.
+            </Typography>
           )}
         </Box>
 
