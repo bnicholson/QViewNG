@@ -211,8 +211,8 @@ pub struct TeamStat {
     pub games: i32,                 // number of (scored) games the team played
     pub wins: i32,                  // games placed 1st
     pub losses: i32,                // games not placed 1st
-    pub olympic_points: i32,        // per-game placement points: 2/1/0 for 1st/2nd/3rd
-    pub mod_olympic_points: i32,    // modified olympic points (same as olympic for now)
+    pub olympic_points: i32,        // Olympic points per round (§12.4): 2-team 8/3, 3-team 10/5/1
+    pub mod_olympic_points: i32,    // Modified Olympic points (§12.5): Olympic base adjusted by team score
     pub total_points: i32,          // sum of final scores across games
     pub tie_breaker: String,        // manual tie-break rule (blank until set)
 }
@@ -222,7 +222,45 @@ struct TeamStatAgg {
     wins: i32,
     losses: i32,
     olympic_points: i32,
+    mod_olympic_points: i32,
     total_points: i32,
+}
+
+/// Olympic (§12.4) and Modified Olympic (§12.5) points awarded to one team for one round
+/// (game). `num_teams` is the round size (2 or 3), `rank` the team's placement (1 = 1st),
+/// `score` its regular team score for the round (overtime questions don't count), and
+/// `game_total` the sum of all teams' scores in the round (for the modified "10% of the total
+/// points" clause). Modified values are rounded to the nearest whole number.
+/// Returns (olympic, modified_olympic).
+fn olympic_awards(num_teams: usize, rank: i32, score: i32, game_total: i32) -> (i32, i32) {
+    let s = score as f64;
+    let total = game_total as f64;
+    let round = |x: f64| x.round() as i32;
+
+    match (num_teams, rank) {
+        // ── 2-team rounds: base + 0.75 per 10 pts over a threshold ──
+        (2, 1) => (8, round(8.0 + 0.75 * (s - 100.0).max(0.0) / 10.0)),
+        (2, 2) => (3, round(3.0 + 0.75 * (s - 60.0).max(0.0) / 10.0)),
+        // ── 3-team rounds: max( base + 1 per 10 over threshold, 10% of round total − offset ),
+        //    floored at the base. ──
+        (3, 1) => {
+            let by_score = 10.0 + (s - 100.0).max(0.0) / 10.0;
+            let by_total = 0.10 * total;
+            (10, round(by_score.max(by_total).max(10.0)))
+        }
+        (3, 2) => {
+            let by_score = 5.0 + (s - 60.0).max(0.0) / 10.0;
+            let by_total = 0.10 * total - 1.0;
+            (5, round(by_score.max(by_total).max(5.0)))
+        }
+        (3, 3) => {
+            let by_score = 1.0 + (s - 30.0).max(0.0) / 10.0;
+            let by_total = 0.10 * total - 2.0;
+            (1, round(by_score.max(by_total).max(1.0)))
+        }
+        // Placements beyond the podium / unusual round sizes earn nothing.
+        _ => (0, 0),
+    }
 }
 
 /// Computes team standings for a statsgroup by running the score calculator over
@@ -243,12 +281,16 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
             Ok(r) => r,
             Err(_) => continue,
         };
-        for result in results {
+        // Round size and the round's total team score (for the modified "10% of total" clause).
+        let num_teams = results.len();
+        let game_total: i32 = results.iter().map(|r| r.score).sum();
+        for result in &results {
             if result.name.trim().is_empty() {
                 continue;
             }
+            let (olympic, mod_olympic) = olympic_awards(num_teams, result.rank, result.score, game_total);
             let entry = agg.entry(result.name.clone()).or_insert(TeamStatAgg {
-                games: 0, wins: 0, losses: 0, olympic_points: 0, total_points: 0,
+                games: 0, wins: 0, losses: 0, olympic_points: 0, mod_olympic_points: 0, total_points: 0,
             });
             entry.games += 1;
             entry.total_points += result.score;
@@ -257,8 +299,8 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
             } else {
                 entry.losses += 1;
             }
-            // Olympic points: 1st -> 2, 2nd -> 1, 3rd (or worse) -> 0.
-            entry.olympic_points += (3 - result.rank).max(0);
+            entry.olympic_points += olympic;
+            entry.mod_olympic_points += mod_olympic;
         }
     }
 
@@ -271,7 +313,7 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
             wins: a.wins,
             losses: a.losses,
             olympic_points: a.olympic_points,
-            mod_olympic_points: a.olympic_points, // same as olympic for now
+            mod_olympic_points: a.mod_olympic_points,
             total_points: a.total_points,
             tie_breaker: String::new(),
         })
@@ -391,4 +433,66 @@ pub fn read_individual_stats_of_statsgroup(db: &mut database::Connection, sg_id:
     }
 
     Ok(stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::olympic_awards;
+
+    // §12.4 — flat Olympic points by placement and round size; the modified value is
+    // returned alongside but only the first element is asserted here.
+    #[test]
+    fn olympic_points_by_placement_and_round_size() {
+        // 2-team round: 1st -> 8, 2nd -> 3. (game_total is irrelevant to Olympic points.)
+        assert_eq!(olympic_awards(2, 1, 100, 160).0, 8);
+        assert_eq!(olympic_awards(2, 2, 60, 160).0, 3);
+
+        // 3-team round: 1st -> 10, 2nd -> 5, 3rd -> 1.
+        assert_eq!(olympic_awards(3, 1, 100, 210).0, 10);
+        assert_eq!(olympic_awards(3, 2, 60, 210).0, 5);
+        assert_eq!(olympic_awards(3, 3, 30, 210).0, 1);
+
+        // Off-podium placements and unusual round sizes earn nothing.
+        assert_eq!(olympic_awards(2, 3, 100, 160), (0, 0));
+        assert_eq!(olympic_awards(3, 4, 100, 210), (0, 0));
+        assert_eq!(olympic_awards(1, 1, 100, 100), (0, 0));
+    }
+
+    // §12.5 — Modified Olympic points adjust the base by team score (2-team) or by the
+    // greater of a score bonus and 10% of the round total, floored at the base (3-team).
+    #[test]
+    fn modified_olympic_adjusts_by_score() {
+        let modv = |n, r, s, t| olympic_awards(n, r, s, t).1;
+
+        // ── 2-team ──
+        // At/under the threshold, no bonus: base only.
+        assert_eq!(modv(2, 1, 100, 160), 8);
+        assert_eq!(modv(2, 2, 60, 160), 3);
+        assert_eq!(modv(2, 1, 80, 140), 8);   // below 100 -> still 8
+        // 1st: 8 + 0.75 per 10 over 100. 120 -> 8 + 1.5 = 9.5 -> 10 (rounds up).
+        assert_eq!(modv(2, 1, 120, 200), 10);
+        // 140 -> 8 + 3.0 = 11 exactly.
+        assert_eq!(modv(2, 1, 140, 220), 11);
+        // 130 -> 8 + 2.25 = 10.25 -> 10 (rounds down).
+        assert_eq!(modv(2, 1, 130, 210), 10);
+        // 2nd: 3 + 0.75 per 10 over 60. 100 -> 3 + 3 = 6.
+        assert_eq!(modv(2, 2, 100, 160), 6);
+
+        // ── 3-team ──
+        // 1st: max(10 + (s-100)/10, 10% of total), floor 10.
+        //   s=120,total=200 -> max(12, 20) = 20.
+        assert_eq!(modv(3, 1, 120, 200), 20);
+        //   s=90,total=80  -> max(10, 8) then floor 10 -> 10.
+        assert_eq!(modv(3, 1, 90, 80), 10);
+        // 2nd: max(5 + (s-60)/10, 10% of total - 1), floor 5.
+        //   s=80,total=200 -> max(7, 19) = 19.
+        assert_eq!(modv(3, 2, 80, 200), 19);
+        //   s=60,total=50  -> max(5, 4) floor 5 -> 5.
+        assert_eq!(modv(3, 2, 60, 50), 5);
+        // 3rd: max(1 + (s-30)/10, 10% of total - 2), floor 1.
+        //   s=50,total=200 -> max(3, 18) = 18.
+        assert_eq!(modv(3, 3, 50, 200), 18);
+        //   s=30,total=30  -> max(1, 1) floor 1 -> 1.
+        assert_eq!(modv(3, 3, 30, 30), 1);
+    }
 }
