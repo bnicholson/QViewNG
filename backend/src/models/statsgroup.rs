@@ -370,18 +370,19 @@ pub fn read_individual_stats_of_statsgroup(db: &mut database::Connection, sg_id:
         })
         .collect();
 
-    // Rank individuals by score (desc), then correct tossups (desc), then errors (asc).
+    // Rank individuals by overall individual points (desc), then fewest errors (asc). Name is
+    // only a stable final tiebreak for deterministic display order.
     stats.sort_by(|a, b| {
         b.score.cmp(&a.score)
-            .then(b.correct.cmp(&a.correct))
             .then(a.errors.cmp(&b.errors))
+            .then(a.individual.cmp(&b.individual))
     });
-    // Competitive ranking: quizzers with identical (score, correct, errors) share a place,
-    // and the next distinct quizzer's place is its position in the list.
+    // Competitive ranking: quizzers with identical (score, errors) share a place, and the
+    // next distinct quizzer's place is its position in the list.
     let mut current_place = 0i32;
-    let mut prev_key: Option<(i32, i32, i32)> = None;
+    let mut prev_key: Option<(i32, i32)> = None;
     for (idx, stat) in stats.iter_mut().enumerate() {
-        let key = (stat.score, stat.correct, stat.errors);
+        let key = (stat.score, stat.errors);
         if prev_key != Some(key) {
             current_place = (idx + 1) as i32;
             prev_key = Some(key);
