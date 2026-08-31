@@ -66,6 +66,7 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
   const [allTournamentQuizzers, setAllTournamentQuizzers] = useState<UserTS[] | undefined>(undefined);
   // Current-page items for server-side pagination (no tid, no externalRows)
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [apiTotalCount, setApiTotalCount] = useState(0);
 
   const [page, setPage] = useState(0);
@@ -80,7 +81,8 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
     setAllTournamentQuizzers(undefined);
     UserAPI.getByTournament(tid)
       .then(result => setAllTournamentQuizzers(result.items))
-      .catch(() => console.error('Failed to load quizzers'));
+      .catch(() => console.error('Failed to load quizzers'))
+      .finally(() => setLoading(false));
   }, [tid]);
 
   // Server-side pagination fetch (only used when no tid and no externalRows)
@@ -93,7 +95,8 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
         setApiTotalCount(result.count);
         setQuizzers(result.items);
       })
-      .catch(() => console.error('Failed to load quizzers'));
+      .catch(() => console.error('Failed to load quizzers'))
+      .finally(() => setLoading(false));
   }, [externalRows, tid]);
 
   useEffect(() => {
@@ -133,6 +136,7 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
 
   return (
     <DataTableTemplate<UserTS>
+      loading={loading}
       entityLabel="Quizzer"
       createLabel={createLabel}
       onCreate={onAdd}

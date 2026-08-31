@@ -107,6 +107,7 @@ function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, nu
 
 export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean }) {
   const [games, setGames] = useState<GameTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [maps, setMaps] = useState<LookupMaps>({
     divisions: new Map(),
@@ -156,7 +157,8 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         });
         setRoomSequence(computeRoomRoundSequence(allGamesResult.items, roundStartById));
       })
-      .catch(() => console.error('Failed to load games'));
+      .catch(() => console.error('Failed to load games'))
+      .finally(() => setLoading(false));
   }, [tid, did, roundid, roomid]);
 
   useEffect(() => {
@@ -194,6 +196,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
+        loading={loading}
         columns={gameColumns(tid, maps, roomSequence, showSensitiveColumns, showAuditColumns)}
         rows={games}
         totalCount={totalCount}

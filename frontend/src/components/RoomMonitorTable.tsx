@@ -82,6 +82,7 @@ function isAlert(r: RoomMonitorRowTS, now: number): boolean {
 export default function RoomMonitorTable({ tid }: { tid: string }) {
   const { accessToken, refresh } = useAuth();
   const [rows, setRows] = useState<RoomMonitorRowTS[]>([]);
+  const [loading, setLoading] = useState(true);
   // Bumped each time a server response arrives; drives the countdown pie's refill.
   const [refreshCount, setRefreshCount] = useState(0);
   // A ticking value so the "late" evaluation re-renders even between polls.
@@ -142,7 +143,8 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
           // Response is back — refill the countdown pie.
           setRefreshCount(seq);
         })
-        .catch(() => { if (!cancelled) console.error('Failed to load room monitor data'); });
+        .catch(() => { if (!cancelled) console.error('Failed to load room monitor data'); })
+        .finally(() => { if (!cancelled) setLoading(false); });
     };
     load();
     const poll = setInterval(load, POLL_MS);
@@ -249,6 +251,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
         <CountdownPie resetKey={refreshCount} durationMs={POLL_MS} />
       </div>
       <DataTableTemplate<RoomMonitorRowTS>
+        loading={loading}
         entityLabel="Room Monitor"
         showCreateButton={false}
         showDeleteButton={false}

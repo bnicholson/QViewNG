@@ -191,6 +191,7 @@ export default function UserMyTeamsTable({
 
   return (
     <DataTableTemplate<MyTeamRow>
+      loading={loading}
       key={userId}
       entityLabel="Team"
       showCreateButton={showCreateButton}

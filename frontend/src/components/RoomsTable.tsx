@@ -86,6 +86,7 @@ function roomColumns(userNames: Record<string, string>, showAuditColumns: boolea
 
 export default function RoomsTable({ tid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
   const [rooms, setRooms] = useState<RoomTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -115,7 +116,8 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
         setRooms(result);
         loadUserNames(result);
       })
-      .catch(() => console.error("Failed to load rooms"));
+      .catch(() => console.error("Failed to load rooms"))
+      .finally(() => setLoading(false));
   }, [tid, loadUserNames]);
 
   useEffect(() => {
@@ -153,6 +155,7 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
+        loading={loading}
         columns={roomColumns(userNames, showAuditColumns)}
         rows={rooms}
         totalCount={totalCount}

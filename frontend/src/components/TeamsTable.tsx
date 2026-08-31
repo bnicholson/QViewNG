@@ -64,6 +64,7 @@ function teamColumns(
 
 export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [teams, setTeams] = useState<TeamWithCoachTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
@@ -88,7 +89,8 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
           setTeams(enriched);
           setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
         })
-        .catch(() => console.error('Failed to load teams'));
+        .catch(() => console.error('Failed to load teams'))
+        .finally(() => setLoading(false));
     } else {
       Promise.all([
         TeamAPI.getByTournament(tid, p, ps),
@@ -101,7 +103,8 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
           setTeams(teamResult.items);
           setDivisionMap(new Map(divisionResult.map(d => [d.did, d.dname])));
         })
-        .catch(() => console.error('Failed to load teams'));
+        .catch(() => console.error('Failed to load teams'))
+        .finally(() => setLoading(false));
     }
   }, [tid, did]);
 
@@ -135,6 +138,7 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
   return (
     <>
       <DataTableTemplate<TeamWithCoachTS>
+        loading={loading}
         key={did ?? tid}
         entityLabel="Team"
         showCreateButton={showCreateButton}

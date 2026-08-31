@@ -54,6 +54,7 @@ const adminColumns: ColumnDef<UserTS>[] = [
 
 export default function AdminsTable({ tid, showCreateButton = true, showDeleteButton = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [admins, setAdmins] = useState<UserTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -67,7 +68,8 @@ export default function AdminsTable({ tid, showCreateButton = true, showDeleteBu
         setPageSize(ps);
         setAdmins(result);
       })
-      .catch(() => console.error('Failed to load admins'));
+      .catch(() => console.error('Failed to load admins'))
+      .finally(() => setLoading(false));
   }, [tid]);
 
   useEffect(() => {
@@ -104,6 +106,7 @@ export default function AdminsTable({ tid, showCreateButton = true, showDeleteBu
   return (
     <>
       <DataTableTemplate<UserTS>
+        loading={loading}
         key={tid}
         entityLabel="Admin"
         showCreateButton={showCreateButton}

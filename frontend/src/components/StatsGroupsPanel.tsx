@@ -47,6 +47,7 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
 function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }: { tid: string; statsGroupId: string; refreshKey: number; onExportReady: (p: ExportPayload) => void }) {
   const { accessToken } = useAuth();
   const [rows, setRows] = useState<GameSelectionRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Display order: Selected (checked first), then Division, Room, Round.
@@ -98,7 +99,8 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
         // Pre-select the games that are already in the selected stats group.
         setSelected(new Set(groupGames.map((g) => g.gid)));
       })
-      .catch(() => console.error("Failed to load games for stats group selection"));
+      .catch(() => console.error("Failed to load games for stats group selection"))
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => {
       cancelled = true;
     };
@@ -193,6 +195,7 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
       )}
 
       <DataTableTemplate<GameSelectionRow>
+        loading={loading}
         entityLabel="Game"
         showCreateButton={false}
         showDeleteButton={false}
@@ -215,19 +218,25 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
 function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
   const { accessToken } = useAuth();
   const [rows, setRows] = useState<TeamStatTS[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!statsGroupId) {
       setRows([]);
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setLoading(true);
     StatsGroupAPI.getTeamStats(statsGroupId, accessToken)
       .then((result) => {
         if (!cancelled) setRows(result);
       })
       .catch(() => {
         if (!cancelled) setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -256,6 +265,7 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
 
   return (
     <DataTableTemplate<TeamStatTS>
+      loading={loading}
       entityLabel="Team"
       showCreateButton={false}
       showDeleteButton={false}
@@ -276,19 +286,25 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
 function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
   const { accessToken } = useAuth();
   const [rows, setRows] = useState<IndividualStatTS[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!statsGroupId) {
       setRows([]);
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setLoading(true);
     StatsGroupAPI.getIndividualStats(statsGroupId, accessToken)
       .then((result) => {
         if (!cancelled) setRows(result);
       })
       .catch(() => {
         if (!cancelled) setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -332,6 +348,7 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
 
   return (
     <DataTableTemplate<IndividualStatTS>
+      loading={loading}
       entityLabel="Individual"
       showCreateButton={false}
       showDeleteButton={false}

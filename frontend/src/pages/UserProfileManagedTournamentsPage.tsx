@@ -263,6 +263,7 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
         </Box>
       )}
       <TournamentTable
+        loading={loading}
         tournaments={loading ? [] : visibleRows}
         totalCount={allRows.length}
         page={page}

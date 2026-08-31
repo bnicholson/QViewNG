@@ -64,6 +64,7 @@ export default function UserTournamentsAsAdminTable({
   showDeleteButton?: boolean;
 }) {
   const [tournaments, setTournaments] = useState<TournamentForUserTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -78,7 +79,8 @@ export default function UserTournamentsAsAdminTable({
         setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
         setTournaments(result);
       })
-      .catch(() => console.error('Failed to load admin tournaments'));
+      .catch(() => console.error('Failed to load admin tournaments'))
+      .finally(() => setLoading(false));
   }, [userId]);
 
   useEffect(() => { loadTournaments(0, pageSizeRef.current); }, [userId]);
@@ -102,6 +104,7 @@ export default function UserTournamentsAsAdminTable({
 
   return (
     <DataTableTemplate<TournamentForUserTS>
+      loading={loading}
       key={userId}
       entityLabel="Tournament"
       showCreateButton={showCreateButton}

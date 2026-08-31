@@ -57,6 +57,7 @@ function divisionColumns(tid: string, showSensitiveColumns: boolean): ColumnDef<
 
 export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean }) {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -72,7 +73,8 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
         setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
         setDivisions(result);
       })
-      .catch(() => console.error("Failed to load divisions"));
+      .catch(() => console.error("Failed to load divisions"))
+      .finally(() => setLoading(false));
   }, [tid]);
 
   useEffect(() => {
@@ -106,6 +108,7 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
   return (
     <>
       <DataTableTemplate<DivisionTS>
+        loading={loading}
         key={tid}
         entityLabel="Division"
         showCreateButton={showCreateButton}

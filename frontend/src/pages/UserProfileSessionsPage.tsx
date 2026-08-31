@@ -30,6 +30,7 @@ export const UserProfileSessionsPage = () => {
   const auth = useAuth()
 
   const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [isDeletingAll, setDeletingAll] = useState(false)
@@ -47,6 +48,7 @@ export const UserProfileSessionsPage = () => {
         setSessions(data.sessions)
       })
       .catch(() => console.error('Failed to load sessions'))
+      .finally(() => setLoading(false))
   }, [auth.accessToken])
 
   useEffect(() => {
@@ -119,6 +121,7 @@ export const UserProfileSessionsPage = () => {
         </button>
       </div>
       <DataTableTemplate<SessionRow>
+        loading={loading}
         entityLabel="Session"
         columns={sessionColumns}
         rows={sessions}

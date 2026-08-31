@@ -72,6 +72,7 @@ function userColumns(onEdit: (user: UserTS) => void): ColumnDef<UserTS>[] {
 
 export default function UsersTable() {
   const [users, setUsers] = useState<UserTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -86,7 +87,8 @@ export default function UsersTable() {
         setTotalCount(result.count);
         setUsers(result.items);
       })
-      .catch(() => console.error('Failed to load users'));
+      .catch(() => console.error('Failed to load users'))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { loadUsers(0, 15); }, []);
@@ -122,6 +124,7 @@ export default function UsersTable() {
   return (
     <>
       <DataTableTemplate<UserTS>
+        loading={loading}
         entityLabel="User"
         onCreate={() => setCreateOpen(true)}
         columns={userColumns((u) => setEditingUser(u))}

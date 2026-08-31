@@ -258,6 +258,8 @@ export interface DataTableProps<T> {
   dense?: boolean;
   /** Optional per-row override of the row background and/or text color. */
   getRowStyle?: (row: T) => { background?: string; color?: string } | undefined;
+  /** While true, the empty state shows "Loading…" instead of "No <entity>s found". */
+  loading?: boolean;
 }
 
 export function DataTableTemplate<T>({
@@ -278,6 +280,7 @@ export function DataTableTemplate<T>({
   onPageSizeChange,
   dense = false,
   getRowStyle,
+  loading = false,
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
@@ -390,7 +393,7 @@ export function DataTableTemplate<T>({
                   colSpan={colSpan}
                   style={{ padding: "32px 14px", textAlign: "center", color: "#9ca3af" }}
                 >
-                  No {entityLabel.toLowerCase()}s found.
+                  {loading ? "Loading…" : `No ${entityLabel.toLowerCase()}s found.`}
                 </td>
               </tr>
             ) : (

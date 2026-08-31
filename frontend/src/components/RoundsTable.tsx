@@ -67,6 +67,7 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
 
 export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
   const [rounds, setRounds] = useState<RoundTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
@@ -87,7 +88,8 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
         setRounds(roundResult);
         setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
       })
-      .catch(() => console.error("Failed to load rounds"));
+      .catch(() => console.error("Failed to load rounds"))
+      .finally(() => setLoading(false));
   }, [tid, did]);
 
   useEffect(() => {
@@ -120,6 +122,7 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
   return (
     <>
       <DataTableTemplate<RoundTS>
+        loading={loading}
         key={did ?? tid}
         entityLabel="Round"
         showCreateButton={showCreateButton}

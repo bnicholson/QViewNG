@@ -114,6 +114,8 @@ interface Props {
   onRemove?: (t: TournamentTS) => Promise<void>
   onPageChange: (page: number) => void
   onPageSizeChange: (size: number) => void
+  /** Forwarded to the table so its empty state can show "Loading…" during the parent's fetch. */
+  loading?: boolean
 }
 
 export default function TournamentTable({
@@ -129,9 +131,11 @@ export default function TournamentTable({
   onRemove,
   onPageChange,
   onPageSizeChange,
+  loading,
 }: Props) {
   return (
     <DataTableTemplate<TournamentTS>
+      loading={loading}
       entityLabel="Tournament"
       showCreateButton={showCreateButton}
       onCreate={onCreate}

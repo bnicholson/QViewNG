@@ -115,6 +115,7 @@ interface Props {
 
 export default function CreateTournamentApplicantsTable({ currentUserId }: Props) {
   const [items, setItems] = useState<CreateTournamentApplicantTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -144,7 +145,8 @@ export default function CreateTournamentApplicantsTable({ currentUserId }: Props
         setItems(result.items);
         loadUserNames(result.items);
       })
-      .catch(() => console.error('Failed to load applicants'));
+      .catch(() => console.error('Failed to load applicants'))
+      .finally(() => setLoading(false));
   }, [loadUserNames]);
 
   useEffect(() => { load(0, DEFAULT_PAGE_SIZE); }, [load]);
@@ -176,6 +178,7 @@ export default function CreateTournamentApplicantsTable({ currentUserId }: Props
   return (
     <>
       <DataTableTemplate<CreateTournamentApplicantTS>
+        loading={loading}
         entityLabel="Applicant"
         showCreateButton={false}
         showDeleteButton={false}

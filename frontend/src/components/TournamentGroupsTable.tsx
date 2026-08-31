@@ -143,6 +143,7 @@ interface Props {
 export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true, canEdit = false }: Props) {
   const { session } = useAuth();
   const [groups, setGroups] = useState<TournamentGroupTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -166,7 +167,8 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
         setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
         setGroups(result);
       })
-      .catch(() => console.error('Failed to load tournament groups'));
+      .catch(() => console.error('Failed to load tournament groups'))
+      .finally(() => setLoading(false));
   }, [tid]);
 
   useEffect(() => {
@@ -258,6 +260,7 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
   return (
     <>
       <DataTableTemplate<TournamentGroupTS>
+        loading={loading}
         key={tid}
         entityLabel="Tournament Group"
         showCreateButton={showCreateButton}

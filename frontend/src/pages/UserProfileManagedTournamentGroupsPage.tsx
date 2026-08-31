@@ -90,6 +90,7 @@ export const UserProfileManagedTournamentGroupsPage = ({ userId, canCreate, canD
         Use Tournament Groups to get multi-Tournament stats results and create linked Tournament histories (for example: for a district's season's Tournaments, for recurring annual/semi-annual Tournaments, etc.)
       </Typography>
       <DataTableTemplate<TournamentGroupTS>
+        loading={loading}
         entityLabel="Tournament Group"
         showCreateButton={canCreate}
         onCreate={() => setEditorOpen(true)}

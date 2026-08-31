@@ -99,6 +99,7 @@ export default function UserGamesAsContentJudgeTable({
   showDeleteButton?: boolean;
 }) {
   const [games, setGames] = useState<GameWithNamesTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -113,7 +114,8 @@ export default function UserGamesAsContentJudgeTable({
         setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
         setGames(result);
       })
-      .catch(() => console.error('Failed to load content judge games'));
+      .catch(() => console.error('Failed to load content judge games'))
+      .finally(() => setLoading(false));
   }, [userId]);
 
   useEffect(() => { loadGames(0, pageSizeRef.current); }, [userId]);
@@ -137,6 +139,7 @@ export default function UserGamesAsContentJudgeTable({
 
   return (
     <DataTableTemplate<GameWithNamesTS>
+      loading={loading}
       key={userId}
       entityLabel="Game"
       showCreateButton={showCreateButton}

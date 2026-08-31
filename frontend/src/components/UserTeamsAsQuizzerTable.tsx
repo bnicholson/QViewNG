@@ -85,6 +85,7 @@ export default function UserTeamsAsQuizzerTable({
   showDeleteButton?: boolean;
 }) {
   const [teams, setTeams] = useState<TeamWithTournamentInfoTS[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -99,7 +100,8 @@ export default function UserTeamsAsQuizzerTable({
         setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
         setTeams(result);
       })
-      .catch(() => console.error('Failed to load quizzer teams'));
+      .catch(() => console.error('Failed to load quizzer teams'))
+      .finally(() => setLoading(false));
   }, [userId]);
 
   useEffect(() => { loadTeams(0, pageSizeRef.current); }, [userId]);
@@ -123,6 +125,7 @@ export default function UserTeamsAsQuizzerTable({
 
   return (
     <DataTableTemplate<TeamWithTournamentInfoTS>
+      loading={loading}
       key={userId}
       entityLabel="Team"
       showCreateButton={showCreateButton}

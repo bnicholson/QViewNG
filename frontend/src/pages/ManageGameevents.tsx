@@ -105,6 +105,7 @@ export const ManageGameevents = () => {
       {/* Table renders only after a lookup has been performed. */}
       {rows !== null && (
         <DataTableTemplate<GameEventTS>
+          loading={loading}
           entityLabel="Game Event"
           showCreateButton={false}
           showDeleteButton={false}
