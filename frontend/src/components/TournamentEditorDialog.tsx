@@ -23,6 +23,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import Slide from '@mui/material/Slide'
 import { type TransitionProps } from '@mui/material/transitions'
 import Button from '@mui/material/Button';
+import { SaveButton } from './SaveButton';
 import ListItem from '@mui/material/ListItem'
 import List from '@mui/material/List';
 import TextareaAutosize from '@mui/material/TextareaAutosize';
@@ -205,9 +206,7 @@ export const TournamentEditorDialog = (props: Props) => {
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
             Create / Edit Tournament
           </Typography>
-          <Button autoFocus color="inherit" onClick={openSaveDialog}>
-            Save
-          </Button>
+          <SaveButton onClick={openSaveDialog} />
         </Toolbar>
       </AppBar>
       <Box component="form">

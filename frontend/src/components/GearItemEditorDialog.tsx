@@ -3,7 +3,7 @@ import React from 'react'
 import Alert from '@mui/material/Alert'
 import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
+import { SaveButton } from './SaveButton'
 import Checkbox from '@mui/material/Checkbox'
 import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
@@ -21,7 +21,6 @@ import TextField from '@mui/material/TextField'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
-import SaveIcon from '@mui/icons-material/Save'
 import type { TransitionProps } from '@mui/material/transitions'
 import {
   EquipmentSetAPI,
@@ -417,14 +416,7 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6">{title}</Typography>
-            <Button
-              color="inherit"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={saving || loading}
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </Button>
+            <SaveButton onClick={handleSave} saving={saving} disabled={loading} autoFocus={false} />
           </Toolbar>
         </AppBar>
 

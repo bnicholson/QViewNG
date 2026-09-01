@@ -3,7 +3,7 @@ import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
+import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
 import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
@@ -176,9 +176,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
             Create New Quizzer &mdash; {rosterName}
           </Typography>
-          <Button autoFocus color="inherit" onClick={openSaveDialog} disabled={saving}>
-            {saving ? 'Saving...' : 'Create & Add'}
-          </Button>
+          <SaveButton onClick={openSaveDialog} label="Create & Add" saving={saving} />
         </Toolbar>
       </AppBar>
 

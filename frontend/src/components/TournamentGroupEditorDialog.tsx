@@ -3,7 +3,7 @@ import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
+import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
 import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
@@ -127,9 +127,7 @@ export const TournamentGroupEditorDialog = ({ tid, isOpen, onCancel, onSave, ini
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
             {isEdit ? 'Edit Tournament Group' : 'Create Tournament Group'}
           </Typography>
-          <Button autoFocus color="inherit" onClick={openSaveDialog}>
-            Save
-          </Button>
+          <SaveButton onClick={openSaveDialog} />
         </Toolbar>
       </AppBar>
 
