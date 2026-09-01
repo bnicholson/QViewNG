@@ -15,7 +15,8 @@ export const LoginPage = () => {
     setLoginError(null)
     const error = await auth.login(email, password)
     if (error == null) {
-      navigate('/')
+      // On success the guard below redirects to the user's own profile once the session
+      // (which carries the userId) has been set on the auth context.
       return
     }
     setLoginError(error)
@@ -23,7 +24,8 @@ export const LoginPage = () => {
   }
 
   if (auth.isAuthenticated) {
-    return <Navigate to="/" replace />
+    const to = auth.session?.userId ? `/user/${auth.session.userId}/overview` : '/'
+    return <Navigate to={to} replace />
   }
 
   return (
