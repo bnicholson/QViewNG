@@ -49,8 +49,8 @@ interface TournamentChangesetTS extends Omit<TournamentChangeset, "fromdate" | "
 const tournamentEmptyState: TournamentChangesetTS = {
   breadcrumb: "",
   city: "",
-  contact: "somebody",
-  contactemail: "@@@",
+  contact: "",
+  contactemail: "",
   country: "",
   fromdate: null,
   is_public: false,
@@ -239,6 +239,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Name (*must be unique)</InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="Tournament Name"
                   value={tournament.tname}
                   onChange={(event) => {
@@ -281,7 +282,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 </Item>
               </Grid>
               &nbsp;&nbsp;
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 6, md: 4 }}>
                 <InputLabel>End Date</InputLabel>
                 <Item >
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -304,6 +305,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Venue</InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="Venue"
                   value={tournament.venue}
                   onChange={(event) => {
@@ -326,19 +328,6 @@ export const TournamentEditorDialog = (props: Props) => {
                   <MenuItem value={"False"}>Private</MenuItem>
                 </Select>
               </Grid>
-              &nbsp;&nbsp;
-              <Grid size={{ xs: 4 }}>
-                <InputLabel>Breadcrumb (short url name)</InputLabel>
-                <TextField
-                  variant="outlined"
-                  // label="Breadcrumb"
-                  placeholder="Breadcrumb"
-                  value={tournament.breadcrumb}
-                  onChange={(event) => {
-                    setTournament(state => ({ ...state, breadcrumb: event.target.value as string }));
-                  }}
-                />
-              </Grid>
             </Grid>
           </ListItem>
           <ListItem>
@@ -347,6 +336,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>City</InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="City"
                   value={tournament.city}
                   onChange={(event) => {
@@ -359,6 +349,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Region/State/Province</InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="Region/State/Province:"
                   value={tournament.region}
                   onChange={(event) => {
@@ -371,6 +362,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Country</InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="Country"
                   value={tournament.country}
                   onChange={(event) => {
@@ -386,6 +378,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Contact </InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="Contact"
                   value={tournament.contact}
                   onChange={(event) => {
@@ -398,6 +391,7 @@ export const TournamentEditorDialog = (props: Props) => {
                 <InputLabel>Contact Email</InputLabel>
                 <TextField
                   variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
                   placeholder="Contact Email"
                   value={tournament.contactemail}
                   onChange={(event) => {
@@ -414,6 +408,7 @@ export const TournamentEditorDialog = (props: Props) => {
                   <InputLabel>Pairing Code (6-digit)</InputLabel>
                   <TextField
                     variant="outlined"
+                    sx={{ width: 500, maxWidth: '100%' }}
                     placeholder="Pairing Code"
                     value={tournament.pairing_code ?? ""}
                     inputProps={{ maxLength: 64 }}
