@@ -70,15 +70,15 @@ export const TeamEditorDialog = (props: Props) => {
     if (!isOpen) return;
     resetState();
     Promise.all([
-      DivisionAPI.get(0, 100),
+      DivisionAPI.getByTournament(tid, 0, 100),
       UserAPI.get(0, 200),
     ])
       .then(([divResult, userResult]) => {
-        setDivisions(divResult.items);
+        setDivisions(divResult);
         setUsers(userResult.items);
       })
       .catch(() => console.error('Failed to load form data for team editor'));
-  }, [isOpen]);
+  }, [isOpen, tid]);
 
   const openCancelDialog = () => {
     const isDirty = form.name !== '' || form.did !== '' || form.coachid !== '';
@@ -182,7 +182,7 @@ export const TeamEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Team Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
@@ -192,7 +192,7 @@ export const TeamEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select
                   value={form.did}
@@ -209,12 +209,7 @@ export const TeamEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
-            </Grid>
-          </ListItem>
-
-          <ListItem>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Coach (*required)</InputLabel>
                 <Select
                   value={form.coachid}
