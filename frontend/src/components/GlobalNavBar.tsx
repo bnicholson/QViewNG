@@ -1,16 +1,38 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import MenuIcon from '@mui/icons-material/Menu'
-import { Backdrop, Button } from '@mui/material'
+import { Backdrop, Button, Link } from '@mui/material'
 import { useAuth } from '../hooks/useAuth'
 import DrawerGlobal from './DrawerGlobal'
 
 const drawerWidth = 240
+
+// Modern text-style nav link (not a button): matches the "QView" brand typography (h6,
+// normal case) with an animated underline that reveals on hover.
+const navLinkSx = {
+  color: 'inherit',
+  cursor: 'pointer',
+  position: 'relative',
+  py: 0.5,
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    height: '2px',
+    width: '100%',
+    backgroundColor: 'currentColor',
+    transform: 'scaleX(0)',
+    transformOrigin: 'center',
+    transition: 'transform .18s ease',
+  },
+  '&:hover::after': { transform: 'scaleX(1)' },
+} as const
 
 export default function GlobalNavBar() {
   const navigate = useNavigate()
@@ -20,24 +42,27 @@ export default function GlobalNavBar() {
 
   return (
     <>
-      <AppBar position="fixed">
-        <Toolbar>
-          {/* 
-          <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            sx={{ mr: 2 }}
-            onClick={toggleDrawer}
-          >
-            <MenuIcon />
-          </IconButton> */}
-          <Typography variant="h6" component="div" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            QView
-          </Typography>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 2 }} onClick={toggleDrawer} />
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+      <AppBar position="fixed" sx={{ width: '100%' }}>
+        <Toolbar sx={{ width: '100%' }}>
+          {/* Left: brand */}
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+            <Typography variant="h6" component="div" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+              QView
+            </Typography>
+          </Box>
+
+          {/* Center: primary navigation, centered across the full width of the bar */}
+          <Box sx={{ display: 'flex', gap: { xs: 3, sm: 5 }, justifyContent: 'center', alignItems: 'center' }}>
+            <Link component={RouterLink} to="/" variant="h6" color="inherit" underline="none" sx={navLinkSx}>
+              Home
+            </Link>
+            <Link component={RouterLink} to="/help" variant="h6" color="inherit" underline="none" sx={navLinkSx}>
+              Help
+            </Link>
+          </Box>
+
+          {/* Right: session actions */}
+          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             {auth.session?.hasRole('super_user') && (
               <Button variant="contained" color="inherit" sx={{ color: 'primary.main' }} onClick={() => navigate('/dev')}>
                 Dev

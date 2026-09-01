@@ -6,6 +6,7 @@ import { ResetPage } from "./containers/ResetPage";
 import { ActivationPage } from "./pages/ActivationPage";
 import { UserRegistrationPage } from "./pages/UserRegistrationPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
+import { HelpPage } from "./pages/HelpPage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
 import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
@@ -30,6 +31,7 @@ export default function QViewRoutes() {
         <Routes>
             <Route path="/" element={<TournamentFinder />} />
             <Route path="/tournaments" element={<TournamentFinder />} />
+            <Route path="/help" element={<HelpPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/recovery" element={<RecoveryPage />} />
             <Route path="/reset" element={<ResetPage />} />
