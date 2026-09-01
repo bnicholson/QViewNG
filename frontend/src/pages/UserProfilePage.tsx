@@ -88,6 +88,10 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
       { kind: 'route' as const, label: 'Change Password',      to: `/user/${user_id}/change-password`  },
       { kind: 'route' as const, label: 'Manage User Sessions', to: `/user/${user_id}/sessions`         },
     ] : []),
+    // Super-user-only Dev tools link (moved here from the global nav bar).
+    ...(isSuperUser ? [
+      { kind: 'route' as const, label: 'Developer', to: `/dev` },
+    ] : []),
   ]
 
   return (
