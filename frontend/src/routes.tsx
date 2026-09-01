@@ -22,6 +22,7 @@ import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
 import { CRMProfile } from "./pages/CRMProfile";
 import { DevPage } from "./pages/DevPage";
+import { Divisions } from "./pages/DivisionPageOld";
 
 // NOTE: This component was created for ease-of-access and modularity, not reusability.
 //       ONLY the App.tsx file should use this component. 
@@ -82,6 +83,7 @@ export default function QViewRoutes() {
             <Route path="/round/:roundid" element={<RoundProfile />} />
             <Route path="/round/:roundid/overview" element={<RoundProfile childRoute="overview" />} />
             <Route path="/round/:roundid/games" element={<RoundProfile childRoute="games" />} />
+            <Route path="/division/old" element={<Divisions />} />  // old version
             <Route path="/division/:did" element={<DivisionProfile />} />
             <Route path="/division/:did/overview" element={<DivisionProfile childRoute="overview" />} />
             <Route path="/division/:did/teams" element={<DivisionProfile childRoute="teams" />} />

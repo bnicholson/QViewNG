@@ -15,13 +15,14 @@ interface DevLink {
 }
 
 const devLinks: DevLink[] = [
-  { label: 'CRM',                path: '/crm',                description: 'User and tournament applicant management' },
-  { label: 'Tournaments Page',   path: '/tournaments-page',   description: 'Tournaments list page'                   },
-  { label: 'TD Editor',          path: '/tdeditor',           description: 'Legacy tournament director editor'        },
-  { label: 'Rounds In Progress', path: '/rounds-in-progress', description: 'View rounds currently in progress'       },
-  { label: 'Files',              path: '/files',              description: 'File management'                         },
-  { label: 'Swagger',            path: '/swagger',            description: 'API documentation and interactive tester' },
-  { label: '404',                path: '/404',                description: 'Not found page'                          },
+  { label: 'CRM',                  path: '/crm',                description: 'User and tournament applicant management' },
+  { label: 'Old Divisions Page',   path: '/division/old',       description: 'Legacy division editor (now with no active state mechanism)' },
+  { label: 'Old Tournaments Page', path: '/tournaments-page',   description: 'Legacy Tournaments list page' },
+  { label: 'TD Editor',            path: '/tdeditor',           description: 'Legacy tournament director editor'        },
+  { label: 'Rounds In Progress',   path: '/rounds-in-progress', description: 'View rounds currently in progress'       },
+  { label: 'Files',                path: '/files',              description: 'File management'                         },
+  { label: 'Swagger',              path: '/swagger',            description: 'API documentation and interactive tester' },
+  { label: '404',                  path: '/404',                description: 'Not found page'                          },
 ]
 
 export function DevPage() {
