@@ -219,6 +219,7 @@ interface Tournament {
   created_at: UTC;
   updated_at: UTC;
   owner_id: string;
+  registration_is_open: boolean;
   pairing_code?: string;
   address_line_1: string;
   address_line_2: string;

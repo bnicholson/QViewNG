@@ -9,14 +9,30 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import React from 'react'
 
+interface InfoItemProps {
+  label: string,
+  value: string
+}
+
+const InfoItem = ({label, value}: InfoItemProps) => {
+  return (
+    <>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Typography variant="body2" color="text.secondary">{label}</Typography>
+        <Typography variant="body1">{value}</Typography>
+      </Grid>
+    </>
+  )
+}
+
 interface TournamentOverviewPageProps {
   tournament: TournamentTS
   isTournamentUpdate: boolean
-  canViewPairingCode: boolean
+  canViewPairingCodeAndVisibility: boolean
   onEdit: () => void
 }
 
-export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canViewPairingCode, onEdit }: TournamentOverviewPageProps) => {
+export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canViewPairingCodeAndVisibility, onEdit }: TournamentOverviewPageProps) => {
   const navigate = useNavigate()
   return (
     <Box>
@@ -39,28 +55,14 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
       <Divider sx={{ mb: 2 }} />
 
       <Grid container spacing={{ xs: 1, sm: 2 }}>
-        {canViewPairingCode && (
+        {canViewPairingCodeAndVisibility && (
           <>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <Typography variant="body2" color="text.secondary">Visibility</Typography>
-              <Typography variant="body1">{tournament.is_public ? 'Public' : 'Private'}</Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <Typography variant="body2" color="text.secondary">Pairing Code</Typography>
-              <Typography variant="body1" sx={{ fontFamily: 'monospace', letterSpacing: 1 }}>
-                {tournament.pairing_code}
-              </Typography>
-            </Grid>
+            <InfoItem label="Visibility" value={tournament.is_public ? 'Public' : 'Private'}/>
+            <InfoItem label="Pairing Code" value={tournament.pairing_code ?? ''}/>
           </>
         )}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Typography variant="body2" color="text.secondary">Organization</Typography>
-          <Typography variant="body1">{tournament.organization}</Typography>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Typography variant="body2" color="text.secondary">Venue</Typography>
-          <Typography variant="body1">{tournament.venue}</Typography>
-        </Grid>
+        <InfoItem label="Organization" value={tournament.organization}/>
+        <InfoItem label="Venue" value={tournament.venue}/>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Typography variant="body2" color="text.secondary">Address</Typography>
           <Typography variant="body1" component="div">
@@ -77,14 +79,20 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
               .map((line, i) => <div key={i}>{line}</div>)}
           </Typography>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Typography variant="body2" color="text.secondary">Contact</Typography>
-          <Typography variant="body1">{tournament.contact}</Typography>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Typography variant="body2" color="text.secondary">Contact Email</Typography>
-          <Typography variant="body1">{tournament.contactemail}</Typography>
-        </Grid>
+        <InfoItem
+          label="Dates"
+          value={
+            tournament.fromdate && tournament.todate
+              ? `${tournament.fromdate.format('MMM D, YYYY')} – ${tournament.todate.format('MMM D, YYYY')}`
+              : ''
+          }
+        />
+        <InfoItem
+          label="Registration"
+          value={tournament.registration_is_open ? 'Open' : 'Closed'}
+        />
+        <InfoItem label="Contact" value={tournament.contact}/>
+        <InfoItem label="Contact Email" value={tournament.contactemail}/>
       </Grid>
       <br/>
       <Divider sx={{ mb: 2 }} />
