@@ -602,8 +602,6 @@ diesel::table! {
         venue -> Varchar,
         #[max_length = 64]
         city -> Varchar,
-        #[max_length = 64]
-        region -> Varchar,
         #[max_length = 32]
         country -> Varchar,
         #[max_length = 64]
@@ -621,6 +619,14 @@ diesel::table! {
         creator_id -> Uuid,
         #[max_length = 64]
         pairing_code -> Varchar,
+        #[max_length = 128]
+        address_line_1 -> Varchar,
+        #[max_length = 128]
+        address_line_2 -> Varchar,
+        #[max_length = 64]
+        state -> Varchar,
+        #[max_length = 16]
+        zip_code -> Varchar,
     }
 }
 

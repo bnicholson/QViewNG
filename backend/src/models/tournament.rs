@@ -19,7 +19,6 @@ pub struct TournamentBuilder {
     todate: Option<chrono::naive::NaiveDate>,
     venue: Option<String>,
     city: Option<String>,
-    region: Option<String>,
     country: Option<String>,
     contact: Option<String>,
     contactemail: Option<String>,
@@ -27,6 +26,10 @@ pub struct TournamentBuilder {
     info: Option<String>,
     owner_id: Option<Uuid>,
     pairing_code: Option<String>,
+    address_line_1: Option<String>,
+    address_line_2: Option<String>,
+    state: Option<String>,
+    zip_code: Option<String>,
 }
 
 impl TournamentBuilder {
@@ -39,7 +42,6 @@ impl TournamentBuilder {
             todate: None,
             venue: None,
             city: None,
-            region: None,
             country: None,
             contact: None,
             contactemail: None,
@@ -47,6 +49,10 @@ impl TournamentBuilder {
             info: None,
             owner_id: None,
             pairing_code: None,
+            address_line_1: None,
+            address_line_2: None,
+            state: None,
+            zip_code: None,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -59,17 +65,20 @@ impl TournamentBuilder {
             todate: Some(NaiveDate::from_ymd_opt(2025, 5, 27).unwrap()),
             venue: Some("Vancouver University".to_string()),
             city: Some("Vancouver".to_string()),
-            region: Some("North America".to_string()),
             country: Some("Canada".to_string()),
             contact: Some("primemin".to_string()),
             contactemail: Some("primemin@fakeemail.com".to_string()),
             shortinfo: Some("Winter Olympics".to_string()),
             info: Some("Shawn White did excellent in the halfpipe.".to_string()),
             owner_id: None,
-            pairing_code: None
+            pairing_code: None,
+            address_line_1: Some("100 Convention Way".to_string()),
+            address_line_2: Some("".to_string()),
+            state: Some("BC".to_string()),
+            zip_code: Some("V6B 1A1".to_string()),
         }
     }
-    
+
     pub fn set_organization(mut self, org: &str) -> Self {
         self.organization = Some(org.to_string());
         self
@@ -98,12 +107,24 @@ impl TournamentBuilder {
         self.city = Some(city.to_string());
         self
     }
-    pub fn set_region(mut self, region: &str) -> Self {
-        self.region = Some(region.to_string());
-        self
-    }
     pub fn set_country(mut self, country: &str) -> Self {
         self.country = Some(country.to_string());
+        self
+    }
+    pub fn set_address_line_1(mut self, address_line_1: &str) -> Self {
+        self.address_line_1 = Some(address_line_1.to_string());
+        self
+    }
+    pub fn set_address_line_2(mut self, address_line_2: &str) -> Self {
+        self.address_line_2 = Some(address_line_2.to_string());
+        self
+    }
+    pub fn set_state(mut self, state: &str) -> Self {
+        self.state = Some(state.to_string());
+        self
+    }
+    pub fn set_zip_code(mut self, zip_code: &str) -> Self {
+        self.zip_code = Some(zip_code.to_string());
         self
     }
     pub fn set_contact(mut self, contact: &str) -> Self {
@@ -152,9 +173,6 @@ impl TournamentBuilder {
         if self.city.is_none() {
             errors.push("city is required".to_string());
         }
-        if self.region.is_none() {
-            errors.push("region is required".to_string());
-        }
         if self.country.is_none() {
             errors.push("country is required".to_string());
         }
@@ -200,7 +218,6 @@ impl TournamentBuilder {
                     todate: self.todate.unwrap(),
                     venue: self.venue.unwrap(),
                     city: self.city.unwrap(),
-                    region: self.region.unwrap(),
                     country: self.country.unwrap(),
                     contact: self.contact.unwrap(),
                     contactemail: self.contactemail.unwrap(),
@@ -209,6 +226,10 @@ impl TournamentBuilder {
                     owner_id: self.owner_id.unwrap(),
                     creator_id: self.owner_id.unwrap(),
                     pairing_code: self.pairing_code.unwrap_or(pairing_code),
+                    address_line_1: self.address_line_1.unwrap_or_default(),
+                    address_line_2: self.address_line_2.unwrap_or_default(),
+                    state: self.state.unwrap_or_default(),
+                    zip_code: self.zip_code.unwrap_or_default(),
                 })
             }
         }
@@ -252,7 +273,6 @@ pub struct Tournament {
     pub todate: chrono::naive::NaiveDate,
     pub venue: String,
     pub city: String,
-    pub region: String,
     pub country: String,
     pub contact: String,
     pub contactemail: String,
@@ -265,6 +285,10 @@ pub struct Tournament {
     pub registration_is_open: bool,
     pub creator_id: Uuid,
     pub pairing_code: String,
+    pub address_line_1: String,
+    pub address_line_2: String,
+    pub state: String,
+    pub zip_code: String,
 }
 
 #[derive(
@@ -284,7 +308,6 @@ pub struct NewTournament {
     pub todate: chrono::naive::NaiveDate,
     pub venue: String,
     pub city: String,
-    pub region: String,
     pub country: String,
     pub contact: String,
     pub contactemail: String,
@@ -293,6 +316,10 @@ pub struct NewTournament {
     pub owner_id: Uuid,
     pub creator_id: Uuid,
     pub pairing_code: String,
+    pub address_line_1: String,
+    pub address_line_2: String,
+    pub state: String,
+    pub zip_code: String,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -306,19 +333,26 @@ pub struct NewTournamentPayload {
     pub todate: chrono::naive::NaiveDate,
     pub venue: String,
     pub city: String,
-    pub region: String,
     pub country: String,
     pub contact: String,
     pub contactemail: String,
     pub shortinfo: String,
     pub info: String,
+    #[serde(default)]
+    pub address_line_1: String,
+    #[serde(default)]
+    pub address_line_2: String,
+    #[serde(default)]
+    pub state: String,
+    #[serde(default)]
+    pub zip_code: String,
 }
 
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::tournaments)]
 #[diesel(primary_key(tid))]
-pub struct TournamentChangeset {   
+pub struct TournamentChangeset {
     pub organization: Option<String>,
     pub tname: Option<String>,
     pub breadcrumb: Option<String>,
@@ -326,7 +360,6 @@ pub struct TournamentChangeset {
     pub todate: Option<chrono::naive::NaiveDate>,
     pub venue: Option<String>,
     pub city: Option<String>,
-    pub region: Option<String>,
     pub country: Option<String>,
     pub contact: Option<String>,
     pub contactemail: Option<String>,
@@ -335,6 +368,10 @@ pub struct TournamentChangeset {
     pub info: Option<String>,
     pub registration_is_open: Option<bool>,
     pub pairing_code: Option<String>,
+    pub address_line_1: Option<String>,
+    pub address_line_2: Option<String>,
+    pub state: Option<String>,
+    pub zip_code: Option<String>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {

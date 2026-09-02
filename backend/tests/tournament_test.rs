@@ -62,7 +62,7 @@ async fn get_all_works() {
     assert_eq!(tour_of_interest.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
     assert_eq!(tour_of_interest.venue,"Olivet Nazarene University");
     assert_eq!(tour_of_interest.city,"Bourbonnais");
-    assert_eq!(tour_of_interest.region,"Central USA");
+    assert_eq!(tour_of_interest.state,"Central USA");
     assert_eq!(tour_of_interest.country,"USA");
     assert_eq!(tour_of_interest.contact,"Jason Morton");
     assert_eq!(tour_of_interest.contactemail,"jasonmorton@fakeemail.com");
@@ -266,7 +266,7 @@ fn tournament_create_payload() -> serde_json::Value {
         "todate": "2025-05-27",
         "venue": "Vancouver University",
         "city": "Vancouver",
-        "region": "North America",
+        "state": "North America",
         "country": "Canada",
         "contact": "primemin",
         "contactemail": "primemin@fakeemail.com",

@@ -63,8 +63,18 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Typography variant="body2" color="text.secondary">Address</Typography>
-          <Typography variant="body1">
-            {[tournament.city, tournament.region, tournament.country].filter(Boolean).join(', ')}
+          <Typography variant="body1" component="div">
+            {[
+              tournament.address_line_1,
+              tournament.address_line_2,
+              [
+                [tournament.city, tournament.state].filter(Boolean).join(', '),
+                tournament.zip_code,
+              ].filter(Boolean).join(' '),
+              tournament.country,
+            ]
+              .filter((line) => line && line.trim())
+              .map((line, i) => <div key={i}>{line}</div>)}
           </Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>

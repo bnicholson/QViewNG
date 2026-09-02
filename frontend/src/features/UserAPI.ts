@@ -133,7 +133,7 @@ export interface TournamentForUserTS {
   todate: string;
   venue: string;
   city: string;
-  region: string;
+  state: string;
   country: string;
   owner_id: string;
   created_at: string;

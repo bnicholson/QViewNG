@@ -531,7 +531,6 @@ async fn create(
         todate: payload.todate,
         venue: payload.venue,
         city: payload.city,
-        region: payload.region,
         country: payload.country,
         contact: payload.contact,
         contactemail: payload.contactemail,
@@ -540,6 +539,10 @@ async fn create(
         owner_id: user_ctx.user_id,
         creator_id: user_ctx.user_id,
         pairing_code,
+        address_line_1: payload.address_line_1,
+        address_line_2: payload.address_line_2,
+        state: payload.state,
+        zip_code: payload.zip_code,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);

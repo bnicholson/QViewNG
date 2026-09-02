@@ -98,7 +98,7 @@ export function TournamentsPage() {
               <div>
                 {/* Dates: {tournament.fromdate.format('YYYY-MM-DD')} - {tournament.todate.format('YYYY-MM-DD')}
                 &nbsp;&nbsp;|&nbsp;&nbsp; */}
-                At: {tournament.venue}, {tournament.city}, {tournament.region}, {tournament.country}
+                At: {tournament.venue}, {tournament.city}, {tournament.state}, {tournament.country}
               </div>
               <div>
                 Contacts: {tournament.contact}

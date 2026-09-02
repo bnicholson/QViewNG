@@ -48,7 +48,7 @@ const columns: ColumnDef<TournamentForUserTS>[] = [
   {
     header: 'Location',
     render: (t) => {
-      const parts = [t.venue, t.city, t.region, t.country].filter(Boolean);
+      const parts = [t.venue, t.city, t.state, t.country].filter(Boolean);
       return <span style={{ color: '#374151' }}>{parts.join(', ')}</span>;
     },
   },

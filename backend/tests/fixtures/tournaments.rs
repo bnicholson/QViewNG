@@ -33,7 +33,7 @@ pub fn seed_tournaments_with_names(db: &mut database::Connection, tname_1: &str,
     let tour_builder = TournamentBuilder::new_default(tname_1)
         .set_venue("Olivet Nazarene University")
         .set_city("Bourbonnais")
-        .set_region("Central USA")
+        .set_state("Central USA")
         .set_country("USA")
         .set_contact("Jason Morton")
         .set_contactemail("jasonmorton@fakeemail.com")

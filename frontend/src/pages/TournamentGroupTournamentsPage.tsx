@@ -211,7 +211,7 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit, canCreate }: Pro
                   >
                     <ListItemText
                       primary={t.tname}
-                      secondary={[t.city, t.region, t.country].filter(Boolean).join(', ') || undefined}
+                      secondary={[t.city, t.state, t.country].filter(Boolean).join(', ') || undefined}
                     />
                   </ListItem>
                 ))}

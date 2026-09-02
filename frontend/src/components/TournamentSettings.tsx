@@ -60,7 +60,7 @@ export default function TournamentSettings() {
     const fromDateRef = React.useRef<Dayjs | null>(null)
     const toDateRef = React.useRef<Dayjs | null>(null)
     const [city, setCity] = React.useState<string>("")
-    const [region, setRegion] = React.useState<string>("")
+    const [state, setState] = React.useState<string>("")
     const [country, setCountry] = React.useState<string>("")
     const [hide, setHide] = React.useState<string>("True");
     const [breadcrumb, setBreadcrumb] = React.useState<string>("")
@@ -99,7 +99,7 @@ export default function TournamentSettings() {
             todate: toDateRef.current?.format("YYYY-MM-DD"),
             venue: venue,
             city: city,
-            region: region,
+            state: state,
             country: country,
             contact: contact,
             contactemail: contactemail,
@@ -288,14 +288,13 @@ export default function TournamentSettings() {
                                 />
                             </Grid>
                             <Grid size={{ xs: 4 }}>
-                                <InputLabel>Region/State/Province</InputLabel>
+                                <InputLabel>State</InputLabel>
                                 <TextField
                                     variant="outlined"
-                                    // label="Region/State/Province:"
-                                    placeholder="Region/State/Province:"
-                                    value={region}
+                                    placeholder="State"
+                                    value={state}
                                     onChange={(event) => {
-                                        setRegion(event.target.value as string);
+                                        setState(event.target.value as string);
                                     }}
                                 />
                             </Grid>

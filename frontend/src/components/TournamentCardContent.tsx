@@ -3,7 +3,7 @@ import { CardContent, type CardContentProps } from "@mui/material";
 import "./TournamentCardContent.css";
 
 interface Props extends CardContentProps {
-  tournament: Pick<Tournament, "tname" | "fromdate" | "todate" | "venue" | "shortinfo" | "city" | "region" | "country" | "organization">;
+  tournament: Pick<Tournament, "tname" | "fromdate" | "todate" | "venue" | "shortinfo" | "city" | "state" | "country" | "organization">;
 }
 
 const getTournamentStatus = (fromdate: any, todate: any): { label: string; className: string } => {
@@ -44,13 +44,13 @@ export const TournamentCardContent = (props: Props) => {
           <span>{tournament.shortinfo}</span>
         </p>
       )}
-      {(tournament.country || tournament.region || tournament.city) && (
+      {(tournament.country || tournament.state || tournament.city) && (
         <p>
           <span className="descriptionTitle">Location</span>
           <span>
             {tournament.city}
-            {tournament.city && tournament.region && ", "}
-            {tournament.region}
+            {tournament.city && tournament.state && ", "}
+            {tournament.state}
           </span>
           <span>{tournament.country}</span>
         </p>

@@ -210,7 +210,6 @@ interface Tournament {
   todate: NaiveDate;
   venue: string;
   city: string;
-  region: string;
   country: string;
   contact: string;
   contactemail: string;
@@ -221,6 +220,10 @@ interface Tournament {
   updated_at: UTC;
   owner_id: string;
   pairing_code?: string;
+  address_line_1: string;
+  address_line_2: string;
+  state: string;
+  zip_code: string;
 }
 
 interface TournamentChangeset {
@@ -231,7 +234,6 @@ interface TournamentChangeset {
   todate: NaiveDate;
   venue: string;
   city: string;
-  region: string;
   country: string;
   contact: string;
   contactemail: string;
@@ -239,6 +241,10 @@ interface TournamentChangeset {
   shortinfo: string;
   info: string;
   pairing_code?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  state?: string;
+  zip_code?: string;
 }
 
 interface FileInfo {

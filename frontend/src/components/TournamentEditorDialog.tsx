@@ -58,12 +58,15 @@ const tournamentEmptyState: TournamentChangesetTS = {
   is_public: false,
   info: "",
   organization: "Nazarene",
-  region: "",
   shortinfo: "",
   tname: "",
   todate: null,
   venue: "",
-  pairing_code: ""
+  pairing_code: "",
+  address_line_1: "",
+  address_line_2: "",
+  state: "",
+  zip_code: ""
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -141,13 +144,16 @@ export const TournamentEditorDialog = (props: Props) => {
       todate: tournament.todate?.format("YYYY-MM-DD"),
       venue: tournament.venue,
       city: tournament.city,
-      region: tournament.region,
       country: tournament.country,
       contact: tournament.contact,
       contactemail: tournament.contactemail,
       is_public: true,
       shortinfo: tournament.shortinfo,
       info: tournament.info,
+      address_line_1: tournament.address_line_1,
+      address_line_2: tournament.address_line_2,
+      state: tournament.state,
+      zip_code: tournament.zip_code,
     };
     if (canViewPairingCode) {
       tournamentCS.pairing_code = tournament.pairing_code;
@@ -332,6 +338,35 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
+              <Grid size={{ xs: 6 }}>
+                <InputLabel>Address Line 1</InputLabel>
+                <TextField
+                  variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
+                  placeholder="Address Line 1"
+                  value={tournament.address_line_1}
+                  onChange={(event) => {
+                    setTournament(state => ({ ...state, address_line_1: event.target.value as string }));
+                  }}
+                />
+              </Grid>
+              &nbsp;&nbsp;
+              <Grid size={{ xs: 6 }}>
+                <InputLabel>Address Line 2</InputLabel>
+                <TextField
+                  variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
+                  placeholder="Address Line 2"
+                  value={tournament.address_line_2}
+                  onChange={(event) => {
+                    setTournament(state => ({ ...state, address_line_2: event.target.value as string }));
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
               <Grid size={{ xs: 4 }}>
                 <InputLabel>City</InputLabel>
                 <TextField
@@ -346,19 +381,35 @@ export const TournamentEditorDialog = (props: Props) => {
               </Grid>
               &nbsp;&nbsp;
               <Grid size={{ xs: 4 }}>
-                <InputLabel>Region/State/Province</InputLabel>
+                <InputLabel>State</InputLabel>
                 <TextField
                   variant="outlined"
                   sx={{ width: 500, maxWidth: '100%' }}
-                  placeholder="Region/State/Province:"
-                  value={tournament.region}
+                  placeholder="State"
+                  value={tournament.state}
                   onChange={(event) => {
-                    setTournament(state => ({ ...state, region: event.target.value as string }));
+                    setTournament(s => ({ ...s, state: event.target.value as string }));
                   }}
                 />
               </Grid>
               &nbsp;&nbsp;
               <Grid size={{ xs: 4 }}>
+                <InputLabel>Zip Code</InputLabel>
+                <TextField
+                  variant="outlined"
+                  sx={{ width: 500, maxWidth: '100%' }}
+                  placeholder="Zip Code"
+                  value={tournament.zip_code}
+                  onChange={(event) => {
+                    setTournament(state => ({ ...state, zip_code: event.target.value as string }));
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Country</InputLabel>
                 <TextField
                   variant="outlined"

@@ -92,7 +92,7 @@ function tournamentColumns(showRemoveButton: boolean, onRemove?: (t: TournamentT
     },
     {
       header: 'Location',
-      render: t => [t.city, t.region, t.country].filter(Boolean).join(', '),
+      render: t => [t.city, t.state, t.country].filter(Boolean).join(', '),
     },
     ...(showRemoveButton && onRemove ? [{
       header: '',
