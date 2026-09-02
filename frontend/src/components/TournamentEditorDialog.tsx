@@ -147,7 +147,7 @@ export const TournamentEditorDialog = (props: Props) => {
       country: tournament.country,
       contact: tournament.contact,
       contactemail: tournament.contactemail,
-      is_public: true,
+      is_public: tournament.is_public,
       shortinfo: tournament.shortinfo,
       info: tournament.info,
       address_line_1: tournament.address_line_1,
