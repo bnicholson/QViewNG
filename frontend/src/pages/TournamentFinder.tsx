@@ -120,7 +120,7 @@ export const TournamentFinder = () => {
             onClick={() => navigate(`/user/${session.userId}/managed-tournaments`)}
             sx={{ backgroundColor: '#8e24aa', '&:hover': { backgroundColor: '#7b1fa2' }, mb: 0, alignSelf: 'flex-start' }}
           >
-            View My Tournaments
+            View Tournaments that I Manage
           </Button>
         )}
         <div style={{
