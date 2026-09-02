@@ -50,6 +50,51 @@ interface TournamentChangesetTS extends Omit<TournamentChangeset, "fromdate" | "
   registration_close_date: Dayjs | null;
 }
 
+/**
+ * Starter markdown pre-filled into the "Full Description" editor when creating a new
+ * tournament. Intentionally avoids fields already surfaced as InfoItems on the Overview
+ * page (dates, registration window, venue, address, contact, organization, visibility,
+ * pairing code) so the two can't drift out of sync.
+ */
+const DEFAULT_INFO_TEMPLATE = `## Welcome
+
+_Write a short welcome and overview of what makes this tournament special._
+
+## Official Website
+
+For the latest information and updates, visit our website: [https://example.com](https://example.com)
+
+## Schedule & Agenda
+
+_Outline the flow of the event — e.g., check-in, opening session, rounds, breaks, and awards._
+
+## Registration Details
+
+_Explain who is eligible, any fees, deadlines, and how to complete registration._
+
+## Rules & Format
+
+_Summarize the ruleset, divisions, and how games are played._
+
+## Lodging & Travel
+
+_Recommend nearby hotels, parking, and directions to help attendees plan their trip._
+
+## Meals & Amenities
+
+_Note any provided meals, concessions, or on-site amenities._
+
+## What to Bring
+
+_List anything participants, coaches, or volunteers should bring._
+
+## Frequently Asked Questions
+
+**Q:** _Add a common question here._
+
+**A:** _Add the answer here._
+`;
+
 const tournamentEmptyState: TournamentChangesetTS = {
   breadcrumb: "",
   city: "",
@@ -58,7 +103,7 @@ const tournamentEmptyState: TournamentChangesetTS = {
   country: "",
   fromdate: null,
   is_public: false,
-  info: "",
+  info: DEFAULT_INFO_TEMPLATE,
   organization: "Nazarene",
   shortinfo: "",
   tname: "",
@@ -538,7 +583,9 @@ export const TournamentEditorDialog = (props: Props) => {
           <ListItem sx={{ width: '100%' }}>
             <Grid container sx={{ width: '100%' }}>
               <Grid size={{ xs: 12 }} sx={{ p: 2 }}>
-                <InputLabel style={{ paddingBottom: 10 }}>Full Description (*written using Markdown)</InputLabel>
+                <InputLabel style={{ paddingBottom: 10 }}>Full Description (Written using{' '}
+                  <a href="/markdown-cheatsheet" target="_blank" rel="noopener noreferrer">Markdown</a>
+                  . Edit on the left and view the appearance on the right.)</InputLabel>
                 <MDEditor
                   value={tournament.info}
                   onChange={(val) => setTournament(state => ({ ...state, info: val ?? '' }))}
