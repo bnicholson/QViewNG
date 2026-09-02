@@ -35,18 +35,25 @@ impl TournamentWithRooms {
 ))]
 pub struct TournamentDoc;
 
+#[derive(serde::Deserialize)]
+struct VisibilityQuery {
+    visibility: Option<String>,
+}
+
 #[get("filter")]
 async fn get_between_dates(
     db: Data<Database>,
     req: HttpRequest,
     Query(dinfo): Query<SearchDateParams>,
+    Query(vis): Query<VisibilityQuery>,
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let result = models::tournament::read_between_dates(&mut db, dinfo.from_date, dinfo.to_date);
+    let visibility = models::tournament::VisibilityFilter::from_param(vis.visibility.as_deref());
+    let result = models::tournament::read_between_dates(&mut db, dinfo.from_date, dinfo.to_date, visibility);
 
     if result.is_ok() {
         HttpResponse::Ok().json(result.unwrap())
@@ -150,7 +157,7 @@ async fn read_today(
 
     tracing::debug!("{} /api/tournaments/today {:?} {:?} {:?}",line!(), today, from_dt, to_dt);
 
-    let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt);
+    let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt, models::tournament::VisibilityFilter::Public);
     println!("Tournaments Result: {:?} {:?} {:?}", from_dt, to_dt, result_tournaments);
 
     let internal_server_error_payload = EntityResponse::<String> {

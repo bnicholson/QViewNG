@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
-import { 
-  Card, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
+import {
+  Button, Card, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
 } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -30,6 +30,7 @@ export const TournamentFinder = () => {
   const [tournamentEditor, setTournamentEditor] = useState<{ isOpen: boolean, tournament: TournamentTS | undefined }>({ isOpen: false, tournament: undefined });
   const { session } = useAuth();
   const isTournamentCreate = session?.hasPermission('tournament:create') ?? false;
+  const isTournamentManager = (session?.hasRole('super_user') ?? false) || (session?.hasRole('tournament_manager') ?? false);
   const dispatcher = useAppDispatch();
   const navigate = useNavigate();
   const openTournament = (tournament: TournamentTS) => {
@@ -39,6 +40,7 @@ export const TournamentFinder = () => {
     navigate(`/tournament/${tournament.tid}`);
   }
   const closeTournamentEditor = () => setTournamentEditor({ isOpen: false, tournament: undefined });
+  const publicTournaments = tournaments.filter(t => t.is_public);
   useEffect(() => {
     setIsLoading(true)
     const startMillis = startDate ? startDate.valueOf() : 0;
@@ -80,7 +82,7 @@ export const TournamentFinder = () => {
           display: "flex",
           flexWrap: "wrap",
           gap: "10px",
-          marginBottom: 20,
+          marginBottom: 8,
           width: "100%"
         }}>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -112,6 +114,15 @@ export const TournamentFinder = () => {
             />
           </LocalizationProvider>
         </div>
+        {isTournamentManager && session?.userId && (
+          <Button
+            variant="contained"
+            onClick={() => navigate(`/user/${session.userId}/managed-tournaments`)}
+            sx={{ backgroundColor: '#8e24aa', '&:hover': { backgroundColor: '#7b1fa2' }, mb: 0, alignSelf: 'flex-start' }}
+          >
+            View My Tournaments
+          </Button>
+        )}
         <div style={{
           display: "flex",
           flexWrap: "wrap",
@@ -183,10 +194,10 @@ export const TournamentFinder = () => {
           )}
           {isLoading ? (
             "Loading tournaments..."
-          ) : tournaments.length < 1 ? (
+          ) : publicTournaments.length < 1 ? (
             "No Tournaments found based on current filter criteria."
           ) : (
-            tournaments.map(tournament => (
+            publicTournaments.map(tournament => (
               <Card key={tournament.tid}>
                 <TournamentCardContent onClick={() => openTournament(tournament)} tournament={tournament} />
                 {/* Make the user view the profile first before editing:

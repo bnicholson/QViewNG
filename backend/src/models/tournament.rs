@@ -412,17 +412,40 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     values
 }
 
-pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i64) -> QueryResult<Vec<Tournament>> {
+pub enum VisibilityFilter {
+    Public,  // default
+    Private,
+    All,
+}
+
+impl VisibilityFilter {
+    /// Parses the `visibility` query parameter: "all" and "private" select those; anything
+    /// else — including "public", an empty value, or an absent parameter — defaults to public.
+    pub fn from_param(param: Option<&str>) -> Self {
+        match param.map(str::to_ascii_lowercase).as_deref() {
+            Some("all") => VisibilityFilter::All,
+            Some("private") => VisibilityFilter::Private,
+            _ => VisibilityFilter::Public,
+        }
+    }
+}
+
+pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i64, visibility: VisibilityFilter) -> QueryResult<Vec<Tournament>> {
     use crate::schema::tournaments::dsl::*;
     let dt_from = Utc.timestamp_millis_opt(from_dt ).unwrap().naive_utc().date();
     let dt_to = Utc.timestamp_millis_opt(to_dt).unwrap().naive_utc().date();
 
-    let values = tournaments
+    let mut query = tournaments
         .order(todate)
         .filter(todate.ge(dt_from))
         .filter(fromdate.le(dt_to))
-        .load::<Tournament>(db);
-    values
+        .into_boxed();
+    match visibility {
+        VisibilityFilter::Public => query = query.filter(is_public.eq(true)),
+        VisibilityFilter::Private => query = query.filter(is_public.eq(false)),
+        VisibilityFilter::All => {}
+    }
+    query.load::<Tournament>(db)
 }
 
 pub fn read_all_tournaments_where_user_is_admin(db: &mut database::Connection, admin_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
