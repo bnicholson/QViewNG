@@ -550,6 +550,8 @@ async fn create(
         address_line_2: payload.address_line_2,
         state: payload.state,
         zip_code: payload.zip_code,
+        registration_open_date: payload.registration_open_date,
+        registration_close_date: payload.registration_close_date,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);

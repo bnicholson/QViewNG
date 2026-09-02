@@ -4,7 +4,7 @@ import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import { useNavigate } from 'react-router-dom'
-import type { TournamentTS } from '../features/TournamentAPI'
+import { isRegistrationOpen, type TournamentTS } from '../features/TournamentAPI'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import React from 'react'
@@ -56,12 +56,24 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
 
       <Grid container spacing={{ xs: 1, sm: 2 }}>
         {canViewPairingCodeAndVisibility && (
-          <>
-            <InfoItem label="Visibility" value={tournament.is_public ? 'Public' : 'Private'}/>
-            <InfoItem label="Pairing Code" value={tournament.pairing_code ?? ''}/>
-          </>
+          <InfoItem label="Visibility" value={tournament.is_public ? 'Public' : 'Private'}/>
         )}
-        <InfoItem label="Organization" value={tournament.organization}/>
+        <InfoItem
+          label="Dates"
+          value={
+            tournament.fromdate && tournament.todate
+              ? `${tournament.fromdate.format('MMM D, YYYY')} – ${tournament.todate.format('MMM D, YYYY')}`
+              : ''
+          }
+        />
+        <InfoItem
+          label={`Registration Window (${isRegistrationOpen(tournament) ? 'OPEN' : 'CLOSED'})`}
+          value={
+            tournament.registration_open_date && tournament.registration_close_date
+              ? `${tournament.registration_open_date.format('MMM D, YYYY')} – ${tournament.registration_close_date.format('MMM D, YYYY')}`
+              : 'Not set'
+          }
+        />
         <InfoItem label="Venue" value={tournament.venue}/>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Typography variant="body2" color="text.secondary">Address</Typography>
@@ -79,20 +91,12 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
               .map((line, i) => <div key={i}>{line}</div>)}
           </Typography>
         </Grid>
-        <InfoItem
-          label="Dates"
-          value={
-            tournament.fromdate && tournament.todate
-              ? `${tournament.fromdate.format('MMM D, YYYY')} – ${tournament.todate.format('MMM D, YYYY')}`
-              : ''
-          }
-        />
-        <InfoItem
-          label="Registration"
-          value={tournament.registration_is_open ? 'Open' : 'Closed'}
-        />
         <InfoItem label="Contact" value={tournament.contact}/>
         <InfoItem label="Contact Email" value={tournament.contactemail}/>
+        <InfoItem label="Organization" value={tournament.organization}/>
+        {canViewPairingCodeAndVisibility && (
+          <InfoItem label="Pairing Code" value={tournament.pairing_code ?? ''}/>
+        )}
       </Grid>
       <br/>
       <Divider sx={{ mb: 2 }} />

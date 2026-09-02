@@ -615,7 +615,6 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         owner_id -> Uuid,
-        registration_is_open -> Bool,
         creator_id -> Uuid,
         #[max_length = 64]
         pairing_code -> Varchar,
@@ -627,6 +626,8 @@ diesel::table! {
         state -> Varchar,
         #[max_length = 16]
         zip_code -> Varchar,
+        registration_open_date -> Nullable<Date>,
+        registration_close_date -> Nullable<Date>,
     }
 }
 

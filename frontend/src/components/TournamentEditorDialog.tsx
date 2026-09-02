@@ -43,9 +43,11 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-interface TournamentChangesetTS extends Omit<TournamentChangeset, "fromdate" | "todate"> {
+interface TournamentChangesetTS extends Omit<TournamentChangeset, "fromdate" | "todate" | "registration_open_date" | "registration_close_date"> {
   fromdate: Dayjs | null;
   todate: Dayjs | null;
+  registration_open_date: Dayjs | null;
+  registration_close_date: Dayjs | null;
 }
 
 const tournamentEmptyState: TournamentChangesetTS = {
@@ -66,7 +68,9 @@ const tournamentEmptyState: TournamentChangesetTS = {
   address_line_1: "",
   address_line_2: "",
   state: "",
-  zip_code: ""
+  zip_code: "",
+  registration_open_date: null,
+  registration_close_date: null
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -154,6 +158,8 @@ export const TournamentEditorDialog = (props: Props) => {
       address_line_2: tournament.address_line_2,
       state: tournament.state,
       zip_code: tournament.zip_code,
+      registration_open_date: tournament.registration_open_date ? tournament.registration_open_date.format("YYYY-MM-DD") : null,
+      registration_close_date: tournament.registration_close_date ? tournament.registration_close_date.format("YYYY-MM-DD") : null,
     };
     if (canViewPairingCode) {
       tournamentCS.pairing_code = tournament.pairing_code;
@@ -420,6 +426,43 @@ export const TournamentEditorDialog = (props: Props) => {
                     setTournament(state => ({ ...state, country: event.target.value as string }));
                   }}
                 />
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
+              <Grid size={{ xs: 6, md: 4 }}>
+                <InputLabel>Registration Open Date</InputLabel>
+                <Item>
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DesktopDatePicker
+                      enableAccessibleFieldDOMStructure={false}
+                      label=""
+                      format="MM/DD/YYYY"
+                      value={tournament.registration_open_date}
+                      onChange={registration_open_date => setTournament(state => ({ ...state, registration_open_date }))}
+                      slotProps={{ field: { clearable: true } }}
+                      slots={{ textField: TextField }}
+                    />
+                  </LocalizationProvider>
+                </Item>
+              </Grid>
+              &nbsp;&nbsp;
+              <Grid size={{ xs: 6, md: 4 }}>
+                <InputLabel>Registration Close Date</InputLabel>
+                <Item>
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DesktopDatePicker
+                      enableAccessibleFieldDOMStructure={false}
+                      label=""
+                      format="MM/DD/YYYY"
+                      value={tournament.registration_close_date}
+                      onChange={registration_close_date => setTournament(state => ({ ...state, registration_close_date }))}
+                      slotProps={{ field: { clearable: true } }}
+                      slots={{ textField: TextField }}
+                    />
+                  </LocalizationProvider>
+                </Item>
               </Grid>
             </Grid>
           </ListItem>

@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import { Breadcrumbs } from '@mui/material'
 import { Link } from 'react-router-dom'
-import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
+import { TournamentAPI, isRegistrationOpen, type TournamentTS } from '../features/TournamentAPI'
 import { AdminAPI } from '../features/AdminAPI'
 import { makeCancellable } from '../features/makeCancellable'
 import DivisionsTable from '../components/DivisionsTable'
@@ -107,9 +107,11 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (stillLoading()) return <div>Loading Tournament...</div>
 
+  const registrationIsOpen = tournament ? isRegistrationOpen(tournament) : false;
+
   const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string; visible?: boolean }> = [
     { kind: 'route', label: 'Overview',     to: `/tournament/${tid}/overview`     },
-    { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`     },
+    { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`,      visible: registrationIsOpen },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
     { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
     { kind: 'route', label: 'Teams',        to: `/tournament/${tid}/teams`        },

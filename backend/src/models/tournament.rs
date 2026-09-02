@@ -30,6 +30,8 @@ pub struct TournamentBuilder {
     address_line_2: Option<String>,
     state: Option<String>,
     zip_code: Option<String>,
+    registration_open_date: Option<chrono::naive::NaiveDate>,
+    registration_close_date: Option<chrono::naive::NaiveDate>,
 }
 
 impl TournamentBuilder {
@@ -53,6 +55,8 @@ impl TournamentBuilder {
             address_line_2: None,
             state: None,
             zip_code: None,
+            registration_open_date: None,
+            registration_close_date: None,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -76,6 +80,8 @@ impl TournamentBuilder {
             address_line_2: Some("".to_string()),
             state: Some("BC".to_string()),
             zip_code: Some("V6B 1A1".to_string()),
+            registration_open_date: None,
+            registration_close_date: None,
         }
     }
 
@@ -149,6 +155,14 @@ impl TournamentBuilder {
     }
     pub fn set_pairing_code(mut self, pairing_code: &str) -> Self {
         self.pairing_code = Some(pairing_code.to_string());
+        self
+    }
+    pub fn set_registration_open_date(mut self, registration_open_date: NaiveDate) -> Self {
+        self.registration_open_date = Some(registration_open_date);
+        self
+    }
+    pub fn set_registration_close_date(mut self, registration_close_date: NaiveDate) -> Self {
+        self.registration_close_date = Some(registration_close_date);
         self
     }
     fn validate_all_are_some(&self) -> Result<bool, Vec<String>> {
@@ -230,6 +244,8 @@ impl TournamentBuilder {
                     address_line_2: self.address_line_2.unwrap_or_default(),
                     state: self.state.unwrap_or_default(),
                     zip_code: self.zip_code.unwrap_or_default(),
+                    registration_open_date: self.registration_open_date,
+                    registration_close_date: self.registration_close_date,
                 })
             }
         }
@@ -282,13 +298,16 @@ pub struct Tournament {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub owner_id: Uuid,
-    pub registration_is_open: bool,
     pub creator_id: Uuid,
     pub pairing_code: String,
     pub address_line_1: String,
     pub address_line_2: String,
     pub state: String,
     pub zip_code: String,
+    #[schema(value_type = Option<String>, format = Date)]
+    pub registration_open_date: Option<chrono::naive::NaiveDate>,
+    #[schema(value_type = Option<String>, format = Date)]
+    pub registration_close_date: Option<chrono::naive::NaiveDate>,
 }
 
 #[derive(
@@ -320,6 +339,8 @@ pub struct NewTournament {
     pub address_line_2: String,
     pub state: String,
     pub zip_code: String,
+    pub registration_open_date: Option<chrono::naive::NaiveDate>,
+    pub registration_close_date: Option<chrono::naive::NaiveDate>,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -346,6 +367,10 @@ pub struct NewTournamentPayload {
     pub state: String,
     #[serde(default)]
     pub zip_code: String,
+    #[serde(default)]
+    pub registration_open_date: Option<chrono::naive::NaiveDate>,
+    #[serde(default)]
+    pub registration_close_date: Option<chrono::naive::NaiveDate>,
 }
 
 // #[tsync::tsync]
@@ -366,12 +391,13 @@ pub struct TournamentChangeset {
     pub is_public: Option<bool>,
     pub shortinfo: Option<String>,
     pub info: Option<String>,
-    pub registration_is_open: Option<bool>,
     pub pairing_code: Option<String>,
     pub address_line_1: Option<String>,
     pub address_line_2: Option<String>,
     pub state: Option<String>,
     pub zip_code: Option<String>,
+    pub registration_open_date: Option<chrono::naive::NaiveDate>,
+    pub registration_close_date: Option<chrono::naive::NaiveDate>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {
