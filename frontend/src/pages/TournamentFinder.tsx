@@ -119,7 +119,7 @@ export const TournamentFinder = () => {
           marginBottom: 20,
           width: "100%"
         }}>
-          <FormControl sx={{ flexGrow: 1, flexShrink: 1 }}>
+          {/* <FormControl sx={{ flexGrow: 1, flexShrink: 1 }}>
             <InputLabel htmlFor="home-tournament-filter-country">
               Country
             </InputLabel>
@@ -134,8 +134,8 @@ export const TournamentFinder = () => {
                 United States of America
               </MenuItem>
             </Select>
-          </FormControl>
-          <FormControl sx={{ flexGrow: 1, flexShrink: 1 }}>
+          </FormControl> */}
+          {/* <FormControl sx={{ flexGrow: 1, flexShrink: 1 }}>
             <InputLabel htmlFor="home-tournament-filter-region">
               Region
             </InputLabel>
@@ -152,7 +152,7 @@ export const TournamentFinder = () => {
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
+          </FormControl> */}
         </div>
         <div style={{
           display: "flex",
