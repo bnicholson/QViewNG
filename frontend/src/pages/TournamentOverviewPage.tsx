@@ -5,6 +5,9 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import { useNavigate } from 'react-router-dom'
 import type { TournamentTS } from '../features/TournamentAPI'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import React from 'react'
 
 interface TournamentOverviewPageProps {
   tournament: TournamentTS
@@ -32,27 +35,34 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
           </Button>
         </Box>
       </Box>
-      <br/>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-        Tournament: General Info
-      </Typography>
+
       <Divider sx={{ mb: 2 }} />
 
       <Grid container spacing={{ xs: 1, sm: 2 }}>
+        {canViewPairingCode && (
+          <>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Typography variant="body2" color="text.secondary">Visibility</Typography>
+              <Typography variant="body1">{tournament.is_public ? 'Public' : 'Private'}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Typography variant="body2" color="text.secondary">Pairing Code</Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace', letterSpacing: 1 }}>
+                {tournament.pairing_code}
+              </Typography>
+            </Grid>
+          </>
+        )}
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Typography variant="body2" color="text.secondary">Organization</Typography>
           <Typography variant="body1">{tournament.organization}</Typography>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Typography variant="body2" color="text.secondary">Visibility</Typography>
-          <Typography variant="body1">{tournament.is_public ? 'Public' : 'Private'}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Typography variant="body2" color="text.secondary">Venue</Typography>
           <Typography variant="body1">{tournament.venue}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Typography variant="body2" color="text.secondary">Location</Typography>
+          <Typography variant="body2" color="text.secondary">Address</Typography>
           <Typography variant="body1">
             {[tournament.city, tournament.region, tournament.country].filter(Boolean).join(', ')}
           </Typography>
@@ -65,25 +75,15 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
           <Typography variant="body2" color="text.secondary">Contact Email</Typography>
           <Typography variant="body1">{tournament.contactemail}</Typography>
         </Grid>
-        {canViewPairingCode && (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Pairing Code</Typography>
-            <Typography variant="body1" sx={{ fontFamily: 'monospace', letterSpacing: 1 }}>
-              {tournament.pairing_code}
-            </Typography>
-          </Grid>
-        )}
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <Typography variant="body2" color="text.secondary">Short Info</Typography>
-          <Typography variant="body1">{tournament.shortinfo}</Typography>
-        </Grid>
-        {tournament.info && (
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="body2" color="text.secondary">More Info</Typography>
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{tournament.info}</Typography>
-          </Grid>
-        )}
       </Grid>
+      <br/>
+      <Divider sx={{ mb: 2 }} />
+
+      {tournament.info && (
+        <div style={{textAlign:'left'}}>
+          <Markdown remarkPlugins={[remarkGfm]}>{tournament.info}</Markdown>
+        </div>
+      )}
     </Box>
   )
 }

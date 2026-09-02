@@ -32,6 +32,7 @@ import AlertTitle from '@mui/material/AlertTitle'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import MDEditor from '@uiw/react-md-editor'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
@@ -440,22 +441,19 @@ export const TournamentEditorDialog = (props: Props) => {
               </Grid>
             </Grid>
           </ListItem>
-          <ListItem>
-            <Grid container>
-              <Grid size={{ xs: 12 }}>
-                <Box>
-                  <InputLabel>Detailed Information</InputLabel>
-                  <TextareaAutosize
-                    aria-label="minimum height"
-                    minRows={12}
-                    placeholder="Minimum 3 rows"
-                    style={{ width: 900 }}
-                    value={tournament.info}
-                    onChange={(event) => {
-                      setTournament(state => ({ ...state, info: event.target.value as string }));
-                    }}
-                  />
-                </Box>
+          <ListItem sx={{ width: '100%' }}>
+            <Grid container sx={{ width: '100%' }}>
+              <Grid size={{ xs: 12 }} sx={{ p: 2 }}>
+                <InputLabel style={{ paddingBottom: 10 }}>Full Description (*written using Markdown)</InputLabel>
+                <MDEditor
+                  value={tournament.info}
+                  onChange={(val) => setTournament(state => ({ ...state, info: val ?? '' }))}
+                  height="80vh"
+                  style={{ width: '100%' }}
+                />
+                {/* <div style={{textAlign:'left', margin:'3px'}}>
+                  <MDEditor.Markdown source={valuemd} style={{ whiteSpace: 'pre-wrap' }} />
+                </div> */}
               </Grid>
             </Grid>
           </ListItem>

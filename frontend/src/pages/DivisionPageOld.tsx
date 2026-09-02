@@ -122,7 +122,7 @@ export const Divisions = () => {
         </div>
         <MDEditor
           value={valuemd}
-          onChange={setValuemd}
+          onChange={(val) => setValuemd(val ?? '')}
         />
       {/* <div style={{textAlign:'left', margin:'3px'}}>
         <MDEditor.Markdown source={valuemd} style={{ whiteSpace: 'pre-wrap' }} />
