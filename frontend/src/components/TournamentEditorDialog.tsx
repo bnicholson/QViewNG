@@ -567,7 +567,7 @@ export const TournamentEditorDialog = (props: Props) => {
           <ListItem>
             <Grid container>
               <Grid size={{ xs: 12 }}>
-                <InputLabel>One line of information about the tournament</InputLabel>
+                <InputLabel>One line of information about the Tournament which appears when searching for Tournaments.</InputLabel>
                 <TextField
                   variant="outlined"
                   placeholder="Short Information"

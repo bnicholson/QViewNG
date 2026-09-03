@@ -44,18 +44,20 @@ async fn main() -> std::io::Result<()> {
 
     let db = database::Database::new("DATABASE_URL");
     
-    // Change commented/uncommented if you want to populate your DB with data:
-    // let start_time_for_db_pop = Utc::now();
-    // let mut conn = db.get_connection().expect("Failed to get connection.");
-    // database::clean_db::clean_database(&mut conn);
-    // database::seed_data::system_default_data::insert_system_default_data(&mut conn);
-    // let include_gameevents: bool = false;
-    // database::seed_data::seed_one::insert_seed_data_one(&mut conn, include_gameevents);
-    // let end_time_for_db_pop = Utc::now();
-    // let duration_for_db_pop = end_time_for_db_pop.naive_utc() - start_time_for_db_pop.naive_utc();
-    // println!("DB Population Time Duration: {}", duration_for_db_pop);
-    // let conn = conn;
-    // drop(conn);
+    let reseed_db_on_next_run: bool = false;
+    let include_gameevents_in_reseed: bool = false;
+    if reseed_db_on_next_run {
+        let start_time_for_db_pop = Utc::now();
+        let mut conn = db.get_connection().expect("Failed to get connection.");
+        database::clean_db::clean_database(&mut conn);
+        database::seed_data::system_default_data::insert_system_default_data(&mut conn);
+        database::seed_data::seed_one::insert_seed_data_one(&mut conn, include_gameevents_in_reseed);
+        let end_time_for_db_pop = Utc::now();
+        let duration_for_db_pop = end_time_for_db_pop.naive_utc() - start_time_for_db_pop.naive_utc();
+        println!("DB Population Time Duration: {}", duration_for_db_pop);
+        let conn = conn;
+        drop(conn);
+    }
     
     log::info!("Server listening on http://{host_and_port} ...");
 

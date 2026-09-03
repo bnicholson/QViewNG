@@ -30,6 +30,7 @@ pub struct TournamentBuilder {
     address_line_2: Option<String>,
     state: Option<String>,
     zip_code: Option<String>,
+    is_public: bool,
     registration_open_date: Option<chrono::naive::NaiveDate>,
     registration_close_date: Option<chrono::naive::NaiveDate>,
 }
@@ -55,6 +56,7 @@ impl TournamentBuilder {
             address_line_2: None,
             state: None,
             zip_code: None,
+            is_public: false,
             registration_open_date: None,
             registration_close_date: None,
         }
@@ -80,6 +82,7 @@ impl TournamentBuilder {
             address_line_2: Some("".to_string()),
             state: Some("BC".to_string()),
             zip_code: Some("V6B 1A1".to_string()),
+            is_public: false,
             registration_open_date: None,
             registration_close_date: None,
         }
@@ -157,6 +160,10 @@ impl TournamentBuilder {
         self.pairing_code = Some(pairing_code.to_string());
         self
     }
+    pub fn set_is_public(mut self, is_public: bool) -> Self {
+        self.is_public = is_public;
+        self
+    }
     pub fn set_registration_open_date(mut self, registration_open_date: NaiveDate) -> Self {
         self.registration_open_date = Some(registration_open_date);
         self
@@ -205,9 +212,6 @@ impl TournamentBuilder {
         if self.owner_id.is_none() {
             errors.push("owner_id is required".to_string());
         }
-        // if self.pairing_code.is_none() {
-        //     errors.push("pairing_code is required".to_string());
-        // }
 
         if !errors.is_empty() {
             return Err(errors);
@@ -244,6 +248,7 @@ impl TournamentBuilder {
                     address_line_2: self.address_line_2.unwrap_or_default(),
                     state: self.state.unwrap_or_default(),
                     zip_code: self.zip_code.unwrap_or_default(),
+                    is_public: self.is_public,
                     registration_open_date: self.registration_open_date,
                     registration_close_date: self.registration_close_date,
                 })
@@ -339,6 +344,7 @@ pub struct NewTournament {
     pub address_line_2: String,
     pub state: String,
     pub zip_code: String,
+    pub is_public: bool,
     pub registration_open_date: Option<chrono::naive::NaiveDate>,
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
 }
@@ -359,6 +365,7 @@ pub struct NewTournamentPayload {
     pub contactemail: String,
     pub shortinfo: String,
     pub info: String,
+    pub is_public: bool,
     #[serde(default)]
     pub address_line_1: String,
     #[serde(default)]
