@@ -23,6 +23,7 @@ import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { TeamAPI, type NewTeamPayload, type TeamTS } from '../features/TeamAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -52,6 +53,7 @@ interface Props {
 
 export const TeamEditorDialog = (props: Props) => {
   const { tid, isOpen, onCancel, onSave } = props;
+  const { accessToken } = useAuth();
   const [form, setForm] = useState<TeamFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
@@ -120,7 +122,7 @@ export const TeamEditorDialog = (props: Props) => {
 
     let result: TeamTS;
     try {
-      result = await TeamAPI.create(payload);
+      result = await TeamAPI.create(payload, accessToken);
     } catch (err: any) {
       setErrorMsg('Failed to save: ' + err.message);
       setAlertOpened(true);

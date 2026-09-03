@@ -25,6 +25,7 @@ import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { GameAPI, type NewGamePayload, type GameTS } from '../features/GameAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -78,6 +79,7 @@ interface Props {
 
 export const GameEditorDialog = (props: Props) => {
   const { tid, isOpen, onCancel, onSave } = props;
+  const { accessToken } = useAuth();
   const [form, setForm] = useState<GameFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [rooms, setRooms] = useState<RoomTS[]>([]);
@@ -185,7 +187,7 @@ export const GameEditorDialog = (props: Props) => {
 
     let result: GameTS;
     try {
-      result = await GameAPI.create(payload);
+      result = await GameAPI.create(payload, accessToken);
     } catch (err: any) {
       setErrorMsg('Failed to save: ' + err.message);
       setAlertOpened(true);

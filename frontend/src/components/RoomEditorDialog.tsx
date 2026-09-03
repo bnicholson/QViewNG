@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { RoomAPI, type NewRoomPayload, type RoomTS } from '../features/RoomAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -51,6 +52,7 @@ interface Props {
 
 export const RoomEditorDialog = (props: Props) => {
   const { tid, isOpen, onCancel, onSave } = props;
+  const { accessToken } = useAuth();
   const [form, setForm] = useState<RoomFormState>(emptyState);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -101,7 +103,7 @@ export const RoomEditorDialog = (props: Props) => {
 
     let result: RoomTS;
     try {
-      result = await RoomAPI.create(payload);
+      result = await RoomAPI.create(payload, accessToken);
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
       setAlertOpened(true);

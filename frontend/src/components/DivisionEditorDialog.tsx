@@ -21,6 +21,7 @@ import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS, type NewDivisionPayload } from '../features/DivisionAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -52,6 +53,7 @@ interface Props {
 
 export const DivisionEditorDialog = (props: Props) => {
   const { tid, isOpen, onCancel, onSave } = props;
+  const { accessToken } = useAuth();
   const [form, setForm] = useState<DivisionFormState>(emptyState);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -90,11 +92,6 @@ export const DivisionEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
-    if (!form.breadcrumb.trim()) {
-      setErrorMsg("Breadcrumb is required.");
-      setAlertOpened(true);
-      return;
-    }
     if (!form.shortinfo.trim()) {
       setErrorMsg("Short info is required.");
       setAlertOpened(true);
@@ -104,14 +101,15 @@ export const DivisionEditorDialog = (props: Props) => {
     const payload: NewDivisionPayload = {
       tid,
       dname: form.dname,
-      breadcrumb: form.breadcrumb,
+      // Breadcrumb is not collected in the form; send a blank string.
+      breadcrumb: "",
       is_public: form.is_public,
       shortinfo: form.shortinfo,
     };
 
     let result: DivisionTS;
     try {
-      result = await DivisionAPI.create(payload);
+      result = await DivisionAPI.create(payload, accessToken);
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
       setAlertOpened(true);

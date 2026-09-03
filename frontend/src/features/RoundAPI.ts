@@ -25,10 +25,13 @@ export const RoundAPI = {
     (await fetch(`/api/tournaments/${tid}/rounds?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<RoundTS[]> =>
     (await fetch(`/api/divisions/${did}/rounds?page=${page}&page_size=${size}`)).json(),
-  create: async (round: NewRoundPayload): Promise<RoundTS> => {
+  create: async (round: NewRoundPayload, accessToken?: string): Promise<RoundTS> => {
     const response = await fetch('/api/rounds', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(round),
     });
     if (!response.ok) {

@@ -33,10 +33,13 @@ export const DivisionAPI = {
     if (!response.ok) throw new Error(`Division not found (${response.status})`);
     return response.json();
   },
-  create: async (division: NewDivisionPayload): Promise<DivisionTS> => {
+  create: async (division: NewDivisionPayload, accessToken?: string): Promise<DivisionTS> => {
     const response = await fetch('/api/divisions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(division),
     });
     if (!response.ok) {

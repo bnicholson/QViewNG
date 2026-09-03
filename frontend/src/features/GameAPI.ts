@@ -104,10 +104,13 @@ export const GameAPI = {
   // Per-game readiness (done / data_ok) for every game in a tournament.
   getStatuses: async (tid: string): Promise<GameStatusTS[]> =>
     (await fetch(`/api/tournaments/${tid}/gamestatuses`)).json(),
-  create: async (game: NewGamePayload): Promise<GameTS> => {
+  create: async (game: NewGamePayload, accessToken?: string): Promise<GameTS> => {
     const response = await fetch('/api/games', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(game),
     });
     if (!response.ok) {

@@ -25,6 +25,7 @@ import { type Dayjs } from 'dayjs'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { RoundAPI, type NewRoundPayload, type RoundTS } from '../features/RoundAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -54,6 +55,7 @@ interface Props {
 
 export const RoundEditorDialog = (props: Props) => {
   const { tid, isOpen, onCancel, onSave } = props;
+  const { accessToken } = useAuth();
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
@@ -101,19 +103,21 @@ export const RoundEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
+    if (!form.scheduled_start_time || !form.scheduled_start_time.isValid()) {
+      setErrorMsg("Scheduled start time is required.");
+      setAlertOpened(true);
+      return;
+    }
 
     const payload: NewRoundPayload = {
       did: form.did,
       name: form.name.trim(),
-      scheduled_start_time:
-        form.scheduled_start_time && form.scheduled_start_time.isValid()
-          ? form.scheduled_start_time.toISOString()
-          : null,
+      scheduled_start_time: form.scheduled_start_time.toISOString(),
     };
 
     let result: RoundTS;
     try {
-      result = await RoundAPI.create(payload);
+      result = await RoundAPI.create(payload, accessToken);
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
       setAlertOpened(true);
@@ -203,7 +207,7 @@ export const RoundEditorDialog = (props: Props) => {
                 </Select>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <InputLabel>Scheduled Start Time (of first day)</InputLabel>
+                <InputLabel>Scheduled Start Time (*required)</InputLabel>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DateTimePicker
                     enableAccessibleFieldDOMStructure={false}

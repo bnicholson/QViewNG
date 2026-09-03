@@ -51,18 +51,18 @@ function roomColumns(userNames: Record<string, string>, showAuditColumns: boolea
         </Link>
       ),
     },
-    {
-      header: "Building",
-      render: (r) => r.building,
-    },
-    {
-      header: "Quizmaster",
-      render: (r) => <UserLink userId={r.quizmaster_id} userNames={userNames} />,
-    },
-    {
-      header: "Content Judge",
-      render: (r) => <UserLink userId={r.contentjudge_id} userNames={userNames} />,
-    },
+    // {
+    //   header: "Building",
+    //   render: (r) => r.building,
+    // },
+    // {
+    //   header: "Quizmaster",
+    //   render: (r) => <UserLink userId={r.quizmaster_id} userNames={userNames} />,
+    // },
+    // {
+    //   header: "Content Judge",
+    //   render: (r) => <UserLink userId={r.contentjudge_id} userNames={userNames} />,
+    // },
     ...(showAuditColumns ? [
       {
         header: "Comments",
