@@ -42,6 +42,14 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+/** Label a round by its name, followed by its scheduled start time in parentheses (when set). */
+function roundLabel(round: RoundTS | undefined): string {
+  if (!round) return '';
+  return round.scheduled_start_time
+    ? `${round.name} (${formatDateTime(round.scheduled_start_time)})`
+    : round.name;
+}
+
 interface GameFormState {
   org: string;
   divisionid: string;
@@ -125,16 +133,16 @@ export const GameEditorDialog = (props: Props) => {
     if (!isOpen) return;
     resetState();
     Promise.all([
-      DivisionAPI.get(0, 100),
-      RoomAPI.get(0, 100),
-      RoundAPI.get(0, 200),
-      TeamAPI.get(0, 200),
+      DivisionAPI.getByTournament(tid, 0, 100),
+      RoomAPI.getByTournament(tid, 0, 100),
+      RoundAPI.getByTournament(tid, 0, 200),
+      TeamAPI.getByTournament(tid, 0, 200),
       UserAPI.get(0, 200),
     ])
       .then(([divs, rms, rnds, tms, usrs]) => {
-        setDivisions(divs.items);
-        setRooms(rms.items);
-        setRounds(rnds.items);
+        setDivisions(divs);
+        setRooms(rms);
+        setRounds(rnds);
         setTeams(tms.items);
         const displayName = (u: UserTS) => [u.fname, u.mname, u.lname].filter(Boolean).join(' ');
         setUsers([...usrs.items].sort((a, b) =>
@@ -142,7 +150,7 @@ export const GameEditorDialog = (props: Props) => {
         ));
       })
       .catch(() => console.error('Failed to load form data for game editor'));
-  }, [isOpen, lockedDivisionId]);
+  }, [isOpen, tid, lockedDivisionId]);
 
   const isDirty = () => Object.entries(form).some(([k, v]) => {
     const empty = (emptyState as any)[k];
@@ -213,6 +221,12 @@ export const GameEditorDialog = (props: Props) => {
 
   const set = (patch: Partial<GameFormState>) => setForm(s => ({ ...s, ...patch }));
 
+  // Rounds and Teams selectable for this Game are scoped to the chosen Division (not just the Tournament).
+  // Until a Division is chosen, the Round/Team dropdowns stay disabled.
+  const divisionChosen = !!form.divisionid;
+  const divisionRounds = divisionChosen ? rounds.filter(r => r.did === form.divisionid) : [];
+  const divisionTeams = divisionChosen ? teams.filter(t => t.did === form.divisionid) : [];
+
   return (
     <Dialog
       fullScreen
@@ -254,7 +268,7 @@ export const GameEditorDialog = (props: Props) => {
             <Grid container spacing={2} sx={{ width: '100%' }}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Division (*required)</InputLabel>
-                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value })}
+                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
                   displayEmpty fullWidth disabled={!!lockedDivisionId}
                   renderValue={(v) => v ? (divisions.find(d => d.did === v)?.dname ?? v) : <em>Select a division</em>}
                 >
@@ -273,10 +287,10 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
-                  displayEmpty fullWidth
-                  renderValue={(v) => v ? formatDateTime(rounds.find(r => r.roundid === v)?.scheduled_start_time) : <em>Select a round</em>}
+                  displayEmpty fullWidth disabled={!divisionChosen}
+                  renderValue={(v) => v ? roundLabel(rounds.find(r => r.roundid === v)) : <em>Select a round</em>}
                 >
-                  {rounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{formatDateTime(r.scheduled_start_time)}</MenuItem>)}
+                  {divisionRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
                 </Select>
               </Grid>
             </Grid>
@@ -288,29 +302,28 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Left Team (*required)</InputLabel>
                 <Select value={form.leftteamid} onChange={(e) => set({ leftteamid: e.target.value })}
-                  displayEmpty fullWidth
+                  displayEmpty fullWidth disabled={!divisionChosen}
                   renderValue={(v) => v ? (teams.find(t => t.teamid === v)?.name ?? v) : <em>Select a team</em>}
                 >
-                  {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
+                  {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Center Team</InputLabel>
                 <Select value={form.centerteamid} onChange={(e) => set({ centerteamid: e.target.value })}
-                  displayEmpty fullWidth
-                  renderValue={(v) => v ? (teams.find(t => t.teamid === v)?.name ?? v) : <em>None</em>}
+                  displayEmpty fullWidth disabled={!divisionChosen}
+                  renderValue={(v) => v ? (teams.find(t => t.teamid === v)?.name ?? v) : <em>Select a team</em>}
                 >
-                  <MenuItem value=""><em>None</em></MenuItem>
-                  {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
+                  {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Right Team (*required)</InputLabel>
                 <Select value={form.rightteamid} onChange={(e) => set({ rightteamid: e.target.value })}
-                  displayEmpty fullWidth
+                  displayEmpty fullWidth disabled={!divisionChosen}
                   renderValue={(v) => v ? (teams.find(t => t.teamid === v)?.name ?? v) : <em>Select a team</em>}
                 >
-                  {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
+                  {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
             </Grid>
