@@ -7,7 +7,6 @@ import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
 import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import Grid from '@mui/material/Grid'
 import IconButton from '@mui/material/IconButton'
 import InputLabel from '@mui/material/InputLabel'
@@ -16,8 +15,6 @@ import ListItem from '@mui/material/ListItem'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import Slide from '@mui/material/Slide'
-import Switch from '@mui/material/Switch'
-import TextField from '@mui/material/TextField'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
@@ -135,7 +132,10 @@ export const GameEditorDialog = (props: Props) => {
         setRooms(rms.items);
         setRounds(rnds.items);
         setTeams(tms.items);
-        setUsers(usrs.items);
+        const displayName = (u: UserTS) => [u.fname, u.mname, u.lname].filter(Boolean).join(' ');
+        setUsers([...usrs.items].sort((a, b) =>
+          displayName(a).localeCompare(displayName(b), undefined, { sensitivity: 'base' })
+        ));
       })
       .catch(() => console.error('Failed to load form data for game editor'));
   }, [isOpen]);
@@ -160,23 +160,22 @@ export const GameEditorDialog = (props: Props) => {
   };
 
   const handleSave = async () => {
-    if (!form.org.trim()) { setErrorMsg('Org is required.'); setAlertOpened(true); return; }
     if (!form.divisionid) { setErrorMsg('Division is required.'); setAlertOpened(true); return; }
     if (!form.roomid) { setErrorMsg('Room is required.'); setAlertOpened(true); return; }
     if (!form.roundid) { setErrorMsg('Round is required.'); setAlertOpened(true); return; }
-    if (!form.ruleset.trim()) { setErrorMsg('Ruleset is required.'); setAlertOpened(true); return; }
     if (!form.leftteamid) { setErrorMsg('Left team is required.'); setAlertOpened(true); return; }
     if (!form.rightteamid) { setErrorMsg('Right team is required.'); setAlertOpened(true); return; }
     if (!form.quizmasterid) { setErrorMsg('Quizmaster is required.'); setAlertOpened(true); return; }
 
     const payload: NewGamePayload = {
-      org: form.org,
+      // Org, Ruleset and Ignore are no longer collected in the form; send backend-safe defaults.
+      org: '',
       tournamentid: tid,
       divisionid: form.divisionid,
       roomid: form.roomid,
       roundid: form.roundid,
-      ruleset: form.ruleset,
-      ignore: form.ignore,
+      ruleset: '',
+      ignore: false,
       leftteamid: form.leftteamid,
       centerteamid: form.centerteamid || null,
       rightteamid: form.rightteamid,
@@ -248,8 +247,8 @@ export const GameEditorDialog = (props: Props) => {
         <List>
           {/* Row 1: Division, Room, Round */}
           <ListItem>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
+            <Grid container spacing={2} sx={{ width: '100%' }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value })}
                   displayEmpty fullWidth
@@ -258,7 +257,7 @@ export const GameEditorDialog = (props: Props) => {
                   {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Room (*required)</InputLabel>
                 <Select value={form.roomid} onChange={(e) => handleRoomChange(e.target.value)}
                   displayEmpty fullWidth
@@ -267,7 +266,7 @@ export const GameEditorDialog = (props: Props) => {
                   {rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
                   displayEmpty fullWidth
@@ -281,8 +280,8 @@ export const GameEditorDialog = (props: Props) => {
 
           {/* Row 2: Left Team, Center Team, Right Team */}
           <ListItem>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
+            <Grid container spacing={2} sx={{ width: '100%' }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Left Team (*required)</InputLabel>
                 <Select value={form.leftteamid} onChange={(e) => set({ leftteamid: e.target.value })}
                   displayEmpty fullWidth
@@ -291,7 +290,7 @@ export const GameEditorDialog = (props: Props) => {
                   {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Center Team</InputLabel>
                 <Select value={form.centerteamid} onChange={(e) => set({ centerteamid: e.target.value })}
                   displayEmpty fullWidth
@@ -301,7 +300,7 @@ export const GameEditorDialog = (props: Props) => {
                   {teams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Right Team (*required)</InputLabel>
                 <Select value={form.rightteamid} onChange={(e) => set({ rightteamid: e.target.value })}
                   displayEmpty fullWidth
@@ -314,12 +313,18 @@ export const GameEditorDialog = (props: Props) => {
           </ListItem>
 
           {/* Row 3: Quizmaster, Content Judge */}
-          <ListItem sx={{ display: 'block' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Note: At the time of Game creation, Games that have Rooms specified inherit the Quizmaster and Content Judge of the Room.
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+          <ListItem>
+            <Grid container spacing={2} sx={{ width: '100%' }}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Note: At the time of Game creation, Games that have Rooms specified inherit the Quizmaster and Content Judge of the Room.
+                </Typography>
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container spacing={2} sx={{ width: '100%' }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Quizmaster (*required)</InputLabel>
                 <Select value={form.quizmasterid} onChange={(e) => set({ quizmasterid: e.target.value })}
                   displayEmpty fullWidth disabled={qmFromRoom}
@@ -335,7 +340,7 @@ export const GameEditorDialog = (props: Props) => {
                   <Typography variant="caption" color="text.secondary">Set by Room</Typography>
                 )}
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Content Judge</InputLabel>
                 <Select value={form.contentjudgeid} onChange={(e) => set({ contentjudgeid: e.target.value })}
                   displayEmpty fullWidth disabled={cjFromRoom}
@@ -355,38 +360,6 @@ export const GameEditorDialog = (props: Props) => {
             </Grid>
           </ListItem>
 
-          {/* Row 4: Org, Ruleset, Ignore */}
-          <ListItem>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <InputLabel>Org (*required)</InputLabel>
-                <TextField
-                  variant="outlined" fullWidth placeholder="Organization"
-                  value={form.org}
-                  onChange={(e) => set({ org: e.target.value })}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <InputLabel>Ruleset (*required)</InputLabel>
-                <TextField
-                  variant="outlined" fullWidth placeholder="Ruleset"
-                  value={form.ruleset}
-                  onChange={(e) => set({ ruleset: e.target.value })}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex', alignItems: 'flex-end', pb: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={form.ignore}
-                      onChange={(e) => set({ ignore: e.target.checked })}
-                    />
-                  }
-                  label="Ignore"
-                />
-              </Grid>
-            </Grid>
-          </ListItem>
         </List>
       </Box>
 

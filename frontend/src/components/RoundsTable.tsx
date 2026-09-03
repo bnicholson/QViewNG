@@ -139,6 +139,7 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
         onPageSizeChange={handlePageSizeChange}
       />
       <RoundEditorDialog
+        tid={tid}
         isOpen={editorIsOpen}
         onCancel={() => setEditorIsOpen(false)}
         onSave={handleSave}

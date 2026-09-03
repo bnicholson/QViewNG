@@ -10,7 +10,7 @@ export interface RoundTS {
 export interface NewRoundPayload {
   did: string;
   name: string;
-  scheduled_start_time: string; // ISO 8601 datetime string
+  scheduled_start_time: string | null; // ISO 8601 datetime string; null when not scheduled
 }
 
 export interface PagedRounds {

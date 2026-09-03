@@ -89,23 +89,14 @@ export const RoomEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
-    if (!form.building.trim()) {
-      setErrorMsg("Building is required.");
-      setAlertOpened(true);
-      return;
-    }
-    if (!form.clientkey.trim()) {
-      setErrorMsg("Client key is required.");
-      setAlertOpened(true);
-      return;
-    }
 
     const payload: NewRoomPayload = {
       tid,
       name: form.name,
-      building: form.building,
+      // Building and Client Key are no longer collected in the form; send blank strings.
+      building: "",
       comments: form.comments,
-      clientkey: form.clientkey,
+      clientkey: "",
     };
 
     let result: RoomTS;
@@ -172,39 +163,14 @@ export const RoomEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Room Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
                   placeholder="Room Name"
                   value={form.name}
-                  fullWidth
+                  sx={{ width: 600, maxWidth: '100%' }}
                   onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <InputLabel>Building (*required)</InputLabel>
-                <TextField
-                  variant="outlined"
-                  placeholder="Building"
-                  value={form.building}
-                  fullWidth
-                  onChange={(e) => setForm(s => ({ ...s, building: e.target.value }))}
-                />
-              </Grid>
-            </Grid>
-          </ListItem>
-
-          <ListItem>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
-                <InputLabel>Client Key (*required)</InputLabel>
-                <TextField
-                  variant="outlined"
-                  placeholder="Client Key"
-                  value={form.clientkey}
-                  fullWidth
-                  onChange={(e) => setForm(s => ({ ...s, clientkey: e.target.value }))}
                 />
               </Grid>
             </Grid>

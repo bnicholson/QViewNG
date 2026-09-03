@@ -65,7 +65,7 @@ impl RoundBuilder {
                     NewRound {
                         did: self.did.unwrap(),
                         name: self.name.unwrap(),
-                        scheduled_start_time: self.scheduled_start_time.unwrap()
+                        scheduled_start_time: self.scheduled_start_time
                     }
                 )
             }
@@ -129,7 +129,8 @@ pub struct Round {
 pub struct NewRound {
     pub did: Uuid,                              // id of the associated division
     pub name: String,
-    pub scheduled_start_time: DateTime<Utc>
+    #[serde(default)]
+    pub scheduled_start_time: Option<DateTime<Utc>>
 }
 
 // #[tsync::tsync]

@@ -46,13 +46,14 @@ const emptyState: RoundFormState = {
 };
 
 interface Props {
+  tid: string;
   isOpen: boolean;
   onCancel: VoidFunction;
   onSave: (round: RoundTS) => void;
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { isOpen, onCancel, onSave } = props;
+  const { tid, isOpen, onCancel, onSave } = props;
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
@@ -69,10 +70,10 @@ export const RoundEditorDialog = (props: Props) => {
   useEffect(() => {
     if (!isOpen) return;
     resetState();
-    DivisionAPI.get(0, 100)
-      .then(result => setDivisions(result.items))
+    DivisionAPI.getByTournament(tid, 0, 100)
+      .then(items => setDivisions(items))
       .catch(() => console.error("Failed to load divisions for round form"));
-  }, [isOpen]);
+  }, [isOpen, tid]);
 
   const openCancelDialog = () => {
     const isDirty = form.did !== "" || form.name !== "" || form.scheduled_start_time !== null;
@@ -100,16 +101,14 @@ export const RoundEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
-    if (!form.scheduled_start_time || !form.scheduled_start_time.isValid()) {
-      setErrorMsg("Scheduled start time is required.");
-      setAlertOpened(true);
-      return;
-    }
 
     const payload: NewRoundPayload = {
       did: form.did,
       name: form.name.trim(),
-      scheduled_start_time: form.scheduled_start_time.toISOString(),
+      scheduled_start_time:
+        form.scheduled_start_time && form.scheduled_start_time.isValid()
+          ? form.scheduled_start_time.toISOString()
+          : null,
     };
 
     let result: RoundTS;
@@ -177,6 +176,16 @@ export const RoundEditorDialog = (props: Props) => {
           <ListItem>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
+                <InputLabel>Round Name (*required)</InputLabel>
+                <TextField
+                  value={form.name}
+                  onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
+                  placeholder="e.g. 1"
+                  fullWidth
+                  size="small"
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select
                   value={form.did}
@@ -194,17 +203,7 @@ export const RoundEditorDialog = (props: Props) => {
                 </Select>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <InputLabel>Round Name (*required)</InputLabel>
-                <TextField
-                  value={form.name}
-                  onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
-                  placeholder="e.g. 1"
-                  fullWidth
-                  size="small"
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <InputLabel>Scheduled Start Time (*required)</InputLabel>
+                <InputLabel>Scheduled Start Time (of first day)</InputLabel>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DateTimePicker
                     enableAccessibleFieldDOMStructure={false}
