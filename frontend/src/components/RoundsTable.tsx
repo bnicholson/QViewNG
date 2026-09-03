@@ -140,6 +140,7 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
       />
       <RoundEditorDialog
         tid={tid}
+        lockedDivisionId={did}
         isOpen={editorIsOpen}
         onCancel={() => setEditorIsOpen(false)}
         onSave={handleSave}

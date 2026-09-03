@@ -156,6 +156,7 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
       />
       <TeamEditorDialog
         tid={tid}
+        lockedDivisionId={did}
         isOpen={editorIsOpen}
         onCancel={() => setEditorIsOpen(false)}
         onSave={handleSave}

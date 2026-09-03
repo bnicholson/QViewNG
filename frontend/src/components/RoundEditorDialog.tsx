@@ -49,12 +49,14 @@ const emptyState: RoundFormState = {
 interface Props {
   tid: string;
   isOpen: boolean;
+  /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
+  lockedDivisionId?: string;
   onCancel: VoidFunction;
   onSave: (round: RoundTS) => void;
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { tid, isOpen, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
@@ -63,7 +65,7 @@ export const RoundEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(emptyState);
+    setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("");
     setAlertOpened(false);
@@ -75,7 +77,7 @@ export const RoundEditorDialog = (props: Props) => {
     DivisionAPI.getByTournament(tid, 0, 100)
       .then(items => setDivisions(items))
       .catch(() => console.error("Failed to load divisions for round form"));
-  }, [isOpen, tid]);
+  }, [isOpen, tid, lockedDivisionId]);
 
   const openCancelDialog = () => {
     const isDirty = form.did !== "" || form.name !== "" || form.scheduled_start_time !== null;
@@ -196,6 +198,7 @@ export const RoundEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, did: e.target.value }))}
                   displayEmpty
                   fullWidth
+                  disabled={!!lockedDivisionId}
                   renderValue={(val) => {
                     if (!val) return <em>Select a division</em>;
                     return divisions.find(d => d.did === val)?.dname ?? val;

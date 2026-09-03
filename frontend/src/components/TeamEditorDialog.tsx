@@ -47,12 +47,14 @@ const emptyState: TeamFormState = {
 interface Props {
   tid: string;
   isOpen: boolean;
+  /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
+  lockedDivisionId?: string;
   onCancel: VoidFunction;
   onSave: (team: TeamTS) => void;
 }
 
 export const TeamEditorDialog = (props: Props) => {
-  const { tid, isOpen, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<TeamFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
@@ -62,7 +64,7 @@ export const TeamEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(emptyState);
+    setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg('');
     setAlertOpened(false);
@@ -80,7 +82,7 @@ export const TeamEditorDialog = (props: Props) => {
         setUsers(userResult.items);
       })
       .catch(() => console.error('Failed to load form data for team editor'));
-  }, [isOpen, tid]);
+  }, [isOpen, tid, lockedDivisionId]);
 
   const openCancelDialog = () => {
     const isDirty = form.name !== '' || form.did !== '' || form.coachid !== '';
@@ -199,6 +201,7 @@ export const TeamEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, did: e.target.value }))}
                   displayEmpty
                   fullWidth
+                  disabled={!!lockedDivisionId}
                   renderValue={(val) => {
                     if (!val) return <em>Select a division</em>;
                     return divisions.find(d => d.did === val)?.dname ?? val;

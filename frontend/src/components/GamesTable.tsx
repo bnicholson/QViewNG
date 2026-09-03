@@ -209,6 +209,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
       />
       <GameEditorDialog
         tid={tid}
+        lockedDivisionId={did}
         isOpen={editorIsOpen}
         onCancel={() => setEditorIsOpen(false)}
         onSave={handleSave}

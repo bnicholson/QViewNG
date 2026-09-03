@@ -73,12 +73,14 @@ const emptyState: GameFormState = {
 interface Props {
   tid: string;
   isOpen: boolean;
+  /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
+  lockedDivisionId?: string;
   onCancel: VoidFunction;
   onSave: (game: GameTS) => void;
 }
 
 export const GameEditorDialog = (props: Props) => {
-  const { tid, isOpen, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<GameFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
@@ -93,7 +95,7 @@ export const GameEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(emptyState);
+    setForm(lockedDivisionId ? { ...emptyState, divisionid: lockedDivisionId } : emptyState);
     setQmFromRoom(false);
     setCjFromRoom(false);
     setConfirmDialog(confirmDialogDefaultState);
@@ -140,7 +142,7 @@ export const GameEditorDialog = (props: Props) => {
         ));
       })
       .catch(() => console.error('Failed to load form data for game editor'));
-  }, [isOpen]);
+  }, [isOpen, lockedDivisionId]);
 
   const isDirty = () => Object.entries(form).some(([k, v]) => {
     const empty = (emptyState as any)[k];
@@ -253,7 +255,7 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 6 }}>
                 <InputLabel>Division (*required)</InputLabel>
                 <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value })}
-                  displayEmpty fullWidth
+                  displayEmpty fullWidth disabled={!!lockedDivisionId}
                   renderValue={(v) => v ? (divisions.find(d => d.did === v)?.dname ?? v) : <em>Select a division</em>}
                 >
                   {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
