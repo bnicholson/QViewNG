@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
-import { RoundAPI, type RoundTS } from "../features/RoundAPI";
+import { RoundAPI, type RoundTS, type RoundRowTS } from "../features/RoundAPI";
 import { RoundEditorDialog } from "./RoundEditorDialog";
-import { DivisionAPI } from "../features/DivisionAPI";
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -25,11 +24,11 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function roundColumns(tid: string, divisionMap: Map<string, string>, showAuditColumns: boolean): ColumnDef<RoundTS>[] {
+function roundColumns(showAuditColumns: boolean): ColumnDef<RoundRowTS>[] {
   return [
     {
       header: "Division",
-      render: (r) => <EntityLink to={`/division/${r.did}/overview`}>{divisionMap.get(r.did) ?? r.did}</EntityLink>,
+      render: (r) => <EntityLink to={`/division/${r.did}/overview`}>{r.division_name || r.did}</EntityLink>,
     },
     {
       header: "Round",
@@ -53,13 +52,13 @@ function roundColumns(tid: string, divisionMap: Map<string, string>, showAuditCo
     ...(showAuditColumns ? [
       {
         header: "Created",
-        render: (r: RoundTS) => (
+        render: (r: RoundRowTS) => (
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.created_at)}</span>
         ),
       },
       {
         header: "Last Modified",
-        render: (r: RoundTS) => (
+        render: (r: RoundRowTS) => (
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.updated_at)}</span>
         ),
       },
@@ -68,10 +67,10 @@ function roundColumns(tid: string, divisionMap: Map<string, string>, showAuditCo
 }
 
 export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
-  const [rounds, setRounds] = useState<RoundTS[]>([]);
+  // Current page of enriched rows plus the total count — paginated server-side, one call per page.
+  const [rows, setRows] = useState<RoundRowTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -79,16 +78,16 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
   pageSizeRef.current = pageSize;
 
   const loadRounds = useCallback((p: number, ps: number) => {
-    const roundsPromise = did
-      ? RoundAPI.getByDivision(did, p, ps)
-      : RoundAPI.getByTournament(tid, p, ps);
-    Promise.all([roundsPromise, DivisionAPI.get(0, 100)])
-      .then(([roundResult, divisionResult]) => {
+    setLoading(true);
+    const request = did
+      ? RoundAPI.getRowsByDivision(did, p, ps)
+      : RoundAPI.getRowsByTournament(tid, p, ps);
+    request
+      .then(({ count, items }) => {
+        setRows(items);
+        setTotalCount(count);
         setPage(p);
         setPageSize(ps);
-        setTotalCount(roundResult.length < ps ? p * ps + roundResult.length : (p + 2) * ps);
-        setRounds(roundResult);
-        setDivisionMap(new Map(divisionResult.items.map(d => [d.did, d.dname])));
       })
       .catch(() => console.error("Failed to load rounds"))
       .finally(() => setLoading(false));
@@ -103,18 +102,14 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
   }, [pageSize, loadRounds]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    if (newSize < pageSize && page === 0) {
-      setPageSize(newSize);
-      setRounds(prev => prev.slice(0, newSize));
-    } else {
-      loadRounds(0, newSize);
-    }
-  }, [pageSize, page, loadRounds]);
+    loadRounds(0, newSize);
+  }, [loadRounds]);
 
-  const handleDelete = useCallback(async (row: RoundTS): Promise<void> => {
+  const handleDelete = useCallback(async (row: RoundRowTS): Promise<void> => {
     await RoundAPI.delete(row.roundid);
-    setRounds((prev) => prev.filter((r) => r.roundid !== row.roundid));
-  }, []);
+    // Reload the current page so the count and page contents stay correct.
+    loadRounds(page, pageSize);
+  }, [loadRounds, page, pageSize]);
 
   const handleSave = useCallback((_round: RoundTS): void => {
     setEditorIsOpen(false);
@@ -123,15 +118,15 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
 
   return (
     <>
-      <DataTableTemplate<RoundTS>
+      <DataTableTemplate<RoundRowTS>
         loading={loading}
         key={did ?? tid}
         entityLabel="Round"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={roundColumns(tid, divisionMap, showAuditColumns)}
-        rows={rounds}
+        columns={roundColumns(showAuditColumns)}
+        rows={rows}
         totalCount={totalCount}
         getId={(r) => r.roundid}
         onDelete={handleDelete}

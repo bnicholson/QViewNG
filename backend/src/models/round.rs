@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{DateTime, TimeZone, Utc};
+use std::collections::HashMap;
 
 pub struct RoundBuilder {
     pub did: Option<Uuid>,                              // id of the associated division
@@ -217,6 +218,109 @@ pub fn read_all_rounds_of_tournament(
         .limit(page_size)
         .offset(offset_val)
         .load::<Round>(db)
+}
+
+/// One fully-formed row of the rounds data table: the round plus its division name, so the
+/// whole table is populated from a single API call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct RoundRow {
+    pub roundid: Uuid,
+    pub did: Uuid,
+    pub division_name: String,
+    pub name: String,
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub scheduled_start_time: Option<DateTime<Utc>>,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Returns one page of round-table rows for the tournament (enriched) and the total round count.
+/// Rows are ordered by scheduled start time — the same ordering as the plain rounds endpoint.
+pub fn read_round_rows_of_tournament(
+    db: &mut database::Connection,
+    tour_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<RoundRow>, i64)> {
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(tid.eq(tour_id)).select((did, dname)).load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+
+    if div_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let total: i64 = {
+        use crate::schema::rounds::dsl::*;
+        rounds.filter(did.eq_any(&div_ids)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let round_list: Vec<Round> = {
+        use crate::schema::rounds::dsl::*;
+        rounds
+            .filter(did.eq_any(&div_ids))
+            .order(scheduled_start_time.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Round>(db)?
+    };
+
+    Ok((build_round_rows(round_list, &div_name_by_id), total))
+}
+
+/// Returns one page of round-table rows for the division (enriched) and the total round count.
+pub fn read_round_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<RoundRow>, i64)> {
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
+    };
+    let mut div_name_by_id: HashMap<Uuid, String> = HashMap::new();
+    div_name_by_id.insert(division_id, dname_val);
+
+    let total: i64 = {
+        use crate::schema::rounds::dsl::*;
+        rounds.filter(did.eq(division_id)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let round_list: Vec<Round> = {
+        use crate::schema::rounds::dsl::*;
+        rounds
+            .filter(did.eq(division_id))
+            .order(scheduled_start_time.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Round>(db)?
+    };
+
+    Ok((build_round_rows(round_list, &div_name_by_id), total))
+}
+
+/// Attaches each round's division name from the given lookup.
+fn build_round_rows(round_list: Vec<Round>, div_name_by_id: &HashMap<Uuid, String>) -> Vec<RoundRow> {
+    round_list
+        .into_iter()
+        .map(|r| RoundRow {
+            roundid: r.roundid,
+            division_name: div_name_by_id.get(&r.did).cloned().unwrap_or_default(),
+            did: r.did,
+            name: r.name,
+            scheduled_start_time: r.scheduled_start_time,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        })
+        .collect()
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangeset) -> QueryResult<Round> {

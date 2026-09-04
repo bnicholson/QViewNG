@@ -18,6 +18,25 @@ export interface PagedRounds {
   items: RoundTS[];
 }
 
+/**
+ * One fully-formed row of the rounds data table: the round plus its division name, so the
+ * whole table is populated from a single request per page.
+ */
+export interface RoundRowTS {
+  roundid: string;
+  did: string;
+  division_name: string;
+  name: string;
+  scheduled_start_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PagedRoundRows {
+  count: number;
+  items: RoundRowTS[];
+}
+
 export const RoundAPI = {
   get: async (page: number, size: number): Promise<PagedRounds> =>
     (await fetch(`/api/rounds?page=${page}&page_size=${size}`)).json(),
@@ -25,6 +44,12 @@ export const RoundAPI = {
     (await fetch(`/api/tournaments/${tid}/rounds?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<RoundTS[]> =>
     (await fetch(`/api/divisions/${did}/rounds?page=${page}&page_size=${size}`)).json(),
+  /** One page of the tournament's enriched round rows (division name), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoundRows> =>
+    (await fetch(`/api/tournaments/${tid}/round-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the division's enriched round rows (division name), plus total count. */
+  getRowsByDivision: async (did: string, page: number, size: number): Promise<PagedRoundRows> =>
+    (await fetch(`/api/divisions/${did}/round-rows?page=${page}&page_size=${size}`)).json(),
   create: async (round: NewRoundPayload, accessToken?: string): Promise<RoundTS> => {
     const response = await fetch('/api/rounds', {
       method: 'POST',
