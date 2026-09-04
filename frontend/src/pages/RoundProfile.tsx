@@ -9,15 +9,14 @@ import ProfileLayout from '../components/ProfileLayout'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
-import { useAuth } from '../hooks/useAuth'
+import { useTournamentAccess } from '../hooks/useTournamentAccess'
+import GamesTable from '../components/GamesTable'
 import { RoundProfileOverviewPage } from './RoundProfileOverviewPage'
-import { RoundProfileGamesPage } from './RoundProfileGamesPage'
 
 export const RoundProfile = (props: { childRoute?: string }) => {
   const { roundid } = useParams()
   if (!roundid) return <></>
 
-  const { session } = useAuth()
   const [round, setRound] = useState<RoundTS | null>(null)
   const [division, setDivision] = useState<DivisionTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
@@ -37,12 +36,12 @@ export const RoundProfile = (props: { childRoute?: string }) => {
       .catch(() => setNotFound(true))
   }, [roundid])
 
+  const access = useTournamentAccess(tournament?.tid, tournament?.owner_id)
+
   if (notFound) return <Navigate to="/404" replace />
   if (!round || !division || !tournament) return <div>Loading Round…</div>
 
-  const isOwnerOrSuperUser =
-    (session?.hasRole('super_user') ?? false) ||
-    (session?.userId === tournament.owner_id)
+  const { isOwnerOrSuperUser, canViewAuditColumns, canCreate } = access
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/round/${roundid}/overview` },
@@ -71,7 +70,9 @@ export const RoundProfile = (props: { childRoute?: string }) => {
             />
           )}
           {props.childRoute === 'games' && (
-            <RoundProfileGamesPage tid={tournament.tid} roundid={roundid} />
+            <GamesTable tid={tournament.tid} roundid={roundid}
+              showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
+              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns} />
           )}
         </Box>
 

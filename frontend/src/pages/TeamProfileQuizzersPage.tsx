@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
-import TeamQuizzersTable from '../components/TeamQuizzersTable'
+import QuizzersTable from '../components/QuizzersTable'
 import { QuizzerPickerDialog } from '../components/QuizzerPickerDialog'
 import { TeamAPI, type TeamTS, type TeamChangeset } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const SLOT_FIELDS = [
   'quizzer_one_id',
@@ -16,11 +17,20 @@ const SLOT_FIELDS = [
   'quizzer_six_id',
 ] as const;
 
+type SlotField = typeof SLOT_FIELDS[number];
+
 function slotsFromTeam(team: TeamTS): (string | null)[] {
   return SLOT_FIELDS.map(f => team[f] ?? null);
 }
 
-export const TeamProfileQuizzersPage = ({ teamid }: { teamid: string }) => {
+interface Props {
+  teamid: string;
+  showSensitiveColumns?: boolean;
+  showAuditColumns?: boolean;
+}
+
+export const TeamProfileQuizzersPage = ({ teamid, showSensitiveColumns, showAuditColumns }: Props) => {
+  const { accessToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [team, setTeam] = useState<TeamTS | undefined>(undefined);
@@ -53,12 +63,22 @@ export const TeamProfileQuizzersPage = ({ teamid }: { teamid: string }) => {
     const changeset: TeamChangeset = {};
     SLOT_FIELDS.forEach((f, i) => { changeset[f] = next[i] ?? null; });
     try {
-      const updatedTeam = await TeamAPI.update(teamid, changeset);
+      const updatedTeam = await TeamAPI.update(teamid, changeset, accessToken);
       setTeam(updatedTeam);
       setSlots(slotsFromTeam(updatedTeam));
     } catch (err) {
       console.error('Failed to save quizzer assignments:', err);
     }
+  };
+
+  // Removes a quizzer from whichever roster slot holds them.
+  const handleRemove = async (user: UserTS) => {
+    if (!team) return;
+    const slotField = SLOT_FIELDS.find((f): f is SlotField => team[f] === user.id);
+    if (!slotField) return;
+    const updatedTeam = await TeamAPI.update(teamid, { [slotField]: null }, accessToken);
+    setTeam(updatedTeam);
+    setSlots(slotsFromTeam(updatedTeam));
   };
 
   if (notFound) return <div>Team not found.</div>;
@@ -84,15 +104,13 @@ export const TeamProfileQuizzersPage = ({ teamid }: { teamid: string }) => {
       </Box>
       <Divider sx={{ mb: 2 }} />
 
-      <TeamQuizzersTable
-        team={team}
-        teamId={teamid}
-        assignedUsers={assignedUsers}
+      <QuizzersTable
+        externalRows={assignedUsers}
         onAdd={() => setPickerOpen(true)}
-        onRemoved={(updatedTeam) => {
-          setTeam(updatedTeam);
-          setSlots(slotsFromTeam(updatedTeam));
-        }}
+        onDelete={handleRemove}
+        createLabel="Add Quizzers"
+        showSensitiveColumns={showSensitiveColumns}
+        showAuditColumns={showAuditColumns}
       />
 
       <QuizzerPickerDialog

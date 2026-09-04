@@ -472,6 +472,149 @@ pub fn read_all_quizzers_of_tournament(
         .load::<crate::models::user::User>(db)
 }
 
+/// A referenced entity (division or team) shown as a link in the quizzers data table.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct EntityRefDto {
+    pub id: Uuid,
+    pub name: String,
+}
+
+/// One fully-formed row of the quizzers data table: the quizzer's (non-sensitive) user
+/// fields plus the divisions and teams they belong to within the requested scope. This lets
+/// the data table be populated with a single API call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct QuizzerRow {
+    pub id: Uuid,
+    pub username: Option<String>,
+    pub email: String,
+    pub fname: String,
+    pub mname: String,
+    pub lname: String,
+    pub activated: bool,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub divisions: Vec<EntityRefDto>,
+    pub teams: Vec<EntityRefDto>,
+}
+
+/// Returns the quizzer-table rows for every quizzer rostered on any team in the tournament.
+pub fn read_quizzer_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+) -> QueryResult<Vec<QuizzerRow>> {
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(tid.eq(tournament_id))
+            .select((did, dname))
+            .load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+
+    let team_list: Vec<Team> = if div_ids.is_empty() {
+        Vec::new()
+    } else {
+        use crate::schema::teams::dsl::*;
+        teams.filter(did.eq_any(&div_ids)).load::<Team>(db)?
+    };
+
+    build_quizzer_rows(db, team_list, &div_name_by_id)
+}
+
+/// Returns the quizzer-table rows for every quizzer rostered on any team in the division.
+pub fn read_quizzer_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+) -> QueryResult<Vec<QuizzerRow>> {
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
+    };
+    let mut div_name_by_id: HashMap<Uuid, String> = HashMap::new();
+    div_name_by_id.insert(division_id, dname_val);
+
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams.filter(did.eq(division_id)).load::<Team>(db)?
+    };
+
+    build_quizzer_rows(db, team_list, &div_name_by_id)
+}
+
+/// Shared assembler: given a set of teams (and a lookup of their division names), builds one
+/// `QuizzerRow` per distinct quizzer, aggregating the teams/divisions they belong to and
+/// ordering the rows alphabetically by name.
+fn build_quizzer_rows(
+    db: &mut database::Connection,
+    team_list: Vec<Team>,
+    div_name_by_id: &HashMap<Uuid, String>,
+) -> QueryResult<Vec<QuizzerRow>> {
+    use std::collections::HashSet;
+
+    let mut teams_by_q: HashMap<Uuid, Vec<EntityRefDto>> = HashMap::new();
+    let mut divs_by_q: HashMap<Uuid, Vec<EntityRefDto>> = HashMap::new();
+    let mut quizzer_ids: Vec<Uuid> = Vec::new();
+    let mut seen: HashSet<Uuid> = HashSet::new();
+
+    for team in &team_list {
+        let div_name = div_name_by_id.get(&team.did).cloned().unwrap_or_default();
+        let slots = [
+            team.quizzer_one_id, team.quizzer_two_id, team.quizzer_three_id,
+            team.quizzer_four_id, team.quizzer_five_id, team.quizzer_six_id,
+        ];
+        for qid in slots.into_iter().flatten() {
+            if seen.insert(qid) {
+                quizzer_ids.push(qid);
+            }
+            teams_by_q.entry(qid).or_default().push(EntityRefDto {
+                id: team.teamid,
+                name: team.name.clone(),
+            });
+            let dlist = divs_by_q.entry(qid).or_default();
+            if !dlist.iter().any(|e| e.id == team.did) {
+                dlist.push(EntityRefDto { id: team.did, name: div_name.clone() });
+            }
+        }
+    }
+
+    if quizzer_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let users_list: Vec<crate::models::user::User> = {
+        use crate::schema::users::dsl::*;
+        users
+            .filter(id.eq_any(&quizzer_ids))
+            .order((fname.asc(), mname.asc(), lname.asc()))
+            .load::<crate::models::user::User>(db)?
+    };
+
+    let rows = users_list
+        .into_iter()
+        .map(|u| {
+            let uid = u.id;
+            QuizzerRow {
+                id: u.id,
+                username: u.username,
+                email: u.email,
+                fname: u.fname,
+                mname: u.mname,
+                lname: u.lname,
+                activated: u.activated,
+                created_at: u.created_at,
+                updated_at: u.updated_at,
+                divisions: divs_by_q.remove(&uid).unwrap_or_default(),
+                teams: teams_by_q.remove(&uid).unwrap_or_default(),
+            }
+        })
+        .collect();
+
+    Ok(rows)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TeamWithTournamentInfo {
     pub teamid: Uuid,

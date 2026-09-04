@@ -8,24 +8,20 @@ import Typography from '@mui/material/Typography'
 import ProfileLayout from '../components/ProfileLayout'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
-import { AdminAPI } from '../features/AdminAPI'
-import { useAuth } from '../hooks/useAuth'
+import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
 import GamesTable from '../components/GamesTable'
+import QuizzersTable from '../components/QuizzersTable'
 import { DivisionProfileOverviewPage } from './DivisionProfileOverviewPage'
-import { DivisionProfileQuizzersPage } from './DivisionProfileQuizzersPage'
 
 export const DivisionProfile = (props: { childRoute?: string }) => {
   const { did } = useParams()
   if (!did) return <></>
 
-  const { session } = useAuth()
   const [division, setDivision] = useState<DivisionTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [notFound, setNotFound] = useState(false)
-  // Whether the current user is one of this tournament's admins (null while loading).
-  const [canViewAdmins, setCanViewAdmins] = useState<boolean | null>(null)
 
   useEffect(() => {
     DivisionAPI.getById(did)
@@ -37,27 +33,15 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
       .catch(() => setNotFound(true))
   }, [did])
 
-  // Resolve tournament-admin membership for the "Stats Groups" gate.
-  useEffect(() => {
-    if (!tournament || !session) { setCanViewAdmins(false); return }
-    if (session.hasRole('super_user') || session.userId === tournament.owner_id) {
-      setCanViewAdmins(true); return
-    }
-    setCanViewAdmins(null)
-    AdminAPI.getByTournament(String(tournament.tid), 0, 500)
-      .then(admins => setCanViewAdmins(admins.some(a => a.id === session.userId)))
-      .catch(() => setCanViewAdmins(false))
-  }, [tournament?.tid, session?.userId])
+  const access = useTournamentAccess(tournament?.tid, tournament?.owner_id)
 
   if (notFound) return <Navigate to="/404" replace />
   if (!division || !tournament) return <div>Loading Division…</div>
 
-  const isOwnerOrSuperUser =
-    (session?.hasRole('super_user') ?? false) ||
-    (session?.userId === tournament.owner_id)
+  const { isOwnerOrSuperUser, canViewAdmins, canViewAuditColumns, canCreate } = access
 
   // Only super users, the tournament owner, and tournament admins may view Stats Groups.
-  const canViewStatsGroups = isOwnerOrSuperUser || canViewAdmins === true
+  const canViewStatsGroups = isOwnerOrSuperUser || canViewAdmins
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview',     to: `/division/${did}/overview`     },
@@ -85,16 +69,23 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
             <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} canEdit={isOwnerOrSuperUser} />
           )}
           {props.childRoute === 'teams' && (
-            <TeamsTable tid={tournament.tid} did={did} />
+            <TeamsTable tid={tournament.tid} did={did}
+              showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}
+              showAuditColumns={canViewAuditColumns} />
           )}
           {props.childRoute === 'quizzers' && (
-            <DivisionProfileQuizzersPage did={did} />
+            <QuizzersTable did={did}
+              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns} />
           )}
           {props.childRoute === 'rounds' && (
-            <RoundsTable tid={tournament.tid} did={did} />
+            <RoundsTable tid={tournament.tid} did={did}
+              showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}
+              showAuditColumns={canViewAuditColumns} />
           )}
           {props.childRoute === 'games' && (
-            <GamesTable tid={tournament.tid} did={did} />
+            <GamesTable tid={tournament.tid} did={did}
+              showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
+              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns} />
           )}
           {props.childRoute === 'stats-groups' && canViewStatsGroups && (
             <Typography color="text.secondary">

@@ -94,6 +94,25 @@ async fn read_teams(
     }
 }
 
+/// Returns fully-formed quizzer data-table rows (user fields + divisions + teams) for the
+/// division in a single call, so the quizzers table needs only one request.
+#[get("/{id}/quizzer-rows")]
+async fn read_quizzer_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::team::read_quizzer_rows_of_division(&mut conn, item_id.into_inner()) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/games")]
 async fn read_games(
     db: Data<Database>,
@@ -308,6 +327,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_rounds)
         .service(read_teams)
+        .service(read_quizzer_rows)
         .service(read_games)
         .service(create)
         .service(update)

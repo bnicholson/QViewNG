@@ -2,8 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
-import { TeamAPI } from '../features/TeamAPI';
-import { DivisionAPI } from '../features/DivisionAPI';
+import { QuizzerAPI, type QuizzerRowTS, type EntityRef } from '../features/QuizzerAPI';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -11,9 +10,6 @@ function formatDate(iso: string | null | undefined): string {
     year: 'numeric', month: 'short', day: 'numeric',
   });
 }
-
-/** A referenced entity (division or team) the quizzer belongs to. */
-interface EntityRef { id: string; name: string; }
 
 /** Render a list of entity references as comma-separated profile links (or "—" when empty). */
 function renderRefs(refs: EntityRef[] | undefined, base: 'division' | 'team') {
@@ -27,18 +23,16 @@ function quizzerColumns(
   showSensitiveColumns: boolean,
   showAuditColumns: boolean,
   showTeamAndDivision: boolean,
-  divisionMap: Map<string, EntityRef[]>,
-  teamMap: Map<string, EntityRef[]>,
 ): ColumnDef<UserTS>[] {
   return [
     ...(showTeamAndDivision ? [
       {
         header: 'Division',
-        render: (u: UserTS) => renderRefs(divisionMap.get(u.id), 'division'),
+        render: (u: UserTS) => renderRefs((u as QuizzerRowTS).divisions, 'division'),
       },
       {
         header: 'Team',
-        render: (u: UserTS) => renderRefs(teamMap.get(u.id), 'team'),
+        render: (u: UserTS) => renderRefs((u as QuizzerRowTS).teams, 'team'),
       },
     ] : []),
     {
@@ -80,8 +74,11 @@ function quizzerColumns(
 }
 
 interface Props {
+  /** Tournament scope: fetches every quizzer in the tournament (one enriched call). */
   tid?: string;
-  /** If provided, skips internal fetch and displays these rows directly. */
+  /** Division scope: fetches every quizzer in the division (one enriched call). */
+  did?: string;
+  /** If provided, skips internal fetch and displays these rows directly (e.g. a team roster). */
   externalRows?: UserTS[];
   /** When provided, shows a create button that calls this. Omit to hide the button entirely. */
   onAdd?: () => void;
@@ -93,64 +90,42 @@ interface Props {
   showAuditColumns?: boolean;
 }
 
-export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true }: Props) {
-  // All items for client-side pagination (tid or externalRows mode)
-  const [allTournamentQuizzers, setAllTournamentQuizzers] = useState<UserTS[] | undefined>(undefined);
-  // Current-page items for server-side pagination (no tid, no externalRows)
+export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true }: Props) {
+  // Enriched rows (with divisions/teams) for the whole tournament or division — one API call.
+  const [enrichedRows, setEnrichedRows] = useState<QuizzerRowTS[] | undefined>(undefined);
+  // Current-page items for server-side pagination (no tid, no did, no externalRows).
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiTotalCount, setApiTotalCount] = useState(0);
-  // quizzerId -> the divisions / teams they belong to, built from this tournament's teams (tid mode only)
-  const [divisionMap, setDivisionMap] = useState<Map<string, EntityRef[]>>(new Map());
-  const [teamMap, setTeamMap] = useState<Map<string, EntityRef[]>>(new Map());
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
-  // Fetch all quizzers for the tournament once; re-fetch when tid changes
+  // Single enriched fetch for a tournament or a division; re-fetch when the scope changes.
   useEffect(() => {
-    if (tid === undefined) return;
+    if (tid === undefined && did === undefined) return;
     setPage(0);
-    setAllTournamentQuizzers(undefined);
-    Promise.all([
-      UserAPI.getByTournament(tid),
-      TeamAPI.getByTournament(tid, 0, 500),
-      DivisionAPI.getByTournament(tid, 0, 100),
-    ])
-      .then(([userResult, teamResult, divisionResult]) => {
-        setAllTournamentQuizzers(userResult.items);
-        // Map each quizzer to the divisions/teams they belong to via the teams' quizzer slots.
-        const divNameById = new Map(divisionResult.map(d => [d.did, d.dname]));
-        const dMap = new Map<string, EntityRef[]>();
-        const tMap = new Map<string, EntityRef[]>();
-        for (const team of teamResult.items) {
-          const divName = divNameById.get(team.did) ?? team.did;
-          const slots = [
-            team.quizzer_one_id, team.quizzer_two_id, team.quizzer_three_id,
-            team.quizzer_four_id, team.quizzer_five_id, team.quizzer_six_id,
-          ];
-          for (const qid of slots) {
-            if (!qid) continue;
-            const tList = tMap.get(qid) ?? [];
-            if (!tList.some(e => e.id === team.teamid)) tList.push({ id: team.teamid, name: team.name });
-            tMap.set(qid, tList);
-            const dList = dMap.get(qid) ?? [];
-            if (!dList.some(e => e.id === team.did)) dList.push({ id: team.did, name: divName });
-            dMap.set(qid, dList);
-          }
-        }
-        setDivisionMap(dMap);
-        setTeamMap(tMap);
-      })
+    setLoading(true);
+    setEnrichedRows(undefined);
+    const request = tid !== undefined
+      ? QuizzerAPI.getByTournament(tid)
+      : QuizzerAPI.getByDivision(did!);
+    request
+      .then(rows => setEnrichedRows(rows))
       .catch(() => console.error('Failed to load quizzers'))
       .finally(() => setLoading(false));
-  }, [tid]);
+  }, [tid, did]);
 
-  // Server-side pagination fetch (only used when no tid and no externalRows)
+  // externalRows arrive ready to display.
+  useEffect(() => {
+    if (externalRows !== undefined) setLoading(false);
+  }, [externalRows]);
+
+  // Server-side pagination fetch (only used when no tid, no did, and no externalRows).
   const loadQuizzers = useCallback((p: number, ps: number) => {
-    if (externalRows !== undefined || tid !== undefined) return;
+    if (externalRows !== undefined || tid !== undefined || did !== undefined) return;
     UserAPI.get(p, ps)
       .then(result => {
         setPage(p);
@@ -160,17 +135,17 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
       })
       .catch(() => console.error('Failed to load quizzers'))
       .finally(() => setLoading(false));
-  }, [externalRows, tid]);
+  }, [externalRows, tid, did]);
 
   useEffect(() => {
     loadQuizzers(0, pageSizeRef.current);
   }, []);
 
-  // Client-side data: externalRows takes priority, then tournament quizzers.
-  // Tournament quizzers arrive already sorted by name from the backend query.
-  const clientItems = externalRows ?? allTournamentQuizzers;
+  // Client-side data: externalRows takes priority, then the enriched tournament/division rows.
+  // Enriched rows arrive already sorted by name from the backend query.
+  const clientItems: UserTS[] | undefined = externalRows ?? enrichedRows;
 
-  // Slice for the current page when all data is loaded; otherwise use the server-fetched page
+  // Slice for the current page when all data is loaded; otherwise use the server-fetched page.
   const rows = clientItems !== undefined
     ? clientItems.slice(page * pageSize, (page + 1) * pageSize)
     : quizzers;
@@ -178,20 +153,20 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
   const totalCount = clientItems !== undefined ? clientItems.length : apiTotalCount;
 
   const handlePageChange = useCallback((newPage: number) => {
-    if (externalRows !== undefined || allTournamentQuizzers !== undefined) {
+    if (clientItems !== undefined) {
       setPage(newPage);
     } else {
       loadQuizzers(newPage, pageSize);
     }
-  }, [externalRows, allTournamentQuizzers, pageSize, loadQuizzers]);
+  }, [clientItems, pageSize, loadQuizzers]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
     setPage(0);
     setPageSize(newSize);
-    if (externalRows === undefined && allTournamentQuizzers === undefined) {
+    if (clientItems === undefined) {
       loadQuizzers(0, newSize);
     }
-  }, [externalRows, allTournamentQuizzers, loadQuizzers]);
+  }, [clientItems, loadQuizzers]);
 
   const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
     if (onDelete) return onDelete(row);
@@ -206,7 +181,7 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
       onCreate={onAdd}
       showCreateButton={!!onAdd}
       showDeleteButton={!!onDelete}
-      columns={quizzerColumns(showSensitiveColumns, showAuditColumns, tid !== undefined, divisionMap, teamMap)}
+      columns={quizzerColumns(showSensitiveColumns, showAuditColumns, tid !== undefined || did !== undefined)}
       rows={rows}
       totalCount={totalCount}
       getId={(u) => u.id}
