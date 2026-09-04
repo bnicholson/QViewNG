@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { TeamAPI, type TeamTS, type TeamWithCoachTS } from '../features/TeamAPI';
 import { DivisionAPI } from '../features/DivisionAPI';
 import { UserAPI } from '../features/UserAPI';
@@ -20,7 +20,7 @@ function teamColumns(
   return [
     {
       header: 'Division',
-      render: (t) => divisionMap.get(t.did) ?? t.did,
+      render: (t) => <EntityLink to={`/division/${t.did}/overview`}>{divisionMap.get(t.did) ?? t.did}</EntityLink>,
     },
     {
       header: 'Name',

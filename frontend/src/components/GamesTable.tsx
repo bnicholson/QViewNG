@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
+import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { GameAPI, type GameTS } from '../features/GameAPI';
 import { DivisionAPI } from '../features/DivisionAPI';
 import { RoomAPI } from '../features/RoomAPI';
@@ -56,33 +56,35 @@ function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, nu
     },
     {
       header: 'Division',
-      render: (g) => maps.divisions.get(g.divisionid) ?? g.divisionid,
+      render: (g) => <EntityLink to={`/division/${g.divisionid}/overview`}>{maps.divisions.get(g.divisionid) ?? g.divisionid}</EntityLink>,
     },
     {
       header: 'Room',
-      render: (g) => maps.rooms.get(g.roomid) ?? g.roomid,
+      render: (g) => <EntityLink to={`/room/${g.roomid}/overview`}>{maps.rooms.get(g.roomid) ?? g.roomid}</EntityLink>,
     },
     {
       header: 'Round',
-      render: (g) => roomSequence.get(g.gid) ?? '—',
+      render: (g) => <EntityLink to={`/round/${g.roundid}/overview`}>{roomSequence.get(g.gid) ?? '—'}</EntityLink>,
     },
     {
       header: 'Start Time',
       render: (g) => (
-        <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
+        <EntityLink to={`/round/${g.roundid}/overview`}>
+          <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
+        </EntityLink>
       ),
     },
     {
       header: 'Left Team',
-      render: (g) => maps.teams.get(g.leftteamid) ?? g.leftteamid,
+      render: (g) => <EntityLink to={`/team/${g.leftteamid}/overview`}>{maps.teams.get(g.leftteamid) ?? g.leftteamid}</EntityLink>,
     },
     {
       header: 'Center Team',
-      render: (g) => g.centerteamid ? (maps.teams.get(g.centerteamid) ?? g.centerteamid) : '—',
+      render: (g) => g.centerteamid ? <EntityLink to={`/team/${g.centerteamid}/overview`}>{maps.teams.get(g.centerteamid) ?? g.centerteamid}</EntityLink> : '—',
     },
     {
       header: 'Right Team',
-      render: (g) => maps.teams.get(g.rightteamid) ?? g.rightteamid,
+      render: (g) => <EntityLink to={`/team/${g.rightteamid}/overview`}>{maps.teams.get(g.rightteamid) ?? g.rightteamid}</EntityLink>,
     },
     ...(showSensitiveColumns ? [{
       header: 'Ignore',

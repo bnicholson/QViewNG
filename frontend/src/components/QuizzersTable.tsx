@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
+import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
 import { TeamAPI } from '../features/TeamAPI';
 import { DivisionAPI } from '../features/DivisionAPI';
@@ -12,22 +12,33 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
+/** A referenced entity (division or team) the quizzer belongs to. */
+interface EntityRef { id: string; name: string; }
+
+/** Render a list of entity references as comma-separated profile links (or "—" when empty). */
+function renderRefs(refs: EntityRef[] | undefined, base: 'division' | 'team') {
+  if (!refs || refs.length === 0) return '—';
+  return refs.map((r, i) => (
+    <span key={r.id}>{i > 0 ? ', ' : ''}<EntityLink to={`/${base}/${r.id}/overview`}>{r.name}</EntityLink></span>
+  ));
+}
+
 function quizzerColumns(
   showSensitiveColumns: boolean,
   showAuditColumns: boolean,
   showTeamAndDivision: boolean,
-  divisionMap: Map<string, string>,
-  teamMap: Map<string, string>,
+  divisionMap: Map<string, EntityRef[]>,
+  teamMap: Map<string, EntityRef[]>,
 ): ColumnDef<UserTS>[] {
   return [
     ...(showTeamAndDivision ? [
       {
         header: 'Division',
-        render: (u: UserTS) => divisionMap.get(u.id) ?? '—',
+        render: (u: UserTS) => renderRefs(divisionMap.get(u.id), 'division'),
       },
       {
         header: 'Team',
-        render: (u: UserTS) => teamMap.get(u.id) ?? '—',
+        render: (u: UserTS) => renderRefs(teamMap.get(u.id), 'team'),
       },
     ] : []),
     {
@@ -89,9 +100,9 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiTotalCount, setApiTotalCount] = useState(0);
-  // quizzerId -> division / team name, built from this tournament's teams (tid mode only)
-  const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
-  const [teamMap, setTeamMap] = useState<Map<string, string>>(new Map());
+  // quizzerId -> the divisions / teams they belong to, built from this tournament's teams (tid mode only)
+  const [divisionMap, setDivisionMap] = useState<Map<string, EntityRef[]>>(new Map());
+  const [teamMap, setTeamMap] = useState<Map<string, EntityRef[]>>(new Map());
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -110,10 +121,10 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
     ])
       .then(([userResult, teamResult, divisionResult]) => {
         setAllTournamentQuizzers(userResult.items);
-        // Map each quizzer to their division/team via the teams' quizzer slots.
+        // Map each quizzer to the divisions/teams they belong to via the teams' quizzer slots.
         const divNameById = new Map(divisionResult.map(d => [d.did, d.dname]));
-        const dMap = new Map<string, string>();
-        const tMap = new Map<string, string>();
+        const dMap = new Map<string, EntityRef[]>();
+        const tMap = new Map<string, EntityRef[]>();
         for (const team of teamResult.items) {
           const divName = divNameById.get(team.did) ?? team.did;
           const slots = [
@@ -122,8 +133,12 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
           ];
           for (const qid of slots) {
             if (!qid) continue;
-            tMap.set(qid, tMap.has(qid) ? `${tMap.get(qid)}, ${team.name}` : team.name);
-            dMap.set(qid, dMap.has(qid) ? `${dMap.get(qid)}, ${divName}` : divName);
+            const tList = tMap.get(qid) ?? [];
+            if (!tList.some(e => e.id === team.teamid)) tList.push({ id: team.teamid, name: team.name });
+            tMap.set(qid, tList);
+            const dList = dMap.get(qid) ?? [];
+            if (!dList.some(e => e.id === team.did)) dList.push({ id: team.did, name: divName });
+            dMap.set(qid, dList);
           }
         }
         setDivisionMap(dMap);

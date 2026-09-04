@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoundAPI, type RoundTS } from "../features/RoundAPI";
 import { RoundEditorDialog } from "./RoundEditorDialog";
 import { DivisionAPI } from "../features/DivisionAPI";
@@ -29,7 +29,7 @@ function roundColumns(tid: string, divisionMap: Map<string, string>, showAuditCo
   return [
     {
       header: "Division",
-      render: (r) => divisionMap.get(r.did) ?? r.did,
+      render: (r) => <EntityLink to={`/division/${r.did}/overview`}>{divisionMap.get(r.did) ?? r.did}</EntityLink>,
     },
     {
       header: "Round",

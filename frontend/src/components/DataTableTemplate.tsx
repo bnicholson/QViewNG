@@ -1,4 +1,21 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+
+// ─── Entity link ─────────────────────────────────────────────────────────────
+// Standard blue, hover-underlined link used inside table cells to navigate to a
+// referenced domain entity's profile (a Division cell links to that Division, etc.).
+export function EntityLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      style={{ color: "#2563eb", textDecoration: "none", fontWeight: 500, whiteSpace: "nowrap" }}
+      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+    >
+      {children}
+    </Link>
+  );
+}
 
 // ─── Shared Sub-components ───────────────────────────────────────────────────
 
