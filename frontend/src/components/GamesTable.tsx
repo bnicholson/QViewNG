@@ -92,7 +92,10 @@ function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): 
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean }) {
+export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean;
+  /** Column headers to omit — lets a consumer hide a column that's redundant in its context
+   *  (e.g. the Round profile hides "Round", the Room profile hides "Room"). */
+  hiddenColumns?: string[] }) {
   // Current page of enriched rows plus the total count — paginated server-side, one call per page.
   const [rows, setRows] = useState<GameRowTS[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +158,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         loading={loading}
-        columns={gameColumns(showSensitiveColumns, showAuditColumns)}
+        columns={gameColumns(showSensitiveColumns, showAuditColumns).filter(c => !hiddenColumns.includes(c.header))}
         rows={rows}
         totalCount={totalCount}
         getId={(g) => g.gid}

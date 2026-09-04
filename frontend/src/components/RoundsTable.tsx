@@ -66,7 +66,9 @@ function roundColumns(showAuditColumns: boolean): ColumnDef<RoundRowTS>[] {
   ];
 }
 
-export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
+export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
+  /** Column headers to omit — lets a consumer hide a column that's redundant in its context. */
+  hiddenColumns?: string[] }) {
   // Current page of enriched rows plus the total count — paginated server-side, one call per page.
   const [rows, setRows] = useState<RoundRowTS[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={roundColumns(showAuditColumns)}
+        columns={roundColumns(showAuditColumns).filter(c => !hiddenColumns.includes(c.header))}
         rows={rows}
         totalCount={totalCount}
         getId={(r) => r.roundid}

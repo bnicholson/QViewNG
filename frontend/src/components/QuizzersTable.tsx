@@ -88,9 +88,11 @@ interface Props {
   createLabel?: string;
   showSensitiveColumns?: boolean;
   showAuditColumns?: boolean;
+  /** Column headers to omit — lets a consumer hide a column that's redundant in its context. */
+  hiddenColumns?: string[];
 }
 
-export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true }: Props) {
+export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true, hiddenColumns = [] }: Props) {
   // externalRows (a fixed roster) paginate client-side; everything else paginates server-side.
   const usesExternal = externalRows !== undefined;
   const usesEnriched = tid !== undefined || did !== undefined;
@@ -170,7 +172,7 @@ export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete,
       onCreate={onAdd}
       showCreateButton={!!onAdd}
       showDeleteButton={!!onDelete}
-      columns={quizzerColumns(showSensitiveColumns, showAuditColumns, tid !== undefined || did !== undefined)}
+      columns={quizzerColumns(showSensitiveColumns, showAuditColumns, tid !== undefined || did !== undefined).filter(c => !hiddenColumns.includes(c.header))}
       rows={rows}
       totalCount={totalCount}
       getId={(u) => u.id}

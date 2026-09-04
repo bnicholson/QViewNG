@@ -51,7 +51,10 @@ function teamColumns(showAuditColumns: boolean): ColumnDef<TeamRowTS>[] {
   ];
 }
 
-export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
+export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
+  /** Column headers to omit. Lets a consumer hide a column that's redundant in its context —
+   *  e.g. the Division profile hides "Division" since every row is the same division. */
+  hiddenColumns?: string[] }) {
   // Current page of enriched rows plus the total count — paginated server-side.
   const [rows, setRows] = useState<TeamRowTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -110,7 +113,7 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={teamColumns(showAuditColumns)}
+        columns={teamColumns(showAuditColumns).filter(c => !hiddenColumns.includes(c.header))}
         rows={rows}
         totalCount={totalCount}
         getId={(t) => t.teamid}

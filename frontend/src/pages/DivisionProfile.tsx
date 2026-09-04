@@ -71,21 +71,26 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'teams' && (
             <TeamsTable tid={tournament.tid} did={did}
               showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}
-              showAuditColumns={canViewAuditColumns} />
+              showAuditColumns={canViewAuditColumns}
+              // In the Division profile every team is in this division, so the Division column is redundant.
+              hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'quizzers' && (
             <QuizzersTable did={did}
-              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns} />
+              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'rounds' && (
             <RoundsTable tid={tournament.tid} did={did}
               showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}
-              showAuditColumns={canViewAuditColumns} />
+              showAuditColumns={canViewAuditColumns}
+              hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} did={did}
               showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
-              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns} />
+              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'stats-groups' && canViewStatsGroups && (
             <Typography color="text.secondary">
