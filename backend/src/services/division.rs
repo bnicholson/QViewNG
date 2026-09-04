@@ -94,6 +94,26 @@ async fn read_teams(
     }
 }
 
+/// Returns fully-formed game data-table rows (game + division/room/team names, start time, and
+/// room sequence number) for the division in a single paginated call.
+#[get("/{id}/game-rows")]
+async fn read_game_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::game::read_game_rows_of_division(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Returns fully-formed round data-table rows (round + division name) for the division in a
 /// single paginated call, so the rounds table needs only one request per page.
 #[get("/{id}/round-rows")]
@@ -371,6 +391,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_quizzer_rows)
         .service(read_team_rows)
         .service(read_round_rows)
+        .service(read_game_rows)
         .service(read_games)
         .service(create)
         .service(update)

@@ -36,6 +36,36 @@ export interface PagedGames {
   items: GameTS[];
 }
 
+/**
+ * One fully-formed row of the games data table: the game plus the display names of its
+ * division/room/teams, the round's scheduled start time, and its 1-based ordinal within its
+ * room (the "Round" column). The whole table is populated from a single request per page.
+ */
+export interface GameRowTS {
+  gid: string;
+  divisionid: string;
+  division_name: string;
+  roomid: string;
+  room_name: string;
+  roundid: string;
+  round_number: number | null;
+  scheduled_start_time: string | null;
+  leftteamid: string;
+  left_team_name: string;
+  centerteamid: string | null;
+  center_team_name: string | null;
+  rightteamid: string;
+  right_team_name: string;
+  ignore: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PagedGameRows {
+  count: number;
+  items: GameRowTS[];
+}
+
 export interface GameStatusTS {
   gid: string;
   done: boolean;
@@ -133,6 +163,18 @@ export const GameAPI = {
     (await fetch(`/api/rooms/${roomid}/games?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<GameTS[]> =>
     (await fetch(`/api/divisions/${did}/games?page=${page}&page_size=${size}`)).json(),
+  /** One page of the tournament's enriched game rows (names + start time + room number), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedGameRows> =>
+    (await fetch(`/api/tournaments/${tid}/game-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the division's enriched game rows, plus total count. */
+  getRowsByDivision: async (did: string, page: number, size: number): Promise<PagedGameRows> =>
+    (await fetch(`/api/divisions/${did}/game-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the round's enriched game rows, plus total count. */
+  getRowsByRound: async (roundid: string, page: number, size: number): Promise<PagedGameRows> =>
+    (await fetch(`/api/rounds/${roundid}/game-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the room's enriched game rows, plus total count. */
+  getRowsByRoom: async (roomid: string, page: number, size: number): Promise<PagedGameRows> =>
+    (await fetch(`/api/rooms/${roomid}/game-rows?page=${page}&page_size=${size}`)).json(),
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/games/${id}`, { method: 'DELETE' });
     if (!response.ok) {

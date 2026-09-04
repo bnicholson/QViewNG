@@ -1,13 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
-import { GameAPI, type GameTS } from '../features/GameAPI';
-import { DivisionAPI } from '../features/DivisionAPI';
-import { RoomAPI } from '../features/RoomAPI';
-import { RoundAPI } from '../features/RoundAPI';
-import { TeamAPI } from '../features/TeamAPI';
+import { GameAPI, type GameTS, type GameRowTS } from '../features/GameAPI';
 import { GameEditorDialog } from './GameEditorDialog';
-import { computeRoomRoundSequence } from '../utils/gameRoundSequence';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -24,22 +19,12 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
-interface LookupMaps {
-  divisions: Map<string, string>;
-  rooms: Map<string, string>;
-  rounds: Map<string, string | null>;
-  teams: Map<string, string>;
-}
-
-function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, number>, showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<GameTS>[] {
+function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<GameRowTS>[] {
   return [
     {
       header: '',
       render: (g) => (
-        <Link
-          to={`/game/${g.gid}/overview`}
-          style={{ textDecoration: 'none' }}
-        >
+        <Link to={`/game/${g.gid}/overview`} style={{ textDecoration: 'none' }}>
           <button style={{
             padding: '2px 10px',
             fontSize: '0.75rem',
@@ -56,50 +41,50 @@ function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, nu
     },
     {
       header: 'Division',
-      render: (g) => <EntityLink to={`/division/${g.divisionid}/overview`}>{maps.divisions.get(g.divisionid) ?? g.divisionid}</EntityLink>,
+      render: (g) => <EntityLink to={`/division/${g.divisionid}/overview`}>{g.division_name || g.divisionid}</EntityLink>,
     },
     {
       header: 'Room',
-      render: (g) => <EntityLink to={`/room/${g.roomid}/overview`}>{maps.rooms.get(g.roomid) ?? g.roomid}</EntityLink>,
+      render: (g) => <EntityLink to={`/room/${g.roomid}/overview`}>{g.room_name || g.roomid}</EntityLink>,
     },
     {
       header: 'Round',
-      render: (g) => <EntityLink to={`/round/${g.roundid}/overview`}>{roomSequence.get(g.gid) ?? '—'}</EntityLink>,
+      render: (g) => <EntityLink to={`/round/${g.roundid}/overview`}>{g.round_number ?? '—'}</EntityLink>,
     },
     {
       header: 'Start Time',
       render: (g) => (
         <EntityLink to={`/round/${g.roundid}/overview`}>
-          <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(g.scheduled_start_time)}</span>
         </EntityLink>
       ),
     },
     {
       header: 'Left Team',
-      render: (g) => <EntityLink to={`/team/${g.leftteamid}/overview`}>{maps.teams.get(g.leftteamid) ?? g.leftteamid}</EntityLink>,
+      render: (g) => <EntityLink to={`/team/${g.leftteamid}/overview`}>{g.left_team_name || g.leftteamid}</EntityLink>,
     },
     {
       header: 'Center Team',
-      render: (g) => g.centerteamid ? <EntityLink to={`/team/${g.centerteamid}/overview`}>{maps.teams.get(g.centerteamid) ?? g.centerteamid}</EntityLink> : '—',
+      render: (g) => g.centerteamid ? <EntityLink to={`/team/${g.centerteamid}/overview`}>{g.center_team_name || g.centerteamid}</EntityLink> : '—',
     },
     {
       header: 'Right Team',
-      render: (g) => <EntityLink to={`/team/${g.rightteamid}/overview`}>{maps.teams.get(g.rightteamid) ?? g.rightteamid}</EntityLink>,
+      render: (g) => <EntityLink to={`/team/${g.rightteamid}/overview`}>{g.right_team_name || g.rightteamid}</EntityLink>,
     },
     ...(showSensitiveColumns ? [{
       header: 'Ignore',
-      render: (g: GameTS) => <BoolBadge value={g.ignore} />,
+      render: (g: GameRowTS) => <BoolBadge value={g.ignore} />,
     }] : []),
     ...(showAuditColumns ? [
       {
         header: 'Created',
-        render: (g: GameTS) => (
+        render: (g: GameRowTS) => (
           <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>
         ),
       },
       {
         header: 'Last Modified',
-        render: (g: GameTS) => (
+        render: (g: GameRowTS) => (
           <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>
         ),
       },
@@ -108,18 +93,10 @@ function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, nu
 }
 
 export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean }) {
-  const [games, setGames] = useState<GameTS[]>([]);
+  // Current page of enriched rows plus the total count — paginated server-side, one call per page.
+  const [rows, setRows] = useState<GameRowTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  const [maps, setMaps] = useState<LookupMaps>({
-    divisions: new Map(),
-    rooms: new Map(),
-    rounds: new Map(),
-    teams: new Map(),
-  });
-  // game id -> its 1-based ordinal among its room's games (by start time). Built
-  // from ALL of the tournament's games so it's correct regardless of the page shown.
-  const [roomSequence, setRoomSequence] = useState<Map<string, number>>(new Map());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
@@ -127,37 +104,20 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
   pageSizeRef.current = pageSize;
 
   const loadGames = useCallback((p: number, ps: number) => {
-    const gamesPromise = roundid
-      ? GameAPI.getByRound(roundid, p, ps).then(items => ({ items, count: null as null | number }))
+    setLoading(true);
+    const request = roundid
+      ? GameAPI.getRowsByRound(roundid, p, ps)
       : roomid
-        ? GameAPI.getByRoom(roomid, p, ps).then(items => ({ items, count: null as null | number }))
+        ? GameAPI.getRowsByRoom(roomid, p, ps)
         : did
-          ? GameAPI.getByDivision(did, p, ps).then(items => ({ items, count: null as null | number }))
-          : GameAPI.getByTournament(tid, p, ps).then(r => ({ items: r.items, count: r.count }));
-
-    Promise.all([
-      gamesPromise,
-      DivisionAPI.get(0, 100),
-      RoomAPI.get(0, 100),
-      RoundAPI.get(0, 200),
-      TeamAPI.get(0, 200),
-      // All of the tournament's games, used only to number each game within its room.
-      GameAPI.getByTournament(tid, 0, 1000),
-    ])
-      .then(([gameResult, divResult, roomResult, roundResult, teamResult, allGamesResult]) => {
+          ? GameAPI.getRowsByDivision(did, p, ps)
+          : GameAPI.getRowsByTournament(tid, p, ps);
+    request
+      .then(({ count, items }) => {
+        setRows(items);
+        setTotalCount(count);
         setPage(p);
         setPageSize(ps);
-        const { items, count } = gameResult;
-        setTotalCount(count ?? (items.length < ps ? p * ps + items.length : (p + 2) * ps));
-        setGames(items);
-        const roundStartById = new Map(roundResult.items.map(r => [r.roundid, r.scheduled_start_time]));
-        setMaps({
-          divisions: new Map(divResult.items.map(d => [d.did, d.dname])),
-          rooms: new Map(roomResult.items.map(r => [r.roomid, r.name])),
-          rounds: roundStartById,
-          teams: new Map(teamResult.items.map(t => [t.teamid, t.name])),
-        });
-        setRoomSequence(computeRoomRoundSequence(allGamesResult.items, roundStartById));
       })
       .catch(() => console.error('Failed to load games'))
       .finally(() => setLoading(false));
@@ -172,18 +132,14 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
   }, [pageSize, loadGames]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    if (newSize < pageSize && page === 0) {
-      setPageSize(newSize);
-      setGames(prev => prev.slice(0, newSize));
-    } else {
-      loadGames(0, newSize);
-    }
-  }, [pageSize, page, loadGames]);
+    loadGames(0, newSize);
+  }, [loadGames]);
 
-  const handleDelete = useCallback(async (row: GameTS): Promise<void> => {
+  const handleDelete = useCallback(async (row: GameRowTS): Promise<void> => {
     await GameAPI.delete(row.gid);
-    setGames(prev => prev.filter(g => g.gid !== row.gid));
-  }, []);
+    // Reload the current page so the count and page contents stay correct.
+    loadGames(page, pageSize);
+  }, [loadGames, page, pageSize]);
 
   const handleSave = useCallback((_game: GameTS): void => {
     setEditorIsOpen(false);
@@ -192,15 +148,15 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
 
   return (
     <>
-      <DataTableTemplate<GameTS>
+      <DataTableTemplate<GameRowTS>
         key={roundid ?? roomid ?? did ?? tid}
         entityLabel="Game"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         loading={loading}
-        columns={gameColumns(tid, maps, roomSequence, showSensitiveColumns, showAuditColumns)}
-        rows={games}
+        columns={gameColumns(showSensitiveColumns, showAuditColumns)}
+        rows={rows}
         totalCount={totalCount}
         getId={(g) => g.gid}
         onDelete={handleDelete}

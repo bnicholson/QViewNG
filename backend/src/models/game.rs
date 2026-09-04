@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use diesel::upsert::on_constraint;
 use std::collections::HashMap;
+use std::cmp::Ordering;
 use diesel::{AsChangeset,Insertable,Identifiable,Queryable};
 use diesel::prelude::*;
 use diesel::insert_into;
@@ -453,6 +454,215 @@ pub fn read_all_games_of_tournament(db: &mut database::Connection, tournament_id
 
 pub fn read_all_games_of_room(db: &mut database::Connection, room_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     read_games_ordered!(db, pagination, roomid, room_id)
+}
+
+/// One fully-formed row of the games data table: the game plus the display names of its
+/// division/room/teams, the round's scheduled start time, and the game's 1-based ordinal
+/// within its room (the "Round" column). Populates the whole table from a single request.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct GameRow {
+    pub gid: Uuid,
+    pub divisionid: Uuid,
+    pub division_name: String,
+    pub roomid: Uuid,
+    pub room_name: String,
+    pub roundid: Uuid,
+    /// 1-based position of this game among its room's games, ordered by scheduled start time.
+    pub round_number: Option<i64>,
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub scheduled_start_time: Option<DateTime<Utc>>,
+    pub leftteamid: Uuid,
+    pub left_team_name: String,
+    pub centerteamid: Option<Uuid>,
+    pub center_team_name: Option<String>,
+    pub rightteamid: Uuid,
+    pub right_team_name: String,
+    pub ignore: bool,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Numbers every game within its room by scheduled start time (unscheduled sorts last, gid as
+/// a stable tiebreak). Computed over the whole tournament so a game's number is consistent no
+/// matter which page/scope it appears in. `all_games` is (gid, roomid, roundid) tuples.
+fn compute_room_sequence(
+    all_games: &[(Uuid, Uuid, Uuid)],
+    round_start: &HashMap<Uuid, Option<DateTime<Utc>>>,
+) -> HashMap<Uuid, i64> {
+    let mut by_room: HashMap<Uuid, Vec<(Uuid, Option<DateTime<Utc>>)>> = HashMap::new();
+    for (g_gid, g_roomid, g_roundid) in all_games {
+        let start = round_start.get(g_roundid).cloned().flatten();
+        by_room.entry(*g_roomid).or_default().push((*g_gid, start));
+    }
+
+    let mut sequence: HashMap<Uuid, i64> = HashMap::new();
+    for (_room, mut list) in by_room {
+        list.sort_by(|a, b| match (a.1, b.1) {
+            (Some(x), Some(y)) => x.cmp(&y).then_with(|| a.0.to_string().cmp(&b.0.to_string())),
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => a.0.to_string().cmp(&b.0.to_string()),
+        });
+        for (i, (g_gid, _)) in list.into_iter().enumerate() {
+            sequence.insert(g_gid, (i + 1) as i64);
+        }
+    }
+    sequence
+}
+
+/// Shared assembler: enriches a page of games with names, round start times, and the
+/// tournament-wide room sequence numbering.
+fn build_game_rows(
+    db: &mut database::Connection,
+    page_games: Vec<Game>,
+    tournament_id: Uuid,
+) -> QueryResult<Vec<GameRow>> {
+    // All of the tournament's games (gid, roomid, roundid) — used only to number each game
+    // within its room, so the number is stable across pages/scopes.
+    let all_games: Vec<(Uuid, Uuid, Uuid)> = {
+        use crate::schema::games::dsl::*;
+        games
+            .filter(tournamentid.eq(tournament_id))
+            .select((gid, roomid, roundid))
+            .load::<(Uuid, Uuid, Uuid)>(db)?
+    };
+
+    // Scheduled start time for every round those games reference.
+    let round_ids: Vec<Uuid> = all_games.iter().map(|(_, _, r)| *r).collect();
+    let round_start: HashMap<Uuid, Option<DateTime<Utc>>> = {
+        use crate::schema::rounds::dsl::*;
+        rounds
+            .filter(roundid.eq_any(&round_ids))
+            .select((roundid, scheduled_start_time))
+            .load::<(Uuid, Option<DateTime<Utc>>)>(db)?
+            .into_iter()
+            .collect()
+    };
+
+    let sequence = compute_room_sequence(&all_games, &round_start);
+
+    // Display names for just the page of games.
+    let div_ids: Vec<Uuid> = page_games.iter().map(|g| g.divisionid).collect();
+    let division_name_by_id: HashMap<Uuid, String> = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq_any(&div_ids)).select((did, dname)).load::<(Uuid, String)>(db)?.into_iter().collect()
+    };
+    let room_ids: Vec<Uuid> = page_games.iter().map(|g| g.roomid).collect();
+    let room_name_by_id: HashMap<Uuid, String> = {
+        use crate::schema::rooms::dsl::*;
+        rooms.filter(roomid.eq_any(&room_ids)).select((roomid, name)).load::<(Uuid, String)>(db)?.into_iter().collect()
+    };
+    let mut team_ids: Vec<Uuid> = Vec::new();
+    for g in &page_games {
+        team_ids.push(g.leftteamid);
+        team_ids.push(g.rightteamid);
+        if let Some(c) = g.centerteamid {
+            team_ids.push(c);
+        }
+    }
+    let team_name_by_id: HashMap<Uuid, String> = {
+        use crate::schema::teams::dsl::*;
+        teams.filter(teamid.eq_any(&team_ids)).select((teamid, name)).load::<(Uuid, String)>(db)?.into_iter().collect()
+    };
+
+    let rows = page_games
+        .into_iter()
+        .map(|g| GameRow {
+            gid: g.gid,
+            division_name: division_name_by_id.get(&g.divisionid).cloned().unwrap_or_default(),
+            divisionid: g.divisionid,
+            room_name: room_name_by_id.get(&g.roomid).cloned().unwrap_or_default(),
+            roomid: g.roomid,
+            round_number: sequence.get(&g.gid).copied(),
+            scheduled_start_time: round_start.get(&g.roundid).cloned().flatten(),
+            roundid: g.roundid,
+            left_team_name: team_name_by_id.get(&g.leftteamid).cloned().unwrap_or_default(),
+            leftteamid: g.leftteamid,
+            center_team_name: g.centerteamid.and_then(|c| team_name_by_id.get(&c).cloned()),
+            centerteamid: g.centerteamid,
+            right_team_name: team_name_by_id.get(&g.rightteamid).cloned().unwrap_or_default(),
+            rightteamid: g.rightteamid,
+            ignore: g.ignore,
+            created_at: g.created_at,
+            updated_at: g.updated_at,
+        })
+        .collect();
+
+    Ok(rows)
+}
+
+/// Returns one page of enriched game rows for the tournament, plus the total game count.
+pub fn read_game_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games.filter(tournamentid.eq(tournament_id)).count().get_result(db)?
+    };
+    let page = read_all_games_of_tournament(db, tournament_id, pagination)?;
+    Ok((build_game_rows(db, page, tournament_id)?, total))
+}
+
+/// Returns one page of enriched game rows for the division, plus the total game count.
+pub fn read_game_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    let tournament_id: Uuid = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(tid).first::<Uuid>(db)?
+    };
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games.filter(divisionid.eq(division_id)).count().get_result(db)?
+    };
+    let page = read_all_games_of_division(db, division_id, pagination)?;
+    Ok((build_game_rows(db, page, tournament_id)?, total))
+}
+
+/// Returns one page of enriched game rows for the round, plus the total game count.
+pub fn read_game_rows_of_round(
+    db: &mut database::Connection,
+    round_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    let division_id: Uuid = {
+        use crate::schema::rounds::dsl::*;
+        rounds.filter(roundid.eq(round_id)).select(did).first::<Uuid>(db)?
+    };
+    let tournament_id: Uuid = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(tid).first::<Uuid>(db)?
+    };
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games.filter(roundid.eq(round_id)).count().get_result(db)?
+    };
+    let page = read_all_games_of_round(db, round_id, pagination)?;
+    Ok((build_game_rows(db, page, tournament_id)?, total))
+}
+
+/// Returns one page of enriched game rows for the room, plus the total game count.
+pub fn read_game_rows_of_room(
+    db: &mut database::Connection,
+    room_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    let tournament_id: Uuid = {
+        use crate::schema::rooms::dsl::*;
+        rooms.filter(roomid.eq(room_id)).select(tid).first::<Uuid>(db)?
+    };
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games.filter(roomid.eq(room_id)).count().get_result(db)?
+    };
+    let page = read_all_games_of_room(db, room_id, pagination)?;
+    Ok((build_game_rows(db, page, tournament_id)?, total))
 }
 
 pub fn read_all_games_of_team(db: &mut database::Connection, team_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
