@@ -311,6 +311,9 @@ async fn update_works() {
     let (_, division, team, owner, admin_user, unrelated_user) =
         fixtures::teams::arrange_team_update_works_integration_test(&mut conn);
 
+    // A spare quizzer used to prove roster management (adding a quizzer) is permission-gated.
+    let added_quizzer = fixtures::users::create_and_insert_user(&mut conn, "AddedRosterQuizzer", "QuizPwd999!");
+
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
@@ -374,6 +377,38 @@ async fn update_works() {
     let admin_resp = test::call_service(&app, admin_req).await;
 
     assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    // ── Success: an authorized user manages the roster (adds a quizzer) ──────────
+    // Roster add/remove goes through this same team-update endpoint, so it is gated by the
+    // same permission that the "Add Quizzers" / "Remove" buttons are shown for.
+
+    let roster_payload = json!({ "quizzer_two_id": added_quizzer.id });
+    let roster_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&roster_payload)
+        .to_request();
+
+    let roster_resp = test::call_service(&app, roster_req).await;
+
+    assert_eq!(roster_resp.status(), StatusCode::OK);
+    let roster_body: EntityResponse<Team> = test::read_body_json(roster_resp).await;
+    assert_eq!(roster_body.data.unwrap().quizzer_two_id, Some(added_quizzer.id));
+
+    // ── Fail: an unauthorized user cannot manage the roster ─────────────────────
+    let unauth_roster_payload = json!({ "quizzer_three_id": added_quizzer.id });
+    let unauth_roster_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", make_token(
+            unrelated_user.id,
+            vec!["member".to_string()],
+            vec!["team:read".to_string()],
+        ))))
+        .set_json(&unauth_roster_payload)
+        .to_request();
+
+    let unauth_roster_resp = test::call_service(&app, unauth_roster_req).await;
+    assert_eq!(unauth_roster_resp.status(), StatusCode::UNAUTHORIZED);
 
     // ── Fail: has team:update but is neither owner, tournament admin nor coach ────────
 

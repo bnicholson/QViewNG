@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import { Breadcrumbs } from '@mui/material'
 import Divider from '@mui/material/Divider'
+import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import QuizzersTable from '../components/QuizzersTable'
 import { QuizzerPickerDialog } from '../components/QuizzerPickerDialog'
 import { TeamAPI, type TeamTS, type TeamChangeset } from '../features/TeamAPI'
+import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
+import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -30,13 +35,21 @@ interface Props {
 }
 
 export const TeamProfileQuizzersPage = ({ teamid, showSensitiveColumns, showAuditColumns }: Props) => {
-  const { accessToken } = useAuth();
+  const { session, accessToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [team, setTeam] = useState<TeamTS | undefined>(undefined);
+  const [division, setDivision] = useState<DivisionTS | undefined>(undefined);
+  const [tournament, setTournament] = useState<TournamentTS | undefined>(undefined);
   const [users, setUsers] = useState<UserTS[]>([]);
   const [slots, setSlots] = useState<(string | null)[]>([null, null, null, null, null, null]);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Only tournament managers, tournament admins, and superusers may add/remove roster quizzers.
+  const canManage =
+    (session?.hasRole('super_user') ?? false) ||
+    (session?.hasRole('tournament_manager') ?? false) ||
+    (session?.hasRole('tournament_admin') ?? false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -45,7 +58,13 @@ export const TeamProfileQuizzersPage = ({ teamid, showSensitiveColumns, showAudi
         setTeam(tm);
         setUsers(u.items);
         setSlots(slotsFromTeam(tm));
+        return DivisionAPI.getById(tm.did);
       })
+      .then(div => {
+        setDivision(div);
+        return TournamentAPI.getById(div.tid);
+      })
+      .then(setTournament)
       .catch((err) => {
         console.error('Failed to load team quizzers:', err);
         setNotFound(true);
@@ -82,7 +101,7 @@ export const TeamProfileQuizzersPage = ({ teamid, showSensitiveColumns, showAudi
   };
 
   if (notFound) return <div>Team not found.</div>;
-  if (isLoading || !team) return <div>Loading...</div>;
+  if (isLoading || !team || !tournament || !division) return <div>Loading...</div>;
 
   const assignedUsers = slots
     .filter(Boolean)
@@ -93,33 +112,43 @@ export const TeamProfileQuizzersPage = ({ teamid, showSensitiveColumns, showAudi
   const openSlots = slots.filter(s => !s).length;
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Rosters
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {assignedUsers.length} / 6 assigned
-        </Typography>
+    <Stack spacing={3}>
+      <Breadcrumbs aria-label="breadcrumb">
+        <Link color="inherit" to="/">Home</Link>
+        <Link color="inherit" to={`/tournament/${tournament.tid}/divisions`}>{tournament.tname}</Link>
+        <Link color="inherit" to={`/division/${division.did}/overview`}>{division.dname}</Link>
+        <Typography color="text.primary">{team.name}</Typography>
+      </Breadcrumbs>
+
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Rosters
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {assignedUsers.length} / 6 assigned
+          </Typography>
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+
+        <QuizzersTable
+          externalRows={assignedUsers}
+          // Add/Remove are shown only to privileged users (managers, admins, superusers).
+          onAdd={canManage ? () => setPickerOpen(true) : undefined}
+          onDelete={canManage ? handleRemove : undefined}
+          createLabel="Add Quizzers"
+          showSensitiveColumns={showSensitiveColumns}
+          showAuditColumns={showAuditColumns}
+        />
+
+        <QuizzerPickerDialog
+          isOpen={pickerOpen}
+          onCancel={() => setPickerOpen(false)}
+          onConfirm={handlePickerConfirm}
+          maxSelectable={openSlots}
+          assignedIds={assignedIds}
+        />
       </Box>
-      <Divider sx={{ mb: 2 }} />
-
-      <QuizzersTable
-        externalRows={assignedUsers}
-        onAdd={() => setPickerOpen(true)}
-        onDelete={handleRemove}
-        createLabel="Add Quizzers"
-        showSensitiveColumns={showSensitiveColumns}
-        showAuditColumns={showAuditColumns}
-      />
-
-      <QuizzerPickerDialog
-        isOpen={pickerOpen}
-        onCancel={() => setPickerOpen(false)}
-        onConfirm={handlePickerConfirm}
-        maxSelectable={openSlots}
-        assignedIds={assignedIds}
-      />
-    </Box>
+    </Stack>
   );
 };
