@@ -3,11 +3,14 @@ import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import { useNavigate } from 'react-router-dom'
 import { isRegistrationOpen, type TournamentTS } from '../features/TournamentAPI'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import React from 'react'
+import React, { useState } from 'react'
 
 interface InfoItemProps {
   label: string,
@@ -22,6 +25,28 @@ const InfoItem = ({label, value}: InfoItemProps) => {
         <Typography variant="body1">{value}</Typography>
       </Grid>
     </>
+  )
+}
+
+// Pairing code is hidden by default (shown as 8 "#") and revealed via a toggle button.
+const PairingCodeInfoItem = ({ code }: { code: string }) => {
+  const [visible, setVisible] = useState(false)
+  return (
+    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+      <Typography variant="body2" color="text.secondary">Pairing Code</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+        <Typography variant="body1" sx={{ fontFamily: visible ? 'monospace' : undefined }}>
+          {visible ? code : '########'}
+        </Typography>
+        <IconButton
+          size="small"
+          onClick={() => setVisible(v => !v)}
+          aria-label={visible ? 'Hide pairing code' : 'Show pairing code'}
+        >
+          {visible ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+        </IconButton>
+      </Box>
+    </Grid>
   )
 }
 
@@ -95,7 +120,7 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
         <InfoItem label="Contact Email" value={tournament.contactemail}/>
         <InfoItem label="Organization" value={tournament.organization}/>
         {canViewPairingCodeAndVisibility && (
-          <InfoItem label="Pairing Code" value={tournament.pairing_code ?? ''}/>
+          <PairingCodeInfoItem code={tournament.pairing_code ?? ''}/>
         )}
       </Grid>
       <br/>
