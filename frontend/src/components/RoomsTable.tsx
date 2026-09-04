@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoomAPI, type RoomTS } from "../features/RoomAPI";
 import { RoomEditorDialog } from "./RoomEditorDialog";
-import { UserAPI } from "../features/UserAPI";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -14,29 +13,7 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-const userLinkStyle: React.CSSProperties = {
-  color: "#2563eb",
-  textDecoration: "none",
-  whiteSpace: "nowrap",
-};
-
-function UserLink({ userId, userNames }: { userId: string | null; userNames: Record<string, string> }) {
-  if (!userId) return <span style={{ color: "#9ca3af" }}>—</span>;
-  const name = userNames[userId];
-  if (!name) return <span style={{ color: "#9ca3af" }}>—</span>;
-  return (
-    <Link
-      to={`/user/${userId}/overview`}
-      style={userLinkStyle}
-      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-    >
-      {name}
-    </Link>
-  );
-}
-
-function roomColumns(userNames: Record<string, string>, showAuditColumns: boolean): ColumnDef<RoomTS>[] {
+function roomColumns(showAuditColumns: boolean): ColumnDef<RoomTS>[] {
   return [
     {
       header: "Name",
@@ -51,18 +28,6 @@ function roomColumns(userNames: Record<string, string>, showAuditColumns: boolea
         </Link>
       ),
     },
-    // {
-    //   header: "Building",
-    //   render: (r) => r.building,
-    // },
-    // {
-    //   header: "Quizmaster",
-    //   render: (r) => <UserLink userId={r.quizmaster_id} userNames={userNames} />,
-    // },
-    // {
-    //   header: "Content Judge",
-    //   render: (r) => <UserLink userId={r.contentjudge_id} userNames={userNames} />,
-    // },
     ...(showAuditColumns ? [
       {
         header: "Comments",
@@ -91,21 +56,8 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
-  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
-
-  const loadUserNames = useCallback((roomList: RoomTS[]) => {
-    const ids = [...new Set(
-      roomList.flatMap(r => [r.quizmaster_id, r.contentjudge_id]).filter((id): id is string => !!id)
-    )];
-    if (ids.length === 0) return;
-    Promise.all(ids.map(id => UserAPI.getById(id).catch(() => null))).then(users => {
-      const names: Record<string, string> = {};
-      users.forEach((u, i) => { if (u) names[ids[i]] = `${u.fname} ${u.lname}`; });
-      setUserNames(prev => ({ ...prev, ...names }));
-    });
-  }, []);
 
   const loadRooms = useCallback((p: number, ps: number) => {
     RoomAPI.getByTournament(tid, p, ps)
@@ -114,11 +66,10 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
         setPageSize(ps);
         setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
         setRooms(result);
-        loadUserNames(result);
       })
       .catch(() => console.error("Failed to load rooms"))
       .finally(() => setLoading(false));
-  }, [tid, loadUserNames]);
+  }, [tid]);
 
   useEffect(() => {
     loadRooms(0, pageSizeRef.current);
@@ -156,7 +107,7 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         loading={loading}
-        columns={roomColumns(userNames, showAuditColumns)}
+        columns={roomColumns(showAuditColumns)}
         rows={rooms}
         totalCount={totalCount}
         getId={(r) => r.roomid}
