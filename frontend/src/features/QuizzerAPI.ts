@@ -16,11 +16,16 @@ export interface QuizzerRowTS extends UserTS {
   teams: EntityRef[];
 }
 
+export interface PagedQuizzerRows {
+  count: number;
+  items: QuizzerRowTS[];
+}
+
 export const QuizzerAPI = {
-  /** All quizzers rostered on any team in the tournament (enriched, one call). */
-  getByTournament: async (tid: string): Promise<QuizzerRowTS[]> =>
-    (await fetch(`/api/tournaments/${tid}/quizzer-rows`)).json(),
-  /** All quizzers rostered on any team in the division (enriched, one call). */
-  getByDivision: async (did: string): Promise<QuizzerRowTS[]> =>
-    (await fetch(`/api/divisions/${did}/quizzer-rows`)).json(),
+  /** One page of the tournament's quizzers (enriched), plus the total count. */
+  getByTournament: async (tid: string, page: number, size: number): Promise<PagedQuizzerRows> =>
+    (await fetch(`/api/tournaments/${tid}/quizzer-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the division's quizzers (enriched), plus the total count. */
+  getByDivision: async (did: string, page: number, size: number): Promise<PagedQuizzerRows> =>
+    (await fetch(`/api/divisions/${did}/quizzer-rows?page=${page}&page_size=${size}`)).json(),
 };

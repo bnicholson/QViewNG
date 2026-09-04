@@ -91,82 +91,71 @@ interface Props {
 }
 
 export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true }: Props) {
-  // Enriched rows (with divisions/teams) for the whole tournament or division — one API call.
-  const [enrichedRows, setEnrichedRows] = useState<QuizzerRowTS[] | undefined>(undefined);
-  // Current-page items for server-side pagination (no tid, no did, no externalRows).
-  const [quizzers, setQuizzers] = useState<UserTS[]>([]);
+  // externalRows (a fixed roster) paginate client-side; everything else paginates server-side.
+  const usesExternal = externalRows !== undefined;
+  const usesEnriched = tid !== undefined || did !== undefined;
+
+  // Current page of rows (server/enriched modes) plus the total count.
+  const [pageRows, setPageRows] = useState<UserTS[]>([]);
+  const [serverCount, setServerCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [apiTotalCount, setApiTotalCount] = useState(0);
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
-  // Single enriched fetch for a tournament or a division; re-fetch when the scope changes.
-  useEffect(() => {
-    if (tid === undefined && did === undefined) return;
-    setPage(0);
+  // Fetch one page from the server: the enriched tournament/division endpoint, or the plain
+  // users endpoint when the table is unscoped. Skipped entirely in externalRows mode.
+  const loadPage = useCallback((p: number, ps: number) => {
+    if (usesExternal) return;
     setLoading(true);
-    setEnrichedRows(undefined);
-    const request = tid !== undefined
-      ? QuizzerAPI.getByTournament(tid)
-      : QuizzerAPI.getByDivision(did!);
+    const request: Promise<{ count: number; items: UserTS[] }> = usesEnriched
+      ? (tid !== undefined ? QuizzerAPI.getByTournament(tid, p, ps) : QuizzerAPI.getByDivision(did!, p, ps))
+      : UserAPI.get(p, ps);
     request
-      .then(rows => setEnrichedRows(rows))
+      .then(({ count, items }) => {
+        setPageRows(items);
+        setServerCount(count);
+        setPage(p);
+        setPageSize(ps);
+      })
       .catch(() => console.error('Failed to load quizzers'))
       .finally(() => setLoading(false));
+  }, [usesExternal, usesEnriched, tid, did]);
+
+  // (Re)load the first page whenever the scope changes.
+  useEffect(() => {
+    loadPage(0, pageSizeRef.current);
   }, [tid, did]);
 
   // externalRows arrive ready to display.
   useEffect(() => {
-    if (externalRows !== undefined) setLoading(false);
-  }, [externalRows]);
+    if (usesExternal) setLoading(false);
+  }, [usesExternal, externalRows]);
 
-  // Server-side pagination fetch (only used when no tid, no did, and no externalRows).
-  const loadQuizzers = useCallback((p: number, ps: number) => {
-    if (externalRows !== undefined || tid !== undefined || did !== undefined) return;
-    UserAPI.get(p, ps)
-      .then(result => {
-        setPage(p);
-        setPageSize(ps);
-        setApiTotalCount(result.count);
-        setQuizzers(result.items);
-      })
-      .catch(() => console.error('Failed to load quizzers'))
-      .finally(() => setLoading(false));
-  }, [externalRows, tid, did]);
+  const rows = usesExternal
+    ? externalRows!.slice(page * pageSize, (page + 1) * pageSize)
+    : pageRows;
 
-  useEffect(() => {
-    loadQuizzers(0, pageSizeRef.current);
-  }, []);
-
-  // Client-side data: externalRows takes priority, then the enriched tournament/division rows.
-  // Enriched rows arrive already sorted by name from the backend query.
-  const clientItems: UserTS[] | undefined = externalRows ?? enrichedRows;
-
-  // Slice for the current page when all data is loaded; otherwise use the server-fetched page.
-  const rows = clientItems !== undefined
-    ? clientItems.slice(page * pageSize, (page + 1) * pageSize)
-    : quizzers;
-
-  const totalCount = clientItems !== undefined ? clientItems.length : apiTotalCount;
+  const totalCount = usesExternal ? externalRows!.length : serverCount;
 
   const handlePageChange = useCallback((newPage: number) => {
-    if (clientItems !== undefined) {
+    if (usesExternal) {
       setPage(newPage);
     } else {
-      loadQuizzers(newPage, pageSize);
+      loadPage(newPage, pageSize);
     }
-  }, [clientItems, pageSize, loadQuizzers]);
+  }, [usesExternal, pageSize, loadPage]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    setPage(0);
-    setPageSize(newSize);
-    if (clientItems === undefined) {
-      loadQuizzers(0, newSize);
+    if (usesExternal) {
+      setPage(0);
+      setPageSize(newSize);
+    } else {
+      loadPage(0, newSize);
     }
-  }, [clientItems, loadQuizzers]);
+  }, [usesExternal, loadPage]);
 
   const handleDelete = useCallback(async (row: UserTS): Promise<void> => {
     if (onDelete) return onDelete(row);

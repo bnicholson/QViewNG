@@ -372,12 +372,33 @@ async fn read_quizzers(
     }
 }
 
+/// Returns fully-formed team data-table rows (team + division name + coach name) for the
+/// whole tournament in a single call, so the teams table needs only one request.
+#[get("/{id}/team-rows")]
+async fn read_team_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::team::read_team_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Returns fully-formed quizzer data-table rows (user fields + divisions + teams) for the
 /// whole tournament in a single call, so the quizzers table needs only one request.
 #[get("/{id}/quizzer-rows")]
 async fn read_quizzer_rows(
     db: Data<Database>,
     item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
     req: HttpRequest
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
@@ -386,8 +407,8 @@ async fn read_quizzer_rows(
     models::apicalllog::create(&mut conn, &req);
 
     let tid = item_id.into_inner();
-    match models::team::read_quizzer_rows_of_tournament(&mut conn, tid) {
-        Ok(items) => HttpResponse::Ok().json(items),
+    match models::team::read_quizzer_rows_of_tournament(&mut conn, tid, &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
@@ -780,6 +801,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_teams)
         .service(read_quizzers)
         .service(read_quizzer_rows)
+        .service(read_team_rows)
         .service(read_games)
         .service(read_game_statuses)
         .service(read_room_monitor)

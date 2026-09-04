@@ -472,6 +472,143 @@ pub fn read_all_quizzers_of_tournament(
         .load::<crate::models::user::User>(db)
 }
 
+/// One fully-formed row of the teams data table: the team plus its division name and coach
+/// name, so the whole table is populated from a single API call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct TeamRow {
+    pub teamid: Uuid,
+    pub did: Uuid,
+    pub division_name: String,
+    pub coachid: Uuid,
+    pub coach_name: String,
+    pub name: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Returns one page of team-table rows for the tournament (enriched) and the total team count.
+pub fn read_team_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<TeamRow>, i64)> {
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(tid.eq(tournament_id))
+            .select((did, dname))
+            .load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+
+    if div_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let total: i64 = {
+        use crate::schema::teams::dsl::*;
+        teams.filter(did.eq_any(&div_ids)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(did.eq_any(&div_ids))
+            .order(name.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Team>(db)?
+    };
+
+    Ok((build_team_rows(db, team_list, &div_name_by_id)?, total))
+}
+
+/// Returns one page of team-table rows for the division (enriched) and the total team count.
+pub fn read_team_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<TeamRow>, i64)> {
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
+    };
+    let mut div_name_by_id: HashMap<Uuid, String> = HashMap::new();
+    div_name_by_id.insert(division_id, dname_val);
+
+    let total: i64 = {
+        use crate::schema::teams::dsl::*;
+        teams.filter(did.eq(division_id)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(did.eq(division_id))
+            .order(name.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Team>(db)?
+    };
+
+    Ok((build_team_rows(db, team_list, &div_name_by_id)?, total))
+}
+
+/// Shared assembler: attaches each team's division name and (batch-resolved) coach name.
+fn build_team_rows(
+    db: &mut database::Connection,
+    team_list: Vec<Team>,
+    div_name_by_id: &HashMap<Uuid, String>,
+) -> QueryResult<Vec<TeamRow>> {
+    if team_list.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let coach_ids: Vec<Uuid> = team_list.iter().map(|t| t.coachid).collect();
+    let coach_name_by_id: HashMap<Uuid, String> = {
+        use crate::schema::users::dsl::*;
+        users
+            .filter(id.eq_any(&coach_ids))
+            .load::<crate::models::user::User>(db)?
+            .into_iter()
+            .map(|u| {
+                let full = [u.fname, u.mname, u.lname]
+                    .into_iter()
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                (u.id, full)
+            })
+            .collect()
+    };
+
+    let rows = team_list
+        .into_iter()
+        .map(|t| TeamRow {
+            teamid: t.teamid,
+            did: t.did,
+            division_name: div_name_by_id.get(&t.did).cloned().unwrap_or_default(),
+            coach_name: coach_name_by_id
+                .get(&t.coachid)
+                .cloned()
+                .unwrap_or_else(|| t.coachid.to_string()),
+            coachid: t.coachid,
+            name: t.name,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+        })
+        .collect();
+
+    Ok(rows)
+}
+
 /// A referenced entity (division or team) shown as a link in the quizzers data table.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct EntityRefDto {
@@ -499,11 +636,13 @@ pub struct QuizzerRow {
     pub teams: Vec<EntityRefDto>,
 }
 
-/// Returns the quizzer-table rows for every quizzer rostered on any team in the tournament.
+/// Returns one page of quizzer-table rows for the tournament (enriched) and the total distinct
+/// quizzer count.
 pub fn read_quizzer_rows_of_tournament(
     db: &mut database::Connection,
     tournament_id: Uuid,
-) -> QueryResult<Vec<QuizzerRow>> {
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<QuizzerRow>, i64)> {
     let div_pairs: Vec<(Uuid, String)> = {
         use crate::schema::divisions::dsl::*;
         divisions
@@ -521,14 +660,16 @@ pub fn read_quizzer_rows_of_tournament(
         teams.filter(did.eq_any(&div_ids)).load::<Team>(db)?
     };
 
-    build_quizzer_rows(db, team_list, &div_name_by_id)
+    build_quizzer_rows(db, team_list, &div_name_by_id, pagination)
 }
 
-/// Returns the quizzer-table rows for every quizzer rostered on any team in the division.
+/// Returns one page of quizzer-table rows for the division (enriched) and the total distinct
+/// quizzer count.
 pub fn read_quizzer_rows_of_division(
     db: &mut database::Connection,
     division_id: Uuid,
-) -> QueryResult<Vec<QuizzerRow>> {
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<QuizzerRow>, i64)> {
     let dname_val: String = {
         use crate::schema::divisions::dsl::*;
         divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
@@ -541,17 +682,18 @@ pub fn read_quizzer_rows_of_division(
         teams.filter(did.eq(division_id)).load::<Team>(db)?
     };
 
-    build_quizzer_rows(db, team_list, &div_name_by_id)
+    build_quizzer_rows(db, team_list, &div_name_by_id, pagination)
 }
 
-/// Shared assembler: given a set of teams (and a lookup of their division names), builds one
-/// `QuizzerRow` per distinct quizzer, aggregating the teams/divisions they belong to and
-/// ordering the rows alphabetically by name.
+/// Shared assembler: given a set of teams (and a lookup of their division names), determines the
+/// distinct quizzers, returns the requested page of them (ordered alphabetically by name) with
+/// their aggregated teams/divisions, plus the total distinct-quizzer count.
 fn build_quizzer_rows(
     db: &mut database::Connection,
     team_list: Vec<Team>,
     div_name_by_id: &HashMap<Uuid, String>,
-) -> QueryResult<Vec<QuizzerRow>> {
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<QuizzerRow>, i64)> {
     use std::collections::HashSet;
 
     let mut teams_by_q: HashMap<Uuid, Vec<EntityRefDto>> = HashMap::new();
@@ -580,15 +722,21 @@ fn build_quizzer_rows(
         }
     }
 
+    let total = quizzer_ids.len() as i64;
     if quizzer_ids.is_empty() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), 0));
     }
 
+    // Page the distinct quizzers at the database level (ordered by name).
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
     let users_list: Vec<crate::models::user::User> = {
         use crate::schema::users::dsl::*;
         users
             .filter(id.eq_any(&quizzer_ids))
             .order((fname.asc(), mname.asc(), lname.asc()))
+            .limit(page_size)
+            .offset(offset_val)
             .load::<crate::models::user::User>(db)?
     };
 
@@ -612,7 +760,7 @@ fn build_quizzer_rows(
         })
         .collect();
 
-    Ok(rows)
+    Ok((rows, total))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

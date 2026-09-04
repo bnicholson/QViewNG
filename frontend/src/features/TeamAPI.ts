@@ -51,6 +51,26 @@ export interface PagedTeamsWithCoach {
   items: TeamWithCoachTS[];
 }
 
+/**
+ * One fully-formed row of the teams data table: the team plus its division name and coach
+ * name, so the whole table is populated from a single request.
+ */
+export interface TeamRowTS {
+  teamid: string;
+  did: string;
+  division_name: string;
+  coachid: string;
+  coach_name: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PagedTeamRows {
+  count: number;
+  items: TeamRowTS[];
+}
+
 async function throwApiError(verb: string, status: number, body: string): Promise<never> {
   let message: string
   try {
@@ -73,6 +93,12 @@ export const TeamAPI = {
     (await fetch(`/api/tournaments/${tid}/teams?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<TeamTS[]> =>
     (await fetch(`/api/divisions/${did}/teams?page=${page}&page_size=${size}`)).json(),
+  /** One page of the tournament's enriched team rows (division + coach names), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedTeamRows> =>
+    (await fetch(`/api/tournaments/${tid}/team-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the division's enriched team rows (division + coach names), plus total count. */
+  getRowsByDivision: async (did: string, page: number, size: number): Promise<PagedTeamRows> =>
+    (await fetch(`/api/divisions/${did}/team-rows?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<TeamTS> => {
     const response = await fetch(`/api/teams/${id}`);
     if (!response.ok) throw new Error(`Team not found (${response.status})`);
