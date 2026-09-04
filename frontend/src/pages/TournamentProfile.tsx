@@ -3,8 +3,8 @@ import { Navigate, useParams } from 'react-router'
 import Stack from "@mui/material/Stack"
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
-import { Breadcrumbs } from '@mui/material'
 import { Link } from 'react-router-dom'
+import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { TournamentAPI, isRegistrationOpen, type TournamentTS } from '../features/TournamentAPI'
 import { AdminAPI } from '../features/AdminAPI'
 import { makeCancellable } from '../features/makeCancellable'
@@ -146,10 +146,10 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
       <Stack spacing={3}>
 
         {/* ── Breadcrumb ── */}
-        <Breadcrumbs aria-label="breadcrumb">
-          <Link color="inherit" to="/">Home</Link>
-          <Typography color="text.primary">{tournament?.tname}</Typography>
-        </Breadcrumbs>
+        <ProfileBreadcrumbs crumbs={[
+          { name: 'Home', to: '/' },
+          { label: 'Tournament', name: tournament!.tname },
+        ]} />
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>

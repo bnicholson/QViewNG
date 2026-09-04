@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
 import ProfileLayout from '../components/ProfileLayout'
+import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { RoomAPI, type RoomTS } from '../features/RoomAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { RoomProfileOverviewPage } from './RoomProfileOverviewPage'
@@ -46,11 +45,11 @@ export const RoomProfile = (props: { childRoute?: string }) => {
     <ProfileLayout title={<>Room:<br />{room.name}</>} navItems={navItems}>
       <Stack spacing={3}>
 
-        <Breadcrumbs aria-label="breadcrumb">
-          <Link color="inherit" to="/">Home</Link>
-          <Link color="inherit" to={`/tournament/${tournament.tid}/overview`}>{tournament.tname}</Link>
-          <Typography color="text.primary">{room.name}</Typography>
-        </Breadcrumbs>
+        <ProfileBreadcrumbs crumbs={[
+          { name: 'Home', to: '/' },
+          { label: 'Tournament', name: tournament.tname, to: `/tournament/${tournament.tid}/overview` },
+          { label: 'Room', name: room.name },
+        ]} />
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (

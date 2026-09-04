@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import ProfileLayout from '../components/ProfileLayout'
+import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { TournamentGroupAPI, type TournamentGroupTS } from '../features/TournamentGroupAPI'
 import { TournamentGroupOverviewPage } from './TournamentGroupOverviewPage'
 import { TournamentGroupTournamentsPage } from './TournamentGroupTournamentsPage'
@@ -42,10 +42,10 @@ export const TournamentGroupProfile = (props: { childRoute?: string }) => {
     <ProfileLayout title={<>Tournament Group:<br />{group.name}</>} navItems={navItems}>
       <Stack spacing={3}>
 
-        <Breadcrumbs aria-label="breadcrumb">
-          <Link color="inherit" to="/">Home</Link>
-          <Typography color="text.primary">{group.name}</Typography>
-        </Breadcrumbs>
+        <ProfileBreadcrumbs crumbs={[
+          { name: 'Home', to: '/' },
+          { label: 'Tournament Group', name: group.name },
+        ]} />
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (

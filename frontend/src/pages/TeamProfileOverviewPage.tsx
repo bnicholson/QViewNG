@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import { Breadcrumbs } from '@mui/material'
 import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
@@ -51,13 +50,6 @@ export const TeamProfileOverviewPage = ({ teamid }: { teamid: string }) => {
 
   return (
     <Stack spacing={3}>
-      <Breadcrumbs aria-label="breadcrumb">
-        <Link color="inherit" to="/">Home</Link>
-        <Link color="inherit" to={`/tournament/${tournament.tid}/divisions`}>{tournament.tname}</Link>
-        <Link color="inherit" to={`/division/${division.did}/overview`}>{division.dname}</Link>
-        <Typography color="text.primary">{team.name}</Typography>
-      </Breadcrumbs>
-
       <Box>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 2 }}>
           {team.name}

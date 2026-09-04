@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
 import ProfileLayout from '../components/ProfileLayout'
+import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
@@ -52,12 +51,12 @@ export const RoundProfile = (props: { childRoute?: string }) => {
     <ProfileLayout title={<>Round:<br />{round.name}</>} navItems={navItems}>
       <Stack spacing={3}>
 
-        <Breadcrumbs aria-label="breadcrumb">
-          <Link color="inherit" to="/">Home</Link>
-          <Link color="inherit" to={`/tournament/${tournament.tid}/overview`}>{tournament.tname}</Link>
-          <Link color="inherit" to={`/division/${division.did}/overview`}>{division.dname}</Link>
-          <Typography color="text.primary">{round.name}</Typography>
-        </Breadcrumbs>
+        <ProfileBreadcrumbs crumbs={[
+          { name: 'Home', to: '/' },
+          { label: 'Tournament', name: tournament.tname, to: `/tournament/${tournament.tid}/overview` },
+          { label: 'Division', name: division.dname, to: `/division/${division.did}/overview` },
+          { label: 'Round', name: round.name },
+        ]} />
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
