@@ -12,6 +12,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import type { TournamentTS } from '../features/TournamentAPI'
+import { useAuth } from '../hooks/useAuth'
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, canEdit = false }: Props) => {
+  const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [dname, setDname] = useState('')
   const [breadcrumb, setBreadcrumb] = useState('')
@@ -55,7 +57,7 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
     setSaving(true)
     setError(null)
     try {
-      const updated = await DivisionAPI.update(division.did, { dname, breadcrumb, is_public: isPublic, shortinfo })
+      const updated = await DivisionAPI.update(division.did, { dname, breadcrumb, is_public: isPublic, shortinfo }, accessToken)
       onUpdated(updated)
       setEditing(false)
     } catch (e: any) {

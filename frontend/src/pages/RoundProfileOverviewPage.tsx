@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import type { DivisionTS } from '../features/DivisionAPI'
 import type { TournamentTS } from '../features/TournamentAPI'
+import { useAuth } from '../hooks/useAuth'
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—'
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdated, canEdit = false }: Props) => {
+  const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [roundName, setRoundName] = useState('')
   const [scheduledStart, setScheduledStart] = useState('')
@@ -71,7 +73,7 @@ export const RoundProfileOverviewPage = ({ round, division, tournament, onUpdate
       const updated = await RoundAPI.update(round.roundid, {
         name: roundName.trim(),
         scheduled_start_time: isoValue,
-      })
+      }, accessToken)
       onUpdated(updated)
       setEditing(false)
     } catch (e: any) {

@@ -45,10 +45,13 @@ export const RoundAPI = {
     if (!response.ok) throw new Error(`Round not found (${response.status})`);
     return response.json();
   },
-  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null }): Promise<RoundTS> => {
+  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null }, accessToken?: string): Promise<RoundTS> => {
     const response = await fetch(`/api/rounds/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(payload),
     });
     if (!response.ok) {

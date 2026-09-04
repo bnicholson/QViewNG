@@ -68,10 +68,13 @@ export const TournamentGroupAPI = {
     return group;
   },
 
-  update: async (tgid: string, changeset: TournamentGroupChangeset): Promise<TournamentGroupTS> => {
+  update: async (tgid: string, changeset: TournamentGroupChangeset, accessToken?: string): Promise<TournamentGroupTS> => {
     const res = await fetch(`/api/tournamentgroups/${tgid}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(changeset),
     });
     if (!res.ok) {

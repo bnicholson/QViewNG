@@ -86,10 +86,13 @@ export const GameAPI = {
     if (!response.ok) throw new Error(`Game not found (${response.status})`);
     return response.json();
   },
-  update: async (id: string, changeset: GameChangeset): Promise<GameTS> => {
+  update: async (id: string, changeset: GameChangeset, accessToken?: string): Promise<GameTS> => {
     const response = await fetch(`/api/games/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(changeset),
     });
     if (!response.ok) {

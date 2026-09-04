@@ -8,6 +8,7 @@ import Grid from '@mui/material/Grid'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { TournamentGroupAPI, type TournamentGroupTS } from '../features/TournamentGroupAPI'
+import { useAuth } from '../hooks/useAuth'
 
 interface Props {
   group: TournamentGroupTS
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export const TournamentGroupOverviewPage = ({ group, canEdit, onUpdated }: Props) => {
+  const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -37,7 +39,7 @@ export const TournamentGroupOverviewPage = ({ group, canEdit, onUpdated }: Props
       const updated = await TournamentGroupAPI.update(group.tgid, {
         name: name.trim(),
         description: description.trim() || null,
-      })
+      }, accessToken)
       onUpdated(updated)
       setEditing(false)
     } catch (e: any) {

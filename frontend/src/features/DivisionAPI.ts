@@ -50,10 +50,13 @@ export const DivisionAPI = {
   },
   delete: async (id: string) =>
     await fetch(`/api/divisions/${id}`, { method: 'DELETE' }),
-  update: async (id: string, division: Partial<NewDivisionPayload>): Promise<DivisionTS> => {
+  update: async (id: string, division: Partial<NewDivisionPayload>, accessToken?: string): Promise<DivisionTS> => {
     const response = await fetch(`/api/divisions/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(division),
     });
     if (!response.ok) {

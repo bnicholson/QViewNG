@@ -20,6 +20,7 @@ import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import type { TournamentTS } from '../features/TournamentAPI'
+import { useAuth } from '../hooks/useAuth'
 import { computeRoomRoundSequence } from '../utils/gameRoundSequence'
 
 function formatDate(iso: string | null | undefined): string {
@@ -80,6 +81,7 @@ interface Props {
 }
 
 export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit = false }: Props) => {
+  const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<FormState | null>(null)
   const [lookups, setLookups] = useState<Lookups | null>(null)
@@ -167,7 +169,7 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
         quizmasterid: form.quizmasterid,
         contentjudgeid: form.contentjudgeid || null,
       }
-      const updated = await GameAPI.update(game.gid, changeset)
+      const updated = await GameAPI.update(game.gid, changeset, accessToken)
       onUpdated(updated)
       setEditing(false)
       setForm(null)
