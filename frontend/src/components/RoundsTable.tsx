@@ -25,8 +25,12 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<RoundTS>[] {
+function roundColumns(tid: string, divisionMap: Map<string, string>, showAuditColumns: boolean): ColumnDef<RoundTS>[] {
   return [
+    {
+      header: "Division",
+      render: (r) => divisionMap.get(r.did) ?? r.did,
+    },
     {
       header: "Round",
       render: (r) => (
@@ -46,26 +50,24 @@ function roundColumns(tid: string, divisionMap: Map<string, string>): ColumnDef<
         <span style={{ whiteSpace: "nowrap" }}>{formatDateTime(r.scheduled_start_time)}</span>
       ),
     },
-    {
-      header: "Division",
-      render: (r) => divisionMap.get(r.did) ?? r.did,
-    },
-    {
-      header: "Created",
-      render: (r) => (
-        <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.created_at)}</span>
-      ),
-    },
-    {
-      header: "Last Modified",
-      render: (r) => (
-        <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.updated_at)}</span>
-      ),
-    },
+    ...(showAuditColumns ? [
+      {
+        header: "Created",
+        render: (r: RoundTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.created_at)}</span>
+        ),
+      },
+      {
+        header: "Last Modified",
+        render: (r: RoundTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.updated_at)}</span>
+        ),
+      },
+    ] : []),
   ];
 }
 
-export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
   const [rounds, setRounds] = useState<RoundTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -128,7 +130,7 @@ export default function RoundsTable({ tid, did, showCreateButton = true, showDel
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={roundColumns(tid, divisionMap)}
+        columns={roundColumns(tid, divisionMap, showAuditColumns)}
         rows={rounds}
         totalCount={totalCount}
         getId={(r) => r.roundid}

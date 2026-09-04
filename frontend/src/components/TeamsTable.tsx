@@ -15,8 +15,13 @@ function formatDate(iso: string | null | undefined): string {
 
 function teamColumns(
   divisionMap: Map<string, string>,
+  showAuditColumns: boolean,
 ): ColumnDef<TeamWithCoachTS>[] {
   return [
+    {
+      header: 'Division',
+      render: (t) => divisionMap.get(t.did) ?? t.did,
+    },
     {
       header: 'Name',
       render: (t) => (
@@ -31,10 +36,6 @@ function teamColumns(
       ),
     },
     {
-      header: 'Division',
-      render: (t) => divisionMap.get(t.did) ?? t.did,
-    },
-    {
       header: 'Coach',
       render: (t) => (
         <Link
@@ -47,22 +48,24 @@ function teamColumns(
         </Link>
       ),
     },
-    {
-      header: 'Created',
-      render: (t) => (
-        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(t.created_at)}</span>
-      ),
-    },
-    {
-      header: 'Last Modified',
-      render: (t) => (
-        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(t.updated_at)}</span>
-      ),
-    },
+    ...(showAuditColumns ? [
+      {
+        header: 'Created',
+        render: (t: TeamWithCoachTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(t.created_at)}</span>
+        ),
+      },
+      {
+        header: 'Last Modified',
+        render: (t: TeamWithCoachTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(t.updated_at)}</span>
+        ),
+      },
+    ] : []),
   ];
 }
 
-export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean }) {
+export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
   const [teams, setTeams] = useState<TeamWithCoachTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -144,7 +147,7 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={teamColumns(divisionMap)}
+        columns={teamColumns(divisionMap, showAuditColumns)}
         rows={teams}
         totalCount={totalCount}
         getId={(t) => t.teamid}

@@ -90,6 +90,7 @@ function groupColumns(
   canEdit: boolean,
   showRemoveButton: boolean,
   onRemove: (group: TournamentGroupTS) => Promise<void>,
+  showAuditColumns: boolean,
 ): ColumnDef<TournamentGroupTS>[] {
   return [
     {
@@ -109,14 +110,16 @@ function groupColumns(
       header: 'Description',
       render: g => g.description || <span style={{ color: '#9ca3af' }}>—</span>,
     },
-    {
-      header: 'Created',
-      render: g => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>,
-    },
-    {
-      header: 'Last Modified',
-      render: g => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
-    },
+    ...(showAuditColumns ? [
+      {
+        header: 'Created',
+        render: (g: TournamentGroupTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>,
+      },
+      {
+        header: 'Last Modified',
+        render: (g: TournamentGroupTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
+      },
+    ] : []),
     ...((canEdit || showRemoveButton) ? [{
       header: '',
       render: (g: TournamentGroupTS) => (
@@ -138,9 +141,10 @@ interface Props {
   showCreateButton?: boolean;
   showDeleteButton?: boolean;
   canEdit?: boolean;
+  showAuditColumns?: boolean;
 }
 
-export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true, canEdit = false }: Props) {
+export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true, canEdit = false, showAuditColumns = true }: Props) {
   const { session } = useAuth();
   const [groups, setGroups] = useState<TournamentGroupTS[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,7 +270,7 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
         showCreateButton={showCreateButton}
         showDeleteButton={false}
         onCreate={openCreate}
-        columns={groupColumns(openEdit, canEdit, showDeleteButton, handleRemove)}
+        columns={groupColumns(openEdit, canEdit, showDeleteButton, handleRemove, showAuditColumns)}
         rows={groups}
         totalCount={totalCount}
         getId={g => g.tgid}

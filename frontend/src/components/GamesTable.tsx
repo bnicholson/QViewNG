@@ -59,18 +59,18 @@ function gameColumns(tid: string, maps: LookupMaps, roomSequence: Map<string, nu
       render: (g) => maps.divisions.get(g.divisionid) ?? g.divisionid,
     },
     {
-      header: 'Start Time',
-      render: (g) => (
-        <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
-      ),
-    },
-    {
       header: 'Room',
       render: (g) => maps.rooms.get(g.roomid) ?? g.roomid,
     },
     {
       header: 'Round',
       render: (g) => roomSequence.get(g.gid) ?? '—',
+    },
+    {
+      header: 'Start Time',
+      render: (g) => (
+        <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(maps.rounds.get(g.roundid))}</span>
+      ),
     },
     {
       header: 'Left Team',

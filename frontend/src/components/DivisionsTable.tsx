@@ -13,7 +13,7 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function divisionColumns(tid: string, showSensitiveColumns: boolean): ColumnDef<DivisionTS>[] {
+function divisionColumns(tid: string, showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<DivisionTS>[] {
   return [
     {
       header: "Name",
@@ -28,10 +28,10 @@ function divisionColumns(tid: string, showSensitiveColumns: boolean): ColumnDef<
         </Link>
       ),
     },
-    {
-      header: "Breadcrumb",
-      render: (d) => d.breadcrumb,
-    },
+    // {
+    //   header: "Breadcrumb",
+    //   render: (d) => d.breadcrumb,
+    // },
     ...(showSensitiveColumns ? [{
       header: "Is Public",
       render: (d: DivisionTS) => <BoolBadge value={d.is_public} />,
@@ -40,22 +40,24 @@ function divisionColumns(tid: string, showSensitiveColumns: boolean): ColumnDef<
       header: "Short Info",
       render: (d) => d.shortinfo,
     },
-    {
-      header: "Created",
-      render: (d) => (
-        <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(d.created_at)}</span>
-      ),
-    },
-    {
-      header: "Last Modified",
-      render: (d) => (
-        <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(d.updated_at)}</span>
-      ),
-    },
+    ...(showAuditColumns ? [
+      {
+        header: "Created",
+        render: (d: DivisionTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(d.created_at)}</span>
+        ),
+      },
+      {
+        header: "Last Modified",
+        render: (d: DivisionTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(d.updated_at)}</span>
+        ),
+      }
+    ] : [])
   ];
 }
 
-export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean }) {
+export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean }) {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -114,7 +116,7 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={divisionColumns(tid, showSensitiveColumns)}
+        columns={divisionColumns(tid, showSensitiveColumns, showAuditColumns)}
         rows={divisions}
         totalCount={totalCount}
         getId={(d) => d.did}

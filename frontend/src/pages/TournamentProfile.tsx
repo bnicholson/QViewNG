@@ -104,6 +104,15 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     (session?.hasRole('tournament_manager') ?? false) ||
     (session?.hasRole('tournament_admin') ?? false);
 
+  // "Created" / "Last Modified" audit columns are visible only to privileged users:
+  // superusers, tournament managers, tournament admins (role), plus this tournament's
+  // owner and its designated admins (via canViewAdmins). Visitors and regular members
+  // (logged in with no special permissions) never see them.
+  const canViewAuditColumns =
+    canViewAdmins === true ||
+    (session?.hasRole('tournament_manager') ?? false) ||
+    (session?.hasRole('tournament_admin') ?? false);
+
   if (notFound) return <Navigate to="/404" replace />
   if (stillLoading()) return <div>Loading Tournament...</div>
 
@@ -114,10 +123,10 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`,      visible: registrationIsOpen },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
     { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
-    { kind: 'route', label: 'Rounds',       to: `/tournament/${tid}/rounds`       },
-    { kind: 'route', label: 'Games',        to: `/tournament/${tid}/games`        },
     { kind: 'route', label: 'Teams',        to: `/tournament/${tid}/teams`        },
     { kind: 'route', label: 'Quizzers',     to: `/tournament/${tid}/quizzers`     },
+    { kind: 'route', label: 'Rounds',       to: `/tournament/${tid}/rounds`       },
+    { kind: 'route', label: 'Games',        to: `/tournament/${tid}/games`        },
     { kind: 'route', label: 'Gear',         to: `/tournament/${tid}/gear`,          visible: canViewAdmins === true },
     { kind: 'route', label: 'Admins',       to: `/tournament/${tid}/admins`,       visible: canViewAdmins === true },
     { kind: 'route', label: 'Tournament Groups', to: `/tournament/${tid}/tournament-groups` },
@@ -148,15 +157,15 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'register/gear'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" />}
           {props.childRoute === 'register/volunteer'&& <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" />}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
-          {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser}/>}
-          {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')} showAuditColumns={isOwnerOrSuperUser || canViewAdmins === true}/>}
-          {props.childRoute === 'rounds'            && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}/>}
-          {props.childRoute === 'teams'             && <TeamsTable tid={String(tournament?.tid)} showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}/>}
-          {props.childRoute === 'quizzers'          && <QuizzersTable tid={String(tournament?.tid)} showSensitiveColumns={isOwnerOrSuperUser}/>}
-          {props.childRoute === 'games'             && <GamesTable tid={String(tournament?.tid)} showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={isOwnerOrSuperUser || canViewAdmins === true}/>}
+          {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
+          {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')} showAuditColumns={canViewAuditColumns}/>}
+          {props.childRoute === 'rounds'            && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')} showAuditColumns={canViewAuditColumns}/>}
+          {props.childRoute === 'teams'             && <TeamsTable tid={String(tournament?.tid)} showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')} showAuditColumns={canViewAuditColumns}/>}
+          {props.childRoute === 'quizzers'          && <QuizzersTable tid={String(tournament?.tid)} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
+          {props.childRoute === 'games'             && <GamesTable tid={String(tournament?.tid)} showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'gear'              && canViewAdmins === true && <TournamentGearPage tid={String(tournament?.tid)} />}
           {props.childRoute === 'admins'            && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canViewAdmins === true} showDeleteButton={canViewAdmins === true}/>}
-          {props.childRoute === 'tournament-groups'  && <TournamentGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate('tournamentgroup:create')} showDeleteButton={canCreate('tournamentgroup:delete')} canEdit={isOwnerOrSuperUser} />}
+          {props.childRoute === 'tournament-groups'  && <TournamentGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate('tournamentgroup:create')} showDeleteButton={canCreate('tournamentgroup:delete')} canEdit={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns} />}
           {props.childRoute === 'stats-groups'      && (isOwnerOrSuperUser || canViewAdmins) && <StatsGroupsPanel tid={String(tournament?.tid)} />}
           {props.childRoute === 'room-monitor'      && (isOwnerOrSuperUser || canViewAdmins) && <RoomMonitorTable tid={String(tournament?.tid)}/>}
         </Box>

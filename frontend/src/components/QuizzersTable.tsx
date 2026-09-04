@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
+import { TeamAPI } from '../features/TeamAPI';
+import { DivisionAPI } from '../features/DivisionAPI';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -10,8 +12,24 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function quizzerColumns(showSensitiveColumns: boolean): ColumnDef<UserTS>[] {
+function quizzerColumns(
+  showSensitiveColumns: boolean,
+  showAuditColumns: boolean,
+  showTeamAndDivision: boolean,
+  divisionMap: Map<string, string>,
+  teamMap: Map<string, string>,
+): ColumnDef<UserTS>[] {
   return [
+    ...(showTeamAndDivision ? [
+      {
+        header: 'Division',
+        render: (u: UserTS) => divisionMap.get(u.id) ?? '—',
+      },
+      {
+        header: 'Team',
+        render: (u: UserTS) => teamMap.get(u.id) ?? '—',
+      },
+    ] : []),
     {
       header: 'Full Name',
       render: (u) => (
@@ -25,26 +43,28 @@ function quizzerColumns(showSensitiveColumns: boolean): ColumnDef<UserTS>[] {
         </Link>
       ),
     },
-    {
-      header: 'Email',
-      render: (u) => u.email,
-    },
     ...(showSensitiveColumns ? [{
+      header: 'Email',
+      render: (u: UserTS) => u.email,
+    },
+    {
       header: 'Activated',
       render: (u: UserTS) => <BoolBadge value={u.activated} />,
     }] : []),
-    {
-      header: 'Created',
-      render: (u) => (
-        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.created_at)}</span>
-      ),
-    },
-    {
-      header: 'Last Modified',
-      render: (u) => (
-        <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.updated_at)}</span>
-      ),
-    },
+    ...(showAuditColumns ? [
+      {
+        header: 'Created',
+        render: (u: UserTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.created_at)}</span>
+        ),
+      },
+      {
+        header: 'Last Modified',
+        render: (u: UserTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(u.updated_at)}</span>
+        ),
+      },
+    ] : []),
   ];
 }
 
@@ -59,15 +79,19 @@ interface Props {
   /** Overrides the create button label. Only meaningful when onAdd is provided. */
   createLabel?: string;
   showSensitiveColumns?: boolean;
+  showAuditColumns?: boolean;
 }
 
-export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false }: Props) {
+export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true }: Props) {
   // All items for client-side pagination (tid or externalRows mode)
   const [allTournamentQuizzers, setAllTournamentQuizzers] = useState<UserTS[] | undefined>(undefined);
   // Current-page items for server-side pagination (no tid, no externalRows)
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiTotalCount, setApiTotalCount] = useState(0);
+  // quizzerId -> division / team name, built from this tournament's teams (tid mode only)
+  const [divisionMap, setDivisionMap] = useState<Map<string, string>>(new Map());
+  const [teamMap, setTeamMap] = useState<Map<string, string>>(new Map());
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -79,8 +103,32 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
     if (tid === undefined) return;
     setPage(0);
     setAllTournamentQuizzers(undefined);
-    UserAPI.getByTournament(tid)
-      .then(result => setAllTournamentQuizzers(result.items))
+    Promise.all([
+      UserAPI.getByTournament(tid),
+      TeamAPI.getByTournament(tid, 0, 500),
+      DivisionAPI.getByTournament(tid, 0, 100),
+    ])
+      .then(([userResult, teamResult, divisionResult]) => {
+        setAllTournamentQuizzers(userResult.items);
+        // Map each quizzer to their division/team via the teams' quizzer slots.
+        const divNameById = new Map(divisionResult.map(d => [d.did, d.dname]));
+        const dMap = new Map<string, string>();
+        const tMap = new Map<string, string>();
+        for (const team of teamResult.items) {
+          const divName = divNameById.get(team.did) ?? team.did;
+          const slots = [
+            team.quizzer_one_id, team.quizzer_two_id, team.quizzer_three_id,
+            team.quizzer_four_id, team.quizzer_five_id, team.quizzer_six_id,
+          ];
+          for (const qid of slots) {
+            if (!qid) continue;
+            tMap.set(qid, tMap.has(qid) ? `${tMap.get(qid)}, ${team.name}` : team.name);
+            dMap.set(qid, dMap.has(qid) ? `${dMap.get(qid)}, ${divName}` : divName);
+          }
+        }
+        setDivisionMap(dMap);
+        setTeamMap(tMap);
+      })
       .catch(() => console.error('Failed to load quizzers'))
       .finally(() => setLoading(false));
   }, [tid]);
@@ -142,7 +190,7 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
       onCreate={onAdd}
       showCreateButton={!!onAdd}
       showDeleteButton={!!onDelete}
-      columns={quizzerColumns(showSensitiveColumns)}
+      columns={quizzerColumns(showSensitiveColumns, showAuditColumns, tid !== undefined, divisionMap, teamMap)}
       rows={rows}
       totalCount={totalCount}
       getId={(u) => u.id}
