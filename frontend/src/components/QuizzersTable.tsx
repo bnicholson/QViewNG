@@ -151,7 +151,8 @@ export default function QuizzersTable({ tid, externalRows, onAdd, onDelete, crea
     loadQuizzers(0, pageSizeRef.current);
   }, []);
 
-  // Client-side data: externalRows takes priority, then tournament quizzers
+  // Client-side data: externalRows takes priority, then tournament quizzers.
+  // Tournament quizzers arrive already sorted by name from the backend query.
   const clientItems = externalRows ?? allTournamentQuizzers;
 
   // Slice for the current page when all data is loaded; otherwise use the server-fetched page

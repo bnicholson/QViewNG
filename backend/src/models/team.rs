@@ -466,7 +466,10 @@ pub fn read_all_quizzers_of_tournament(
     }
 
     use crate::schema::users::dsl::*;
-    users.filter(id.eq_any(&quizzer_ids)).load::<crate::models::user::User>(db)
+    users
+        .filter(id.eq_any(&quizzer_ids))
+        .order((fname.asc(), mname.asc(), lname.asc()))
+        .load::<crate::models::user::User>(db)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
