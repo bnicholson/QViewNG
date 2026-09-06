@@ -18,6 +18,8 @@ pub fn arrange_create_works_integration_test(db: &mut database::Connection) -> N
         .set_computerid(Some(computer.computerid))
         .set_misc_note(Some("Test note 9909".to_string()))
         .set_equipmentsetid(Some(equipment_set.id))
+        .set_creator_id(user.id)
+        .set_last_modified_user(user.id)
         .build()
         .unwrap()
 }

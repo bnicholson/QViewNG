@@ -32,7 +32,8 @@ pub struct TeamBuilder {
     quizzer_four_id: Option<Uuid>,
     quizzer_five_id: Option<Uuid>,
     quizzer_six_id: Option<Uuid>,
-    last_modified_user: Option<Uuid>
+    last_modified_user: Option<Uuid>,
+    creator_id: Option<Uuid>
 }
 
 impl TeamBuilder {
@@ -47,7 +48,8 @@ impl TeamBuilder {
             quizzer_four_id: None,
             quizzer_five_id: None,
             quizzer_six_id: None,
-            last_modified_user: None
+            last_modified_user: None,
+            creator_id: None
         }
     }
     pub fn new_default(division_id: Uuid) -> Self {
@@ -61,7 +63,8 @@ impl TeamBuilder {
             quizzer_four_id: None,
             quizzer_five_id: None,
             quizzer_six_id: None,
-            last_modified_user: None
+            last_modified_user: None,
+            creator_id: None
         }
     }
     pub fn set_coachid(mut self, coachid: Uuid) -> Self {
@@ -70,6 +73,10 @@ impl TeamBuilder {
     }
     pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
         self.last_modified_user = Some(user_id);
+        self
+    }
+    pub fn set_creator_id(mut self, user_id: Uuid) -> Self {
+        self.creator_id = Some(user_id);
         self
     }
     pub fn set_name(mut self, name: &str) -> Self {
@@ -132,7 +139,8 @@ impl TeamBuilder {
                         quizzer_four_id: self.quizzer_four_id,
                         quizzer_five_id: self.quizzer_five_id,
                         quizzer_six_id: self.quizzer_six_id,
-                        last_modified_user: self.last_modified_user.unwrap_or(self.coachid.unwrap())
+                        last_modified_user: self.last_modified_user.unwrap_or(self.coachid.unwrap()),
+                        creator_id: self.creator_id.unwrap_or(self.coachid.unwrap())
                     }
                 )
             }
@@ -170,7 +178,8 @@ pub struct Team {
     pub quizzer_four_id: Option<Uuid>,
     pub quizzer_five_id: Option<Uuid>,
     pub quizzer_six_id: Option<Uuid>,
-    pub last_modified_user: Uuid
+    pub last_modified_user: Uuid,
+    pub creator_id: Uuid
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -208,7 +217,10 @@ pub struct NewTeam {
     pub quizzer_five_id: Option<Uuid>,
     pub quizzer_six_id: Option<Uuid>,
     #[serde(default)]
-    pub last_modified_user: Uuid
+    pub last_modified_user: Uuid,
+    // Set server-side from the authenticated user on create; a client-sent value is ignored.
+    #[serde(default)]
+    pub creator_id: Uuid
 }
 
 // #[tsync::tsync]
@@ -322,6 +334,153 @@ pub fn read_all_teams_where_user_is_quizzer(
         .limit(page_size)
         .offset(offset_val)
         .load::<Team>(db)
+}
+
+/// A quizzer on a team (id + display name), for the roster shown in the user's Teams table.
+#[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
+pub struct TeamQuizzerRef {
+    pub id: Uuid,
+    pub name: String,
+}
+
+/// One fully-formed row of the user's "Teams" data table: the team plus its division, tournament,
+/// coach and quizzer roster, the user's role on it, and the display names of its creator and
+/// last-modifier. Populated in a single API call.
+#[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
+pub struct UserTeamRow {
+    pub teamid: Uuid,
+    pub name: String,
+    pub did: Uuid,
+    pub division_name: String,
+    pub tournament_id: Uuid,
+    pub tournament_name: String,
+    #[schema(value_type = String, format = Date)]
+    pub tournament_fromdate: NaiveDate,
+    #[schema(value_type = String, format = Date)]
+    pub tournament_todate: NaiveDate,
+    pub coachid: Uuid,
+    pub coach_name: String,
+    /// "Coach", "Quizzer", or "Coach & Quizzer" — the viewed user's relationship to this team.
+    pub role: String,
+    pub quizzers: Vec<TeamQuizzerRef>,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub creator_id: Uuid,
+    pub creator_name: String,
+    pub last_modified_user_id: Uuid,
+    pub last_modified_user_name: String,
+}
+
+/// Returns one page of the teams the user participates in — as coach or as any rostered quizzer —
+/// enriched with division/tournament/coach/quizzer/creator/last-modifier info and the user's role,
+/// plus the total count. One scoped call.
+pub fn read_team_rows_of_user(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<UserTeamRow>, i64)> {
+    use crate::schema::teams::dsl::*;
+    let participant = |uid: Uuid| {
+        coachid.eq(uid)
+            .or(quizzer_one_id.eq(uid))
+            .or(quizzer_two_id.eq(uid))
+            .or(quizzer_three_id.eq(uid))
+            .or(quizzer_four_id.eq(uid))
+            .or(quizzer_five_id.eq(uid))
+            .or(quizzer_six_id.eq(uid))
+    };
+    let total: i64 = teams.filter(participant(user_id)).count().get_result(db)?;
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let list: Vec<Team> = teams
+        .filter(participant(user_id))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Team>(db)?;
+
+    // Division names + division -> tournament ids (one batched lookup).
+    let div_ids: Vec<Uuid> = list.iter().map(|t| t.did).collect();
+    let div_info: std::collections::HashMap<Uuid, (String, Uuid)> = {
+        use crate::schema::divisions::dsl as d;
+        d::divisions
+            .filter(d::did.eq_any(&div_ids))
+            .select((d::did, d::dname, d::tid))
+            .load::<(Uuid, String, Uuid)>(db)?
+            .into_iter()
+            .map(|(did_v, dname_v, tid_v)| (did_v, (dname_v, tid_v)))
+            .collect()
+    };
+    // Tournament name + dates (one batched lookup).
+    let tid_list: Vec<Uuid> = div_info.values().map(|(_, t)| *t).collect();
+    let tour_info: std::collections::HashMap<Uuid, (String, NaiveDate, NaiveDate)> = {
+        use crate::schema::tournaments::dsl as t;
+        t::tournaments
+            .filter(t::tid.eq_any(&tid_list))
+            .select((t::tid, t::tname, t::fromdate, t::todate))
+            .load::<(Uuid, String, NaiveDate, NaiveDate)>(db)?
+            .into_iter()
+            .map(|(tid_v, tn, fd, td)| (tid_v, (tn, fd, td)))
+            .collect()
+    };
+
+    // All user display names we need: coaches, creators, modifiers, and every quizzer slot.
+    let quizzers_of = |t: &Team| -> Vec<Uuid> {
+        [t.quizzer_one_id, t.quizzer_two_id, t.quizzer_three_id, t.quizzer_four_id, t.quizzer_five_id, t.quizzer_six_id]
+            .into_iter().flatten().collect()
+    };
+    let mut user_ids: Vec<Uuid> = list.iter().map(|t| t.coachid).collect();
+    user_ids.extend(list.iter().map(|t| t.creator_id));
+    user_ids.extend(list.iter().map(|t| t.last_modified_user));
+    for t in &list { user_ids.extend(quizzers_of(t)); }
+    let name_by_id = crate::models::user::read_display_names(db, &user_ids)?;
+    let name_of = |id: Uuid| name_by_id.get(&id).cloned().unwrap_or_else(|| id.to_string());
+
+    let rows = list
+        .into_iter()
+        .map(|t| {
+            let (division_name, tid_v) = div_info.get(&t.did).cloned().unwrap_or_default();
+            let (tournament_name, tournament_fromdate, tournament_todate) = tour_info
+                .get(&tid_v)
+                .cloned()
+                .unwrap_or_else(|| {
+                    let epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+                    (String::new(), epoch, epoch)
+                });
+            let quizzer_ids = quizzers_of(&t);
+            let is_quizzer = quizzer_ids.contains(&user_id);
+            let is_coach = t.coachid == user_id;
+            let role = match (is_coach, is_quizzer) {
+                (true, true) => "Coach & Quizzer",
+                (true, false) => "Coach",
+                _ => "Quizzer",
+            }.to_string();
+            let quizzers = quizzer_ids.into_iter().map(|qid| TeamQuizzerRef { id: qid, name: name_of(qid) }).collect();
+            UserTeamRow {
+                division_name,
+                tournament_id: tid_v,
+                tournament_name,
+                tournament_fromdate,
+                tournament_todate,
+                coach_name: name_of(t.coachid),
+                role,
+                quizzers,
+                creator_name: name_of(t.creator_id),
+                last_modified_user_name: name_of(t.last_modified_user),
+                teamid: t.teamid,
+                name: t.name,
+                did: t.did,
+                coachid: t.coachid,
+                created_at: t.created_at,
+                updated_at: t.updated_at,
+                creator_id: t.creator_id,
+                last_modified_user_id: t.last_modified_user,
+            }
+        })
+        .collect();
+    Ok((rows, total))
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset, modified_by: Uuid) -> QueryResult<Team> {

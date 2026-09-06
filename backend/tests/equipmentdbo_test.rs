@@ -131,7 +131,7 @@ async fn update_works() {
 
     // Act:
     
-    let equipment_dbo_result = models::equipment_dbo::update(&mut conn, original_equipment.id, &put_payload);    
+    let equipment_dbo_result = models::equipment_dbo::update(&mut conn, original_equipment.id, &put_payload, original_equipment.last_modified_user);
 
     // Assert:
     

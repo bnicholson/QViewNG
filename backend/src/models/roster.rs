@@ -15,6 +15,7 @@ pub struct RosterBuilder {
     name: String,
     description: Option<String>,
     created_by_userid: Uuid,
+    last_modified_user: Option<Uuid>,
 }
 
 impl RosterBuilder {
@@ -23,6 +24,7 @@ impl RosterBuilder {
             name: roster_name.to_string(),
             description: None,
             created_by_userid,
+            last_modified_user: None,
         }
     }
     pub fn new_default(roster_name: &str, created_by_userid: Uuid) -> Self {
@@ -30,6 +32,7 @@ impl RosterBuilder {
             name: roster_name.to_string(),
             description: None,
             created_by_userid,
+            last_modified_user: None,
         }
     }
     pub fn set_name(mut self, roster_name: String) -> Self {
@@ -44,12 +47,17 @@ impl RosterBuilder {
         self.created_by_userid = created_by_userid;
         self
     }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
+        self
+    }
     pub fn build(self) -> Result<NewRoster, Vec<String>> {
         Ok(
             NewRoster {
                 name: self.name,
                 description: self.description,
                 created_by_userid: self.created_by_userid,
+                last_modified_user: self.last_modified_user.unwrap_or(self.created_by_userid),
             }
         )
     }
@@ -78,6 +86,7 @@ pub struct Roster {
     pub created_by_userid: Uuid,                   // User (Coach) who created the roster
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub last_modified_user: Uuid,
 }
 
 #[derive(
@@ -91,6 +100,8 @@ pub struct NewRoster {
     pub name: String,
     pub description: Option<String>,
     pub created_by_userid: Uuid,
+    #[serde(default)]
+    pub last_modified_user: Uuid,
 }
 
 // #[tsync::tsync]
@@ -185,12 +196,70 @@ pub fn read_all_rosters_containing_quizzer(db: &mut database::Connection, quizze
         .load::<Roster>(db)
 }
 
-pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &RosterChangeset) -> QueryResult<Roster> {
+/// One row of the user's "My Rosters" quizzers table: a quizzer that appears on any roster the
+/// user (coach) created. No audit columns — a quizzer isn't an audited domain entity.
+#[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
+pub struct UserRosterQuizzerRow {
+    pub quizzer_id: Uuid,
+    pub fname: String,
+    pub mname: String,
+    pub lname: String,
+    pub email: String,
+}
+
+/// Returns one page of the distinct quizzers across all rosters created by `coach_id`, plus the
+/// total distinct count — a single scoped, paginated call replacing the per-roster fan-out.
+pub fn read_roster_quizzer_rows_of_coach(
+    db: &mut database::Connection,
+    coach_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<UserRosterQuizzerRow>, i64)> {
+    let roster_ids: Vec<Uuid> = {
+        use crate::schema::rosters::dsl::*;
+        rosters.filter(created_by_userid.eq(coach_id)).select(rosterid).load::<Uuid>(db)?
+    };
+    let mut quizzer_ids: Vec<Uuid> = {
+        use crate::schema::rosters_quizzers::dsl::*;
+        rosters_quizzers
+            .filter(rosterid.eq_any(&roster_ids))
+            .select(quizzerid)
+            .distinct()
+            .load::<Uuid>(db)?
+    };
+    quizzer_ids.sort();
+    quizzer_ids.dedup();
+    let total = quizzer_ids.len() as i64;
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let rows: Vec<UserRosterQuizzerRow> = {
+        use crate::schema::users::dsl::*;
+        users
+            .filter(id.eq_any(&quizzer_ids))
+            .order((lname.asc(), fname.asc()))
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<crate::models::user::User>(db)?
+            .into_iter()
+            .map(|u| UserRosterQuizzerRow {
+                quizzer_id: u.id,
+                fname: u.fname,
+                mname: u.mname,
+                lname: u.lname,
+                email: u.email,
+            })
+            .collect()
+    };
+    Ok((rows, total))
+}
+
+pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &RosterChangeset, modified_by: Uuid) -> QueryResult<Roster> {
     use crate::schema::rosters::dsl::*;
     diesel::update(rosters.filter(rosterid.eq(sg_id)))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .get_result(db)
 }

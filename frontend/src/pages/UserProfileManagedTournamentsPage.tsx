@@ -4,10 +4,11 @@ import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
-import dayjs from 'dayjs'
-import TournamentTable, { DEFAULT_PAGE_SIZE } from '../components/TournamentTable'
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from '../components/DataTableTemplate'
+import { Link } from 'react-router-dom'
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
+import { UserAPI, type UserManagedTournamentRowTS } from '../features/UserAPI'
 import {
   CreateTournamentApplicantAPI,
   type CreateTournamentApplicantTS,
@@ -19,8 +20,31 @@ interface Props {
   canDelete: boolean
   isTournamentManager: boolean
   isSuperUser: boolean
+  isOwnProfile?: boolean
   targetIsSuperUser: boolean
   targetIsTournamentManager: boolean
+}
+
+function formatDateRange(from: string, to: string): string {
+  const fmt = (s: string) => new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  const f = fmt(from), t = fmt(to)
+  return f === t ? f : `${f} – ${t}`
+}
+function linkStyle(): React.CSSProperties {
+  return { color: '#2563eb', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }
+}
+// Audit columns show only on the user's own profile.
+function managedColumns(showAudit: boolean): ColumnDef<UserManagedTournamentRowTS>[] {
+  return [
+    { header: 'Tournament', render: t => <Link to={`/tournament/${t.tid}/overview`} style={linkStyle()}>{t.tname}</Link> },
+    { header: 'Date(s)', render: t => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDateRange(t.fromdate, t.todate)}</span> },
+    { header: 'Location', render: t => <span style={{ color: '#374151' }}>{[t.venue, t.city, t.state, t.country].filter(Boolean).join(', ')}</span> },
+    ...(showAudit ? [
+      { header: 'Created By', render: (t: UserManagedTournamentRowTS) => <EntityLink to={`/user/${t.creator_id}/overview`}>{t.creator_name}</EntityLink> },
+      { header: 'Last Modified', render: (t: UserManagedTournamentRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(t.updated_at)}</span> },
+      { header: 'Last Modified By', render: (t: UserManagedTournamentRowTS) => <EntityLink to={`/user/${t.last_modified_user_id}/overview`}>{t.last_modified_user_name}</EntityLink> },
+    ] : []),
+  ]
 }
 
 // ── Status badge (mirrors the one in CreateTournamentApplicantsTable) ──────────
@@ -178,8 +202,9 @@ function ApplyView({ userId }: { userId: string }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete, isTournamentManager, isSuperUser, targetIsSuperUser, targetIsTournamentManager }: Props) => {
-  const [allRows, setAllRows] = useState<TournamentTS[]>([])
+export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete, isTournamentManager, isSuperUser, isOwnProfile = false, targetIsSuperUser, targetIsTournamentManager }: Props) => {
+  const [rows, setRows] = useState<UserManagedTournamentRowTS[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [loading, setLoading] = useState(true)
@@ -188,24 +213,17 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
   const [revokeError, setRevokeError] = useState<string | null>(null)
   const [revokeConfirming, setRevokeConfirming] = useState(false)
 
-  useEffect(() => {
+  // Single scoped call to the enriched, paginated endpoint (owned tournaments only).
+  const load = (p: number, ps: number) => {
     if (!isTournamentManager) { setLoading(false); return }
     setLoading(true)
-    TournamentAPI.get(0, '500')
-      .then(result => {
-        const owned = result.items
-          .filter(t => t.owner_id === userId)
-          .map(t => ({
-            ...t,
-            fromdate: t.fromdate ? dayjs(t.fromdate as any) : null,
-            todate: t.todate ? dayjs(t.todate as any) : null,
-          }))
-        setAllRows(owned)
-        setPage(0)
-      })
+    UserAPI.getManagedTournamentRows(userId, p, ps)
+      .then(({ count, items }) => { setPage(p); setPageSize(ps); setTotalCount(count); setRows(items) })
       .catch(() => console.error('Failed to load managed tournaments'))
       .finally(() => setLoading(false))
-  }, [userId, isTournamentManager])
+  }
+
+  useEffect(() => { load(0, pageSize) }, [userId, isTournamentManager])
 
   const handleRevoke = async () => {
     if (!revokeConfirming) { setRevokeConfirming(true); return }
@@ -230,8 +248,6 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
   if (!isTournamentManager) {
     return <ApplyView userId={userId} />
   }
-
-  const visibleRows = allRows.slice(page * pageSize, page * pageSize + pageSize)
 
   return (
     <Box>
@@ -262,18 +278,21 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
           )}
         </Box>
       )}
-      <TournamentTable
+      <DataTableTemplate<UserManagedTournamentRowTS>
         loading={loading}
-        tournaments={loading ? [] : visibleRows}
-        totalCount={allRows.length}
-        page={page}
-        pageSize={pageSize}
+        entityLabel="Tournament"
         showCreateButton={canCreate}
         onCreate={() => setEditorOpen(true)}
         showDeleteButton={canDelete}
+        columns={managedColumns(isOwnProfile)}
+        rows={rows}
+        totalCount={totalCount}
+        getId={t => t.tid}
         onDelete={handleDelete}
-        onPageChange={p => setPage(p)}
-        onPageSizeChange={ps => { setPageSize(ps); setPage(0) }}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={p => load(p, pageSize)}
+        onPageSizeChange={ps => load(0, ps)}
       />
       <TournamentEditorDialog
         isOpen={editorOpen}
@@ -284,14 +303,12 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
     </Box>
   )
 
-  function handleDelete(t: TournamentTS): Promise<void> {
-    return TournamentAPI.delete(t.tid).then(() => {
-      setAllRows(prev => prev.filter(r => r.tid !== t.tid))
-    })
+  function handleDelete(t: UserManagedTournamentRowTS): Promise<void> {
+    return TournamentAPI.delete(t.tid).then(() => { load(page, pageSize) })
   }
 
-  function handleCreated(t: TournamentTS) {
+  function handleCreated(_t: TournamentTS) {
     setEditorOpen(false)
-    setAllRows(prev => [...prev, t])
+    load(page, pageSize)
   }
 }

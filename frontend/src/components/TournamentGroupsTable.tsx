@@ -17,8 +17,13 @@ import SearchIcon from '@mui/icons-material/Search'
 import { Link } from 'react-router-dom'
 import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
 import { TournamentGroupAPI, type TournamentGroupTS, type TournamentGroupRowTS } from '../features/TournamentGroupAPI'
+import { UserAPI } from '../features/UserAPI'
 import { TournamentGroupEditorDialog } from './TournamentGroupEditorDialog'
 import { useAuth } from '../hooks/useAuth'
+
+// Rows from either the tournament-scoped endpoint or the owner-scoped one (a superset that also
+// carries creator info). The optional creator fields drive the extra "Created By" column.
+type GroupRow = TournamentGroupRowTS & { creator_id?: string; creator_name?: string }
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -86,12 +91,13 @@ function RemoveButton({ onRemove }: { onRemove: () => Promise<void> }) {
 }
 
 function groupColumns(
-  onEdit: (group: TournamentGroupRowTS) => void,
+  onEdit: (group: GroupRow) => void,
   canEdit: boolean,
   showRemoveButton: boolean,
-  onRemove: (group: TournamentGroupRowTS) => Promise<void>,
+  onRemove: (group: GroupRow) => Promise<void>,
   showAuditColumns: boolean,
-): ColumnDef<TournamentGroupRowTS>[] {
+  showCreatedBy: boolean,
+): ColumnDef<GroupRow>[] {
   return [
     {
       header: 'Name',
@@ -111,22 +117,28 @@ function groupColumns(
       render: g => g.description || <span style={{ color: '#9ca3af' }}>—</span>,
     },
     ...(showAuditColumns ? [
+      ...(showCreatedBy ? [{
+        header: 'Created By',
+        render: (g: GroupRow) => g.creator_id
+          ? <EntityLink to={`/user/${g.creator_id}/overview`}>{g.creator_name}</EntityLink>
+          : <span style={{ color: '#9ca3af' }}>—</span>,
+      }] : []),
       {
         header: 'Created',
-        render: (g: TournamentGroupRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>,
+        render: (g: GroupRow) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>,
       },
       {
         header: 'Last Modified',
-        render: (g: TournamentGroupRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
+        render: (g: GroupRow) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
       },
       {
         header: 'Last Modified By',
-        render: (g: TournamentGroupRowTS) => <EntityLink to={`/user/${g.last_modified_user_id}/overview`}>{g.last_modified_user_name}</EntityLink>,
+        render: (g: GroupRow) => <EntityLink to={`/user/${g.last_modified_user_id}/overview`}>{g.last_modified_user_name}</EntityLink>,
       },
     ] : []),
     ...((canEdit || showRemoveButton) ? [{
       header: '',
-      render: (g: TournamentGroupRowTS) => (
+      render: (g: GroupRow) => (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
           {canEdit && (
             <IconButton size="small" onClick={() => onEdit(g)} aria-label="Edit tournament group">
@@ -141,26 +153,30 @@ function groupColumns(
 }
 
 interface Props {
-  tid: string;
+  /** Tournament-scoped mode: lists groups linked to this tournament (with link/remove + search). */
+  tid?: string;
+  /** Owner-scoped mode: lists groups owned by this user (with create/delete, no link/search). */
+  ownerId?: string;
   showCreateButton?: boolean;
   showDeleteButton?: boolean;
   canEdit?: boolean;
   showAuditColumns?: boolean;
 }
 
-export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true, canEdit = false, showAuditColumns = true }: Props) {
+export default function TournamentGroupsTable({ tid, ownerId, showCreateButton = true, showDeleteButton = true, canEdit = false, showAuditColumns = true }: Props) {
   const { session } = useAuth();
-  const [groups, setGroups] = useState<TournamentGroupRowTS[]>([]);
+  const ownerMode = !!ownerId;
+  const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<TournamentGroupRowTS | undefined>(undefined);
+  const [editingGroup, setEditingGroup] = useState<GroupRow | undefined>(undefined);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
-  // Search/add state
+  // Search/add state (tournament-scoped mode only)
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<TournamentGroupTS[]>([])
   const [searching, setSearching] = useState(false)
@@ -169,20 +185,23 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
 
   const loadGroups = useCallback((p: number, ps: number) => {
     setLoading(true);
-    TournamentGroupAPI.getRowsByTournament(tid, p, ps)
+    const source = ownerId
+      ? UserAPI.getManagedTournamentGroupRows(ownerId, p, ps)
+      : TournamentGroupAPI.getRowsByTournament(tid!, p, ps);
+    source
       .then(({ count, items }) => {
         setPage(p);
         setPageSize(ps);
         setTotalCount(count);
-        setGroups(items);
+        setGroups(items as GroupRow[]);
       })
       .catch(() => console.error('Failed to load tournament groups'))
       .finally(() => setLoading(false));
-  }, [tid]);
+  }, [tid, ownerId]);
 
   useEffect(() => {
     loadGroups(0, pageSizeRef.current);
-  }, [tid]);
+  }, [tid, ownerId]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadGroups(newPage, pageSize);
@@ -192,18 +211,25 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
     loadGroups(0, newSize);
   }, [loadGroups]);
 
-  const handleRemove = useCallback(async (row: TournamentGroupRowTS): Promise<void> => {
-    await TournamentGroupAPI.removeFromTournament(row.tgid, tid);
+  // Tournament-scoped: unlink the group from this tournament (does not delete it).
+  const handleRemove = useCallback(async (row: GroupRow): Promise<void> => {
+    await TournamentGroupAPI.removeFromTournament(row.tgid, tid!);
     setGroups(prev => prev.filter(g => g.tgid !== row.tgid));
     setTotalCount(prev => prev - 1);
   }, [tid]);
+
+  // Owner-scoped: delete the group entirely.
+  const handleDeleteGroup = useCallback(async (row: GroupRow): Promise<void> => {
+    await TournamentGroupAPI.delete(row.tgid);
+    loadGroups(page, pageSize);
+  }, [loadGroups, page, pageSize]);
 
   const openCreate = () => {
     setEditingGroup(undefined);
     setEditorIsOpen(true);
   };
 
-  const openEdit = (group: TournamentGroupRowTS) => {
+  const openEdit = (group: GroupRow) => {
     setEditingGroup(group);
     setEditorIsOpen(true);
   };
@@ -246,7 +272,7 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
     setAddingId(group.tgid)
     setError(null)
     try {
-      await TournamentGroupAPI.addTournament(group.tgid, tid)
+      await TournamentGroupAPI.addTournament(group.tgid, tid!)
       setSearchResults(prev => prev.filter(g => g.tgid !== group.tgid))
       loadGroups(page, pageSize)
     } catch (e: any) {
@@ -258,26 +284,26 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
 
   return (
     <>
-      <DataTableTemplate<TournamentGroupRowTS>
+      <DataTableTemplate<GroupRow>
         loading={loading}
-        key={tid}
+        key={tid ?? ownerId}
         entityLabel="Tournament Group"
         showCreateButton={showCreateButton}
-        showDeleteButton={false}
+        showDeleteButton={ownerMode ? showDeleteButton : false}
         onCreate={openCreate}
-        columns={groupColumns(openEdit, canEdit, showDeleteButton, handleRemove, showAuditColumns)}
+        columns={groupColumns(openEdit, canEdit, !ownerMode && showDeleteButton, handleRemove, showAuditColumns, ownerMode)}
         rows={groups}
         totalCount={totalCount}
         getId={g => g.tgid}
-        onDelete={async () => {}}
+        onDelete={ownerMode ? handleDeleteGroup : async () => {}}
         page={page}
         pageSize={pageSize}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
       />
 
-      {/* Search to add */}
-      {canEdit && (
+      {/* Search to add — tournament-scoped mode only */}
+      {!ownerMode && canEdit && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, textAlign: "left" }}>
             Add to Existing Tournament Group

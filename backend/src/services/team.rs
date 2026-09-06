@@ -144,6 +144,7 @@ async fn create(
     }
 
     item.last_modified_user = user_ctx.user_id;
+    item.creator_id = user_ctx.user_id;
     let result: QueryResult<Team> = models::team::create(&mut conn, &item);
 
     let response: EntityResponse<Team> = process_response(result, "post");

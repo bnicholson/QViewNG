@@ -17,33 +17,37 @@ import { QuizzerCreatorDialog } from '../components/QuizzerCreatorDialog'
 import { UserPickerDialog } from '../components/UserPickerDialog'
 import { ConfirmDialog, confirmDialogDefaultState } from '../components/ConfirmDialog'
 import QuizzersTable from '../components/QuizzersTable'
-import type { UserTS } from '../features/UserAPI'
+import { UserAPI, type UserTS } from '../features/UserAPI'
 import { Link } from 'react-router-dom'
 
 // ── Shared hook: aggregate all quizzers across rosters ──────────────────────
 
-function useAllQuizzers(rosters: RosterTS[]) {
+function useAllQuizzers(userId: string) {
   const [allQuizzers, setAllQuizzers] = useState<UserTS[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Single scoped call: the endpoint aggregates + de-duplicates quizzers across the coach's rosters.
   const loadAll = useCallback(async () => {
-    if (rosters.length === 0) { setAllQuizzers([]); return; }
     setLoading(true);
     try {
-      const perRoster = await Promise.all(rosters.map(r => RosterAPI.getQuizzers(r.rosterid)));
-      const seen = new Map<string, UserTS>();
-      for (const list of perRoster) {
-        for (const u of list) {
-          if (!seen.has(u.id)) seen.set(u.id, u);
-        }
-      }
-      setAllQuizzers(Array.from(seen.values()));
+      const { items } = await UserAPI.getRosterQuizzerRows(userId, 0, 500);
+      setAllQuizzers(items.map(q => ({
+        id: q.quizzer_id,
+        username: '',
+        email: q.email,
+        fname: q.fname,
+        mname: q.mname,
+        lname: q.lname,
+        activated: true,
+        created_at: '',
+        updated_at: '',
+      })));
     } catch {
       console.error('Failed to aggregate quizzers');
     } finally {
       setLoading(false);
     }
-  }, [rosters]);
+  }, [userId]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -322,7 +326,7 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
 
   const [rosters, setRosters] = useState<RosterTS[]>([]);
   const [tabIndex, setTabIndex] = useState(0); // 0 = All Quizzers, 1..N = roster tabs
-  const { allQuizzers, loading: allQuizzersLoading, reload: reloadAllQuizzers } = useAllQuizzers(rosters);
+  const { allQuizzers, loading: allQuizzersLoading, reload: reloadAllQuizzers } = useAllQuizzers(userId);
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);

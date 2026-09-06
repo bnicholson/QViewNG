@@ -26,7 +26,8 @@ pub struct GameBuilder {
     quizmasterid: Option<Uuid>,
     contentjudgeid: Option<Uuid>,
     clientkey: Option<String>,
-    last_modified_user: Option<Uuid>
+    last_modified_user: Option<Uuid>,
+    creator_id: Option<Uuid>
 }
 
 impl GameBuilder {
@@ -45,7 +46,8 @@ impl GameBuilder {
             quizmasterid: None,
             contentjudgeid: None,
             clientkey: None,
-            last_modified_user: None
+            last_modified_user: None,
+            creator_id: None
         }
     }
     pub fn new_default(room_id: Uuid, round_id: Uuid) -> Self {
@@ -63,7 +65,8 @@ impl GameBuilder {
             quizmasterid: None,
             contentjudgeid: None,
             clientkey: Some(String::new()),
-            last_modified_user: None
+            last_modified_user: None,
+            creator_id: None
         }
     }
     pub fn set_org(mut self, val: String) -> Self {
@@ -72,6 +75,10 @@ impl GameBuilder {
     }
     pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
         self.last_modified_user = Some(user_id);
+        self
+    }
+    pub fn set_creator_id(mut self, user_id: Uuid) -> Self {
+        self.creator_id = Some(user_id);
         self
     }
     pub fn set_tournamentid(mut self, val: Option<Uuid>) -> Self {
@@ -169,7 +176,8 @@ impl GameBuilder {
                         quizmasterid: self.quizmasterid.unwrap(),
                         contentjudgeid: self.contentjudgeid,
                         clientkey: self.clientkey.unwrap_or_default(),
-                        last_modified_user: self.last_modified_user.unwrap_or(self.quizmasterid.unwrap())
+                        last_modified_user: self.last_modified_user.unwrap_or(self.quizmasterid.unwrap()),
+                        creator_id: self.creator_id.unwrap_or(self.quizmasterid.unwrap())
                     }
                 )
             }
@@ -223,7 +231,8 @@ pub struct Game {
     pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
     pub resend_gameevents_response: Option<String>,
     pub resend_request_sent_ts: Option<DateTime<Utc>>,
-    pub last_modified_user: Uuid
+    pub last_modified_user: Uuid,
+    pub creator_id: Uuid
 }
 
 #[derive(
@@ -249,7 +258,10 @@ pub struct NewGame {
     pub contentjudgeid: Option<Uuid>,
     pub clientkey: String,
     #[serde(default)]
-    pub last_modified_user: Uuid
+    pub last_modified_user: Uuid,
+    // Set server-side from the authenticated user on create; a client-sent value is ignored.
+    #[serde(default)]
+    pub creator_id: Uuid
 }
 
 
@@ -754,6 +766,10 @@ pub struct GameWithNames {
     pub contentjudgeid: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub creator_id: Uuid,
+    pub creator_name: String,
+    pub last_modified_user_id: Uuid,
+    pub last_modified_user_name: String,
 }
 
 fn enrich_games_with_names(
@@ -790,6 +806,11 @@ fn enrich_games_with_names(
             .collect()
     };
 
+    let mut modifier_ids: Vec<Uuid> = game_list.iter().map(|g| g.creator_id).collect();
+    modifier_ids.extend(game_list.iter().map(|g| g.last_modified_user));
+    let user_name_map = crate::models::user::read_display_names(db, &modifier_ids)?;
+    let name_of = |id: Uuid| user_name_map.get(&id).cloned().unwrap_or_else(|| id.to_string());
+
     Ok(game_list.into_iter().filter_map(|g| {
         let (tournament_name, tournament_fromdate, tournament_todate) =
             tournament_map.get(&g.tournamentid)?.clone();
@@ -797,6 +818,10 @@ fn enrich_games_with_names(
         let right_team_name = team_map.get(&g.rightteamid).cloned().unwrap_or_default();
         let center_team_name = g.centerteamid.and_then(|cid| team_map.get(&cid).cloned());
         Some(GameWithNames {
+            creator_name: name_of(g.creator_id),
+            last_modified_user_name: name_of(g.last_modified_user),
+            creator_id: g.creator_id,
+            last_modified_user_id: g.last_modified_user,
             gid: g.gid,
             org: g.org,
             tournamentid: g.tournamentid,

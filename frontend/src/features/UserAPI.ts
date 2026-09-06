@@ -70,6 +70,10 @@ export interface GameWithNamesTS {
   contentjudgeid: string | null;
   created_at: string;
   updated_at: string;
+  creator_id: string;
+  creator_name: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
 }
 
 export const UserAPI = {
@@ -123,6 +127,101 @@ export const UserAPI = {
     (await fetch(`/api/users/${userId}/games-where-quizmaster-enriched?page=${page}&page_size=${size}`)).json(),
   getGamesAsContentJudge: async (userId: string, page: number, size: number): Promise<GameWithNamesTS[]> =>
     (await fetch(`/api/users/${userId}/games-where-contentjudge-enriched?page=${page}&page_size=${size}`)).json(),
+
+  // ── Single-call, paginated, audit-enriched rows for the User-profile data tables ──────────────
+  getTeamRows: async (userId: string, page: number, size: number): Promise<PagedResponse<UserTeamRowTS>> =>
+    (await fetch(`/api/users/${userId}/team-rows?page=${page}&page_size=${size}`)).json(),
+  getManagedTournamentRows: async (userId: string, page: number, size: number): Promise<PagedResponse<UserManagedTournamentRowTS>> =>
+    (await fetch(`/api/users/${userId}/managed-tournament-rows?page=${page}&page_size=${size}`)).json(),
+  getManagedTournamentGroupRows: async (userId: string, page: number, size: number): Promise<PagedResponse<UserManagedTournamentGroupRowTS>> =>
+    (await fetch(`/api/users/${userId}/managed-tournamentgroup-rows?page=${page}&page_size=${size}`)).json(),
+  getRosterQuizzerRows: async (userId: string, page: number, size: number): Promise<PagedResponse<UserRosterQuizzerRowTS>> =>
+    (await fetch(`/api/users/${userId}/roster-quizzer-rows?page=${page}&page_size=${size}`)).json(),
+  getGearRows: async (userId: string, page: number, size: number): Promise<PagedResponse<UserGearRowTS>> =>
+    (await fetch(`/api/users/${userId}/gear-rows?page=${page}&page_size=${size}`)).json(),
+}
+
+export interface PagedResponse<T> { count: number; items: T[]; }
+
+export interface TeamQuizzerRefTS { id: string; name: string; }
+
+/** A team the user participates in (as coach or quizzer), enriched for a single-call table. */
+export interface UserTeamRowTS {
+  teamid: string;
+  name: string;
+  did: string;
+  division_name: string;
+  tournament_id: string;
+  tournament_name: string;
+  tournament_fromdate: string;
+  tournament_todate: string;
+  coachid: string;
+  coach_name: string;
+  role: string;
+  quizzers: TeamQuizzerRefTS[];
+  created_at: string;
+  updated_at: string;
+  creator_id: string;
+  creator_name: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
+}
+
+/** A tournament the user owns, enriched for a single-call table. */
+export interface UserManagedTournamentRowTS {
+  tid: string;
+  tname: string;
+  venue: string;
+  city: string;
+  state: string;
+  country: string;
+  fromdate: string;
+  todate: string;
+  created_at: string;
+  updated_at: string;
+  creator_id: string;
+  creator_name: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
+}
+
+/** A tournament group the user owns, enriched for a single-call table. */
+export interface UserManagedTournamentGroupRowTS {
+  tgid: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  creator_id: string;
+  creator_name: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
+}
+
+/** A distinct quizzer across the user's rosters (no audit columns — not an audited entity). */
+export interface UserRosterQuizzerRowTS {
+  quizzer_id: string;
+  fname: string;
+  mname: string;
+  lname: string;
+  email: string;
+}
+
+/** A gear item across the user's equipment sets, enriched for a single-call table. */
+export interface UserGearRowTS {
+  id: number;
+  gear_type: string;
+  equipmentsetid: number;
+  set_name: string;
+  misc_note: string | null;
+  /** Same tagged shape as EquipmentDetail (e.g. `{ Computer: {...} }`); null if the type row is missing. */
+  detail: import('./EquipmentSetAPI').EquipmentDetail | null;
+  created_at: string;
+  updated_at: string;
+  creator_id: string;
+  creator_name: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
 }
 
 export interface TournamentForUserTS {
@@ -138,4 +237,8 @@ export interface TournamentForUserTS {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  creator_id: string;
+  creator_name: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
 }

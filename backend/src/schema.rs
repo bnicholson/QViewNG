@@ -119,6 +119,8 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         equipmentsetid -> Int8,
+        creator_id -> Uuid,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -255,6 +257,7 @@ diesel::table! {
         resend_gameevents_response -> Nullable<Varchar>,
         resend_request_sent_ts -> Nullable<Timestamptz>,
         last_modified_user -> Uuid,
+        creator_id -> Uuid,
     }
 }
 
@@ -455,6 +458,7 @@ diesel::table! {
         created_by_userid -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -567,6 +571,7 @@ diesel::table! {
         quizzer_five_id -> Nullable<Uuid>,
         quizzer_six_id -> Nullable<Uuid>,
         last_modified_user -> Uuid,
+        creator_id -> Uuid,
     }
 }
 
@@ -716,7 +721,6 @@ diesel::joinable!(password_reset_tokens -> users (user_id));
 diesel::joinable!(roles_permissions -> permissions (permission_id));
 diesel::joinable!(roles_permissions -> roles (role_id));
 diesel::joinable!(rooms -> tournaments (tid));
-diesel::joinable!(rosters -> users (created_by_userid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));

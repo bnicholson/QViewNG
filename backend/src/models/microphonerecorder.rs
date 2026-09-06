@@ -358,7 +358,7 @@ pub fn update(db: &mut database::Connection, equipment_id: i64, item: &Microphon
     }
 
     let equipment_dbo_result = 
-        models::equipment_dbo::update(db, equipment_dbo.id, &equipment_dbo_changeset);
+        models::equipment_dbo::update(db, equipment_dbo.id, &equipment_dbo_changeset, equipment_dbo.last_modified_user);
 
     if equipment_dbo_result.is_err() {
         return Err(microphonerecorder_dbo_result.err().unwrap());

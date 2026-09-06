@@ -1,4 +1,5 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use crate::auth::policies::UserContext;
 use crate::{database::Database, models::{self, common::PaginationParams, roster::RosterChangeset, roster_coach::{NewRosterCoach, RosterCoach}, roster_quizzer::{NewRosterQuizzer, RosterQuizzer}}};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::QueryResult;
@@ -171,7 +172,13 @@ async fn update(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let result = models::roster::update(&mut db, item_id.into_inner(), &item);
+    let rid = item_id.into_inner();
+    // Attribute the change to the authenticated user; if unavailable, preserve the existing modifier.
+    let modified_by = match req.extensions().get::<UserContext>() {
+        Some(u) => u.user_id,
+        None => models::roster::read(&mut db, rid).map(|r| r.last_modified_user).unwrap_or_default(),
+    };
+    let result = models::roster::update(&mut db, rid, &item, modified_by);
 
     let response = process_response(result, "put");
     

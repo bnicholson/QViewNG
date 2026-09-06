@@ -169,7 +169,7 @@ async fn read_tournaments_as_admin(
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
-    match models::tournament::read_all_tournaments_where_user_is_admin_or_owner(&mut db, user_id.into_inner(), &params) {
+    match models::tournament::read_admin_tournament_rows_of_user(&mut db, user_id.into_inner(), &params) {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -237,6 +237,86 @@ async fn read_equipmentsets_of_owner(
     match models::equipmentset::read_all_by_owner(&mut db, user_id.into_inner()) {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// Single-call, paginated "Teams" rows: teams where the user is coach or a rostered quizzer.
+#[get("/{id}/team-rows")]
+async fn read_team_rows(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::team::read_team_rows_of_user(&mut db, user_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Single-call, paginated "Managed Tournaments" rows: tournaments owned by the user.
+#[get("/{id}/managed-tournament-rows")]
+async fn read_managed_tournament_rows(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::tournament::read_managed_tournament_rows_of_user(&mut db, user_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Single-call, paginated "Managed Tournament Groups" rows: groups owned by the user.
+#[get("/{id}/managed-tournamentgroup-rows")]
+async fn read_managed_tournamentgroup_rows(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::tournamentgroup::read_managed_tournamentgroup_rows_of_user(&mut db, user_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Single-call, paginated "My Rosters" quizzers: distinct quizzers across the coach's rosters.
+#[get("/{id}/roster-quizzer-rows")]
+async fn read_roster_quizzer_rows(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::roster::read_roster_quizzer_rows_of_coach(&mut db, user_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Single-call, paginated "My Gear" rows: gear items across the user's equipment sets.
+#[get("/{id}/gear-rows")]
+async fn read_gear_rows(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::equipment_dbo::read_gear_rows_of_owner(&mut db, user_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
@@ -437,6 +517,11 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_equipmentsets_of_owner)
         .service(read_rosters_of_coach)
         .service(read_rosters_containing_quizzer)
+        .service(read_team_rows)
+        .service(read_managed_tournament_rows)
+        .service(read_managed_tournamentgroup_rows)
+        .service(read_roster_quizzer_rows)
+        .service(read_gear_rows)
         .service(create)
         .service(create_roster)
         .service(update)

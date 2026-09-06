@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type GameWithNamesTS } from '../features/UserAPI';
 
 function formatDateRange(from: string, to: string): string {
@@ -9,6 +9,21 @@ function formatDateRange(from: string, to: string): string {
   const f = fmt(from);
   const t = fmt(to);
   return f === t ? f : `${f} – ${t}`;
+}
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// The 3 audit columns are appended only on the user's own profile.
+function auditColumns(showAuditColumns: boolean): ColumnDef<GameWithNamesTS>[] {
+  if (!showAuditColumns) return [];
+  return [
+    { header: 'Created By', render: (g: GameWithNamesTS) => <EntityLink to={`/user/${g.creator_id}/overview`}>{g.creator_name}</EntityLink> },
+    { header: 'Last Modified', render: (g: GameWithNamesTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span> },
+    { header: 'Last Modified By', render: (g: GameWithNamesTS) => <EntityLink to={`/user/${g.last_modified_user_id}/overview`}>{g.last_modified_user_name}</EntityLink> },
+  ];
 }
 
 function linkStyle(): React.CSSProperties {
@@ -93,10 +108,12 @@ export default function UserGamesAsContentJudgeTable({
   userId,
   showCreateButton = false,
   showDeleteButton = false,
+  showAuditColumns = false,
 }: {
   userId: string;
   showCreateButton?: boolean;
   showDeleteButton?: boolean;
+  showAuditColumns?: boolean;
 }) {
   const [games, setGames] = useState<GameWithNamesTS[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +161,7 @@ export default function UserGamesAsContentJudgeTable({
       entityLabel="Game"
       showCreateButton={showCreateButton}
       showDeleteButton={showDeleteButton}
-      columns={columns}
+      columns={[...columns, ...auditColumns(showAuditColumns)]}
       rows={games}
       totalCount={totalCount}
       getId={(g) => g.gid}

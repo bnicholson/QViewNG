@@ -100,14 +100,14 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
       {props.childRoute === 'permissions'      && (canViewPrivate ? <UserProfilePermissionsPage userId={user_id} /> : null)}
       {props.childRoute === 'change-password'  && (canViewPrivate ? <UserProfileChangePasswordPage /> : null)}
       {props.childRoute === 'sessions'         && (canViewPrivate ? <UserProfileSessionsPage /> : null)}
-      {props.childRoute === 'teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} />}
+      {props.childRoute === 'teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
       {props.childRoute === 'my-rosters' && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} isTournamentManager={isTournamentManager} isSuperUser={isSuperUser} targetIsSuperUser={targetIsSuperUser ?? false} targetIsTournamentManager={targetIsTournamentManager} />}
-      {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} isSuperUser={isSuperUser} targetIsTournamentManager={targetIsTournamentManager} />}
+      {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+      {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+      {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+      {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+      {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} isTournamentManager={isTournamentManager} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} targetIsSuperUser={targetIsSuperUser ?? false} targetIsTournamentManager={targetIsTournamentManager} />}
+      {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} targetIsTournamentManager={targetIsTournamentManager} />}
     </ProfileLayout>
   )
 }

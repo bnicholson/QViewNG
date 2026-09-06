@@ -33,6 +33,8 @@ import {
   type GearType,
 } from '../features/EquipmentSetAPI'
 import { GearItemEditorDialog } from '../components/GearItemEditorDialog'
+import { EntityLink } from '../components/DataTableTemplate'
+import { UserAPI, type UserGearRowTS } from '../features/UserAPI'
 import { GearSetEditorDialog } from '../components/GearSetEditorDialog'
 import { ConfirmDialog, confirmDialogDefaultState } from '../components/ConfirmDialog'
 
@@ -162,6 +164,14 @@ function getGearInfo(detail: EquipmentDetail, dbo: EquipmentDboTS): string {
 
 // ── Gear table ────────────────────────────────────────────────────────────────
 
+interface GearAudit {
+  creator_id: string;
+  creator_name: string;
+  updated_at: string;
+  last_modified_user_id: string;
+  last_modified_user_name: string;
+}
+
 function GearTable({
   rows,
   gearSets,
@@ -169,6 +179,9 @@ function GearTable({
   onEdit,
   onDelete,
   onRefresh,
+  preloadedDetails,
+  auditByEquipId,
+  showAuditColumns = false,
 }: {
   rows: EquipmentDboTS[];
   gearSets: GearSetTS[];
@@ -176,20 +189,26 @@ function GearTable({
   onEdit: (dbo: EquipmentDboTS) => void;
   onDelete: (dbo: EquipmentDboTS) => void;
   onRefresh: () => void;
+  // When provided (e.g. by the single-call aggregate view), details are already loaded and the
+  // per-item detail fetch below is skipped. Audit columns render only when own-profile.
+  preloadedDetails?: Record<number, EquipmentDetail>;
+  auditByEquipId?: Record<number, GearAudit>;
+  showAuditColumns?: boolean;
 }) {
   const setById = Object.fromEntries(gearSets.map(s => [s.id, s]));
 
-  const [detailsByEquipId, setDetailsByEquipId] = useState<Record<number, EquipmentDetail>>({});
+  const [fetchedDetails, setFetchedDetails] = useState<Record<number, EquipmentDetail>>({});
+  const detailsByEquipId = preloadedDetails ?? fetchedDetails;
 
   useEffect(() => {
-    if (rows.length === 0) return;
+    if (preloadedDetails || rows.length === 0) return;
     Promise.all(rows.map(r => EquipmentSetAPI.getEquipmentDetail(r.id).catch(() => null)))
       .then(results => {
         const map: Record<number, EquipmentDetail> = {};
         rows.forEach((r, i) => { if (results[i]) map[r.id] = results[i]!; });
-        setDetailsByEquipId(map);
+        setFetchedDetails(map);
       });
-  }, [rows]);
+  }, [rows, preloadedDetails]);
 
   if (rows.length === 0) {
     return (
@@ -208,6 +227,9 @@ function GearTable({
             <TableCell>Info</TableCell>
             {showSetColumn && <TableCell>Gear Set</TableCell>}
             <TableCell>Added</TableCell>
+            {showAuditColumns && <TableCell>Created By</TableCell>}
+            {showAuditColumns && <TableCell>Last Modified</TableCell>}
+            {showAuditColumns && <TableCell>Last Modified By</TableCell>}
             <TableCell align="right">Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -245,6 +267,27 @@ function GearTable({
                     {new Date(row.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </Typography>
                 </TableCell>
+                {showAuditColumns && (
+                  <TableCell>
+                    {auditByEquipId?.[row.id]
+                      ? <EntityLink to={`/user/${auditByEquipId[row.id].creator_id}/overview`}>{auditByEquipId[row.id].creator_name}</EntityLink>
+                      : <Typography variant="body2" color="text.secondary">—</Typography>}
+                  </TableCell>
+                )}
+                {showAuditColumns && (
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {auditByEquipId?.[row.id] ? new Date(auditByEquipId[row.id].updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+                    </Typography>
+                  </TableCell>
+                )}
+                {showAuditColumns && (
+                  <TableCell>
+                    {auditByEquipId?.[row.id]
+                      ? <EntityLink to={`/user/${auditByEquipId[row.id].last_modified_user_id}/overview`}>{auditByEquipId[row.id].last_modified_user_name}</EntityLink>
+                      : <Typography variant="body2" color="text.secondary">—</Typography>}
+                  </TableCell>
+                )}
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                     {showSetColumn && (
@@ -273,34 +316,76 @@ function GearTable({
 
 // ── All Gear panel ────────────────────────────────────────────────────────────
 
+// Reconstruct the EquipmentDbo shape GearTable expects from a single-call gear row: set the one
+// type id (from the embedded detail) so detectGearType resolves.
+function userGearRowToDbo(row: UserGearRowTS): EquipmentDboTS {
+  const dbo: EquipmentDboTS = {
+    id: row.id,
+    computerid: null, jumppadid: null, interfaceboxid: null, monitorid: null,
+    microphonerecorderid: null, projectorid: null, powerstripid: null, extensioncordid: null,
+    misc_note: row.misc_note,
+    equipmentsetid: row.equipmentsetid,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+  const d = row.detail as any;
+  if (d?.Computer) dbo.computerid = d.Computer.computerid ?? row.id;
+  else if (d?.JumpPad) dbo.jumppadid = d.JumpPad.jumppadid ?? row.id;
+  else if (d?.InterfaceBox) dbo.interfaceboxid = d.InterfaceBox.interfaceboxid ?? row.id;
+  else if (d?.Monitor) dbo.monitorid = d.Monitor.monitorid ?? row.id;
+  else if (d?.MicrophoneRecorder) dbo.microphonerecorderid = d.MicrophoneRecorder.microphonerecorderid ?? row.id;
+  else if (d?.Projector) dbo.projectorid = d.Projector.projectorid ?? row.id;
+  else if (d?.PowerStrip) dbo.powerstripid = d.PowerStrip.powerstripid ?? row.id;
+  else if (d?.ExtensionCord) dbo.extensioncordid = d.ExtensionCord.extensioncordid ?? row.id;
+  return dbo;
+}
+
 function AllGearPanel({
+  userId,
   gearSets,
   loading,
   onEdit,
   onDelete,
   onRefresh,
+  showAuditColumns = false,
 }: {
+  userId: string;
   gearSets: GearSetTS[];
   loading: boolean;
   onEdit: (dbo: EquipmentDboTS) => void;
   onDelete: (dbo: EquipmentDboTS) => void;
   onRefresh: () => void;
+  showAuditColumns?: boolean;
 }) {
-  const [allRows, setAllRows] = useState<EquipmentDboTS[]>([]);
+  const [rows, setRows] = useState<EquipmentDboTS[]>([]);
+  const [details, setDetails] = useState<Record<number, EquipmentDetail>>({});
+  const [audit, setAudit] = useState<Record<number, GearAudit>>({});
   const [innerLoading, setInnerLoading] = useState(false);
 
+  // One scoped call carries every gear item with its detail + audit already resolved.
   const load = useCallback(async () => {
-    if (gearSets.length === 0) { setAllRows([]); return; }
     setInnerLoading(true);
     try {
-      const perSet = await Promise.all(gearSets.map(s => EquipmentSetAPI.getEquipmentInSet(s.id)));
-      setAllRows(perSet.flat());
+      const { items } = await UserAPI.getGearRows(userId, 0, 500);
+      setRows(items.map(userGearRowToDbo));
+      const d: Record<number, EquipmentDetail> = {};
+      const a: Record<number, GearAudit> = {};
+      for (const r of items) {
+        if (r.detail) d[r.id] = r.detail as EquipmentDetail;
+        a[r.id] = {
+          creator_id: r.creator_id, creator_name: r.creator_name,
+          updated_at: r.updated_at,
+          last_modified_user_id: r.last_modified_user_id, last_modified_user_name: r.last_modified_user_name,
+        };
+      }
+      setDetails(d);
+      setAudit(a);
     } catch {
       console.error('Failed to load all gear');
     } finally {
       setInnerLoading(false);
     }
-  }, [gearSets]);
+  }, [userId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -318,12 +403,15 @@ function AllGearPanel({
         Use the <DriveFileMoveIcon sx={{ fontSize: 14, verticalAlign: 'middle' }} /> button on any row to move gear between sets.
       </Typography>
       <GearTable
-        rows={allRows}
+        rows={rows}
         gearSets={gearSets}
         showSetColumn
         onEdit={onEdit}
         onDelete={onDelete}
         onRefresh={handleRefresh}
+        preloadedDetails={details}
+        auditByEquipId={audit}
+        showAuditColumns={showAuditColumns}
       />
     </Box>
   );
@@ -451,8 +539,8 @@ function GearSetPanel({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export const UserProfileAsCoachGearPage = (props: { userId: string; isSuperUser: boolean }) => {
-  const { userId } = props;
+export const UserProfileAsCoachGearPage = (props: { userId: string; isSuperUser: boolean; isOwnProfile?: boolean }) => {
+  const { userId, isOwnProfile = false } = props;
 
   const [gearSets, setGearSets] = useState<GearSetTS[]>([]);
   const [loading, setLoading] = useState(false);
@@ -591,11 +679,13 @@ export const UserProfileAsCoachGearPage = (props: { userId: string; isSuperUser:
       {/* All Gear tab */}
       {tabIndex === 0 && (
         <AllGearPanel
+          userId={userId}
           gearSets={gearSets}
           loading={loading}
           onEdit={handleEditGear}
           onDelete={handleDeleteGear}
           onRefresh={() => setSetRefreshKey(k => k + 1)}
+          showAuditColumns={isOwnProfile}
         />
       )}
 

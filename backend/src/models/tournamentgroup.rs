@@ -149,6 +149,61 @@ pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Tournam
     tournamentgroups.filter(tgid.eq(item_id)).first::<TournamentGroup>(db)
 }
 
+/// One fully-formed row of the user's "Managed Tournament Groups" data table: the group plus the
+/// display names of its creator and last-modifier. Populated in a single API call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct UserManagedTournamentGroupRow {
+    pub tgid: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub creator_id: Uuid,
+    pub creator_name: String,
+    pub last_modified_user_id: Uuid,
+    pub last_modified_user_name: String,
+}
+
+/// Returns one page of the tournament groups owned by `user_id` (enriched with creator +
+/// last-modifier display names) plus the total count — a single scoped, paginated call.
+pub fn read_managed_tournamentgroup_rows_of_user(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<UserManagedTournamentGroupRow>, i64)> {
+    use crate::schema::tournamentgroups::dsl::*;
+    let total: i64 = tournamentgroups.filter(owner_id.eq(user_id)).count().get_result(db)?;
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let list: Vec<TournamentGroup> = tournamentgroups
+        .filter(owner_id.eq(user_id))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<TournamentGroup>(db)?;
+    let mut ids: Vec<Uuid> = list.iter().map(|g| g.creator_id).collect();
+    ids.extend(list.iter().map(|g| g.last_modified_user));
+    let name_by_id = crate::models::user::read_display_names(db, &ids)?;
+    let name_of = |id: Uuid| name_by_id.get(&id).cloned().unwrap_or_else(|| id.to_string());
+    let rows = list
+        .into_iter()
+        .map(|g| UserManagedTournamentGroupRow {
+            creator_name: name_of(g.creator_id),
+            last_modified_user_name: name_of(g.last_modified_user),
+            tgid: g.tgid,
+            name: g.name,
+            description: g.description,
+            created_at: g.created_at,
+            updated_at: g.updated_at,
+            creator_id: g.creator_id,
+            last_modified_user_id: g.last_modified_user,
+        })
+        .collect();
+    Ok((rows, total))
+}
+
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<TournamentGroup>> {
     use crate::schema::tournamentgroups::dsl::*;
     tournamentgroups

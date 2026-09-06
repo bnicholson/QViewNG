@@ -182,6 +182,7 @@ async fn create(
     };
 
     item.last_modified_user = user_ctx.user_id;
+    item.creator_id = user_ctx.user_id;
     let result: QueryResult<Game> = models::game::create(&mut conn, &item);
 
     let response: EntityResponse<Game> = process_response(result, "post");

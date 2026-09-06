@@ -515,6 +515,78 @@ pub fn read_all_tournaments_where_user_is_admin(db: &mut database::Connection, a
         .load::<Tournament>(db)
 }
 
+/// One fully-formed row of the user's "Managed Tournaments" data table: the tournament plus the
+/// display names of its creator and last-modifier. Populated in a single API call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct UserManagedTournamentRow {
+    pub tid: Uuid,
+    pub tname: String,
+    pub venue: String,
+    pub city: String,
+    pub state: String,
+    pub country: String,
+    #[schema(value_type = String, format = Date)]
+    pub fromdate: NaiveDate,
+    #[schema(value_type = String, format = Date)]
+    pub todate: NaiveDate,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub creator_id: Uuid,
+    pub creator_name: String,
+    pub last_modified_user_id: Uuid,
+    pub last_modified_user_name: String,
+}
+
+/// Returns one page of the tournaments owned by `user_id` (enriched with creator + last-modifier
+/// display names) plus the total count — a single scoped, paginated call for the profile table.
+pub fn read_managed_tournament_rows_of_user(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<UserManagedTournamentRow>, i64)> {
+    let total: i64 = {
+        use crate::schema::tournaments::dsl::*;
+        tournaments.filter(owner_id.eq(user_id)).count().get_result(db)?
+    };
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let list: Vec<Tournament> = {
+        use crate::schema::tournaments::dsl::*;
+        tournaments
+            .filter(owner_id.eq(user_id))
+            .order(todate.desc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Tournament>(db)?
+    };
+    let mut ids: Vec<Uuid> = list.iter().map(|t| t.creator_id).collect();
+    ids.extend(list.iter().map(|t| t.last_modified_user));
+    let name_by_id = crate::models::user::read_display_names(db, &ids)?;
+    let name_of = |id: Uuid| name_by_id.get(&id).cloned().unwrap_or_else(|| id.to_string());
+    let rows = list
+        .into_iter()
+        .map(|t| UserManagedTournamentRow {
+            creator_name: name_of(t.creator_id),
+            last_modified_user_name: name_of(t.last_modified_user),
+            tid: t.tid,
+            tname: t.tname,
+            venue: t.venue,
+            city: t.city,
+            state: t.state,
+            country: t.country,
+            fromdate: t.fromdate,
+            todate: t.todate,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+            creator_id: t.creator_id,
+            last_modified_user_id: t.last_modified_user,
+        })
+        .collect();
+    Ok((rows, total))
+}
+
 pub fn read_all_tournaments_where_user_is_admin_or_owner(db: &mut database::Connection, user_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
@@ -537,6 +609,67 @@ pub fn read_all_tournaments_where_user_is_admin_or_owner(db: &mut database::Conn
         .limit(page_size)
         .offset(offset_val)
         .load::<Tournament>(db)
+}
+
+/// Enriched row for the user's "As Admin" table: the tournament fields the table shows plus the
+/// display names of its creator and last-modifier.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct AdminTournamentRow {
+    pub tid: Uuid,
+    pub tname: String,
+    pub organization: String,
+    #[schema(value_type = String, format = Date)]
+    pub fromdate: NaiveDate,
+    #[schema(value_type = String, format = Date)]
+    pub todate: NaiveDate,
+    pub venue: String,
+    pub city: String,
+    pub state: String,
+    pub country: String,
+    pub owner_id: Uuid,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub creator_id: Uuid,
+    pub creator_name: String,
+    pub last_modified_user_id: Uuid,
+    pub last_modified_user_name: String,
+}
+
+/// Same set as `read_all_tournaments_where_user_is_admin_or_owner`, enriched with creator +
+/// last-modifier display names for the profile table's audit columns.
+pub fn read_admin_tournament_rows_of_user(
+    db: &mut database::Connection,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<AdminTournamentRow>> {
+    let list = read_all_tournaments_where_user_is_admin_or_owner(db, user_id, pagination)?;
+    let mut ids: Vec<Uuid> = list.iter().map(|t| t.creator_id).collect();
+    ids.extend(list.iter().map(|t| t.last_modified_user));
+    let name_by_id = crate::models::user::read_display_names(db, &ids)?;
+    let name_of = |id: Uuid| name_by_id.get(&id).cloned().unwrap_or_else(|| id.to_string());
+    Ok(list
+        .into_iter()
+        .map(|t| AdminTournamentRow {
+            creator_name: name_of(t.creator_id),
+            last_modified_user_name: name_of(t.last_modified_user),
+            tid: t.tid,
+            tname: t.tname,
+            organization: t.organization,
+            fromdate: t.fromdate,
+            todate: t.todate,
+            venue: t.venue,
+            city: t.city,
+            state: t.state,
+            country: t.country,
+            owner_id: t.owner_id,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+            creator_id: t.creator_id,
+            last_modified_user_id: t.last_modified_user,
+        })
+        .collect())
 }
 
 pub fn read_all_tournaments_of_tournamentgroup(db: &mut database::Connection, tg_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
