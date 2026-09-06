@@ -59,6 +59,7 @@ export interface GameRowTS {
   ignore: boolean;
   created_at: string;
   updated_at: string;
+  last_modified_user_name: string;
 }
 
 export interface PagedGameRows {

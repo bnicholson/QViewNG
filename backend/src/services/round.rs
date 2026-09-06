@@ -97,7 +97,7 @@ async fn read_game_rows(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewRound>,
+    Json(mut item): Json<NewRound>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -143,6 +143,7 @@ async fn create(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    item.last_modified_user = user_ctx.user_id;
     let result: QueryResult<Round> = models::round::create(&mut conn, &item);
 
     let response: EntityResponse<Round> = process_response(result, "post");
@@ -203,7 +204,7 @@ async fn update(
 
     tracing::debug!("{} Round model update {:?} {:?}", line!(), round_id, item);
 
-    let result = models::round::update(&mut conn, round_id, &item);
+    let result = models::round::update(&mut conn, round_id, &item, user_ctx.user_id);
 
     let response = process_response(result, "put");
 

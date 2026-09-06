@@ -51,7 +51,7 @@ async fn pingmsg_records_checkin_and_resend() {
     // Flag a resend request on the game so the ping should emit a Resend command.
     let mut req_changes = backend::models::game::GameChangeset::empty();
     req_changes.resend_gameevents_request_ts = Some(chrono::Utc::now());
-    backend::models::game::update(&mut conn, game.gid, &req_changes).unwrap();
+    backend::models::game::update(&mut conn, game.gid, &req_changes, game.last_modified_user).unwrap();
 
     // The game's events are incomplete (a resend is only issued while data has gaps).
     seed_gap_events(&mut conn, game.gid);

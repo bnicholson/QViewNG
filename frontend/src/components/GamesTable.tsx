@@ -88,6 +88,12 @@ function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): 
           <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>
         ),
       },
+      {
+        header: 'Last Modified By',
+        render: (g: GameRowTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{g.last_modified_user_name}</span>
+        ),
+      },
     ] : []),
   ];
 }

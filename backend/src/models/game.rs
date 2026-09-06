@@ -25,7 +25,8 @@ pub struct GameBuilder {
     rightteamid: Option<Uuid>,
     quizmasterid: Option<Uuid>,
     contentjudgeid: Option<Uuid>,
-    clientkey: Option<String>
+    clientkey: Option<String>,
+    last_modified_user: Option<Uuid>
 }
 
 impl GameBuilder {
@@ -43,7 +44,8 @@ impl GameBuilder {
             rightteamid: None,
             quizmasterid: None,
             contentjudgeid: None,
-            clientkey: None
+            clientkey: None,
+            last_modified_user: None
         }
     }
     pub fn new_default(room_id: Uuid, round_id: Uuid) -> Self {
@@ -60,11 +62,16 @@ impl GameBuilder {
             rightteamid: None,
             quizmasterid: None,
             contentjudgeid: None,
-            clientkey: Some(String::new())
+            clientkey: Some(String::new()),
+            last_modified_user: None
         }
     }
     pub fn set_org(mut self, val: String) -> Self {
         self.org = Some(val);
+        self
+    }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
         self
     }
     pub fn set_tournamentid(mut self, val: Option<Uuid>) -> Self {
@@ -161,7 +168,8 @@ impl GameBuilder {
                         rightteamid: self.rightteamid.unwrap(),
                         quizmasterid: self.quizmasterid.unwrap(),
                         contentjudgeid: self.contentjudgeid,
-                        clientkey: self.clientkey.unwrap_or_default()
+                        clientkey: self.clientkey.unwrap_or_default(),
+                        last_modified_user: self.last_modified_user.unwrap_or(self.quizmasterid.unwrap())
                     }
                 )
             }
@@ -214,7 +222,8 @@ pub struct Game {
     pub clientkey: String,
     pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
     pub resend_gameevents_response: Option<String>,
-    pub resend_request_sent_ts: Option<DateTime<Utc>>
+    pub resend_request_sent_ts: Option<DateTime<Utc>>,
+    pub last_modified_user: Uuid
 }
 
 #[derive(
@@ -238,7 +247,9 @@ pub struct NewGame {
     pub rightteamid: Uuid,
     pub quizmasterid: Uuid,
     pub contentjudgeid: Option<Uuid>,
-    pub clientkey: String
+    pub clientkey: String,
+    #[serde(default)]
+    pub last_modified_user: Uuid
 }
 
 
@@ -482,6 +493,7 @@ pub struct GameRow {
     pub created_at: DateTime<Utc>,
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
+    pub last_modified_user_name: String,
 }
 
 /// Numbers every game within its room by scheduled start time (unscheduled sorts last, gid as
@@ -566,6 +578,8 @@ fn build_game_rows(
         use crate::schema::teams::dsl::*;
         teams.filter(teamid.eq_any(&team_ids)).select((teamid, name)).load::<(Uuid, String)>(db)?.into_iter().collect()
     };
+    let modifier_ids: Vec<Uuid> = page_games.iter().map(|g| g.last_modified_user).collect();
+    let modifier_name_by_id = crate::models::user::read_display_names(db, &modifier_ids)?;
 
     let rows = page_games
         .into_iter()
@@ -587,6 +601,10 @@ fn build_game_rows(
             ignore: g.ignore,
             created_at: g.created_at,
             updated_at: g.updated_at,
+            last_modified_user_name: modifier_name_by_id
+                .get(&g.last_modified_user)
+                .cloned()
+                .unwrap_or_else(|| g.last_modified_user.to_string()),
         })
         .collect();
 
@@ -881,12 +899,13 @@ pub fn request_gameevents_resend(db_conn: &mut database::Connection, item_id: Uu
         .execute(db_conn)
 }
 
-pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset) -> QueryResult<Game> {
+pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset, modified_by: Uuid) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
     diesel::update(games.find(item_id))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .returning(Game::as_returning())
         .get_result(db_conn)

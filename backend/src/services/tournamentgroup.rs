@@ -100,6 +100,7 @@ async fn create(
         description: payload.description,
         creator_id: user_ctx.user_id,
         owner_id: user_ctx.user_id,
+        last_modified_user: user_ctx.user_id,
     };
 
     let result: QueryResult<TournamentGroup> = models::tournamentgroup::create(&mut db, &item);
@@ -162,7 +163,14 @@ async fn update(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let result = models::tournamentgroup::update(&mut db, item_id.into_inner(), &item);
+    let modified_by = {
+        let extensions = req.extensions();
+        match extensions.get::<UserContext>() {
+            Some(u) => u.user_id,
+            None => return Ok(HttpResponse::Unauthorized().finish()),
+        }
+    };
+    let result = models::tournamentgroup::update(&mut db, item_id.into_inner(), &item, modified_by);
 
     let response = process_response(result, "put");
     

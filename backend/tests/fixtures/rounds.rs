@@ -132,7 +132,8 @@ pub fn new_round(did: Uuid, name: &str, sched_start_time: DateTime<Utc>) -> NewR
     NewRound {
         did: did,
         name: name.to_string(),
-        scheduled_start_time: Some(sched_start_time)
+        scheduled_start_time: Some(sched_start_time),
+        last_modified_user: uuid::Uuid::nil()
     }
 }
 

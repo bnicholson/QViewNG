@@ -76,6 +76,7 @@ async fn create_works() {
     );
 
     payload = RoundBuilder::new_default(division.did)
+        .set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2056, 5, 23, 00, 00, 0).unwrap())
         .build()
         .unwrap();
@@ -98,6 +99,7 @@ async fn create_works() {
     );
 
     payload = RoundBuilder::new_default(division.did)
+        .set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2057, 5, 23, 00, 00, 0).unwrap())
         .build()
         .unwrap();
@@ -120,6 +122,7 @@ async fn create_works() {
     );
 
     payload = RoundBuilder::new_default(division.did)
+        .set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2058, 5, 23, 00, 00, 0).unwrap())
         .build()
         .unwrap();

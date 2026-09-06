@@ -23,11 +23,24 @@ export interface PagedDivisions {
   items: DivisionTS[];
 }
 
+/** Enriched division row: the division plus the display name of the user who last modified it. */
+export interface DivisionRowTS extends DivisionTS {
+  last_modified_user_name: string;
+}
+
+export interface PagedDivisionRows {
+  count: number;
+  items: DivisionRowTS[];
+}
+
 export const DivisionAPI = {
   get: async (page: number, size: number): Promise<PagedDivisions> =>
     (await fetch(`/api/divisions?page=${page}&page_size=${size}`)).json(),
   getByTournament: async (tid: string, page: number, size: number): Promise<DivisionTS[]> =>
     (await fetch(`/api/tournaments/${tid}/divisions?page=${page}&page_size=${size}`)).json(),
+  /** One page of the tournament's enriched division rows (+ last-modified user name), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedDivisionRows> =>
+    (await fetch(`/api/tournaments/${tid}/division-rows?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<DivisionTS> => {
     const response = await fetch(`/api/divisions/${id}`);
     if (!response.ok) throw new Error(`Division not found (${response.status})`);

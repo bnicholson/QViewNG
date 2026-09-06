@@ -33,6 +33,7 @@ pub struct TournamentBuilder {
     is_public: bool,
     registration_open_date: Option<chrono::naive::NaiveDate>,
     registration_close_date: Option<chrono::naive::NaiveDate>,
+    last_modified_user: Option<Uuid>,
 }
 
 impl TournamentBuilder {
@@ -59,6 +60,7 @@ impl TournamentBuilder {
             is_public: false,
             registration_open_date: None,
             registration_close_date: None,
+            last_modified_user: None,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -85,6 +87,7 @@ impl TournamentBuilder {
             is_public: false,
             registration_open_date: None,
             registration_close_date: None,
+            last_modified_user: None,
         }
     }
 
@@ -172,6 +175,10 @@ impl TournamentBuilder {
         self.registration_close_date = Some(registration_close_date);
         self
     }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
+        self
+    }
     fn validate_all_are_some(&self) -> Result<bool, Vec<String>> {
 
         let mut errors = Vec::new();
@@ -251,6 +258,7 @@ impl TournamentBuilder {
                     is_public: self.is_public,
                     registration_open_date: self.registration_open_date,
                     registration_close_date: self.registration_close_date,
+                    last_modified_user: self.last_modified_user.unwrap_or(self.owner_id.unwrap()),
                 })
             }
         }
@@ -313,6 +321,7 @@ pub struct Tournament {
     pub registration_open_date: Option<chrono::naive::NaiveDate>,
     #[schema(value_type = Option<String>, format = Date)]
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
+    pub last_modified_user: Uuid,
 }
 
 #[derive(
@@ -347,6 +356,7 @@ pub struct NewTournament {
     pub is_public: bool,
     pub registration_open_date: Option<chrono::naive::NaiveDate>,
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
+    pub last_modified_user: Uuid,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -553,12 +563,13 @@ pub fn read_all_tournaments_of_tournamentgroup(db: &mut database::Connection, tg
         .load::<Tournament>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentChangeset) -> QueryResult<Tournament> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentChangeset, modified_by: Uuid) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
     diesel::update(tournaments.filter(tid.eq(item_id)))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .get_result(db)
 }

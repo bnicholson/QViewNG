@@ -15,6 +15,7 @@ pub struct TournamentGroupBuilder {
     description: Option<String>,
     creator_id: Option<Uuid>,
     owner_id: Option<Uuid>,
+    last_modified_user: Option<Uuid>,
 }
 
 impl TournamentGroupBuilder {
@@ -24,6 +25,7 @@ impl TournamentGroupBuilder {
             description: None,
             creator_id: None,
             owner_id: None,
+            last_modified_user: None,
         }
     }
     pub fn new_default(tournamentgroup_name: &str) -> Self {
@@ -32,6 +34,7 @@ impl TournamentGroupBuilder {
             description: Some("".to_string()),
             creator_id: None,
             owner_id: None,
+            last_modified_user: None,
         }
     }
     pub fn set_creator_id(mut self, id: Uuid) -> Self {
@@ -40,6 +43,10 @@ impl TournamentGroupBuilder {
     }
     pub fn set_owner_id(mut self, id: Uuid) -> Self {
         self.owner_id = Some(id);
+        self
+    }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
         self
     }
     pub fn set_name(mut self, tournamentgroup_name: String) -> Self {
@@ -60,6 +67,7 @@ impl TournamentGroupBuilder {
             description: self.description,
             creator_id: self.creator_id.unwrap(),
             owner_id: self.owner_id.unwrap(),
+            last_modified_user: self.last_modified_user.unwrap_or(self.owner_id.unwrap()),
         })
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<TournamentGroup> {
@@ -89,6 +97,7 @@ pub struct TournamentGroup {
     pub updated_at: DateTime<Utc>,              // When was this tournamentgroup last updated
     pub creator_id: Uuid,                      // User who created this group
     pub owner_id: Uuid,                        // User who owns this group
+    pub last_modified_user: Uuid,
 }
 
 #[derive(
@@ -103,6 +112,7 @@ pub struct NewTournamentGroup {
     pub description: Option<String>,            // Description of the tournamentgroup
     pub creator_id: Uuid,
     pub owner_id: Uuid,
+    pub last_modified_user: Uuid,
 }
 
 /// Payload accepted from the frontend (no creator_id/owner_id — injected server-side).
@@ -180,12 +190,57 @@ pub fn read_all_tournamentgroups_of_tournament(db: &mut database::Connection, to
         .load::<TournamentGroup>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentGroupChangeset) -> QueryResult<TournamentGroup> {
+/// One fully-formed row of the tournament-groups data table: the group plus the display name of
+/// the user who last modified it. Populated in a single API call.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, utoipa::ToSchema)]
+pub struct TournamentGroupRow {
+    pub tgid: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub last_modified_user_name: String,
+}
+
+/// Returns one page of tournament-group rows for the tournament (ordered by name) plus the total count.
+pub fn read_tournamentgroup_rows_of_tournament(
+    db: &mut database::Connection,
+    tour_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<TournamentGroupRow>, i64)> {
+    let total: i64 = {
+        use crate::schema::tournamentgroups_tournaments::dsl::*;
+        tournamentgroups_tournaments.filter(tournamentid.eq(tour_id)).count().get_result(db)?
+    };
+    let list = read_all_tournamentgroups_of_tournament(db, tour_id, pagination)?;
+    let name_ids: Vec<Uuid> = list.iter().map(|g| g.last_modified_user).collect();
+    let name_by_id = crate::models::user::read_display_names(db, &name_ids)?;
+    let rows = list
+        .into_iter()
+        .map(|g| TournamentGroupRow {
+            last_modified_user_name: name_by_id
+                .get(&g.last_modified_user)
+                .cloned()
+                .unwrap_or_else(|| g.last_modified_user.to_string()),
+            tgid: g.tgid,
+            name: g.name,
+            description: g.description,
+            created_at: g.created_at,
+            updated_at: g.updated_at,
+        })
+        .collect();
+    Ok((rows, total))
+}
+
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentGroupChangeset, modified_by: Uuid) -> QueryResult<TournamentGroup> {
     use crate::schema::tournamentgroups::dsl::*;
     diesel::update(tournamentgroups.filter(tgid.eq(item_id)))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .get_result(db)
 }

@@ -114,7 +114,7 @@ async fn request_resend(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewGame>,
+    Json(mut item): Json<NewGame>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -168,7 +168,7 @@ async fn create(
     }
 
     // Inherit quizmaster and content judge from the room if the room has them set.
-    let item = if let Ok(room) = models::room::read(&mut conn, item.roomid) {
+    let mut item = if let Ok(room) = models::room::read(&mut conn, item.roomid) {
         let mut item = item;
         if let Some(qm_id) = room.quizmaster_id {
             item.quizmasterid = qm_id;
@@ -181,6 +181,7 @@ async fn create(
         item
     };
 
+    item.last_modified_user = user_ctx.user_id;
     let result: QueryResult<Game> = models::game::create(&mut conn, &item);
 
     let response: EntityResponse<Game> = process_response(result, "post");
@@ -237,7 +238,7 @@ async fn update(
 
     tracing::debug!("{} Game model update {:?} {:?}", line!(), game_id, item);
 
-    let result = models::game::update(&mut conn, game_id, &item);
+    let result = models::game::update(&mut conn, game_id, &item, user_ctx.user_id);
 
     let response = process_response(result, "put");
 

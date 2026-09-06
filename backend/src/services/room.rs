@@ -304,7 +304,7 @@ async fn read_equipmentregistrations(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewRoom>,
+    Json(mut item): Json<NewRoom>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -341,6 +341,7 @@ async fn create(
 
     tracing::debug!("{} Room model create {:?}", line!(), item);
 
+    item.last_modified_user = user_ctx.user_id;
     let result: QueryResult<Room> = models::room::create(&mut conn, &item);
 
     let response: EntityResponse<Room> = process_response(result, "post");
@@ -396,7 +397,7 @@ async fn update(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    let result = models::room::update(&mut conn, room_id, &item);
+    let result = models::room::update(&mut conn, room_id, &item, user_ctx.user_id);
 
     let response = process_response(result, "put");
 

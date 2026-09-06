@@ -207,9 +207,11 @@ async fn update_works() {
         "description": &new_description
     });
     
+    let update_token = make_token(tournamentgroup.owner_id, vec!["member".to_string()], vec!["tournamentgroup:update".to_string()]);
     let put_uri = format!("/api/tournamentgroups/{}", tournamentgroup.tgid);
     let put_req = test::TestRequest::put()
         .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", update_token)))
         .set_json(&put_payload)
         .to_request();
 

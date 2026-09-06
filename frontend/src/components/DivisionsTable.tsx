@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
-import { DivisionAPI, type DivisionTS } from "../features/DivisionAPI";
+import { DivisionAPI, type DivisionTS, type DivisionRowTS } from "../features/DivisionAPI";
 import { DivisionEditorDialog } from "./DivisionEditorDialog";
 
 function formatDate(iso: string | null | undefined): string {
@@ -13,7 +13,7 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function divisionColumns(tid: string, showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<DivisionTS>[] {
+function divisionColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<DivisionRowTS>[] {
   return [
     {
       header: "Name",
@@ -28,13 +28,9 @@ function divisionColumns(tid: string, showSensitiveColumns: boolean, showAuditCo
         </Link>
       ),
     },
-    // {
-    //   header: "Breadcrumb",
-    //   render: (d) => d.breadcrumb,
-    // },
     ...(showSensitiveColumns ? [{
       header: "Is Public",
-      render: (d: DivisionTS) => <BoolBadge value={d.is_public} />,
+      render: (d: DivisionRowTS) => <BoolBadge value={d.is_public} />,
     }] : []),
     {
       header: "Short Info",
@@ -43,14 +39,20 @@ function divisionColumns(tid: string, showSensitiveColumns: boolean, showAuditCo
     ...(showAuditColumns ? [
       {
         header: "Created",
-        render: (d: DivisionTS) => (
+        render: (d: DivisionRowTS) => (
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(d.created_at)}</span>
         ),
       },
       {
         header: "Last Modified",
-        render: (d: DivisionTS) => (
+        render: (d: DivisionRowTS) => (
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(d.updated_at)}</span>
+        ),
+      },
+      {
+        header: "Last Modified By",
+        render: (d: DivisionRowTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{d.last_modified_user_name}</span>
         ),
       }
     ] : [])
@@ -58,7 +60,7 @@ function divisionColumns(tid: string, showSensitiveColumns: boolean, showAuditCo
 }
 
 export default function DivisionsTable({ tid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean }) {
-  const [divisions, setDivisions] = useState<DivisionTS[]>([]);
+  const [divisions, setDivisions] = useState<DivisionRowTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -68,12 +70,13 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
   pageSizeRef.current = pageSize;
 
   const loadDivisions = useCallback((p: number, ps: number) => {
-    DivisionAPI.getByTournament(tid, p, ps)
-      .then(result => {
+    setLoading(true);
+    DivisionAPI.getRowsByTournament(tid, p, ps)
+      .then(({ count, items }) => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
-        setDivisions(result);
+        setTotalCount(count);
+        setDivisions(items);
       })
       .catch(() => console.error("Failed to load divisions"))
       .finally(() => setLoading(false));
@@ -88,18 +91,13 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
   }, [pageSize, loadDivisions]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    if (newSize < pageSize && page === 0) {
-      setPageSize(newSize);
-      setDivisions(prev => prev.slice(0, newSize));
-    } else {
-      loadDivisions(0, newSize);
-    }
-  }, [pageSize, page, loadDivisions]);
+    loadDivisions(0, newSize);
+  }, [loadDivisions]);
 
-  const handleDelete = useCallback(async (row: DivisionTS): Promise<void> => {
+  const handleDelete = useCallback(async (row: DivisionRowTS): Promise<void> => {
     await DivisionAPI.delete(row.did);
-    setDivisions((prev) => prev.filter((d) => d.did !== row.did));
-  }, []);
+    loadDivisions(page, pageSize);
+  }, [loadDivisions, page, pageSize]);
 
   const handleSave = useCallback((_division: DivisionTS): void => {
     setEditorIsOpen(false);
@@ -109,14 +107,14 @@ export default function DivisionsTable({ tid, showCreateButton = true, showDelet
 
   return (
     <>
-      <DataTableTemplate<DivisionTS>
+      <DataTableTemplate<DivisionRowTS>
         loading={loading}
         key={tid}
         entityLabel="Division"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
-        columns={divisionColumns(tid, showSensitiveColumns, showAuditColumns)}
+        columns={divisionColumns(showSensitiveColumns, showAuditColumns)}
         rows={divisions}
         totalCount={totalCount}
         getId={(d) => d.did}

@@ -100,6 +100,7 @@ diesel::table! {
         shortinfo -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -253,6 +254,7 @@ diesel::table! {
         #[max_length = 256]
         resend_gameevents_response -> Nullable<Varchar>,
         resend_request_sent_ts -> Nullable<Timestamptz>,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -439,6 +441,7 @@ diesel::table! {
         #[max_length = 32]
         ping_host_ip -> Nullable<Varchar>,
         ping_last_checkin_ts -> Nullable<Timestamptz>,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -500,6 +503,7 @@ diesel::table! {
         scheduled_question_twenty_id -> Nullable<Uuid>,
         #[max_length = 64]
         name -> Varchar,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -562,6 +566,7 @@ diesel::table! {
         quizzer_four_id -> Nullable<Uuid>,
         quizzer_five_id -> Nullable<Uuid>,
         quizzer_six_id -> Nullable<Uuid>,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -576,6 +581,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         creator_id -> Uuid,
         owner_id -> Uuid,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -628,6 +634,7 @@ diesel::table! {
         zip_code -> Varchar,
         registration_open_date -> Nullable<Date>,
         registration_close_date -> Nullable<Date>,
+        last_modified_user -> Uuid,
     }
 }
 
@@ -685,6 +692,7 @@ diesel::table! {
 
 diesel::joinable!(activation_tokens -> users (user_id));
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
+diesel::joinable!(divisions -> users (last_modified_user));
 diesel::joinable!(equipment -> computers (computerid));
 diesel::joinable!(equipment -> equipmentsets (equipmentsetid));
 diesel::joinable!(equipment -> extensioncords (extensioncordid));
@@ -714,6 +722,7 @@ diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
 diesel::joinable!(rounds -> divisions (did));
+diesel::joinable!(rounds -> users (last_modified_user));
 diesel::joinable!(statsgroups -> divisions (division_id));
 diesel::joinable!(statsgroups -> tournaments (tournament_id));
 diesel::joinable!(teams -> divisions (did));

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
-import { RoomAPI, type RoomTS } from "../features/RoomAPI";
+import { RoomAPI, type RoomTS, type RoomRowTS } from "../features/RoomAPI";
 import { RoomEditorDialog } from "./RoomEditorDialog";
 
 function formatDate(iso: string | null | undefined): string {
@@ -13,7 +13,7 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function roomColumns(showAuditColumns: boolean): ColumnDef<RoomTS>[] {
+function roomColumns(showAuditColumns: boolean): ColumnDef<RoomRowTS>[] {
   return [
     {
       header: "Name",
@@ -31,18 +31,24 @@ function roomColumns(showAuditColumns: boolean): ColumnDef<RoomTS>[] {
     ...(showAuditColumns ? [
       {
         header: "Comments",
-        render: (r: RoomTS) => r.comments,
+        render: (r: RoomRowTS) => r.comments,
       },
       {
         header: "Created",
-        render: (r: RoomTS) => (
+        render: (r: RoomRowTS) => (
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.created_at)}</span>
         ),
       },
       {
         header: "Last Modified",
-        render: (r: RoomTS) => (
+        render: (r: RoomRowTS) => (
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.updated_at)}</span>
+        ),
+      },
+      {
+        header: "Last Modified By",
+        render: (r: RoomRowTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{r.last_modified_user_name}</span>
         ),
       },
     ] : []),
@@ -50,7 +56,7 @@ function roomColumns(showAuditColumns: boolean): ColumnDef<RoomTS>[] {
 }
 
 export default function RoomsTable({ tid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
-  const [rooms, setRooms] = useState<RoomTS[]>([]);
+  const [rooms, setRooms] = useState<RoomRowTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -60,12 +66,13 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
   pageSizeRef.current = pageSize;
 
   const loadRooms = useCallback((p: number, ps: number) => {
-    RoomAPI.getByTournament(tid, p, ps)
-      .then((result) => {
+    setLoading(true);
+    RoomAPI.getRowsByTournament(tid, p, ps)
+      .then(({ count, items }) => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
-        setRooms(result);
+        setTotalCount(count);
+        setRooms(items);
       })
       .catch(() => console.error("Failed to load rooms"))
       .finally(() => setLoading(false));
@@ -80,18 +87,13 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
   }, [pageSize, loadRooms]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    if (newSize < pageSize && page === 0) {
-      setPageSize(newSize);
-      setRooms(prev => prev.slice(0, newSize));
-    } else {
-      loadRooms(0, newSize);
-    }
-  }, [pageSize, page, loadRooms]);
+    loadRooms(0, newSize);
+  }, [loadRooms]);
 
-  const handleDelete = useCallback(async (row: RoomTS): Promise<void> => {
+  const handleDelete = useCallback(async (row: RoomRowTS): Promise<void> => {
     await RoomAPI.delete(row.roomid);
-    setRooms((prev) => prev.filter((r) => r.roomid !== row.roomid));
-  }, []);
+    loadRooms(page, pageSize);
+  }, [loadRooms, page, pageSize]);
 
   const handleSave = useCallback((_room: RoomTS): void => {
     setEditorIsOpen(false);
@@ -100,7 +102,7 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
 
   return (
     <>
-      <DataTableTemplate<RoomTS>
+      <DataTableTemplate<RoomRowTS>
         key={tid}
         entityLabel="Room"
         showCreateButton={showCreateButton}

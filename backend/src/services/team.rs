@@ -81,7 +81,7 @@ async fn read_games(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewTeam>,
+    Json(mut item): Json<NewTeam>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -143,6 +143,7 @@ async fn create(
         })));
     }
 
+    item.last_modified_user = user_ctx.user_id;
     let result: QueryResult<Team> = models::team::create(&mut conn, &item);
 
     let response: EntityResponse<Team> = process_response(result, "post");
@@ -224,7 +225,7 @@ async fn update(
 
     tracing::debug!("{} Team model update {:?} {:?}", line!(), team_id, item);
 
-    let result = models::team::update(&mut conn, team_id, &item);
+    let result = models::team::update(&mut conn, team_id, &item, user_ctx.user_id);
 
     let response = process_response(result, "put");
 

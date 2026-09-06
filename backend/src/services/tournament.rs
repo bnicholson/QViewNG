@@ -231,6 +231,38 @@ async fn read_divisions(
     }
 }
 
+/// Enriched, paginated division rows (division + last-modified user name) — one call per page.
+#[get("/{id}/division-rows")]
+async fn read_division_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::division::read_division_rows_of_tournament(&mut db, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Enriched, paginated room rows (room + last-modified user name) — one call per page.
+#[get("/{id}/room-rows")]
+async fn read_room_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::room::read_room_rows_of_tournament(&mut db, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/statsgroups")]
 async fn read_statsgroups(
     db: Data<Database>,
@@ -575,6 +607,22 @@ async fn read_tournamentgroups(
     }
 }
 
+/// Enriched, paginated tournament-group rows (group + last-modified user name) — one call per page.
+#[get("/{id}/tournamentgroup-rows")]
+async fn read_tournamentgroup_rows(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+    models::apicalllog::create(&mut conn, &req);
+    match models::tournamentgroup::read_tournamentgroup_rows_of_tournament(&mut conn, tour_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 // #[utoipa::path(
 //         post,
 //         path = "/tournaments",
@@ -634,6 +682,7 @@ async fn create(
         is_public: payload.is_public,
         registration_open_date: payload.registration_open_date,
         registration_close_date: payload.registration_close_date,
+        last_modified_user: user_ctx.user_id,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);
@@ -735,7 +784,8 @@ async fn update(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    let result = models::tournament::update(&mut db, item_id.into_inner(), &item);
+    let modified_by = user_ctx.user_id;
+    let result = models::tournament::update(&mut db, item_id.into_inner(), &item, modified_by);
 
     let response = process_response(result, "put");
     
@@ -835,6 +885,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_today)
         .service(read)
         .service(read_rooms)
+        .service(read_division_rows)
+        .service(read_room_rows)
         .service(read_rounds)
         .service(read_divisions)
         .service(read_statsgroups)
@@ -851,6 +903,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(import_gameevents_commit)
         .service(read_admins)
         .service(read_tournamentgroups)
+        .service(read_tournamentgroup_rows)
         .service(read_equipmentregistrations)
         .service(create)
         .service(add_admin)

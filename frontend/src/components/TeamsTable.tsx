@@ -47,6 +47,12 @@ function teamColumns(showAuditColumns: boolean): ColumnDef<TeamRowTS>[] {
           <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(t.updated_at)}</span>
         ),
       },
+      {
+        header: 'Last Modified By',
+        render: (t: TeamRowTS) => (
+          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{t.last_modified_user_name}</span>
+        ),
+      },
     ] : []),
   ];
 }

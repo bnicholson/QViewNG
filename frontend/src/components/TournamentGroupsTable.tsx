@@ -16,7 +16,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import SearchIcon from '@mui/icons-material/Search'
 import { Link } from 'react-router-dom'
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
-import { TournamentGroupAPI, type TournamentGroupTS } from '../features/TournamentGroupAPI'
+import { TournamentGroupAPI, type TournamentGroupTS, type TournamentGroupRowTS } from '../features/TournamentGroupAPI'
 import { TournamentGroupEditorDialog } from './TournamentGroupEditorDialog'
 import { useAuth } from '../hooks/useAuth'
 
@@ -86,12 +86,12 @@ function RemoveButton({ onRemove }: { onRemove: () => Promise<void> }) {
 }
 
 function groupColumns(
-  onEdit: (group: TournamentGroupTS) => void,
+  onEdit: (group: TournamentGroupRowTS) => void,
   canEdit: boolean,
   showRemoveButton: boolean,
-  onRemove: (group: TournamentGroupTS) => Promise<void>,
+  onRemove: (group: TournamentGroupRowTS) => Promise<void>,
   showAuditColumns: boolean,
-): ColumnDef<TournamentGroupTS>[] {
+): ColumnDef<TournamentGroupRowTS>[] {
   return [
     {
       header: 'Name',
@@ -113,16 +113,20 @@ function groupColumns(
     ...(showAuditColumns ? [
       {
         header: 'Created',
-        render: (g: TournamentGroupTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>,
+        render: (g: TournamentGroupRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.created_at)}</span>,
       },
       {
         header: 'Last Modified',
-        render: (g: TournamentGroupTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
+        render: (g: TournamentGroupRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{formatDate(g.updated_at)}</span>,
+      },
+      {
+        header: 'Last Modified By',
+        render: (g: TournamentGroupRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{g.last_modified_user_name}</span>,
       },
     ] : []),
     ...((canEdit || showRemoveButton) ? [{
       header: '',
-      render: (g: TournamentGroupTS) => (
+      render: (g: TournamentGroupRowTS) => (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
           {canEdit && (
             <IconButton size="small" onClick={() => onEdit(g)} aria-label="Edit tournament group">
@@ -146,13 +150,13 @@ interface Props {
 
 export default function TournamentGroupsTable({ tid, showCreateButton = true, showDeleteButton = true, canEdit = false, showAuditColumns = true }: Props) {
   const { session } = useAuth();
-  const [groups, setGroups] = useState<TournamentGroupTS[]>([]);
+  const [groups, setGroups] = useState<TournamentGroupRowTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<TournamentGroupTS | undefined>(undefined);
+  const [editingGroup, setEditingGroup] = useState<TournamentGroupRowTS | undefined>(undefined);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
@@ -164,12 +168,13 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
   const [error, setError] = useState<string | null>(null)
 
   const loadGroups = useCallback((p: number, ps: number) => {
-    TournamentGroupAPI.getByTournament(tid, p, ps)
-      .then(result => {
+    setLoading(true);
+    TournamentGroupAPI.getRowsByTournament(tid, p, ps)
+      .then(({ count, items }) => {
         setPage(p);
         setPageSize(ps);
-        setTotalCount(result.length < ps ? p * ps + result.length : (p + 2) * ps);
-        setGroups(result);
+        setTotalCount(count);
+        setGroups(items);
       })
       .catch(() => console.error('Failed to load tournament groups'))
       .finally(() => setLoading(false));
@@ -184,15 +189,10 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
   }, [pageSize, loadGroups]);
 
   const handlePageSizeChange = useCallback((newSize: number) => {
-    if (newSize < pageSize && page === 0) {
-      setPageSize(newSize);
-      setGroups(prev => prev.slice(0, newSize));
-    } else {
-      loadGroups(0, newSize);
-    }
-  }, [pageSize, page, loadGroups]);
+    loadGroups(0, newSize);
+  }, [loadGroups]);
 
-  const handleRemove = useCallback(async (row: TournamentGroupTS): Promise<void> => {
+  const handleRemove = useCallback(async (row: TournamentGroupRowTS): Promise<void> => {
     await TournamentGroupAPI.removeFromTournament(row.tgid, tid);
     setGroups(prev => prev.filter(g => g.tgid !== row.tgid));
     setTotalCount(prev => prev - 1);
@@ -203,19 +203,15 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
     setEditorIsOpen(true);
   };
 
-  const openEdit = (group: TournamentGroupTS) => {
+  const openEdit = (group: TournamentGroupRowTS) => {
     setEditingGroup(group);
     setEditorIsOpen(true);
   };
 
-  const handleSave = useCallback((saved: TournamentGroupTS) => {
+  const handleSave = useCallback((_saved: TournamentGroupTS) => {
     setEditorIsOpen(false);
-    if (editingGroup) {
-      setGroups(prev => prev.map(g => g.tgid === saved.tgid ? saved : g));
-    } else {
-      loadGroups(page, pageSize);
-    }
-  }, [editingGroup, loadGroups, page, pageSize]);
+    loadGroups(page, pageSize);
+  }, [loadGroups, page, pageSize]);
 
   // Search for unlinked groups as the user types
   const handleSearch = useCallback(async (q: string) => {
@@ -251,9 +247,8 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
     setError(null)
     try {
       await TournamentGroupAPI.addTournament(group.tgid, tid)
-      setGroups(prev => [...prev, group])
-      setTotalCount(prev => prev + 1)
       setSearchResults(prev => prev.filter(g => g.tgid !== group.tgid))
+      loadGroups(page, pageSize)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -263,7 +258,7 @@ export default function TournamentGroupsTable({ tid, showCreateButton = true, sh
 
   return (
     <>
-      <DataTableTemplate<TournamentGroupTS>
+      <DataTableTemplate<TournamentGroupRowTS>
         loading={loading}
         key={tid}
         entityLabel="Tournament Group"

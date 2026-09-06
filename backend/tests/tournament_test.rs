@@ -271,7 +271,8 @@ fn tournament_create_payload() -> serde_json::Value {
         "contact": "primemin",
         "contactemail": "primemin@fakeemail.com",
         "shortinfo": "Winter Olympics",
-        "info": "Shawn White did excellent in the halfpipe."
+        "info": "Shawn White did excellent in the halfpipe.",
+        "is_public": true
     })
 }
 

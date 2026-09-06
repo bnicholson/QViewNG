@@ -195,7 +195,7 @@ async fn read_games(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(item): Json<NewDivision>,
+    Json(mut item): Json<NewDivision>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -237,8 +237,11 @@ async fn create(
         })));
     }
 
+    // Record who created/last-modified this row (server-derived, never client-supplied).
+    item.last_modified_user = user_ctx.user_id;
+
     tracing::debug!("{} Division model create {:?}", line!(), item);
-    
+
     let result: QueryResult<Division> = models::division::create(&mut conn, &item);
 
     // On successful creation, also create a parallel statsgroup scoped to this division
@@ -321,7 +324,7 @@ async fn update(
 
     tracing::debug!("{} Division model update {:?} {:?}", line!(), division_id, item);
 
-    let result = models::division::update(&mut conn, division_id, &item);
+    let result = models::division::update(&mut conn, division_id, &item, user_ctx.user_id);
 
     let response = process_response(result, "put");
 

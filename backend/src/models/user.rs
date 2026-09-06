@@ -351,3 +351,28 @@ pub fn activate_user(db: &mut database::Connection, user_id: Uuid) -> QueryResul
         .set((activated.eq(true), updated_at.eq(diesel::dsl::now)))
         .get_result(db)
 }
+
+/// Batch-loads display names ("fname mname lname", empties skipped) for a set of user ids.
+/// Used to enrich data-table rows with a "Last Modified By" name in a single query.
+pub fn read_display_names(
+    db: &mut database::Connection,
+    user_ids: &[uuid::Uuid],
+) -> QueryResult<std::collections::HashMap<uuid::Uuid, String>> {
+    use crate::schema::users::dsl::*;
+    if user_ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    Ok(users
+        .filter(id.eq_any(user_ids))
+        .load::<User>(db)?
+        .into_iter()
+        .map(|u| {
+            let full = [u.fname, u.mname, u.lname]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ");
+            (u.id, full)
+        })
+        .collect())
+}

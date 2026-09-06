@@ -218,7 +218,7 @@ async fn index(
             room_changes.ping_host_ip = qs.get("myip").map(|s| s.replace("+", " "));
             room_changes.ping_game_id = game.as_ref().map(|g| g.gid);
             room_changes.ping_last_checkin_ts = Some(Utc::now());
-            let _ = crate::models::room::update(&mut conn, room.roomid, &room_changes);
+            let _ = crate::models::room::update(&mut conn, room.roomid, &room_changes, room.last_modified_user);
 
             let _ = &game; // the current game is captured on the room above; resend is handled per-game below
 
@@ -252,7 +252,7 @@ async fn index(
                     if g.resend_gameevents_response.as_deref().map_or(false, |s| !s.is_empty()) {
                         let mut changes = GameChangeset::empty();
                         changes.resend_gameevents_response = Some(String::new());
-                        let _ = game::update(&mut conn, g.gid, &changes);
+                        let _ = game::update(&mut conn, g.gid, &changes, g.last_modified_user);
                     }
                 } else if g.resend_gameevents_request_ts.is_some() && g.resend_request_sent_ts.is_none() {
                     // Incomplete + a fresh resend request not yet sent: issue the command once for
@@ -278,7 +278,7 @@ async fn index(
                     let mut changes = GameChangeset::empty();
                     changes.resend_gameevents_response = Some(resend_line);
                     changes.resend_request_sent_ts = Some(Utc::now());
-                    let _ = game::update(&mut conn, g.gid, &changes);
+                    let _ = game::update(&mut conn, g.gid, &changes, g.last_modified_user);
                 }
             }
         }

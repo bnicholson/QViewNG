@@ -40,8 +40,8 @@ interface Props {
   isOpen: boolean;
   onCancel: VoidFunction;
   onSave: (group: TournamentGroupTS) => void;
-  /** When provided the dialog operates in edit mode. */
-  initialGroup?: TournamentGroupTS;
+  /** When provided the dialog operates in edit mode. Only these fields are read. */
+  initialGroup?: { tgid: string; name: string; description: string | null };
 }
 
 export const TournamentGroupEditorDialog = ({ tid, isOpen, onCancel, onSave, initialGroup }: Props) => {

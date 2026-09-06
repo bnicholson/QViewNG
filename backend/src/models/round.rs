@@ -14,7 +14,8 @@ use std::collections::HashMap;
 pub struct RoundBuilder {
     pub did: Option<Uuid>,                              // id of the associated division
     pub name: Option<String>,
-    pub scheduled_start_time: Option<DateTime<Utc>>
+    pub scheduled_start_time: Option<DateTime<Utc>>,
+    pub last_modified_user: Option<Uuid>
 }
 
 impl RoundBuilder {
@@ -22,14 +23,16 @@ impl RoundBuilder {
         Self {
             did: Some(did),
             name: None,
-            scheduled_start_time: None
+            scheduled_start_time: None,
+            last_modified_user: None
         }
     }
     pub fn new_default(did: Uuid) -> Self {
         Self {
             did: Some(did),
             name: None,
-            scheduled_start_time: Some(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap())
+            scheduled_start_time: Some(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap()),
+            last_modified_user: None
         }
     }
     pub fn set_name(mut self, name: &str) -> Self {
@@ -38,6 +41,10 @@ impl RoundBuilder {
     }
     pub fn set_scheduled_start_time(mut self, time: DateTime<Utc>) -> Self {
         self.scheduled_start_time = Some(time);
+        self
+    }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
         self
     }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
@@ -66,13 +73,24 @@ impl RoundBuilder {
                     NewRound {
                         did: self.did.unwrap(),
                         name: self.name.unwrap(),
-                        scheduled_start_time: self.scheduled_start_time
+                        scheduled_start_time: self.scheduled_start_time,
+                        last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil)
                     }
                 )
             }
         }
     }
-    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Round> {
+    pub fn build_and_insert(mut self, db: &mut database::Connection) -> QueryResult<Round> {
+        // For seed/test convenience: if no modifier was set, attribute it to the tournament owner.
+        if self.last_modified_user.is_none() {
+            if let Some(did_val) = self.did {
+                if let Ok(division) = crate::models::division::read(db, did_val) {
+                    if let Ok(tournament) = crate::models::tournament::read(db, division.tid) {
+                        self.last_modified_user = Some(tournament.owner_id);
+                    }
+                }
+            }
+        }
         let new_round = self.build();
         create(db, &new_round.unwrap())
     }
@@ -118,6 +136,7 @@ pub struct Round {
     pub scheduled_question_nineteen_id: Option<Uuid>,
     pub scheduled_question_twenty_id: Option<Uuid>,
     pub name: String,
+    pub last_modified_user: Uuid,
 }
 
 #[derive(
@@ -131,7 +150,9 @@ pub struct NewRound {
     pub did: Uuid,                              // id of the associated division
     pub name: String,
     #[serde(default)]
-    pub scheduled_start_time: Option<DateTime<Utc>>
+    pub scheduled_start_time: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub last_modified_user: Uuid
 }
 
 // #[tsync::tsync]
@@ -234,6 +255,7 @@ pub struct RoundRow {
     pub created_at: DateTime<Utc>,
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
+    pub last_modified_user_name: String,
 }
 
 /// Returns one page of round-table rows for the tournament (enriched) and the total round count.
@@ -271,7 +293,7 @@ pub fn read_round_rows_of_tournament(
             .load::<Round>(db)?
     };
 
-    Ok((build_round_rows(round_list, &div_name_by_id), total))
+    Ok((build_round_rows(db, round_list, &div_name_by_id)?, total))
 }
 
 /// Returns one page of round-table rows for the division (enriched) and the total round count.
@@ -304,12 +326,14 @@ pub fn read_round_rows_of_division(
             .load::<Round>(db)?
     };
 
-    Ok((build_round_rows(round_list, &div_name_by_id), total))
+    Ok((build_round_rows(db, round_list, &div_name_by_id)?, total))
 }
 
 /// Attaches each round's division name from the given lookup.
-fn build_round_rows(round_list: Vec<Round>, div_name_by_id: &HashMap<Uuid, String>) -> Vec<RoundRow> {
-    round_list
+fn build_round_rows(db: &mut database::Connection, round_list: Vec<Round>, div_name_by_id: &HashMap<Uuid, String>) -> QueryResult<Vec<RoundRow>> {
+    let name_ids: Vec<Uuid> = round_list.iter().map(|r| r.last_modified_user).collect();
+    let name_by_id = crate::models::user::read_display_names(db, &name_ids)?;
+    Ok(round_list
         .into_iter()
         .map(|r| RoundRow {
             roundid: r.roundid,
@@ -319,16 +343,21 @@ fn build_round_rows(round_list: Vec<Round>, div_name_by_id: &HashMap<Uuid, Strin
             scheduled_start_time: r.scheduled_start_time,
             created_at: r.created_at,
             updated_at: r.updated_at,
+            last_modified_user_name: name_by_id
+                .get(&r.last_modified_user)
+                .cloned()
+                .unwrap_or_else(|| r.last_modified_user.to_string()),
         })
-        .collect()
+        .collect())
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangeset) -> QueryResult<Round> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangeset, modified_by: Uuid) -> QueryResult<Round> {
     use crate::schema::rounds::dsl::*;
     diesel::update(rounds.filter(roundid.eq(item_id)))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .get_result(db)
 }

@@ -43,7 +43,26 @@ export interface RoomMonitorRowTS {
   resend_sent: boolean;
 }
 
+/** Enriched room row: the room plus the display name of the user who last modified it. */
+export interface RoomRowTS {
+  roomid: string;
+  name: string;
+  building: string;
+  comments: string;
+  created_at: string;
+  updated_at: string;
+  last_modified_user_name: string;
+}
+
+export interface PagedRoomRows {
+  count: number;
+  items: RoomRowTS[];
+}
+
 export const RoomAPI = {
+  /** One page of the tournament's enriched room rows (+ last-modified user name), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoomRows> =>
+    (await fetch(`/api/tournaments/${tid}/room-rows?page=${page}&page_size=${size}`)).json(),
   // Live Room Monitor rows (latest ping + referenced game's resend status) for a tournament.
   // Access is restricted server-side to super users, the tournament owner, and admins.
   getMonitorByTournament: async (tid: string, accessToken?: string): Promise<RoomMonitorRowTS[]> => {

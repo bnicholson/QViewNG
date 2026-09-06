@@ -17,6 +17,7 @@ pub struct RoomBuilder {
     clientkey: Option<String>,
     quizmaster_id: Option<Uuid>,
     contentjudge_id: Option<Uuid>,
+    last_modified_user: Option<Uuid>,
 }
 
 impl RoomBuilder {
@@ -29,6 +30,7 @@ impl RoomBuilder {
             clientkey: None,
             quizmaster_id: None,
             contentjudge_id: None,
+            last_modified_user: None,
         }
     }
     pub fn new_default(room_name: &str, tid: Uuid) -> Self {
@@ -40,6 +42,7 @@ impl RoomBuilder {
             clientkey: Some("".to_string()),
             quizmaster_id: None,
             contentjudge_id: None,
+            last_modified_user: None,
         }
     }
     pub fn set_name(mut self, room_name: String) -> Self {
@@ -68,6 +71,10 @@ impl RoomBuilder {
     }
     pub fn set_contentjudge_id(mut self, contentjudge_id: Option<Uuid>) -> Self {
         self.contentjudge_id = contentjudge_id;
+        self
+    }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
         self
     }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
@@ -104,12 +111,19 @@ impl RoomBuilder {
                         clientkey: self.clientkey.unwrap(),
                         quizmaster_id: self.quizmaster_id,
                         contentjudge_id: self.contentjudge_id,
+                        last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil),
                     }
                 )
             }
         }
     }
-    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<Room> {
+    pub fn build_and_insert(mut self, db: &mut database::Connection) -> QueryResult<Room> {
+        // For seed/test convenience: if no modifier was set, attribute it to the tournament owner.
+        if self.last_modified_user.is_none() {
+            if let Ok(tournament) = crate::models::tournament::read(db, self.tid) {
+                self.last_modified_user = Some(tournament.owner_id);
+            }
+        }
         let new_room = self.build();
         create(db, &new_room.unwrap())
     }
@@ -148,6 +162,7 @@ pub struct Room {
     pub ping_game_id: Option<Uuid>,             // optional game the room's client last pinged about
     pub ping_host_ip: Option<String>,           // latest host/IP reported by the room's client
     pub ping_last_checkin_ts: Option<DateTime<Utc>>, // timestamp of the last check-in (ping) from the room's client
+    pub last_modified_user: Uuid,
 }
 
 #[derive(
@@ -165,6 +180,8 @@ pub struct NewRoom {
     pub clientkey: String,
     pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
     pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
+    #[serde(default)]
+    pub last_modified_user: Uuid,
 }
 
 // #[tsync::tsync]
@@ -260,12 +277,59 @@ pub fn read_all_rooms_of_tournament(
         .load::<Room>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoomChangeset) -> QueryResult<Room> {
+/// One fully-formed row of the rooms data table: the room plus the display name of the user who
+/// last modified it. Populated in a single API call.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, utoipa::ToSchema)]
+pub struct RoomRow {
+    pub roomid: Uuid,
+    pub name: String,
+    pub building: String,
+    pub comments: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
+    pub last_modified_user_name: String,
+}
+
+/// Returns one page of room-table rows for the tournament (ordered by name) plus the total count.
+pub fn read_room_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<RoomRow>, i64)> {
+    let total: i64 = {
+        use crate::schema::rooms::dsl::*;
+        rooms.filter(tid.eq(tournament_id)).count().get_result(db)?
+    };
+    let list = read_all_rooms_of_tournament(db, tournament_id, pagination)?;
+    let name_ids: Vec<Uuid> = list.iter().map(|r| r.last_modified_user).collect();
+    let name_by_id = crate::models::user::read_display_names(db, &name_ids)?;
+    let rows = list
+        .into_iter()
+        .map(|r| RoomRow {
+            last_modified_user_name: name_by_id
+                .get(&r.last_modified_user)
+                .cloned()
+                .unwrap_or_else(|| r.last_modified_user.to_string()),
+            roomid: r.roomid,
+            name: r.name,
+            building: r.building,
+            comments: r.comments,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        })
+        .collect();
+    Ok((rows, total))
+}
+
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoomChangeset, modified_by: Uuid) -> QueryResult<Room> {
     use crate::schema::rooms::dsl::*;
     diesel::update(rooms.filter(roomid.eq(item_id)))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .get_result(db)
 }

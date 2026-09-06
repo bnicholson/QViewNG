@@ -31,7 +31,8 @@ pub struct TeamBuilder {
     quizzer_three_id: Option<Uuid>,
     quizzer_four_id: Option<Uuid>,
     quizzer_five_id: Option<Uuid>,
-    quizzer_six_id: Option<Uuid>
+    quizzer_six_id: Option<Uuid>,
+    last_modified_user: Option<Uuid>
 }
 
 impl TeamBuilder {
@@ -45,7 +46,8 @@ impl TeamBuilder {
             quizzer_three_id: None,
             quizzer_four_id: None,
             quizzer_five_id: None,
-            quizzer_six_id: None
+            quizzer_six_id: None,
+            last_modified_user: None
         }
     }
     pub fn new_default(division_id: Uuid) -> Self {
@@ -58,11 +60,16 @@ impl TeamBuilder {
             quizzer_three_id: None,
             quizzer_four_id: None,
             quizzer_five_id: None,
-            quizzer_six_id: None
+            quizzer_six_id: None,
+            last_modified_user: None
         }
     }
     pub fn set_coachid(mut self, coachid: Uuid) -> Self {
         self.coachid = Some(coachid);
+        self
+    }
+    pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
+        self.last_modified_user = Some(user_id);
         self
     }
     pub fn set_name(mut self, name: &str) -> Self {
@@ -124,7 +131,8 @@ impl TeamBuilder {
                         quizzer_three_id: self.quizzer_three_id,
                         quizzer_four_id: self.quizzer_four_id,
                         quizzer_five_id: self.quizzer_five_id,
-                        quizzer_six_id: self.quizzer_six_id
+                        quizzer_six_id: self.quizzer_six_id,
+                        last_modified_user: self.last_modified_user.unwrap_or(self.coachid.unwrap())
                     }
                 )
             }
@@ -161,7 +169,8 @@ pub struct Team {
     pub quizzer_three_id: Option<Uuid>,
     pub quizzer_four_id: Option<Uuid>,
     pub quizzer_five_id: Option<Uuid>,
-    pub quizzer_six_id: Option<Uuid>
+    pub quizzer_six_id: Option<Uuid>,
+    pub last_modified_user: Uuid
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -197,7 +206,9 @@ pub struct NewTeam {
     pub quizzer_three_id: Option<Uuid>,
     pub quizzer_four_id: Option<Uuid>,
     pub quizzer_five_id: Option<Uuid>,
-    pub quizzer_six_id: Option<Uuid>
+    pub quizzer_six_id: Option<Uuid>,
+    #[serde(default)]
+    pub last_modified_user: Uuid
 }
 
 // #[tsync::tsync]
@@ -313,12 +324,13 @@ pub fn read_all_teams_where_user_is_quizzer(
         .load::<Team>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset) -> QueryResult<Team> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset, modified_by: Uuid) -> QueryResult<Team> {
     use crate::schema::teams::dsl::*;
     diesel::update(teams.filter(teamid.eq(item_id)))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
+            last_modified_user.eq(modified_by),
         ))
         .get_result(db)
 }
@@ -486,6 +498,7 @@ pub struct TeamRow {
     pub created_at: DateTime<Utc>,
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
+    pub last_modified_user_name: String,
 }
 
 /// Returns one page of team-table rows for the tournament (enriched) and the total team count.
@@ -571,23 +584,10 @@ fn build_team_rows(
         return Ok(Vec::new());
     }
 
-    let coach_ids: Vec<Uuid> = team_list.iter().map(|t| t.coachid).collect();
-    let coach_name_by_id: HashMap<Uuid, String> = {
-        use crate::schema::users::dsl::*;
-        users
-            .filter(id.eq_any(&coach_ids))
-            .load::<crate::models::user::User>(db)?
-            .into_iter()
-            .map(|u| {
-                let full = [u.fname, u.mname, u.lname]
-                    .into_iter()
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                (u.id, full)
-            })
-            .collect()
-    };
+    // One name lookup covers both the coach and the last-modified user.
+    let mut name_ids: Vec<Uuid> = team_list.iter().map(|t| t.coachid).collect();
+    name_ids.extend(team_list.iter().map(|t| t.last_modified_user));
+    let name_by_id = crate::models::user::read_display_names(db, &name_ids)?;
 
     let rows = team_list
         .into_iter()
@@ -595,7 +595,7 @@ fn build_team_rows(
             teamid: t.teamid,
             did: t.did,
             division_name: div_name_by_id.get(&t.did).cloned().unwrap_or_default(),
-            coach_name: coach_name_by_id
+            coach_name: name_by_id
                 .get(&t.coachid)
                 .cloned()
                 .unwrap_or_else(|| t.coachid.to_string()),
@@ -603,6 +603,10 @@ fn build_team_rows(
             name: t.name,
             created_at: t.created_at,
             updated_at: t.updated_at,
+            last_modified_user_name: name_by_id
+                .get(&t.last_modified_user)
+                .cloned()
+                .unwrap_or_else(|| t.last_modified_user.to_string()),
         })
         .collect();
 

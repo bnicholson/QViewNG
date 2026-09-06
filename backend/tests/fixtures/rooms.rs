@@ -151,7 +151,19 @@ pub fn get_room_payload(tid: Uuid) -> NewRoom {
     new_room_one(tid, "Test Room 2217")
 }
 
-fn create_and_insert_room(conn: &mut PgConnection, new_room: NewRoom) -> Room {
+fn create_and_insert_room(conn: &mut PgConnection, mut new_room: NewRoom) -> Room {
+    // Directly-inserted rooms bypass RoomBuilder::build_and_insert, so backfill the required
+    // last_modified_user from the tournament owner when it wasn't explicitly set.
+    if new_room.last_modified_user.is_nil() {
+        use backend::schema::tournaments;
+        if let Ok(owner) = tournaments::table
+            .filter(tournaments::tid.eq(new_room.tid))
+            .select(tournaments::owner_id)
+            .first::<Uuid>(conn)
+        {
+            new_room.last_modified_user = owner;
+        }
+    }
     diesel::insert_into(rooms::table)
         .values(new_room)
         .returning(Room::as_returning())

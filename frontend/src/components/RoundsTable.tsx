@@ -62,6 +62,12 @@ function roundColumns(showAuditColumns: boolean): ColumnDef<RoundRowTS>[] {
           <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{formatDate(r.updated_at)}</span>
         ),
       },
+      {
+        header: "Last Modified By",
+        render: (r: RoundRowTS) => (
+          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{r.last_modified_user_name}</span>
+        ),
+      },
     ] : []),
   ];
 }

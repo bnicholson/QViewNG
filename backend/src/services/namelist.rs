@@ -91,7 +91,13 @@ async fn update(
     // log this api call
     apicalllog::create(&mut db, &req);
 
-    let result = game::update(&mut db, item_id.into_inner(), &item);
+    // Machine-driven update: preserve whichever user last modified the game.
+    let gid = item_id.into_inner();
+    let existing_user = match game::read(&mut db, gid) {
+        Ok(g) => g.last_modified_user,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let result = game::update(&mut db, gid, &item, existing_user);
 
     if result.is_ok() {
         HttpResponse::Ok().finish()

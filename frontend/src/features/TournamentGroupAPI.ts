@@ -18,7 +18,28 @@ export interface TournamentGroupChangeset {
   description: string | null;
 }
 
+/** Enriched tournament-group row: the group plus the display name of the user who last modified it. */
+export interface TournamentGroupRowTS {
+  tgid: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  last_modified_user_name: string;
+}
+
+export interface PagedTournamentGroupRows {
+  count: number;
+  items: TournamentGroupRowTS[];
+}
+
 export const TournamentGroupAPI = {
+  /** One page of the tournament's enriched group rows (+ last-modified user name), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedTournamentGroupRows> => {
+    const res = await fetch(`/api/tournaments/${tid}/tournamentgroup-rows?page=${page}&page_size=${size}`);
+    if (!res.ok) throw new Error(`Failed to load tournament groups (${res.status})`);
+    return res.json();
+  },
   getAll: async (page: number, size: number): Promise<{ count: number; items: TournamentGroupTS[] }> => {
     const res = await fetch(`/api/tournamentgroups?page=${page}&page_size=${size}`);
     if (!res.ok) throw new Error(`Failed to load tournament groups (${res.status})`);
