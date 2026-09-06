@@ -65,7 +65,7 @@ function roundColumns(showAuditColumns: boolean): ColumnDef<RoundRowTS>[] {
       {
         header: "Last Modified By",
         render: (r: RoundRowTS) => (
-          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{r.last_modified_user_name}</span>
+          <EntityLink to={`/user/${r.last_modified_user_id}/overview`}>{r.last_modified_user_name}</EntityLink>
         ),
       },
     ] : []),

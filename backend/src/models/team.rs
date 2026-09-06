@@ -499,6 +499,7 @@ pub struct TeamRow {
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
     pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
 }
 
 /// Returns one page of team-table rows for the tournament (enriched) and the total team count.
@@ -607,6 +608,7 @@ fn build_team_rows(
                 .get(&t.last_modified_user)
                 .cloned()
                 .unwrap_or_else(|| t.last_modified_user.to_string()),
+            last_modified_user_id: t.last_modified_user,
         })
         .collect();
 

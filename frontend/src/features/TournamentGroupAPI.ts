@@ -26,6 +26,7 @@ export interface TournamentGroupRowTS {
   created_at: string;
   updated_at: string;
   last_modified_user_name: string;
+  last_modified_user_id: string;
 }
 
 export interface PagedTournamentGroupRows {

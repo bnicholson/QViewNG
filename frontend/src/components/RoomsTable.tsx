@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { RoomAPI, type RoomTS, type RoomRowTS } from "../features/RoomAPI";
 import { RoomEditorDialog } from "./RoomEditorDialog";
 
@@ -48,7 +48,7 @@ function roomColumns(showAuditColumns: boolean): ColumnDef<RoomRowTS>[] {
       {
         header: "Last Modified By",
         render: (r: RoomRowTS) => (
-          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{r.last_modified_user_name}</span>
+          <EntityLink to={`/user/${r.last_modified_user_id}/overview`}>{r.last_modified_user_name}</EntityLink>
         ),
       },
     ] : []),

@@ -494,6 +494,7 @@ pub struct GameRow {
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
     pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
 }
 
 /// Numbers every game within its room by scheduled start time (unscheduled sorts last, gid as
@@ -605,6 +606,7 @@ fn build_game_rows(
                 .get(&g.last_modified_user)
                 .cloned()
                 .unwrap_or_else(|| g.last_modified_user.to_string()),
+            last_modified_user_id: g.last_modified_user,
         })
         .collect();
 

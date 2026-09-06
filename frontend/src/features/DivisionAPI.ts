@@ -26,6 +26,7 @@ export interface PagedDivisions {
 /** Enriched division row: the division plus the display name of the user who last modified it. */
 export interface DivisionRowTS extends DivisionTS {
   last_modified_user_name: string;
+  last_modified_user_id: string;
 }
 
 export interface PagedDivisionRows {

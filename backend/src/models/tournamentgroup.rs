@@ -202,6 +202,7 @@ pub struct TournamentGroupRow {
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
     pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
 }
 
 /// Returns one page of tournament-group rows for the tournament (ordered by name) plus the total count.
@@ -224,6 +225,7 @@ pub fn read_tournamentgroup_rows_of_tournament(
                 .get(&g.last_modified_user)
                 .cloned()
                 .unwrap_or_else(|| g.last_modified_user.to_string()),
+            last_modified_user_id: g.last_modified_user,
             tgid: g.tgid,
             name: g.name,
             description: g.description,

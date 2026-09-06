@@ -290,6 +290,7 @@ pub struct RoomRow {
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
     pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
 }
 
 /// Returns one page of room-table rows for the tournament (ordered by name) plus the total count.
@@ -312,6 +313,7 @@ pub fn read_room_rows_of_tournament(
                 .get(&r.last_modified_user)
                 .cloned()
                 .unwrap_or_else(|| r.last_modified_user.to_string()),
+            last_modified_user_id: r.last_modified_user,
             roomid: r.roomid,
             name: r.name,
             building: r.building,

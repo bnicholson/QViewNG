@@ -15,7 +15,7 @@ import Typography from '@mui/material/Typography'
 import EditIcon from '@mui/icons-material/Edit'
 import SearchIcon from '@mui/icons-material/Search'
 import { Link } from 'react-router-dom'
-import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
 import { TournamentGroupAPI, type TournamentGroupTS, type TournamentGroupRowTS } from '../features/TournamentGroupAPI'
 import { TournamentGroupEditorDialog } from './TournamentGroupEditorDialog'
 import { useAuth } from '../hooks/useAuth'
@@ -121,7 +121,7 @@ function groupColumns(
       },
       {
         header: 'Last Modified By',
-        render: (g: TournamentGroupRowTS) => <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{g.last_modified_user_name}</span>,
+        render: (g: TournamentGroupRowTS) => <EntityLink to={`/user/${g.last_modified_user_id}/overview`}>{g.last_modified_user_name}</EntityLink>,
       },
     ] : []),
     ...((canEdit || showRemoveButton) ? [{

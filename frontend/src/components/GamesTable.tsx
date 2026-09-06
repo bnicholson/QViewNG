@@ -91,7 +91,7 @@ function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): 
       {
         header: 'Last Modified By',
         render: (g: GameRowTS) => (
-          <span style={{ whiteSpace: 'nowrap', color: '#6b7280' }}>{g.last_modified_user_name}</span>
+          <EntityLink to={`/user/${g.last_modified_user_id}/overview`}>{g.last_modified_user_name}</EntityLink>
         ),
       },
     ] : []),

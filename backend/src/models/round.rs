@@ -256,6 +256,7 @@ pub struct RoundRow {
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTime<Utc>,
     pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
 }
 
 /// Returns one page of round-table rows for the tournament (enriched) and the total round count.
@@ -347,6 +348,7 @@ fn build_round_rows(db: &mut database::Connection, round_list: Vec<Round>, div_n
                 .get(&r.last_modified_user)
                 .cloned()
                 .unwrap_or_else(|| r.last_modified_user.to_string()),
+            last_modified_user_id: r.last_modified_user,
         })
         .collect())
 }

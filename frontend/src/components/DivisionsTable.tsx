@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { BoolBadge, DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
+import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from "./DataTableTemplate";
 import { DivisionAPI, type DivisionTS, type DivisionRowTS } from "../features/DivisionAPI";
 import { DivisionEditorDialog } from "./DivisionEditorDialog";
 
@@ -52,7 +52,7 @@ function divisionColumns(showSensitiveColumns: boolean, showAuditColumns: boolea
       {
         header: "Last Modified By",
         render: (d: DivisionRowTS) => (
-          <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>{d.last_modified_user_name}</span>
+          <EntityLink to={`/user/${d.last_modified_user_id}/overview`}>{d.last_modified_user_name}</EntityLink>
         ),
       }
     ] : [])
