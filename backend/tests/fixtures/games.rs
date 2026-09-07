@@ -126,12 +126,6 @@ pub fn create_and_insert_game(db: &mut database::Connection, new_game: NewGame) 
         .expect("Failed to create game")
 }
 
-pub fn seed_game(db: &mut database::Connection) -> Game {
-    let deps = seed_game_payload_dependencies(db, "Tour 1");
-    let payload = get_game_payload(deps.0,deps.1,deps.2,deps.3,deps.4,Some(deps.5),deps.6,deps.7);
-    create_and_insert_game(db, payload)
-}
-
 pub fn seed_games(db: &mut database::Connection) -> Vec<Game> {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 1");
     let payload_1 = get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.5),deps_1.6,deps_1.7);

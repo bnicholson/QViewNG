@@ -1,4 +1,4 @@
-use backend::{database, models::{division::DivisionBuilder, game::{Game, GameBuilder}, game_statsgroup::{GameStatsGroup, GameStatsGroupBuilder, NewGameStatsGroup}, gameevent::{GameEventBuilder, GameEventCode}, room::RoomBuilder, round::RoundBuilder, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupBuilder}, team::TeamBuilder, tournament::TournamentBuilder, user::UserBuilder}};
+use backend::{database, models::{game::Game, game_statsgroup::{GameStatsGroup, GameStatsGroupBuilder, NewGameStatsGroup}, gameevent::{GameEventBuilder, GameEventCode}, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupBuilder}, tournament::TournamentBuilder, user::UserBuilder}};
 
 use crate::fixtures::games::{seed_1_game_with_minimum_required_dependencies, seed_2_games_1_round_with_minimum_required_dependencies};
 
@@ -36,18 +36,6 @@ pub fn arrange_get_all_works_integration_test(db: &mut database::Connection) -> 
             .build_and_insert(db)
             .unwrap()
     )
-}
-
-pub fn arrange_get_statsgroup_by_id_integration_test(db: &mut database::Connection) -> StatsGroup {
-    let tournament_id = seed_tournament_id(db);
-    StatsGroupBuilder::new_default("Test StatsGroup 1", tournament_id)
-        .set_description(Some("This is StatsGroup 1's description.".to_string()))
-        .build_and_insert(db)
-        .unwrap();
-    StatsGroupBuilder::new_default("Test StatsGroup 2", tournament_id)
-        .set_description(Some("This is StatsGroup 2's description.".to_string()))
-        .build_and_insert(db)
-        .unwrap()
 }
 
 pub fn arrange_update_works_integration_test(db: &mut database::Connection) -> StatsGroup {

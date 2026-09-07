@@ -137,82 +137,6 @@ async fn read(
     HttpResponse::Ok().json(body)
 }
 
-#[get("/today")]
-async fn read_today(
-    db: Data<Database>,
-    req: HttpRequest,
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    println!("Inside /api/tournaments/today");
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-
-    // use 1 month (31 days) as the base for obtaining tournaments from server, into the past and into the future
-    let days_before_and_after: i64 = 31;
-    let days_before_and_after_in_milliseconds: i64 = (days_before_and_after*24*3600)*1000;
-    let today = Utc::now();
-    let from_dt = today.timestamp_millis() - days_before_and_after_in_milliseconds;
-    let to_dt   = today.timestamp_millis() + days_before_and_after_in_milliseconds;
-
-    tracing::debug!("{} /api/tournaments/today {:?} {:?} {:?}",line!(), today, from_dt, to_dt);
-
-    let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt, models::tournament::VisibilityFilter::Public);
-    println!("Tournaments Result: {:?} {:?} {:?}", from_dt, to_dt, result_tournaments);
-
-    let internal_server_error_payload = EntityResponse::<String> {
-        code: 500,
-        message: "Internal Server Error".to_string(),
-        data: None
-    };
-
-    if !result_tournaments.is_ok() {
-        return HttpResponse::InternalServerError().json(internal_server_error_payload);
-    }
-
-    let mut tournaments = result_tournaments.unwrap();
-    let max_tournaments_to_send_in_response = 100;
-    while tournaments.len() > max_tournaments_to_send_in_response {
-        tournaments.remove(0);
-        tournaments.pop();
-    }
-
-    let mut tournaments_with_rooms = Vec::<TournamentWithRooms>::new();
-    let pagination_params_vals = PaginationParams {
-        page: 0,
-        page_size: 100,
-    };
-    for tournament in tournaments {
-        let rooms_result = models::room::read_all_rooms_of_tournament(&mut db, tournament.tid, &pagination_params_vals);
-        println!("Tournament Rooms Result: {:?}", rooms_result);
-        if !rooms_result.is_ok() {
-            let not_found_payload = EntityResponse::<Vec<String>> {
-                code: 404,
-                message: "Not Found".to_string(),
-                data: None
-            };
-            return HttpResponse::NotFound().json(not_found_payload);
-        }
-        let rooms = rooms_result.unwrap();
-
-        // Construct the object to be returned in the response
-        let tournament_with_rooms = TournamentWithRooms::new(
-            tournament.clone(),
-            rooms.clone()
-        );
-        
-        tournaments_with_rooms.push(tournament_with_rooms);
-    }
-
-    let payload = EntityResponse::<Vec<TournamentWithRooms>> {
-        code: 200,
-        message: "OK".to_string(),
-        data: Some(tournaments_with_rooms)
-    };
-
-    return HttpResponse::Ok().json(payload);
-}
-
 #[get("/{id}/divisions")]
 async fn read_divisions(
     db: Data<Database>,
@@ -796,33 +720,6 @@ async fn update(
     }
 }
 
-#[put("/{tour_id}/admins/{user_id}")]
-async fn update_admin(
-    db: Data<Database>,
-    item_id: Path<(Uuid,Uuid)>,
-    Json(item): Json<TournamentAdminChangeset>,
-    req: HttpRequest
-) -> Result<HttpResponse, Error> {
-    let mut db = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-
-    tracing::debug!("{} Tournement model update {:?} {:?}", line!(), item_id, item); 
-
-    let tour_id = item_id.0;
-    let admin_id = item_id.1;
-    let result = models::tournament_admin::update(&mut db, tour_id, admin_id, &item);
-
-    let response = process_response(result, "put");
-    
-    match response.code {
-        409 => Ok(HttpResponse::Conflict().json(response)),
-        200 => Ok(HttpResponse::Ok().json(response)),
-        _ => Ok(HttpResponse::InternalServerError().json(response))
-    }
-}
-
 #[utoipa::path(
         delete,
         path = "/tournaments/{id}",
@@ -882,7 +779,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(get_between_dates)
-        .service(read_today)
         .service(read)
         .service(read_rooms)
         .service(read_division_rows)
@@ -908,7 +804,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(create)
         .service(add_admin)
         .service(update)
-        .service(update_admin)
         .service(destroy)
         .service(remove_admin);
 }

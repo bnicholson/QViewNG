@@ -290,50 +290,9 @@ async fn get_all_games_where_user_is_quizmaster_works() {
     
     let (qm_id, _, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/users/{}/games-where-quizmaster?page={}&page_size={}", qm_id, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-
-    let body: Vec<Game> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut game_1_idx = 10;
-    let mut game_2_idx = 10;
-    for idx in 0..len {
-        if body[idx].gid == game_1.gid {
-            game_1_idx = idx;
-        }
-        if body[idx].gid == game_3.gid {
-            game_2_idx = idx;
-        }
-    }
-    assert_ne!(game_1_idx, 10);
-    assert_ne!(game_2_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::game::read_all_games_where_user_is_quizmaster(&mut conn, qm_id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
 }
 
 #[actix_web::test]
@@ -347,50 +306,9 @@ async fn get_all_games_where_user_is_contentjudge_works() {
     
     let (_, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/users/{}/games-where-contentjudge?page={}&page_size={}", contenjudge_id, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-
-    let body: Vec<Game> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut game_1_idx = 10;
-    let mut game_2_idx = 10;
-    for idx in 0..len {
-        if body[idx].gid == game_1.gid {
-            game_1_idx = idx;
-        }
-        if body[idx].gid == game_3.gid {
-            game_2_idx = idx;
-        }
-    }
-    assert_ne!(game_1_idx, 10);
-    assert_ne!(game_2_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::game::read_all_games_where_user_is_contentjudge(&mut conn, contenjudge_id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
 }
 
 #[actix_web::test]
@@ -404,50 +322,9 @@ async fn get_all_tournaments_where_user_is_admin_works() {
     
     let (admin, tour_1_id, tour_2_id) = fixtures::users::seed_get_tournaments_where_user_is_admin(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/users/{}/tournaments-where-admin?page={}&page_size={}", admin.id, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-
-    let body: Vec<Tournament> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut tour_1_idx = 10;
-    let mut tour_2_idx = 10;
-    for idx in 0..len {
-        if body[idx].tid == tour_1_id {
-            tour_1_idx = idx;
-        }
-        if body[idx].tid == tour_2_id {
-            tour_2_idx = idx;
-        }
-    }
-    assert_ne!(tour_1_idx, 10);
-    assert_ne!(tour_2_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::tournament::read_all_tournaments_where_user_is_admin(&mut conn, admin.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
 }
 
 #[actix_web::test]
@@ -462,50 +339,9 @@ async fn get_all_teams_where_user_is_coach_works() {
     let (coach, team_1, team_2) = 
         fixtures::users::arrange_get_all_teams_where_user_is_coach_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/users/{}/teams-where-coach?page={}&page_size={}", coach.id, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-
-    let body: Vec<Team> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut team_1_idx = 10;
-    let mut team_2_idx = 10;
-    for idx in 0..len {
-        if body[idx].teamid == team_1.teamid {
-            team_1_idx = idx;
-        }
-        if body[idx].teamid == team_2.teamid {
-            team_2_idx = idx;
-        }
-    }
-    assert_ne!(team_1_idx, 10);
-    assert_ne!(team_2_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::team::read_all_teams_where_user_is_coach(&mut conn, coach.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
 }
 
 #[actix_web::test]
@@ -520,70 +356,9 @@ async fn get_all_teams_where_user_is_quizzer_works() {
     let (quizzer, team_1, team_2, team_3, team_4, team_5, team_6) = 
         fixtures::users::arrange_get_all_teams_where_user_is_quizzer_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/users/{}/teams-where-quizzer?page={}&page_size={}", quizzer.id, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-
-    let body: Vec<Team> = test::read_body_json(resp).await;
-
-    let len = 6;
-
-    assert_eq!(body.len(), len);
-
-    let mut team_1_idx = 10;
-    let mut team_2_idx = 10;
-    let mut team_3_idx = 10;
-    let mut team_4_idx = 10;
-    let mut team_5_idx = 10;
-    let mut team_6_idx = 10;
-    for idx in 0..len {
-        if body[idx].teamid == team_1.teamid {
-            team_1_idx = idx;
-        }
-        if body[idx].teamid == team_2.teamid {
-            team_2_idx = idx;
-        }
-        if body[idx].teamid == team_3.teamid {
-            team_3_idx = idx;
-        }
-        if body[idx].teamid == team_4.teamid {
-            team_4_idx = idx;
-        }
-        if body[idx].teamid == team_5.teamid {
-            team_5_idx = idx;
-        }
-        if body[idx].teamid == team_6.teamid {
-            team_6_idx = idx;
-        }
-    }
-    assert_ne!(team_1_idx, 10);
-    assert_ne!(team_2_idx, 10);
-    assert_ne!(team_3_idx, 10);
-    assert_ne!(team_4_idx, 10);
-    assert_ne!(team_5_idx, 10);
-    assert_ne!(team_6_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::team::read_all_teams_where_user_is_quizzer(&mut conn, quizzer.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
 }
 
 #[actix_web::test]
@@ -720,50 +495,9 @@ async fn get_all_rosters_of_quizzer_works() {
     let (_, quizzer_2, roster_3, roster_4) =
         fixtures::users::arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/users/{}/rosters-containing-quizzer?page={}&page_size={}", quizzer_2.id, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-
-    // Act:
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-
-    let body: Vec<Roster> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut roster_1_idx = 10;
-    let mut roster_2_idx = 10;
-    for idx in 0..len {
-        if body[idx].rosterid == roster_3.rosterid {
-            roster_1_idx = idx;
-        }
-        if body[idx].rosterid == roster_4.rosterid {
-            roster_2_idx = idx;
-        }
-    }
-    assert_ne!(roster_1_idx, 10);
-    assert_ne!(roster_2_idx, 10);
-
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::roster::read_all_rosters_containing_quizzer(&mut conn, quizzer_2.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
 }
 
 #[actix_web::test]

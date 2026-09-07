@@ -18,8 +18,8 @@ async fn log_headers_middleware(req: ServiceRequest, next: Next<impl actix_web::
 }
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(services::namelist::endpoints(web::scope("/namelist")));
-    cfg.service(services::gameevent::endpoints(web::scope("/scoreevent")));
+    // cfg.service(services::namelist::endpoints(web::scope("/namelist")));
+    // cfg.service(services::gameevent::endpoints(web::scope("/scoreevent")));
     // cfg.service(services::file::endpoints(web::scope("/files")))
     // cfg.service(services::roominfo::endpoints(web::scope("/roominfo")))
     cfg.service(

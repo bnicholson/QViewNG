@@ -1,4 +1,4 @@
-use backend::{database, models::{division::DivisionBuilder, equipmentset::{EquipmentSet, EquipmentSetBuilder}, roster::{Roster, RosterBuilder}, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, user::{NewUser, User, UserBuilder}}};
+use backend::{database, models::{division::DivisionBuilder, equipmentset::{EquipmentSet, EquipmentSetBuilder}, roster::{Roster, RosterBuilder}, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, team::{Team, TeamBuilder}, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, user::{NewUser, User, UserBuilder}}};
 use uuid::Uuid;
 
 pub fn get_user_payload(unhashed_pwd: &str) -> NewUser {
@@ -30,13 +30,6 @@ pub fn seed_users(db: &mut database::Connection) -> Vec<User> {
         "Test User 4611")
 }
 
-pub fn seed_users_for_get_all_admins_of_tour(db: &mut database::Connection) -> Vec<User> {
-    seed_users_with_fnames_for_get_all_admins_of_tour(
-        db, 
-        "Test User 3", 
-        "Test User 9")
-}
-
 pub fn seed_users_with_fnames(
     db: &mut database::Connection, 
     user_1_name: &str,
@@ -64,28 +57,6 @@ pub fn seed_users_with_fnames(
             .set_mname("Clarence")
             .set_lname("Kennedy")
             .set_username("ckbringit")
-            .build_and_insert(db)
-            .unwrap()
-    ]
-}
-
-pub fn seed_users_with_fnames_for_get_all_admins_of_tour(
-    db: &mut database::Connection, 
-    user_1_name: &str,
-    user_2_name: &str,
-) -> Vec<User> {
-    vec![
-        UserBuilder::new_default(user_1_name)
-            .set_hash_password("Some pwd&7")
-            .build_and_insert(db)
-            .unwrap(),
-        UserBuilder::new_default(user_2_name)
-            .set_email("edbashful@fakeemail.com")
-            .set_hash_password("Grace_abundantly90")
-            .set_activated(true)
-            .set_mname("Eugene")
-            .set_lname("Davidson")
-            .set_username("edbashful")
             .build_and_insert(db)
             .unwrap()
     ]

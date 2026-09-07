@@ -9,53 +9,6 @@ use diesel::QueryResult;
 // #[openapi(paths(index))]
 // pub struct ProjectorDoc;
 
-// #[utoipa::path(
-//         get,
-//         path = "/projectors",
-//         responses(
-//             (status = 200, description = "Projectors found successfully", body = Projector),
-//             (status = 404, description = "Projector not found")
-//         ),
-//         params(
-//             ("page" = Option<u64>, Query, description = "Page to read"),
-//             ("page_size" = Option<u64>, Query, description = "How many Projectors to return")
-//         )
-//     )
-// ]
-#[get("")]
-async fn index(
-    db: Data<Database>,
-    Query(url_params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.get_connection().expect("Failed to get connection");
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    match (models::projector::read_all(&mut db, &url_params), models::projector::count(&mut db)) {
-        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        _ => HttpResponse::InternalServerError().finish(),
-    }
-}
-
-#[get("/{id}")]
-async fn read(
-    db: Data<Database>,
-    item_id: Path<i64>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-
-    match models::projector::read(&mut db, item_id.into_inner()) {
-        Ok(projector) => HttpResponse::Ok().json(projector),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -133,8 +86,6 @@ async fn destroy(
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        .service(index)
-        .service(read)
         .service(create)
         .service(update)
         .service(destroy);

@@ -22,53 +22,10 @@ async fn get_all_works() {
     
     fixtures::rosters::arrange_get_all_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/rosters?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    
-    // Assert:
-    
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: Vec<Roster> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut roster_1_interest_idx = 10;
-    let mut roster_2_interest_idx = 10;
-    for idx in 0..len {
-        if body[idx].name == "Test Roster 1" {
-            roster_1_interest_idx = idx;
-            continue;
-        }
-        if body[idx].name == "Test Roster 2" {
-            roster_2_interest_idx = idx;
-            continue;
-        }
-    }
-    assert_ne!(roster_1_interest_idx, 10);
-    assert_ne!(roster_2_interest_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    // The list endpoint was removed; this now covers models::roster::read_all directly.
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::roster::read_all(&mut conn, &pagination).expect("read_all failed");
+    assert_eq!(result.len(), 2);
 }
 
 #[actix_web::test]

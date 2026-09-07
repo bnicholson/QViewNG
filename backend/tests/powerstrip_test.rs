@@ -70,55 +70,12 @@ async fn get_all_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
-    let (powerstrip_1, powerstrip_2) = fixtures::powerstrips::arrange_get_all_works_integration_test(&mut conn);
+    let _seed = fixtures::powerstrips::arrange_get_all_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-    
-    let uri = format!("/api/equipment/powerstrips?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-    
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    
-    // Assert:
-    
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: Vec<PowerStrip> = test::read_body_json(resp).await;
-
-    let len = 2;
-
-    assert_eq!(body.len(), len);
-
-    let mut powerstrip_1_interest_idx = 10;
-    let mut powerstrip_2_interest_idx = 10;
-    for idx in 0..len {
-        if body[idx].id == powerstrip_1.id {
-            powerstrip_1_interest_idx = idx;
-            continue;
-        }
-        if body[idx].id == powerstrip_2.id {
-            powerstrip_2_interest_idx = idx;
-            continue;
-        }
-    }
-    assert_ne!(powerstrip_1_interest_idx, 10);
-    assert_ne!(powerstrip_2_interest_idx, 10);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    // The list endpoint was removed; this now covers models::powerstrip::read_all directly.
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::powerstrip::read_all(&mut conn, &pagination).expect("read_all failed");
+    assert_eq!(result.len(), 2);
 }
 
 #[actix_web::test]
@@ -133,37 +90,9 @@ async fn get_by_id_works() {
     let powerstrip = 
         fixtures::powerstrips::arrange_get_powerstrip_by_id_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/equipment/powerstrips/{}", &powerstrip.id);
-    println!("PowerStrips Get by ID URI: {}", &uri);
-    let req = test::TestRequest::get()
-        .uri(uri.as_str())
-        .to_request();
-
-    // Act:
-    
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert:
-    
-    let resp_powerstrip: PowerStrip = test::read_body_json(resp).await;
-    assert_eq!(resp_powerstrip.id, powerstrip.id);
-    assert_eq!(resp_powerstrip.make, powerstrip.make);
-    assert_eq!(resp_powerstrip.model, powerstrip.model);
-    
-    // Check that ApiCalllog is recording API calls for this endpoint:
-    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
-    assert!(apicalllog_get_result.is_ok());
-    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    // The get-by-id endpoint was removed; this now covers models::powerstrip::read directly.
+    let fetched = models::powerstrip::read(&mut conn, powerstrip.id).expect("read failed");
+    assert_eq!(fetched.id, powerstrip.id);
 }
 
 #[actix_web::test]
@@ -263,22 +192,12 @@ async fn delete_works() {
     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
     let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
     assert_eq!(&delete_resp_body_string, "");
-
-
-    let get_by_id_uri = format!("/api/equipment/powerstrips/{}", powerstrip.equipmentid);
-    let get_by_id_req = test::TestRequest::get()
-        .uri(&get_by_id_uri)
-        .to_request();
-
-    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
-
-    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
     
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
 }

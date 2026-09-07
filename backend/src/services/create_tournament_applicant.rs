@@ -24,22 +24,6 @@ async fn index(
     }
 }
 
-#[get("/{id}")]
-async fn read(
-    db: Data<Database>,
-    item_id: Path<Uuid>,
-    req: HttpRequest,
-) -> HttpResponse {
-    let mut conn = db.get_connection().expect("Failed to get connection");
-
-    models::apicalllog::create(&mut conn, &req);
-
-    match models::create_tournament_applicant::read(&mut conn, item_id.into_inner()) {
-        Ok(item) => HttpResponse::Ok().json(item),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -132,7 +116,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     scope
         .service(index)
         .service(read_by_user)
-        .service(read)
         .service(create)
         .service(update)
         .service(destroy)

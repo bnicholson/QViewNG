@@ -9,53 +9,6 @@ use diesel::QueryResult;
 // #[openapi(paths(index))]
 // pub struct PowerStripDoc;
 
-// #[utoipa::path(
-//         get,
-//         path = "/powerstrips",
-//         responses(
-//             (status = 200, description = "PowerStrips found successfully", body = PowerStrip),
-//             (status = 404, description = "PowerStrip not found")
-//         ),
-//         params(
-//             ("page" = Option<u64>, Query, description = "Page to read"),
-//             ("page_size" = Option<u64>, Query, description = "How many PowerStrips to return")
-//         )
-//     )
-// ]
-#[get("")]
-async fn index(
-    db: Data<Database>,
-    Query(url_params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.get_connection().expect("Failed to get connection");
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    match (models::powerstrip::read_all(&mut db, &url_params), models::powerstrip::count(&mut db)) {
-        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        _ => HttpResponse::InternalServerError().finish(),
-    }
-}
-
-#[get("/{id}")]
-async fn read(
-    db: Data<Database>,
-    item_id: Path<i64>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-
-    match models::powerstrip::read(&mut db, item_id.into_inner()) {
-        Ok(powerstrip) => HttpResponse::Ok().json(powerstrip),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -133,8 +86,6 @@ async fn destroy(
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        .service(index)
-        .service(read)
         .service(create)
         .service(update)
         .service(destroy);

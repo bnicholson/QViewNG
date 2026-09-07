@@ -110,34 +110,9 @@ async fn get_by_id_works() {
 
     let item = fixtures::create_tournament_applicants::arrange_get_by_id_works_integration_test(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/createtournamentapplicants/{}", item.id);
-    let req = test::TestRequest::get()
-        .uri(&uri)
-        .to_request();
-
-    // Act:
-
-    let resp = test::call_service(&app, req).await;
-
-    // Assert:
-
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: CreateTournamentApplicant = test::read_body_json(resp).await;
-    assert_eq!(body.id, item.id);
-    assert_eq!(body.user_id, item.user_id);
-    assert_eq!(body.status, item.status);
-
-    let apicalllog_records: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
-    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    // The get-by-id endpoint was removed; this covers models::create_tournament_applicant::read directly.
+    let fetched = models::create_tournament_applicant::read(&mut conn, item.id).expect("read failed");
+    assert_eq!(fetched.id, item.id);
 }
 
 #[actix_web::test]

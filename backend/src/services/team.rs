@@ -60,24 +60,6 @@ async fn read(
     }
 }
 
-#[get("/{id}/games")]
-async fn read_games(
-    db: Data<Database>,
-    tour_id: Path<Uuid>,
-    Query(params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-
-    match models::game::read_all_games_of_team(&mut db, tour_id.into_inner(), &params) {
-        Ok(rounds) => HttpResponse::Ok().json(rounds),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -299,7 +281,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
-        .service(read_games)
         .service(create)
         .service(update)
         .service(destroy);

@@ -1,8 +1,6 @@
-use backend::{database, models::{division::{Division, DivisionBuilder}, game::Game, round::{NewRound, Round, RoundBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, round::{NewRound, Round, RoundBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
 use chrono::{DateTime, TimeZone, Utc};
-use diesel::prelude::*;
 use uuid::Uuid;
-use crate::fixtures;
 
 /// Returns `(tournament, division, owner, admin_user, unrelated_user)` for testing
 /// round create ABAC: owner and admin should be allowed, unrelated user should not.
@@ -128,15 +126,6 @@ pub fn arrange_round_update_works_integration_test(
     (tournament, division, round, owner, admin_user, unrelated_user)
 }
 
-pub fn new_round(did: Uuid, name: &str, sched_start_time: DateTime<Utc>) -> NewRound {
-    NewRound {
-        did: did,
-        name: name.to_string(),
-        scheduled_start_time: Some(sched_start_time),
-        last_modified_user: uuid::Uuid::nil()
-    }
-}
-
 pub fn get_round_payload(did: Uuid) -> NewRound {
     RoundBuilder::new_default(did)
         .set_name("1")
@@ -202,26 +191,3 @@ pub fn seed_rounds_with_sched_start_times(
     ]
 }
 
-pub fn seed_get_games_by_round(db: &mut database::Connection) -> Vec<Game> {
-    let (
-        tid,
-        did_1,
-        room_id,
-        round_id,
-        team_1_id,
-        team_2_id,
-        team_3_id,
-        qm_id) = fixtures::games::seed_game_payload_dependencies(db, "Tour 1");
-
-    let payload_1 = fixtures::games::get_game_payload(tid,did_1,room_id,round_id,team_1_id,Some(team_2_id),team_3_id,qm_id);
-    let game_1 = fixtures::games::create_and_insert_game(db, payload_1);
-
-    let payload_2 = fixtures::games::get_game_payload(tid,did_1,room_id,round_id,team_3_id,None,team_1_id,qm_id);
-    let game_2 = fixtures::games::create_and_insert_game(db, payload_2);
-
-    let div_2 = fixtures::divisions::seed_division(db, tid);
-    let payload_3 = fixtures::games::get_game_payload(tid,div_2.did,room_id,round_id,team_1_id,None,team_2_id,qm_id);
-    let payload_4 = fixtures::games::get_game_payload(tid,div_2.did,room_id,round_id,team_3_id,None,team_2_id,qm_id);
-
-    vec![game_1, game_2]
-}

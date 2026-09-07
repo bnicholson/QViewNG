@@ -233,25 +233,3 @@ pub fn seed_get_teams_by_division(db: &mut database::Connection) -> Team {
     seed_teams_with_names(db, div_1.did, "Jefferons Team", "Andersons Team", "Smiths Team").0
 }
 
-pub fn seed_rounds_in_division(db: &mut database::Connection, tid: Uuid) -> Division {
-
-    let divisions = vec![
-        DivisionBuilder::new_default("D1", tid)
-            .build_and_insert(db)
-            .unwrap(),
-        DivisionBuilder::new_default("D2", tid)
-            .build_and_insert(db)
-            .unwrap(),
-        DivisionBuilder::new_default("D42", tid)
-            .build_and_insert(db)
-            .unwrap()
-    ];
-
-    let div_1 = &divisions[0];
-    let start_time_1 = Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap();
-    let start_time_2 = Utc.with_ymd_and_hms(2056, 5, 23, 00, 00, 0).unwrap();
-    let start_time_3 = Utc.with_ymd_and_hms(2057, 5, 23, 00, 00, 0).unwrap();
-    seed_rounds_with_sched_start_times(db, div_1.did, start_time_1, start_time_2, start_time_3);
-
-    div_1.clone()
-}

@@ -1,4 +1,4 @@
-use backend::{database, models::{tournament::{Tournament, TournamentBuilder}, tournamentgroup::{NewTournamentGroup, TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournament, TournamentGroupTournamentBuilder}, user::UserBuilder}};
+use backend::{database, models::{tournament::{Tournament, TournamentBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::{NewTournamentGroupTournament, TournamentGroupTournamentBuilder}, user::UserBuilder}};
 
 fn seed_group_user(db: &mut database::Connection) -> uuid::Uuid {
     UserBuilder::new_default("Group Owner")
@@ -6,15 +6,6 @@ fn seed_group_user(db: &mut database::Connection) -> uuid::Uuid {
         .build_and_insert(db)
         .unwrap()
         .id
-}
-
-pub fn get_tournamentgroup_payload(creator_id: uuid::Uuid) -> NewTournamentGroup {
-    TournamentGroupBuilder::new_default("Test TourGroup 1")
-        .set_description(Some("This is Tour 1's payload.".to_string()))
-        .set_creator_id(creator_id)
-        .set_owner_id(creator_id)
-        .build()
-        .unwrap()
 }
 
 pub fn arrange_get_all_works_intergration_test(db: &mut database::Connection) -> (TournamentGroup, TournamentGroup) {

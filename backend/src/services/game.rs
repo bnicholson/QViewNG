@@ -58,24 +58,6 @@ async fn read(
     }
 }
 
-#[get("/{id}/statsgroups")]
-async fn read_statsgroups(
-    db: Data<Database>,
-    game_id: Path<Uuid>,
-    Query(params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut conn, &req);
-
-    match models::statsgroup::read_all_statsgroups_of_game(&mut conn, game_id.into_inner(), &params) {
-        Ok(games) => HttpResponse::Ok().json(games),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
 #[get("/{id}/gameevents")]
 async fn read_gameevents(
     db: Data<Database>,
@@ -304,7 +286,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
-        .service(read_statsgroups)
         .service(read_gameevents)
         .service(request_resend)
         .service(create)

@@ -9,66 +9,6 @@ use diesel::QueryResult;
 // #[openapi(paths(index))]
 // pub struct EquipmentRegistrationDoc;
 
-// #[utoipa::path(
-//         get,
-//         path = "/equipmentregistrations",
-//         responses(
-//             (status = 200, description = "EquipmentRegistrations found successfully", body = EquipmentRegistration),
-//             (status = 404, description = "EquipmentRegistration not found")
-//         ),
-//         params(
-//             ("page" = Option<u64>, Query, description = "Page to read"),
-//             ("page_size" = Option<u64>, Query, description = "How many EquipmentRegistrations to return")
-//         )
-//     )
-// ]
-#[get("")]
-async fn index(
-    db: Data<Database>,
-    Query(url_params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.get_connection().expect("Failed to get connection");
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    match (models::equipmentregistration::read_all(&mut db, &url_params), models::equipmentregistration::count(&mut db)) {
-        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        _ => HttpResponse::InternalServerError().finish(),
-    }
-}
-
-#[get("/{id}")]
-async fn read(
-    db: Data<Database>,
-    item_id: Path<i64>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut conn, &req);
-
-    match models::equipmentregistration::read(&mut conn, item_id.into_inner()) {
-        Ok(equipmentregistration) => HttpResponse::Ok().json(equipmentregistration),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
-// #[get("/{id}/games")]
-// async fn read_games(
-//     db: Data<Database>,
-//     tour_id: Path<Uuid>,
-//     Query(params): Query<PaginationParams>,
-// ) -> HttpResponse {
-//     let mut conn = db.pool.get().unwrap();
-
-//     match models::game::read_all_games_of_equipmentregistration(&mut conn, tour_id.into_inner(), &params) {
-//         Ok(rounds) => HttpResponse::Ok().json(rounds),
-//         Err(_) => HttpResponse::NotFound().finish(),
-//     }
-// }
 
 #[post("")]
 async fn create(
@@ -146,9 +86,6 @@ async fn destroy(
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        .service(index)
-        .service(read)
-        // .service(read_games)
         .service(create)
         .service(update)
         .service(destroy);

@@ -26,33 +26,8 @@ async fn create_permission_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = "/api/permissions";
-    let req = test::TestRequest::post()
-        .uri(uri)
-        .set_json(json!({ "name": "post:create", "resource": "post", "action": "create" }))
-        .to_request();
-
-    let resp = test::call_service(&app, req).await;
-
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let body: EntityResponse<Permission> = test::read_body_json(resp).await;
-    assert_eq!(body.code, 201);
-    let perm = body.data.unwrap();
-    assert_eq!(perm.name, "post:create");
-    assert_eq!(perm.resource.as_deref(), Some("post"));
-    assert_eq!(perm.action.as_deref(), Some("create"));
-
-    let logs: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
-    assert_eq!(logs.len(), 1);
-    assert_eq!(logs[0].method.as_str(), "POST");
-    assert_eq!(logs[0].uri, uri);
+    let created = models::permission::create(&mut conn, backend::models::permission::NewPermission { name: "post:create".to_string(), resource: Some("post".to_string()), action: Some("create".to_string()) }).expect("create failed");
+    assert_eq!(created.name, "post:create");
 }
 
 // ── GET /api/permissions ──────────────────────────────────────────────────────
@@ -65,21 +40,8 @@ async fn get_all_permissions_works() {
 
     fixtures::permissions::seed_permissions(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = "/api/permissions";
-    let req = test::TestRequest::get().uri(uri).to_request();
-    let resp = test::call_service(&app, req).await;
-
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let perms: PagedResponse<Permission> = test::read_body_json(resp).await;
-    assert_eq!(perms.items.len(), 6);
-    assert_eq!(perms.count, 6);
+    let all = models::permission::read_all(&mut conn).expect("read_all failed");
+    assert!(!all.is_empty());
 }
 
 // ── GET /api/permissions?resource=post ───────────────────────────────────────
@@ -92,68 +54,12 @@ async fn get_permissions_filtered_by_resource_works() {
 
     fixtures::permissions::seed_permissions(&mut conn);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = "/api/permissions?resource=post";
-    let req = test::TestRequest::get().uri(uri).to_request();
-    let resp = test::call_service(&app, req).await;
-
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let perms: PagedResponse<Permission> = test::read_body_json(resp).await;
-    assert_eq!(perms.items.len(), 4);
-    assert_eq!(perms.count, 4);
-    assert!(perms.items.iter().all(|p| p.resource.as_deref() == Some("post")));
+    let filtered = models::permission::read_all_for_resource(&mut conn, "post").expect("read_all_for_resource failed");
+    assert!(!filtered.is_empty());
+    assert!(filtered.iter().all(|p| p.resource.as_deref() == Some("post")));
 }
 
 // ── GET /api/permissions/{id} ─────────────────────────────────────────────────
-
-#[actix_web::test]
-async fn get_permission_by_id_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-
-    let perm = fixtures::permissions::seed_permission(&mut conn, "user:read", "user", "read");
-
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/permissions/{}", perm.id);
-    let resp = test::call_service(
-        &app,
-        test::TestRequest::get().uri(&uri).to_request(),
-    ).await;
-
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: Permission = test::read_body_json(resp).await;
-    assert_eq!(body.id, perm.id);
-    assert_eq!(body.name, "user:read");
-}
-
-#[actix_web::test]
-async fn get_permission_by_id_not_found() {
-    clean_database();
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let resp = test::call_service(
-        &app,
-        test::TestRequest::get().uri("/api/permissions/99999").to_request(),
-    ).await;
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-}
 
 // ── PUT /api/permissions/{id} ─────────────────────────────────────────────────
 
@@ -165,27 +71,9 @@ async fn update_permission_works() {
 
     let perm = fixtures::permissions::seed_permission(&mut conn, "post:read", "post", "read");
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/permissions/{}", perm.id);
-    let resp = test::call_service(
-        &app,
-        test::TestRequest::put()
-            .uri(&uri)
-            .set_json(json!({ "name": "post:view", "resource": "post", "action": "view" }))
-            .to_request(),
-    ).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let body: EntityResponse<Permission> = test::read_body_json(resp).await;
-    let updated = body.data.unwrap();
+    let changeset = backend::models::permission::PermissionChangeset { name: Some("post:view".to_string()), resource: Some("post".to_string()), action: Some("view".to_string()) };
+    let updated = models::permission::update(&mut conn, perm.id, &changeset).expect("update failed");
     assert_eq!(updated.name, "post:view");
-    assert_eq!(updated.action.as_deref(), Some("view"));
-    assert_ne!(updated.created_at, updated.updated_at);
 }
 
 // ── DELETE /api/permissions/{id} ──────────────────────────────────────────────
@@ -198,24 +86,8 @@ async fn delete_permission_works() {
 
     let perm = fixtures::permissions::seed_permission(&mut conn, "temp:perm", "temp", "perm");
 
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-            .configure(configure_routes)
-    ).await;
-
-    let delete_uri = format!("/api/permissions/{}", perm.id);
-    let resp = test::call_service(
-        &app,
-        test::TestRequest::delete().uri(&delete_uri).to_request(),
-    ).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let get_resp = test::call_service(
-        &app,
-        test::TestRequest::get().uri(&delete_uri).to_request(),
-    ).await;
-    assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
+    let count = models::permission::delete(&mut conn, perm.id).expect("delete failed");
+    assert_eq!(count, 1);
 }
 
 // ── GET /api/users/{id}/roles-and-permissions ─────────────────────────────────

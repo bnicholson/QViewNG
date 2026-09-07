@@ -219,14 +219,6 @@ pub fn get_team_payload(db: &mut database::Connection, did: Uuid) -> NewTeam {
         .unwrap()
 }
 
-pub fn seed_team(db: &mut database::Connection, did: Uuid) -> Team {
-    TeamBuilder::new_default(did)
-        .set_name("Team 1")
-        .set_coachid(create_and_insert_user(db, "Tiffany", "somethingcool@").id)
-        .build_and_insert(db)
-        .unwrap()
-}
-
 pub fn seed_teams(
     db: &mut database::Connection, 
     did: Uuid

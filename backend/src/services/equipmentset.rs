@@ -9,36 +9,6 @@ use diesel::QueryResult;
 // #[openapi(paths(index))]
 // pub struct EquipmentSetDoc;
 
-// #[utoipa::path(
-//         get,
-//         path = "/equipmentsets",
-//         responses(
-//             (status = 200, description = "EquipmentSets found successfully", body = EquipmentSet),
-//             (status = 404, description = "EquipmentSet not found")
-//         ),
-//         params(
-//             ("page" = Option<u64>, Query, description = "Page to read"),
-//             ("page_size" = Option<u64>, Query, description = "How many EquipmentSets to return")
-//         )
-//     )
-// ]
-#[get("")]
-async fn index(
-    db: Data<Database>,
-    Query(url_params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut db = db.get_connection().expect("Failed to get connection");
-
-    // log this api call
-    models::apicalllog::create(&mut db, &req);
-    
-    match (models::equipmentset::read_all(&mut db, &url_params), models::equipmentset::count(&mut db)) {
-        (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        _ => HttpResponse::InternalServerError().finish(),
-    }
-}
-
 #[get("/{id}")]
 async fn read(
     db: Data<Database>,
@@ -149,7 +119,6 @@ async fn read_equipment_of_set(
 
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
-        .service(index)
         .service(read)
         .service(read_equipment_of_set)
         .service(create)
