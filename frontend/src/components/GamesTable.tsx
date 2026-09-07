@@ -54,9 +54,7 @@ function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): 
     {
       header: 'Start Time',
       render: (g) => (
-        <EntityLink to={`/round/${g.roundid}/overview`}>
-          <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(g.scheduled_start_time)}</span>
-        </EntityLink>
+        <span style={{ whiteSpace: 'nowrap' }}>{formatDateTime(g.scheduled_start_time)}</span>
       ),
     },
     {
