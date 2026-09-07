@@ -58,14 +58,14 @@ export const LoginPage = () => {
         href="#"
         onClick={() => navigate('/register')}
       >
-        Don't have an account? Click here to register.
+        <b>Register here</b> to create a new account.
       </a>
       <a
         style={{ marginTop: '30px' }}
         href="#"
         onClick={() => navigate('/recovery')}
       >
-        Forgot your password? Click here to recover your account.
+        <b>Recover password</b> for an existing account.
       </a>
     </div>
     </div>
