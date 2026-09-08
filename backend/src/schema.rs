@@ -510,6 +510,7 @@ diesel::table! {
         #[max_length = 64]
         name -> Varchar,
         last_modified_user -> Uuid,
+        del_fl -> Bool,
     }
 }
 

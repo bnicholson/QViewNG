@@ -137,6 +137,8 @@ pub struct Round {
     pub scheduled_question_twenty_id: Option<Uuid>,
     pub name: String,
     pub last_modified_user: Uuid,
+    /// Soft-delete flag. When true the round is treated as deleted and excluded from reads.
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -169,17 +171,18 @@ pub fn create(db: &mut database::Connection, item: &NewRound) -> QueryResult<Rou
     insert_into(rounds).values(item).get_result::<Round>(db)
 }
 
-pub fn exists(db: &mut database::Connection, roundid: Uuid) -> bool {
-    use crate::schema::rounds::dsl::rounds;
+pub fn exists(db: &mut database::Connection, roundid_val: Uuid) -> bool {
+    use crate::schema::rounds::dsl::*;
     rounds
-        .find(roundid)
+        .find(roundid_val)
+        .filter(del_fl.eq(false))
         .get_result::<Round>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Round> {
     use crate::schema::rounds::dsl::*;
-    rounds.filter(roundid.eq(item_id)).first::<Round>(db)
+    rounds.filter(roundid.eq(item_id)).filter(del_fl.eq(false)).first::<Round>(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Round>> {
@@ -189,6 +192,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let offset_val = pagination.page * page_size;
 
     rounds
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(page_size)
         .offset(offset_val)
@@ -207,6 +211,7 @@ pub fn read_all_rounds_of_division(
 
     rounds
         .filter(did.eq(division_id))
+        .filter(del_fl.eq(false))
         .order(scheduled_start_time.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -235,6 +240,7 @@ pub fn read_all_rounds_of_tournament(
 
     rounds
         .filter(crate::schema::rounds::dsl::did.eq_any(division_ids))
+        .filter(crate::schema::rounds::dsl::del_fl.eq(false))
         .order(scheduled_start_time.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -279,7 +285,7 @@ pub fn read_round_rows_of_tournament(
 
     let total: i64 = {
         use crate::schema::rounds::dsl::*;
-        rounds.filter(did.eq_any(&div_ids)).count().get_result(db)?
+        rounds.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
@@ -288,6 +294,7 @@ pub fn read_round_rows_of_tournament(
         use crate::schema::rounds::dsl::*;
         rounds
             .filter(did.eq_any(&div_ids))
+            .filter(del_fl.eq(false))
             .order(scheduled_start_time.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -312,7 +319,7 @@ pub fn read_round_rows_of_division(
 
     let total: i64 = {
         use crate::schema::rounds::dsl::*;
-        rounds.filter(did.eq(division_id)).count().get_result(db)?
+        rounds.filter(did.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
@@ -321,6 +328,7 @@ pub fn read_round_rows_of_division(
         use crate::schema::rounds::dsl::*;
         rounds
             .filter(did.eq(division_id))
+            .filter(del_fl.eq(false))
             .order(scheduled_start_time.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -366,10 +374,19 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangese
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::rounds::dsl::*;
-    rounds.count().get_result(db)
+    rounds.filter(del_fl.eq(false)).count().get_result(db)
 }
 
+/// Soft delete: mark the round deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::rounds::dsl::*;
+    diesel::update(rounds.filter(roundid.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the round row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::rounds::dsl::*;
     diesel::delete(rounds.filter(roundid.eq(item_id))).execute(db)
 }

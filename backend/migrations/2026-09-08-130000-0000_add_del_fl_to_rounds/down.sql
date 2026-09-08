@@ -1,0 +1,1 @@
+ALTER TABLE rounds DROP COLUMN del_fl;
