@@ -7,6 +7,7 @@ use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
 use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::{common::{EntityResponse, PagedResponse}, tournament::TournamentWithRooms}};
 use backend::models::{division::Division, tournament::Tournament};
 use backend::database::Database;
+use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -545,6 +546,38 @@ async fn delete_works() {
     assert_eq!(apicalllog_records.iter().count(), 2);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), format!("/api/tournaments/{}", tournament.tid));
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Tour");
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::tournament::delete(&mut conn, tournament.tid).unwrap();
+    assert_eq!(affected, 1);
+
+    // Reads exclude the soft-deleted tournament.
+    assert!(models::tournament::read(&mut conn, tournament.tid).is_err());
+
+    // The underlying row still exists with del_fl = true (verified with a raw query that ignores the flag).
+    use backend::schema::tournaments::dsl as t;
+    let raw_count: i64 = t::tournaments.filter(t::tid.eq(tournament.tid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = t::tournaments.filter(t::tid.eq(tournament.tid)).select(t::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::tournament::purge(&mut conn, tournament.tid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = t::tournaments.filter(t::tid.eq(tournament.tid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]

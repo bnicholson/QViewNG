@@ -322,6 +322,7 @@ pub struct Tournament {
     #[schema(value_type = Option<String>, format = Date)]
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
     pub last_modified_user: Uuid,
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -434,17 +435,18 @@ pub fn exists(db: &mut database::Connection, tid: Uuid) -> bool {
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Tournament> {
     use crate::schema::tournaments::dsl::*;
-    tournaments.filter(tid.eq(item_id)).first::<Tournament>(db)
+    tournaments.filter(tid.eq(item_id)).filter(del_fl.eq(false)).first::<Tournament>(db)
 }
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::tournaments::dsl::*;
-    tournaments.count().get_result(db)
+    tournaments.filter(del_fl.eq(false)).count().get_result(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Tournament>> {
     use crate::schema::tournaments::dsl::*;
     let values = tournaments
+        .filter(del_fl.eq(false))
         .order(todate)
         .limit(pagination.page_size)
         .offset(
@@ -480,6 +482,7 @@ pub fn read_between_dates(db: &mut database::Connection, from_dt: i64, to_dt: i6
 
     let mut query = tournaments
         .order(todate)
+        .filter(del_fl.eq(false))
         .filter(todate.ge(dt_from))
         .filter(fromdate.le(dt_to))
         .into_boxed();
@@ -509,6 +512,7 @@ pub fn read_all_tournaments_where_user_is_admin(db: &mut database::Connection, a
 
     tournaments
         .filter(tid.eq_any(tour_ids))
+        .filter(del_fl.eq(false))
         .order(todate)
         .limit(page_size)
         .offset(offset_val)
@@ -548,7 +552,7 @@ pub fn read_managed_tournament_rows_of_user(
 ) -> QueryResult<(Vec<UserManagedTournamentRow>, i64)> {
     let total: i64 = {
         use crate::schema::tournaments::dsl::*;
-        tournaments.filter(owner_id.eq(user_id)).count().get_result(db)?
+        tournaments.filter(owner_id.eq(user_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
@@ -556,6 +560,7 @@ pub fn read_managed_tournament_rows_of_user(
         use crate::schema::tournaments::dsl::*;
         tournaments
             .filter(owner_id.eq(user_id))
+            .filter(del_fl.eq(false))
             .order(todate.desc())
             .limit(page_size)
             .offset(offset_val)
@@ -605,6 +610,7 @@ pub fn read_all_tournaments_where_user_is_admin_or_owner(db: &mut database::Conn
     use crate::schema::tournaments::dsl::*;
     tournaments
         .filter(owner_id.eq(user_id).or(tid.eq_any(admin_tour_ids)))
+        .filter(del_fl.eq(false))
         .order(todate.desc())
         .limit(page_size)
         .offset(offset_val)
@@ -690,6 +696,7 @@ pub fn read_all_tournaments_of_tournamentgroup(db: &mut database::Connection, tg
 
     tournaments
         .filter(tid.eq_any(tour_ids))
+        .filter(del_fl.eq(false))
         .order(todate)
         .limit(page_size)
         .offset(offset_val)
@@ -707,7 +714,16 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentCha
         .get_result(db)
 }
 
+/// Soft delete: mark the tournament deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::tournaments::dsl::*;
+    diesel::update(tournaments.filter(tid.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the tournament row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::tournaments::dsl::*;
     diesel::delete(tournaments.filter(tid.eq(item_id))).execute(db)
 }

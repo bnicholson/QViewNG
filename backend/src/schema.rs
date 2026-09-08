@@ -640,6 +640,7 @@ diesel::table! {
         registration_open_date -> Nullable<Date>,
         registration_close_date -> Nullable<Date>,
         last_modified_user -> Uuid,
+        del_fl -> Bool,
     }
 }
 
