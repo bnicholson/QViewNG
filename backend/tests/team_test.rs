@@ -8,6 +8,7 @@ use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::G
 use backend::models::team::Team;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
@@ -616,6 +617,38 @@ async fn delete_works() {
         .to_request();
     let get_by_id_resp_2 = test::call_service(&app, get_by_id_req_2).await;
     assert_eq!(get_by_id_resp_2.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Team Tour");
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+    let team = fixtures::teams::seed_teams(&mut conn, division.did).remove(0);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::team::delete(&mut conn, team.teamid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::team::read(&mut conn, team.teamid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::teams::dsl as t;
+    let raw_count: i64 = t::teams.filter(t::teamid.eq(team.teamid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = t::teams.filter(t::teamid.eq(team.teamid)).select(t::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::team::purge(&mut conn, team.teamid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = t::teams.filter(t::teamid.eq(team.teamid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]

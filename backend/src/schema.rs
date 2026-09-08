@@ -576,6 +576,7 @@ diesel::table! {
         quizzer_six_id -> Nullable<Uuid>,
         last_modified_user -> Uuid,
         creator_id -> Uuid,
+        del_fl -> Bool,
     }
 }
 

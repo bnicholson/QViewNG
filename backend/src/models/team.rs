@@ -179,7 +179,8 @@ pub struct Team {
     pub quizzer_five_id: Option<Uuid>,
     pub quizzer_six_id: Option<Uuid>,
     pub last_modified_user: Uuid,
-    pub creator_id: Uuid
+    pub creator_id: Uuid,
+    pub del_fl: bool
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -250,16 +251,17 @@ pub fn create(db: &mut database::Connection, item: &NewTeam) -> QueryResult<Team
 }
 
 pub fn exists(db: &mut database::Connection, id: Uuid) -> bool {
-    use crate::schema::teams::dsl::teams;
+    use crate::schema::teams::dsl::*;
     teams
         .find(id)
+        .filter(del_fl.eq(false))
         .get_result::<Team>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Team> {
     use crate::schema::teams::dsl::*;
-    teams.filter(teamid.eq(item_id)).first::<Team>(db)
+    teams.filter(teamid.eq(item_id)).filter(del_fl.eq(false)).first::<Team>(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Team>> {
@@ -269,6 +271,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let offset_val = pagination.page * page_size;
 
     teams
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(page_size)
         .offset(offset_val)
@@ -287,6 +290,7 @@ pub fn read_all_teams_of_division(
 
     teams
         .filter(did.eq(item_id))
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -305,6 +309,7 @@ pub fn read_all_teams_where_user_is_coach(
 
     teams
         .filter(coachid.eq(user_id))
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -330,6 +335,7 @@ pub fn read_all_teams_where_user_is_quizzer(
                 .or(quizzer_five_id.eq(user_id))
                 .or(quizzer_six_id.eq(user_id))
         )
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -391,11 +397,12 @@ pub fn read_team_rows_of_user(
             .or(quizzer_five_id.eq(uid))
             .or(quizzer_six_id.eq(uid))
     };
-    let total: i64 = teams.filter(participant(user_id)).count().get_result(db)?;
+    let total: i64 = teams.filter(participant(user_id)).filter(del_fl.eq(false)).count().get_result(db)?;
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
     let list: Vec<Team> = teams
         .filter(participant(user_id))
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -496,10 +503,17 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamChangeset
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::teams::dsl::*;
-    teams.count().get_result(db)
+    teams.filter(del_fl.eq(false)).count().get_result(db)
 }
 
+/// Soft delete: mark the team deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::teams::dsl::*;
+    diesel::update(teams.filter(teamid.eq(item_id))).set(del_fl.eq(true)).execute(db)
+}
+
+/// Purge: permanently remove the team row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::teams::dsl::*;
     diesel::delete(teams.filter(teamid.eq(item_id))).execute(db)
 }
@@ -518,7 +532,7 @@ pub fn count_by_tournament(db: &mut database::Connection, tournament_id: Uuid) -
     }
 
     use crate::schema::teams::dsl::*;
-    teams.filter(did.eq_any(&division_ids)).count().get_result(db)
+    teams.filter(did.eq_any(&division_ids)).filter(del_fl.eq(false)).count().get_result(db)
 }
 
 pub fn read_all_teams_of_tournament(
@@ -545,6 +559,7 @@ pub fn read_all_teams_of_tournament(
         use crate::schema::teams::dsl::*;
         teams
             .filter(did.eq_any(&division_ids))
+            .filter(del_fl.eq(false))
             .order(name.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -609,6 +624,7 @@ pub fn read_all_quizzers_of_tournament(
         use crate::schema::teams::dsl::*;
         teams
             .filter(did.eq_any(&division_ids))
+            .filter(del_fl.eq(false))
             .load::<Team>(db)?
     };
 
@@ -683,7 +699,7 @@ pub fn read_team_rows_of_tournament(
 
     let total: i64 = {
         use crate::schema::teams::dsl::*;
-        teams.filter(did.eq_any(&div_ids)).count().get_result(db)?
+        teams.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
@@ -692,6 +708,7 @@ pub fn read_team_rows_of_tournament(
         use crate::schema::teams::dsl::*;
         teams
             .filter(did.eq_any(&div_ids))
+            .filter(del_fl.eq(false))
             .order(name.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -716,7 +733,7 @@ pub fn read_team_rows_of_division(
 
     let total: i64 = {
         use crate::schema::teams::dsl::*;
-        teams.filter(did.eq(division_id)).count().get_result(db)?
+        teams.filter(did.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
@@ -725,6 +742,7 @@ pub fn read_team_rows_of_division(
         use crate::schema::teams::dsl::*;
         teams
             .filter(did.eq(division_id))
+            .filter(del_fl.eq(false))
             .order(name.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -822,7 +840,7 @@ pub fn read_quizzer_rows_of_tournament(
         Vec::new()
     } else {
         use crate::schema::teams::dsl::*;
-        teams.filter(did.eq_any(&div_ids)).load::<Team>(db)?
+        teams.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).load::<Team>(db)?
     };
 
     build_quizzer_rows(db, team_list, &div_name_by_id, pagination)
@@ -844,7 +862,7 @@ pub fn read_quizzer_rows_of_division(
 
     let team_list: Vec<Team> = {
         use crate::schema::teams::dsl::*;
-        teams.filter(did.eq(division_id)).load::<Team>(db)?
+        teams.filter(did.eq(division_id)).filter(del_fl.eq(false)).load::<Team>(db)?
     };
 
     build_quizzer_rows(db, team_list, &div_name_by_id, pagination)
@@ -1026,6 +1044,7 @@ pub fn read_all_teams_where_user_is_quizzer_enriched(
                     .or(quizzer_five_id.eq(user_id))
                     .or(quizzer_six_id.eq(user_id))
             )
+            .filter(del_fl.eq(false))
             .order(name.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -1047,6 +1066,7 @@ pub fn read_all_teams_where_user_is_coach_enriched(
         use crate::schema::teams::dsl::*;
         teams
             .filter(coachid.eq(user_id))
+            .filter(del_fl.eq(false))
             .order(name.asc())
             .limit(page_size)
             .offset(offset_val)
