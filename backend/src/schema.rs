@@ -446,6 +446,7 @@ diesel::table! {
         ping_host_ip -> Nullable<Varchar>,
         ping_last_checkin_ts -> Nullable<Timestamptz>,
         last_modified_user -> Uuid,
+        del_fl -> Bool,
     }
 }
 

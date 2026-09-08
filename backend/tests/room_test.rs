@@ -6,6 +6,7 @@ use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, room::RoomBuilder}, services::{common::PagedResponse, room::RoomGame}};
 use backend::models::room::Room;
+use diesel::prelude::*;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
@@ -477,6 +478,39 @@ async fn delete_works() {
         .to_request();
     let get_by_id_resp_2 = test::call_service(&app, get_by_id_req_2).await;
     assert_eq!(get_by_id_resp_2.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Room Tour");
+    let room = RoomBuilder::new_default("Soft Room", tournament.tid)
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::room::delete(&mut conn, room.roomid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::room::read(&mut conn, room.roomid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::rooms::dsl as r;
+    let raw_count: i64 = r::rooms.filter(r::roomid.eq(room.roomid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = r::rooms.filter(r::roomid.eq(room.roomid)).select(r::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::room::purge(&mut conn, room.roomid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = r::rooms.filter(r::roomid.eq(room.roomid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]

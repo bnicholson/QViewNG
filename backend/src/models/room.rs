@@ -163,6 +163,8 @@ pub struct Room {
     pub ping_host_ip: Option<String>,           // latest host/IP reported by the room's client
     pub ping_last_checkin_ts: Option<DateTime<Utc>>, // timestamp of the last check-in (ping) from the room's client
     pub last_modified_user: Uuid,
+    /// Soft-delete flag. When true the room is treated as deleted and excluded from reads.
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -233,17 +235,18 @@ pub fn create(db: &mut database::Connection, item: &NewRoom) -> QueryResult<Room
     insert_into(rooms).values(item).get_result::<Room>(db)
 }
 
-pub fn exists(db: &mut database::Connection, roomid: Uuid) -> bool {
-    use crate::schema::rooms::dsl::rooms;
+pub fn exists(db: &mut database::Connection, roomid_val: Uuid) -> bool {
+    use crate::schema::rooms::dsl::*;
     rooms
-        .find(roomid)
+        .find(roomid_val)
+        .filter(del_fl.eq(false))
         .get_result::<Room>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Room> {
     use crate::schema::rooms::dsl::*;
-    rooms.filter(roomid.eq(item_id)).first::<Room>(db)
+    rooms.filter(roomid.eq(item_id)).filter(del_fl.eq(false)).first::<Room>(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Room>> {
@@ -253,6 +256,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let offset_val = pagination.page * page_size;
 
     rooms
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(page_size)
         .offset(offset_val)
@@ -271,6 +275,7 @@ pub fn read_all_rooms_of_tournament(
 
     rooms
         .filter(tid.eq(item_id))
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -301,7 +306,7 @@ pub fn read_room_rows_of_tournament(
 ) -> QueryResult<(Vec<RoomRow>, i64)> {
     let total: i64 = {
         use crate::schema::rooms::dsl::*;
-        rooms.filter(tid.eq(tournament_id)).count().get_result(db)?
+        rooms.filter(tid.eq(tournament_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let list = read_all_rooms_of_tournament(db, tournament_id, pagination)?;
     let name_ids: Vec<Uuid> = list.iter().map(|r| r.last_modified_user).collect();
@@ -340,15 +345,25 @@ pub fn find_by_name_in_tournament(db: &mut database::Connection, room_name: &str
     use crate::schema::rooms::dsl::*;
     rooms
         .filter(name.eq(room_name).and(tid.eq(tournament_id)))
+        .filter(del_fl.eq(false))
         .first::<Room>(db)
 }
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::rooms::dsl::*;
-    rooms.count().get_result(db)
+    rooms.filter(del_fl.eq(false)).count().get_result(db)
 }
 
+/// Soft delete: mark the room deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::rooms::dsl::*;
+    diesel::update(rooms.filter(roomid.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the room row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::rooms::dsl::*;
     diesel::delete(rooms.filter(roomid.eq(item_id))).execute(db)
 }
