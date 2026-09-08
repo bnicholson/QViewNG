@@ -8,6 +8,7 @@ use backend::{database::Database, models::{self, apicalllog::ApiCalllog, tournam
 use backend::models::tournamentgroup::{TournamentGroup, NewTournamentGroupPayload};
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
+use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
@@ -293,6 +294,36 @@ async fn delete_works() {
     assert_eq!(apicalllog_records.iter().count(), 2);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let group = fixtures::tournamentgroups::arrange_delete_works_integration_test(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::tournamentgroup::delete(&mut conn, group.tgid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::tournamentgroup::read(&mut conn, group.tgid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::tournamentgroups::dsl as tg;
+    let raw_count: i64 = tg::tournamentgroups.filter(tg::tgid.eq(group.tgid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = tg::tournamentgroups.filter(tg::tgid.eq(group.tgid)).select(tg::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::tournamentgroup::purge(&mut conn, group.tgid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = tg::tournamentgroups.filter(tg::tgid.eq(group.tgid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]

@@ -592,6 +592,7 @@ diesel::table! {
         creator_id -> Uuid,
         owner_id -> Uuid,
         last_modified_user -> Uuid,
+        del_fl -> Bool,
     }
 }
 

@@ -98,6 +98,7 @@ pub struct TournamentGroup {
     pub creator_id: Uuid,                      // User who created this group
     pub owner_id: Uuid,                        // User who owns this group
     pub last_modified_user: Uuid,
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -137,16 +138,17 @@ pub fn create(db: &mut database::Connection, item: &NewTournamentGroup) -> Query
 }
 
 pub fn exists(db: &mut database::Connection, tournamentgroupid: Uuid) -> bool {
-    use crate::schema::tournamentgroups::dsl::tournamentgroups;
+    use crate::schema::tournamentgroups::dsl::*;
     tournamentgroups
         .find(tournamentgroupid)
+        .filter(del_fl.eq(false))
         .get_result::<TournamentGroup>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<TournamentGroup> {
     use crate::schema::tournamentgroups::dsl::*;
-    tournamentgroups.filter(tgid.eq(item_id)).first::<TournamentGroup>(db)
+    tournamentgroups.filter(tgid.eq(item_id)).filter(del_fl.eq(false)).first::<TournamentGroup>(db)
 }
 
 /// One fully-formed row of the user's "Managed Tournament Groups" data table: the group plus the
@@ -174,11 +176,12 @@ pub fn read_managed_tournamentgroup_rows_of_user(
     pagination: &PaginationParams,
 ) -> QueryResult<(Vec<UserManagedTournamentGroupRow>, i64)> {
     use crate::schema::tournamentgroups::dsl::*;
-    let total: i64 = tournamentgroups.filter(owner_id.eq(user_id)).count().get_result(db)?;
+    let total: i64 = tournamentgroups.filter(owner_id.eq(user_id)).filter(del_fl.eq(false)).count().get_result(db)?;
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
     let list: Vec<TournamentGroup> = tournamentgroups
         .filter(owner_id.eq(user_id))
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -207,6 +210,7 @@ pub fn read_managed_tournamentgroup_rows_of_user(
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<TournamentGroup>> {
     use crate::schema::tournamentgroups::dsl::*;
     tournamentgroups
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(pagination.page_size)
         .offset(
@@ -218,7 +222,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::tournamentgroups::dsl::*;
-    tournamentgroups.count().get_result(db)
+    tournamentgroups.filter(del_fl.eq(false)).count().get_result(db)
 }
 
 pub fn read_all_tournamentgroups_of_tournament(db: &mut database::Connection, tour_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<TournamentGroup>> {
@@ -239,6 +243,7 @@ pub fn read_all_tournamentgroups_of_tournament(db: &mut database::Connection, to
 
     tournamentgroups
         .filter(tgid.eq_any(tg_ids))
+        .filter(del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -266,9 +271,22 @@ pub fn read_tournamentgroup_rows_of_tournament(
     tour_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<(Vec<TournamentGroupRow>, i64)> {
+    // Count only non-deleted groups linked to this tournament (soft-deleted groups still have a
+    // bridge row, so counting the bridge directly would over-count).
     let total: i64 = {
-        use crate::schema::tournamentgroups_tournaments::dsl::*;
-        tournamentgroups_tournaments.filter(tournamentid.eq(tour_id)).count().get_result(db)?
+        let tg_ids: Vec<Uuid> = {
+            use crate::schema::tournamentgroups_tournaments::dsl::*;
+            tournamentgroups_tournaments
+                .filter(tournamentid.eq(tour_id))
+                .select(tournamentgroupid)
+                .load::<Uuid>(db)?
+        };
+        use crate::schema::tournamentgroups::dsl::*;
+        tournamentgroups
+            .filter(tgid.eq_any(tg_ids))
+            .filter(del_fl.eq(false))
+            .count()
+            .get_result(db)?
     };
     let list = read_all_tournamentgroups_of_tournament(db, tour_id, pagination)?;
     let name_ids: Vec<Uuid> = list.iter().map(|g| g.last_modified_user).collect();
@@ -302,7 +320,14 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TournamentGro
         .get_result(db)
 }
 
+/// Soft delete: mark the tournament group deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::tournamentgroups::dsl::*;
+    diesel::update(tournamentgroups.filter(tgid.eq(item_id))).set(del_fl.eq(true)).execute(db)
+}
+
+/// Purge: permanently remove the tournament group row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::tournamentgroups::dsl::*;
     diesel::delete(tournamentgroups.filter(tgid.eq(item_id))).execute(db)
 }
