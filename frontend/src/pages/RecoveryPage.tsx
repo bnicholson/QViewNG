@@ -30,7 +30,9 @@ export const RecoveryPage = () => {
   }
 
   return (
-    <div className="Form" style={{ textAlign: 'left' }}>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+    {/* Match the Login page's form width so the fields line up across auth pages. */}
+    <div className="Form" style={{ textAlign: 'left', width: 650, maxWidth: '100%', marginLeft: '20px', marginRight: '20px' }}>
       <h1>Account Recovery</h1>
       <br />
       <form onSubmit={(e) => { e.preventDefault(); recover() }}>
@@ -40,10 +42,11 @@ export const RecoveryPage = () => {
         </div>
         <div style={{ display: 'flex', flexFlow: 'column' }}>
           <button type="submit" disabled={processing}>
-            Recover
+            Send Recovery Email
           </button>
         </div>
       </form>
+    </div>
     </div>
   )
 }
