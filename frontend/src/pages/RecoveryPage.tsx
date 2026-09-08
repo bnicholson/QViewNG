@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 export const RecoveryPage = () => {
   const auth = useAuth()
   const navigate = useNavigate()
+  const [username, setUsername] = useState<string>('')
   const [email, setEmail] = useState<string>('')
   const [processing, setProcessing] = useState<boolean>(false)
 
@@ -16,11 +17,12 @@ export const RecoveryPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ username, email }),
       })
     ).json()
     console.log(response)
     setProcessing(false)
+    setUsername('')
     setEmail('')
   }
 
@@ -37,7 +39,11 @@ export const RecoveryPage = () => {
       <br />
       <form onSubmit={(e) => { e.preventDefault(); recover() }}>
         <div style={{ display: 'flex', flexFlow: 'column' }}>
-          <label>Email</label>
+          <label>Username</label>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', flexFlow: 'column' }}>
+          <label>Email (of the account)</label>
           <input value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div style={{ display: 'flex', flexFlow: 'column' }}>

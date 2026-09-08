@@ -304,8 +304,9 @@ async fn forgot_password_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    backend::models::user::UserBuilder::new("Forgot")
+    let user = backend::models::user::UserBuilder::new("Forgot")
         .set_email("forgotpwd@example.com")
+        .set_username("forgotuser")
         .set_lname("Tester")
         .set_mname("Auth")
         .set_hash_password("ForgotTest!1")
@@ -320,9 +321,11 @@ async fn forgot_password_works() {
     ).await;
 
     let uri = "/api/auth/forgot";
+    // Recovery requires a matching username + email pair.
     let req = test::TestRequest::post()
         .uri(uri)
         .set_json(serde_json::json!({
+            "username": "forgotuser",
             "email": "forgotpwd@example.com"
         }))
         .to_request();
@@ -338,11 +341,60 @@ async fn forgot_password_works() {
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert!(body.get("message").is_some());
 
+    // The matching pair was found, so a reset token should have been created for the user.
+    let token_count = models::password_reset::count_for_user(&mut conn, user.id).unwrap();
+    assert_eq!(token_count, 1);
+
     // Check that ApiCalllog recorded the call:
     let apicalllog_records: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
     assert_eq!(apicalllog_records.iter().count(), 1);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
     assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), uri);
+}
+
+#[actix_web::test]
+async fn forgot_password_requires_matching_username_and_email() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user = backend::models::user::UserBuilder::new("Forgot")
+        .set_email("forgotpwd@example.com")
+        .set_username("forgotuser")
+        .set_lname("Tester")
+        .set_mname("Auth")
+        .set_hash_password("ForgotTest!1")
+        .set_activated(true)
+        .build_and_insert(&mut conn)
+        .expect("Failed to create test user");
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // Correct email but the WRONG username — the pair does not identify the account.
+    let req = test::TestRequest::post()
+        .uri("/api/auth/forgot")
+        .set_json(serde_json::json!({
+            "username": "not-the-username",
+            "email": "forgotpwd@example.com"
+        }))
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert: still 200 (no user enumeration), but no reset token is created for the user.
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let token_count = models::password_reset::count_for_user(&mut conn, user.id).unwrap();
+    assert_eq!(token_count, 0);
 }
 
 #[actix_web::test]

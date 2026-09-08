@@ -24,6 +24,11 @@ pub fn create(db: &mut database::Connection, uid: Uuid, tok: &str, exp: DateTime
         .get_result(db)
 }
 
+pub fn count_for_user(db: &mut database::Connection, uid: Uuid) -> QueryResult<i64> {
+    use crate::schema::password_reset_tokens::dsl::*;
+    password_reset_tokens.filter(user_id.eq(uid)).count().get_result(db)
+}
+
 pub fn find_valid(db: &mut database::Connection, tok: &str) -> QueryResult<PasswordResetToken> {
     use crate::schema::password_reset_tokens::dsl::*;
     password_reset_tokens

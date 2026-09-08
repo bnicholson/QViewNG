@@ -169,6 +169,7 @@ async fn refresh(req: HttpRequest, db: Data<Database>) -> HttpResponse {
 
 #[derive(Deserialize)]
 struct ForgotRequest {
+    username: String,
     email: String,
 }
 
@@ -177,10 +178,10 @@ async fn forgot_password(db: Data<Database>, Json(body): Json<ForgotRequest>, re
     let mut conn = db.pool.get().unwrap();
     models::apicalllog::create(&mut conn, &req);
 
-    // Always return 200 to avoid user enumeration
-    let user = match models::user::find_by_email_or_username(&mut conn, &body.email) {
+    // Recovery requires a matching username + email pair. Always return 200 to avoid user enumeration.
+    let user = match models::user::find_by_username_and_email(&mut conn, &body.username, &body.email) {
         Ok(u) => u,
-        Err(_) => return HttpResponse::Ok().json(serde_json::json!({"message": "If that email exists, a recovery link has been sent."})),
+        Err(_) => return HttpResponse::Ok().json(serde_json::json!({"message": "If that username and email match an account, a recovery link has been sent."})),
     };
 
     let token = Uuid::new_v4().to_string();
@@ -197,7 +198,7 @@ async fn forgot_password(db: Data<Database>, Json(body): Json<ForgotRequest>, re
     let _ = send_reset_email(&user.email, &reset_link).await;
     tracing::info!("Password reset link for {}: {}", user.email, reset_link);
 
-    HttpResponse::Ok().json(serde_json::json!({"message": "If that email exists, a recovery link has been sent."}))
+    HttpResponse::Ok().json(serde_json::json!({"message": "If that username and email match an account, a recovery link has been sent."}))
 }
 
 async fn send_reset_email(to_email: &str, reset_link: &str) -> Result<(), Box<dyn std::error::Error>> {

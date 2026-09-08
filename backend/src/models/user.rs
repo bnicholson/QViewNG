@@ -338,6 +338,20 @@ pub fn find_by_email_or_username(db: &mut database::Connection, identifier: &str
         .first::<User>(db)
 }
 
+/// Finds the single user matching BOTH the given username and email. Used by account recovery
+/// so a reset can only be requested when the username/email pair identifies one specific account.
+pub fn find_by_username_and_email(db: &mut database::Connection, username_val: &str, email_val: &str) -> QueryResult<User> {
+    use crate::schema::users::dsl::*;
+
+    if username_val.trim().is_empty() || email_val.trim().is_empty() {
+        return Err(diesel::result::Error::NotFound);
+    }
+
+    users
+        .filter(username.eq(username_val).and(email.eq(email_val)))
+        .first::<User>(db)
+}
+
 pub fn change_password(db: &mut database::Connection, user_id: Uuid, new_hash: &str) -> QueryResult<User> {
     use crate::schema::users::dsl::*;
     diesel::update(users.filter(id.eq(user_id)))
