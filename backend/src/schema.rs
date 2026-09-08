@@ -101,6 +101,7 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         last_modified_user -> Uuid,
+        del_fl -> Bool,
     }
 }
 

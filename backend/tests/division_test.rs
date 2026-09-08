@@ -521,6 +521,37 @@ async fn delete_works() {
 }
 
 #[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Div Tour");
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::division::delete(&mut conn, division.did).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::division::read(&mut conn, division.did).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::divisions::dsl as d;
+    let raw_count: i64 = d::divisions.filter(d::did.eq(division.did)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = d::divisions.filter(d::did.eq(division.did)).select(d::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::division::purge(&mut conn, division.did).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = d::divisions.filter(d::did.eq(division.did)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
+}
+
+#[actix_web::test]
 async fn get_all_rounds_of_division_works() {
 
     // Arrange:

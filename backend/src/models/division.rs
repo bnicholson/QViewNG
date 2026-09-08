@@ -148,7 +148,8 @@ pub struct Division {
     pub shortinfo : String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub last_modified_user: Uuid
+    pub last_modified_user: Uuid,
+    pub del_fl: bool
 }
 
 #[derive(
@@ -185,28 +186,30 @@ pub fn create(db: &mut database::Connection, item: &NewDivision) -> QueryResult<
     insert_into(divisions).values(item).get_result::<Division>(db)
 }
 
-pub fn exists(db: &mut database::Connection, did: Uuid) -> bool {
-    use crate::schema::divisions::dsl::divisions;
+pub fn exists(db: &mut database::Connection, did_val: Uuid) -> bool {
+    use crate::schema::divisions::dsl::*;
     divisions
-        .find(did)
+        .find(did_val)
+        .filter(del_fl.eq(false))
         .get_result::<Division>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Division> {
     use crate::schema::divisions::dsl::*;
-    divisions.filter(did.eq(item_id)).first::<Division>(db)
+    divisions.filter(did.eq(item_id)).filter(del_fl.eq(false)).first::<Division>(db)
 }
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::divisions::dsl::*;
-    divisions.count().get_result(db)
+    divisions.filter(del_fl.eq(false)).count().get_result(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Division>> {
     use crate::schema::divisions::dsl::*;
-    
+
     divisions
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(pagination.page_size)
         .offset(
@@ -242,7 +245,7 @@ pub fn read_division_rows_of_tournament(
 ) -> QueryResult<(Vec<DivisionRow>, i64)> {
     let total: i64 = {
         use crate::schema::divisions::dsl::*;
-        divisions.filter(tid.eq(tournament_id)).count().get_result(db)?
+        divisions.filter(tid.eq(tournament_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let list = read_all_divisions_of_tournament(db, tournament_id, pagination)?;
     let name_ids: Vec<Uuid> = list.iter().map(|d| d.last_modified_user).collect();
@@ -280,6 +283,7 @@ pub fn read_all_divisions_of_tournament(
 
     divisions
         .filter(tid.eq(item_id))
+        .filter(del_fl.eq(false))
         .order(dname.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -297,7 +301,16 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionChang
         .get_result(db)
 }
 
+/// Soft delete: mark the division deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::divisions::dsl::*;
+    diesel::update(divisions.filter(did.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the division row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::divisions::dsl::*;
     diesel::delete(divisions.filter(did.eq(item_id))).execute(db)
 }
