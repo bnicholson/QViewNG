@@ -259,6 +259,7 @@ diesel::table! {
         resend_request_sent_ts -> Nullable<Timestamptz>,
         last_modified_user -> Uuid,
         creator_id -> Uuid,
+        del_fl -> Bool,
     }
 }
 

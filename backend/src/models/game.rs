@@ -232,7 +232,9 @@ pub struct Game {
     pub resend_gameevents_response: Option<String>,
     pub resend_request_sent_ts: Option<DateTime<Utc>>,
     pub last_modified_user: Uuid,
-    pub creator_id: Uuid
+    pub creator_id: Uuid,
+    /// Soft-delete flag. When true the game is treated as deleted and excluded from reads.
+    pub del_fl: bool
 }
 
 #[derive(
@@ -409,17 +411,17 @@ pub fn create_update(db: &mut database::Connection, item: &GameChangeset) -> Que
 
 pub fn read(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
-    games.filter(gid.eq(item_id)).first::<Game>(db_conn)
+    games.filter(gid.eq(item_id)).filter(del_fl.eq(false)).first::<Game>(db_conn)
 }
 
 pub fn count(db_conn: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::games::dsl::*;
-    games.count().get_result(db_conn)
+    games.filter(del_fl.eq(false)).count().get_result(db_conn)
 }
 
 pub fn count_by_tournament(db_conn: &mut database::Connection, tournament_id: Uuid) -> QueryResult<i64> {
     use crate::schema::games::dsl::*;
-    games.filter(tournamentid.eq(tournament_id)).count().get_result(db_conn)
+    games.filter(tournamentid.eq(tournament_id)).filter(del_fl.eq(false)).count().get_result(db_conn)
 }
 
 pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
@@ -429,6 +431,7 @@ pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParam
     let offset_val = pagination.page * page_size;
 
     games
+        .filter(del_fl.eq(false))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)
@@ -450,6 +453,7 @@ macro_rules! read_games_ordered {
             .inner_join(rounds::table.on(games::roundid.eq(rounds::roundid)))
             .inner_join(rooms::table.on(games::roomid.eq(rooms::roomid)))
             .filter(games::$col.eq($val))
+            .filter(games::del_fl.eq(false))
             .order((
                 divisions::dname.asc(),
                 rounds::scheduled_start_time.asc(),
@@ -633,7 +637,7 @@ pub fn read_game_rows_of_tournament(
 ) -> QueryResult<(Vec<GameRow>, i64)> {
     let total: i64 = {
         use crate::schema::games::dsl::*;
-        games.filter(tournamentid.eq(tournament_id)).count().get_result(db)?
+        games.filter(tournamentid.eq(tournament_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_tournament(db, tournament_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
@@ -651,7 +655,7 @@ pub fn read_game_rows_of_division(
     };
     let total: i64 = {
         use crate::schema::games::dsl::*;
-        games.filter(divisionid.eq(division_id)).count().get_result(db)?
+        games.filter(divisionid.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_division(db, division_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
@@ -673,7 +677,7 @@ pub fn read_game_rows_of_round(
     };
     let total: i64 = {
         use crate::schema::games::dsl::*;
-        games.filter(roundid.eq(round_id)).count().get_result(db)?
+        games.filter(roundid.eq(round_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_round(db, round_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
@@ -691,7 +695,7 @@ pub fn read_game_rows_of_room(
     };
     let total: i64 = {
         use crate::schema::games::dsl::*;
-        games.filter(roomid.eq(room_id)).count().get_result(db)?
+        games.filter(roomid.eq(room_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_room(db, room_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
@@ -709,6 +713,7 @@ pub fn read_all_games_of_team(db: &mut database::Connection, team_id: Uuid, pagi
                 .or(centerteamid.eq(team_id))
                 .or(rightteamid.eq(team_id))
         )
+        .filter(del_fl.eq(false))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)
@@ -723,6 +728,7 @@ pub fn read_all_games_where_user_is_quizmaster(db: &mut database::Connection, qm
 
     games
         .filter(quizmasterid.eq(qm_id))
+        .filter(del_fl.eq(false))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)
@@ -737,6 +743,7 @@ pub fn read_all_games_where_user_is_contentjudge(db: &mut database::Connection, 
 
     games
         .filter(contentjudgeid.eq(cj_id))
+        .filter(del_fl.eq(false))
         .order(gid)
         .limit(page_size)
         .offset(offset_val)
@@ -859,6 +866,7 @@ pub fn read_all_games_where_user_is_quizmaster_enriched(
         use crate::schema::games::dsl::*;
         games
             .filter(quizmasterid.eq(qm_id))
+            .filter(del_fl.eq(false))
             .order(created_at.desc())
             .limit(page_size)
             .offset(offset_val)
@@ -880,6 +888,7 @@ pub fn read_all_games_where_user_is_contentjudge_enriched(
         use crate::schema::games::dsl::*;
         games
             .filter(contentjudgeid.eq(cj_id))
+            .filter(del_fl.eq(false))
             .order(created_at.desc())
             .limit(page_size)
             .offset(offset_val)
@@ -907,6 +916,7 @@ pub fn read_all_games_of_statsgroup(db: &mut database::Connection, sg_id: Uuid, 
 
     games
         .filter(gid.eq_any(game_ids))
+        .filter(del_fl.eq(false))
         .order(gid.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -938,7 +948,16 @@ pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChan
         .get_result(db_conn)
 }
 
+/// Soft delete: mark the game deleted (excluded from reads) without removing the row.
 pub fn delete(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::games::dsl::*;
+    diesel::update(games.filter(gid.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db_conn)
+}
+
+/// Purge: permanently remove the game row from the database.
+pub fn purge(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::games::dsl::*;
     diesel::delete(games.filter(gid.eq(item_id))).execute(db_conn)
 }

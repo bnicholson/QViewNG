@@ -1,0 +1,1 @@
+ALTER TABLE games DROP COLUMN del_fl;

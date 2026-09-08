@@ -6,6 +6,7 @@ use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog, gameevent::GameEvent, statsgroup::StatsGroup}, services::common::PagedResponse};
 use backend::models::game::Game;
+use diesel::prelude::*;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
@@ -519,6 +520,37 @@ async fn delete_works() {
         .to_request();
     let get_by_id_resp_2 = test::call_service(&app, get_by_id_req_2).await;
     assert_eq!(get_by_id_resp_2.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (game, _, _, _, _, _, _, _, _, _) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::game::delete(&mut conn, game.gid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::game::read(&mut conn, game.gid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::games::dsl as g;
+    let raw_count: i64 = g::games.filter(g::gid.eq(game.gid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = g::games.filter(g::gid.eq(game.gid)).select(g::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::game::purge(&mut conn, game.gid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = g::games.filter(g::gid.eq(game.gid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]
