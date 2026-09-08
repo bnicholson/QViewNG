@@ -556,6 +556,7 @@ diesel::table! {
         updated_at -> Timestamptz,
         tournament_id -> Uuid,
         division_id -> Nullable<Uuid>,
+        del_fl -> Bool,
     }
 }
 

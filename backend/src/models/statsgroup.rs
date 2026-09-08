@@ -87,6 +87,7 @@ pub struct StatsGroup {
     pub updated_at: DateTime<Utc>,
     pub tournament_id: Uuid,                       // Tournament the statsgroup belongs to (required)
     pub division_id: Option<Uuid>,                 // Division the statsgroup is scoped to (optional)
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -119,21 +120,23 @@ pub fn create(db: &mut database::Connection, item: &NewStatsGroup) -> QueryResul
 }
 
 pub fn exists(db: &mut database::Connection, statsgroupid: Uuid) -> bool {
-    use crate::schema::statsgroups::dsl::statsgroups;
+    use crate::schema::statsgroups::dsl::*;
     statsgroups
         .find(statsgroupid)
+        .filter(del_fl.eq(false))
         .get_result::<StatsGroup>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<StatsGroup> {
     use crate::schema::statsgroups::dsl::*;
-    statsgroups.filter(sgid.eq(item_id)).first::<StatsGroup>(db)
+    statsgroups.filter(sgid.eq(item_id)).filter(del_fl.eq(false)).first::<StatsGroup>(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<StatsGroup>> {
     use crate::schema::statsgroups::dsl::*;
     statsgroups
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(pagination.page_size)
         .offset(
@@ -145,7 +148,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::statsgroups::dsl::*;
-    statsgroups.count().get_result(db)
+    statsgroups.filter(del_fl.eq(false)).count().get_result(db)
 }
 
 pub fn read_all_statsgroups_of_tournament(db: &mut database::Connection, tid: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<StatsGroup>> {
@@ -156,6 +159,7 @@ pub fn read_all_statsgroups_of_tournament(db: &mut database::Connection, tid: Uu
 
     statsgroups
         .filter(tournament_id.eq(tid))
+        .filter(del_fl.eq(false))
         .order(created_at.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -180,6 +184,7 @@ pub fn read_all_statsgroups_of_game(db: &mut database::Connection, game_id: Uuid
 
     statsgroups
         .filter(sgid.eq_any(sg_ids))
+        .filter(del_fl.eq(false))
         .order(sgid.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -196,7 +201,14 @@ pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &StatsGroupChang
         .get_result(db)
 }
 
+/// Soft delete: mark the statsgroup deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::statsgroups::dsl::*;
+    diesel::update(statsgroups.filter(sgid.eq(sg_id))).set(del_fl.eq(true)).execute(db)
+}
+
+/// Purge: permanently remove the statsgroup row from the database.
+pub fn purge(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> {
     use crate::schema::statsgroups::dsl::*;
     diesel::delete(statsgroups.filter(sgid.eq(sg_id))).execute(db)
 }

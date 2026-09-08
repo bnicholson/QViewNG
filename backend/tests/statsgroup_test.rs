@@ -8,6 +8,7 @@ use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::G
 use backend::models::statsgroup::StatsGroup;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -81,6 +82,36 @@ async fn delete_works() {
 
     let count = models::statsgroup::delete(&mut conn, statsgroup.sgid).expect("delete failed");
     assert_eq!(count, 1);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_delete_works_integration_test(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::statsgroup::delete(&mut conn, statsgroup.sgid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::statsgroup::read(&mut conn, statsgroup.sgid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::statsgroups::dsl as sg;
+    let raw_count: i64 = sg::statsgroups.filter(sg::sgid.eq(statsgroup.sgid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = sg::statsgroups.filter(sg::sgid.eq(statsgroup.sgid)).select(sg::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::statsgroup::purge(&mut conn, statsgroup.sgid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = sg::statsgroups.filter(sg::sgid.eq(statsgroup.sgid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]
