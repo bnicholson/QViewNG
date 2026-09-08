@@ -8,6 +8,9 @@ export interface UserTS {
   activated: boolean;
   created_at: string;
   updated_at: string;
+  // Soft-delete flag. When true the user is deactivated: their name still resolves in data
+  // tables and references, but their profile is not viewable (the page shows a deactivated notice).
+  del_fl: boolean;
 }
 
 export interface NewUserPayload {

@@ -142,6 +142,7 @@ pub struct User {
     pub when_merged: Option<DateTime<Utc>>,
     pub username: Option<String>,
     pub hash_password: Option<String>,
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -321,7 +322,15 @@ pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     users.count().get_result(db)
 }
 
+/// Soft delete: mark the user deactivated (del_fl = true) without removing the row. Their name
+/// still resolves in data tables and references; only the profile view is gated on this flag.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::users::dsl::*;
+    diesel::update(users.filter(id.eq(item_id))).set(del_fl.eq(true)).execute(db)
+}
+
+/// Purge: permanently remove the user row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::users::dsl::*;
     diesel::delete(users.filter(id.eq(item_id))).execute(db)
 }

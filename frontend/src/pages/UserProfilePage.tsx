@@ -36,15 +36,20 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const [userName, setUserName] = useState<{ fname: string; lname: string } | null>(null)
   const [targetIsSuperUser, setTargetIsSuperUser] = useState<boolean | null>(null)
   const [targetIsTournamentManager, setTargetIsTournamentManager] = useState<boolean>(false)
+  const [targetIsDeactivated, setTargetIsDeactivated] = useState<boolean>(false)
 
   useEffect(() => {
     if (!user_id) return
     setTargetIsSuperUser(null)
+    setTargetIsDeactivated(false)
     Promise.all([
       fetch(`/api/users/${user_id}`).then((r) => r.ok ? r.json() : null),
       fetch(`/api/users/${user_id}/roles-and-permissions`).then((r) => r.ok ? r.json() : null),
     ]).then(([userData, rolesData]) => {
-      if (userData) setUserName({ fname: userData.fname, lname: userData.lname })
+      if (userData) {
+        setUserName({ fname: userData.fname, lname: userData.lname })
+        setTargetIsDeactivated(userData.del_fl === true)
+      }
       setTargetIsSuperUser(rolesData?.roles?.includes('super_user') ?? false)
       setTargetIsTournamentManager(rolesData?.roles?.includes('tournament_manager') ?? false)
     }).catch(() => { setTargetIsSuperUser(false) })
@@ -56,6 +61,21 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const isSuperUser = auth.session?.hasRole('super_user') ?? false
 
   if (targetIsSuperUser && !isSuperUser) return <Navigate to="/404" replace />
+
+  // A deactivated (soft-deleted) user's profile is not viewable. Their name still resolves
+  // elsewhere (data tables, references), but navigating here shows a deactivation notice.
+  if (targetIsDeactivated) {
+    return (
+      <div style={{ maxWidth: 640, margin: '4rem auto', padding: '2rem', textAlign: 'center' }}>
+        <h1 style={{ marginBottom: '0.5rem' }}>
+          {userName ? `${userName.fname} ${userName.lname}` : 'This user'}
+        </h1>
+        <p style={{ fontSize: '1.1rem', color: '#666' }}>
+          This user has been deactivated. Their profile is no longer available.
+        </p>
+      </div>
+    )
+  }
 
   const isOwnProfile = auth.session?.userId === user_id
   const isTournamentManager = isSuperUser || (auth.session?.hasRole('tournament_manager') ?? false)

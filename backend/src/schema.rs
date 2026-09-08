@@ -690,6 +690,7 @@ diesel::table! {
         #[max_length = 32]
         username -> Nullable<Varchar>,
         hash_password -> Nullable<Text>,
+        del_fl -> Bool,
     }
 }
 

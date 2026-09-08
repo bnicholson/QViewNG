@@ -7,6 +7,7 @@ use actix_web::{App, test, web::{self,Bytes}};
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentset::EquipmentSet, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -268,8 +269,14 @@ async fn delete_works() {
 
     let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
 
-    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
-    
+    // Soft delete: the user is still readable (so their name keeps resolving in data tables and
+    // references) but is now flagged deactivated (del_fl = true); the profile view is gated on
+    // this flag in the UI, not by hiding the row.
+    assert_eq!(get_by_id_resp.status(), StatusCode::OK);
+    let get_by_id_body: serde_json::Value =
+        serde_json::from_slice(&test::read_body(get_by_id_resp).await).unwrap();
+    assert_eq!(get_by_id_body["del_fl"], serde_json::Value::Bool(true));
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
@@ -277,6 +284,38 @@ async fn delete_works() {
     assert_eq!(apicalllog_records.iter().count(), 2);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user: User = fixtures::users::seed_user(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row stays readable (name still resolves) but
+    // is flagged del_fl = true.
+    let affected = models::user::delete(&mut conn, user.id).unwrap();
+    assert_eq!(affected, 1);
+    let read_back = models::user::read(&mut conn, user.id).unwrap();
+    assert!(read_back.del_fl);
+
+    // The underlying row still exists with del_fl = true.
+    use backend::schema::users::dsl as u;
+    let raw_count: i64 = u::users.filter(u::id.eq(user.id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = u::users.filter(u::id.eq(user.id)).select(u::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::user::purge(&mut conn, user.id).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = u::users.filter(u::id.eq(user.id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]
