@@ -239,6 +239,13 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
           </ListItem>
 
           <ListItem>
+            <Typography variant="body2" color="text.secondary">
+              If you'd like, create login credentials for this quizzer/user by filling out the following fields.
+              (*Providing an email address allows password recovery to work for this user.)
+            </Typography>
+          </ListItem>
+
+          <ListItem>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <InputLabel>Username</InputLabel>
@@ -271,7 +278,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Password</InputLabel>
                 <TextField
                   variant="outlined"
@@ -282,7 +289,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
                   onChange={e => setField('password', e.target.value)}
                   onBlur={() => validateField('password')}
                   error={!!fieldErrors.password}
-                  helperText={fieldErrors.password ?? 'Optional. 8+ chars, upper, lower, number, special'}
+                  helperText={fieldErrors.password ?? 'Recommended: 8+ chars, upper, lower, number, special'}
                 />
               </Grid>
             </Grid>

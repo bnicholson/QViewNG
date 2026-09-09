@@ -202,7 +202,7 @@ pub fn read_all_rosters_containing_quizzer(db: &mut database::Connection, quizze
 }
 
 /// One row of the user's "My Rosters" quizzers table: a quizzer that appears on any roster the
-/// user (coach) created, plus the quizzer's account created/last-updated timestamps.
+/// user coaches (created or shared with them), plus the quizzer's account created/last-updated timestamps.
 #[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct UserRosterQuizzerRow {
     pub quizzer_id: Uuid,
@@ -216,16 +216,29 @@ pub struct UserRosterQuizzerRow {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Returns one page of the distinct quizzers across all rosters created by `coach_id`, plus the
-/// total distinct count — a single scoped, paginated call replacing the per-roster fan-out.
+/// Returns one page of the distinct quizzers across all rosters `coach_id` coaches (created or
+/// shared with them), plus the total distinct count — a single scoped, paginated call.
 pub fn read_roster_quizzer_rows_of_coach(
     db: &mut database::Connection,
     coach_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<(Vec<UserRosterQuizzerRow>, i64)> {
+    // Every (non-deleted) roster the user coaches: those they created, unioned with those shared
+    // with them as a coach (via rosters_coaches).
     let roster_ids: Vec<Uuid> = {
+        let shared_ids: Vec<Uuid> = {
+            use crate::schema::rosters_coaches::dsl::*;
+            rosters_coaches
+                .filter(coachid.eq(coach_id))
+                .select(rosterid)
+                .load::<Uuid>(db)?
+        };
         use crate::schema::rosters::dsl::*;
-        rosters.filter(created_by_userid.eq(coach_id)).filter(del_fl.eq(false)).select(rosterid).load::<Uuid>(db)?
+        rosters
+            .filter(created_by_userid.eq(coach_id).or(rosterid.eq_any(&shared_ids)))
+            .filter(del_fl.eq(false))
+            .select(rosterid)
+            .load::<Uuid>(db)?
     };
     let mut quizzer_ids: Vec<Uuid> = {
         use crate::schema::rosters_quizzers::dsl::*;

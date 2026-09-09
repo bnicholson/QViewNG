@@ -161,6 +161,7 @@ function CoachesSection({ rosterId, createdByUserId, currentUserId, onSelfRemove
       <UserPickerDialog
         isOpen={pickerOpen}
         title="Add Coach to Roster"
+        note="Note: Coaches added to this (or any) roster can add the quizzers of this roster to other rosters that they create."
         excludeIds={coaches.map(c => c.id)}
         minSearchChars={3}
         onCancel={() => setPickerOpen(false)}
@@ -423,7 +424,7 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
             '& .MuiTab-root': { textTransform: 'none', minHeight: 48, fontWeight: 500 },
           }}
         >
-          <Tab label="All Quizzers" />
+          <Tab label="My Quizzers" />
           {rosters.map(r => (
             <Tab key={r.rosterid} label={r.name} />
           ))}

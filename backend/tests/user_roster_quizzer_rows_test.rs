@@ -5,13 +5,16 @@ use actix_web::{test, App, web, http::StatusCode};
 use backend::database::Database;
 use backend::models::user::UserBuilder;
 use backend::models::roster::{UserRosterQuizzerRow, RosterBuilder};
+use backend::models::roster_coach::RosterCoachBuilder;
 use backend::models::roster_quizzer::RosterQuizzerBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
 use crate::common::{TEST_DB_URL, clean_database};
 
-/// Seeds a coach with two rosters and three quizzers; one quizzer is on both rosters, so the
-/// aggregate must de-duplicate. Returns the coach id.
+/// Seeds a coach with two rosters they created and three quizzers; one quizzer is on both rosters,
+/// so the aggregate must de-duplicate. Additionally, a second coach owns a third roster (with a
+/// fourth quizzer, Dana) that is shared with our coach — so the aggregate must include quizzers
+/// from rosters shared with the coach, not only ones they created. Returns the coach id.
 fn seed(conn: &mut backend::database::Connection) -> uuid::Uuid {
     let coach = UserBuilder::new_default("Cody").set_hash_password("Pwd123!").build_and_insert(conn).unwrap();
     let anna = UserBuilder::new_default("Anna").set_email("anna@fakeemail.com").set_hash_password("Pwd123!").build_and_insert(conn).unwrap();
@@ -26,6 +29,14 @@ fn seed(conn: &mut backend::database::Connection) -> uuid::Uuid {
     // Bob again on roster 2 (should be de-duplicated), plus Cara.
     RosterQuizzerBuilder::new_default(bob.id, roster_2.rosterid).build_and_insert(conn).unwrap();
     RosterQuizzerBuilder::new_default(cara.id, roster_2.rosterid).build_and_insert(conn).unwrap();
+
+    // A roster owned by another coach, shared with our coach, whose quizzer (Dana) must still
+    // appear in our coach's aggregate.
+    let other_coach = UserBuilder::new_default("Owen").set_email("owen@fakeemail.com").set_hash_password("Pwd123!").build_and_insert(conn).unwrap();
+    let dana = UserBuilder::new_default("Dana").set_email("dana@fakeemail.com").set_hash_password("Pwd123!").build_and_insert(conn).unwrap();
+    let shared_roster = RosterBuilder::new_default("Shared Roster", other_coach.id).build_and_insert(conn).unwrap();
+    RosterQuizzerBuilder::new_default(dana.id, shared_roster.rosterid).build_and_insert(conn).unwrap();
+    RosterCoachBuilder::new_default(coach.id, shared_roster.rosterid).build_and_insert(conn).unwrap();
 
     coach.id
 }
@@ -46,10 +57,11 @@ async fn user_roster_quizzer_rows_returns_distinct_paginated_quizzers() {
     assert_eq!(resp.status(), StatusCode::OK);
     let body: PagedResponse<UserRosterQuizzerRow> = test::read_body_json(resp).await;
 
-    // Three distinct quizzers (Bob only once), ordered by (lname, fname) — all share lname "Den".
-    assert_eq!(body.count, 3);
+    // Four distinct quizzers (Bob only once; Dana from the shared roster), ordered by (lname,
+    // fname) — all share lname "Den".
+    assert_eq!(body.count, 4);
     let fnames: Vec<&str> = body.items.iter().map(|q| q.fname.as_str()).collect();
-    assert_eq!(fnames, vec!["Anna", "Bob", "Cara"]);
+    assert_eq!(fnames, vec!["Anna", "Bob", "Cara", "Dana"]);
 
     // Pagination: first page of size 2.
     let req2 = test::TestRequest::get()
@@ -57,7 +69,7 @@ async fn user_roster_quizzer_rows_returns_distinct_paginated_quizzers() {
         .to_request();
     let resp2 = test::call_service(&app, req2).await;
     let body2: PagedResponse<UserRosterQuizzerRow> = test::read_body_json(resp2).await;
-    assert_eq!(body2.count, 3);
+    assert_eq!(body2.count, 4);
     let fnames2: Vec<&str> = body2.items.iter().map(|q| q.fname.as_str()).collect();
     assert_eq!(fnames2, vec!["Anna", "Bob"]);
 }
