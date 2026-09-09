@@ -8,6 +8,7 @@ use backend::{database::Database, models::{self, apicalllog::ApiCalllog, roster_
 use backend::models::roster::Roster;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
+use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
@@ -182,6 +183,36 @@ async fn delete_works() {
     assert_eq!(apicalllog_records.iter().count(), 2);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let roster = fixtures::rosters::arrange_delete_works_integration_test(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::roster::delete(&mut conn, roster.rosterid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::roster::read(&mut conn, roster.rosterid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::rosters::dsl as r;
+    let raw_count: i64 = r::rosters.filter(r::rosterid.eq(roster.rosterid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = r::rosters.filter(r::rosterid.eq(roster.rosterid)).select(r::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::roster::purge(&mut conn, roster.rosterid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = r::rosters.filter(r::rosterid.eq(roster.rosterid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
 }
 
 #[actix_web::test]

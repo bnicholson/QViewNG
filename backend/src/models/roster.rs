@@ -87,6 +87,7 @@ pub struct Roster {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_modified_user: Uuid,
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -119,21 +120,23 @@ pub fn create(db: &mut database::Connection, item: &NewRoster) -> QueryResult<Ro
 }
 
 pub fn exists(db: &mut database::Connection, rosterid: Uuid) -> bool {
-    use crate::schema::rosters::dsl::rosters;
+    use crate::schema::rosters::dsl::*;
     rosters
         .find(rosterid)
+        .filter(del_fl.eq(false))
         .get_result::<Roster>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<Roster> {
     use crate::schema::rosters::dsl::*;
-    rosters.filter(rosterid.eq(item_id)).first::<Roster>(db)
+    rosters.filter(rosterid.eq(item_id)).filter(del_fl.eq(false)).first::<Roster>(db)
 }
 
 pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) -> QueryResult<Vec<Roster>> {
     use crate::schema::rosters::dsl::*;
     rosters
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(pagination.page_size)
         .offset(
@@ -145,7 +148,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 
 pub fn count(db: &mut database::Connection) -> QueryResult<i64> {
     use crate::schema::rosters::dsl::*;
-    rosters.count().get_result(db)
+    rosters.filter(del_fl.eq(false)).count().get_result(db)
 }
 
 pub fn read_all_rosters_of_coach(db: &mut database::Connection, coach_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Roster>> {
@@ -166,6 +169,7 @@ pub fn read_all_rosters_of_coach(db: &mut database::Connection, coach_id: Uuid, 
 
     rosters
         .filter(crate::schema::rosters::dsl::rosterid.eq_any(roster_ids))
+        .filter(crate::schema::rosters::dsl::del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -190,6 +194,7 @@ pub fn read_all_rosters_containing_quizzer(db: &mut database::Connection, quizze
 
     rosters
         .filter(crate::schema::rosters::dsl::rosterid.eq_any(roster_ids))
+        .filter(crate::schema::rosters::dsl::del_fl.eq(false))
         .order(name.asc())
         .limit(page_size)
         .offset(offset_val)
@@ -216,7 +221,7 @@ pub fn read_roster_quizzer_rows_of_coach(
 ) -> QueryResult<(Vec<UserRosterQuizzerRow>, i64)> {
     let roster_ids: Vec<Uuid> = {
         use crate::schema::rosters::dsl::*;
-        rosters.filter(created_by_userid.eq(coach_id)).select(rosterid).load::<Uuid>(db)?
+        rosters.filter(created_by_userid.eq(coach_id)).filter(del_fl.eq(false)).select(rosterid).load::<Uuid>(db)?
     };
     let mut quizzer_ids: Vec<Uuid> = {
         use crate::schema::rosters_quizzers::dsl::*;
@@ -264,7 +269,14 @@ pub fn update(db: &mut database::Connection, sg_id: Uuid, item: &RosterChangeset
         .get_result(db)
 }
 
+/// Soft delete: mark the roster deleted (excluded from reads) without removing the row.
 pub fn delete(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::rosters::dsl::*;
+    diesel::update(rosters.filter(rosterid.eq(sg_id))).set(del_fl.eq(true)).execute(db)
+}
+
+/// Purge: permanently remove the roster row from the database.
+pub fn purge(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> {
     use crate::schema::rosters::dsl::*;
     diesel::delete(rosters.filter(rosterid.eq(sg_id))).execute(db)
 }
