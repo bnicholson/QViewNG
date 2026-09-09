@@ -3,6 +3,8 @@ import { Navigate, useParams } from 'react-router'
 import Stack from "@mui/material/Stack"
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import Alert from '@mui/material/Alert'
+import AlertTitle from '@mui/material/AlertTitle'
 import { Link } from 'react-router-dom'
 import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { TournamentAPI, isRegistrationOpen, type TournamentTS } from '../features/TournamentAPI'
@@ -118,6 +120,20 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
   const registrationIsOpen = tournament ? isRegistrationOpen(tournament) : false;
 
+  // Shown when someone navigates directly to a registration URL while the window is closed.
+  const registrationWindowText =
+    tournament?.registration_open_date && tournament?.registration_close_date
+      ? `${tournament.registration_open_date.format('MMM D, YYYY')} – ${tournament.registration_close_date.format('MMM D, YYYY')}`
+      : null;
+  const registrationClosedNotice = (
+    <Alert severity="info">
+      <AlertTitle>Registration is currently closed</AlertTitle>
+      {registrationWindowText
+        ? `Registration for ${tournament!.tname} is open ${registrationWindowText}.`
+        : `A registration window has not been set for ${tournament!.tname}.`}
+    </Alert>
+  );
+
   const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string; visible?: boolean }> = [
     { kind: 'route', label: 'Overview',     to: `/tournament/${tid}/overview`     },
     { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`,      visible: registrationIsOpen },
@@ -153,9 +169,9 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'register/team'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" />}
-          {props.childRoute === 'register/gear'     && <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" />}
-          {props.childRoute === 'register/volunteer'&& <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" />}
+          {props.childRoute === 'register/team'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" /> : registrationClosedNotice)}
+          {props.childRoute === 'register/gear'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" /> : registrationClosedNotice)}
+          {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" /> : registrationClosedNotice)}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')} showAuditColumns={canViewAuditColumns}/>}

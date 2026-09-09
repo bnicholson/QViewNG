@@ -71,9 +71,11 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
               Edit
             </Button>
           )}
-          <Button variant="contained" size="small" onClick={() => navigate(`/tournament/${tournament.tid}/register/team`)}>
-            Register
-          </Button>
+          {isRegistrationOpen(tournament) && (
+            <Button variant="contained" size="small" onClick={() => navigate(`/tournament/${tournament.tid}/register/team`)}>
+              Register
+            </Button>
+          )}
         </Box>
       </Box>
 
