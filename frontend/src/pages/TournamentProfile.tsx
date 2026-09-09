@@ -125,6 +125,13 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
   const useGearRegistration = tournament?.use_gear_registration ?? true;
   const useVolunteerRegistration = tournament?.use_volunteer_registration ?? true;
   const anyRegistrationEnabled = useTeamRegistration || useGearRegistration || useVolunteerRegistration;
+  // Where the Registration section should land: the first enabled type (Team → Gear → Volunteer),
+  // or the Overview page when no registration type is being used.
+  const firstEnabledRegisterPath =
+    useTeamRegistration ? `/tournament/${tid}/register/team`
+    : useGearRegistration ? `/tournament/${tid}/register/gear`
+    : useVolunteerRegistration ? `/tournament/${tid}/register/as-volunteer`
+    : `/tournament/${tid}/overview`;
 
   // Shown when someone navigates directly to a registration URL while the window is closed.
   const registrationWindowText =
@@ -175,7 +182,11 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'register/team'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
+          {props.childRoute === 'register/team'     && (
+            useTeamRegistration
+              ? (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)
+              : <Navigate to={firstEnabledRegisterPath} replace />
+          )}
           {props.childRoute === 'register/gear'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
