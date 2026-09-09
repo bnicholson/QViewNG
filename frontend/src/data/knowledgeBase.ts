@@ -98,6 +98,22 @@ export const kbNav: KbNavNode[] = [
 export const kbArticleBySlug = (slug: string): KbArticle | undefined =>
   kbArticles.find((a) => a.slug === slug)
 
+/**
+ * The previous/next articles relative to `slug`, treating the whole nested hierarchy as one flat
+ * list (tree order). Either side is `undefined` at the first/last article. Used for the article
+ * page's prev/next navigation.
+ */
+export const kbAdjacentArticles = (slug: string): { prev?: KbArticle; next?: KbArticle } => {
+  const idx = kbOrderedSlugs.indexOf(slug)
+  if (idx === -1) return {}
+  const prevSlug = idx > 0 ? kbOrderedSlugs[idx - 1] : undefined
+  const nextSlug = idx < kbOrderedSlugs.length - 1 ? kbOrderedSlugs[idx + 1] : undefined
+  return {
+    prev: prevSlug ? kbArticleBySlug(prevSlug) : undefined,
+    next: nextSlug ? kbArticleBySlug(nextSlug) : undefined,
+  }
+}
+
 /** Ordered flat list of article slugs (tree order) — handy for prev/next and lookups. */
 export const kbOrderedSlugs: string[] = (() => {
   const out: string[] = []

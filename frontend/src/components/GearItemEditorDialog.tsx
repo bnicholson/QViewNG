@@ -70,7 +70,7 @@ function defaultState(type: GearType, setId: number): any {
       has_vga_out_port: false, has_dvi_out_port: false,
       has_hdmi_out_port: false, has_display_port_out: false,
     };
-    case 'PowerStrip': return { equipmentsetid: setId, make: '', model: '', color: '', num_of_plugs: 1, misc_note: '' };
+    case 'PowerStrip': return { equipmentsetid: setId, make: '', model: '', color: '', num_of_plugs: '', misc_note: '' };
     case 'ExtensionCord': return { equipmentsetid: setId, color: '', length: '', misc_note: '' };
   }
 }
@@ -118,7 +118,7 @@ function stateFromDetail(detail: EquipmentDetail): any {
     };
     case 'PowerStrip': return {
       equipmentsetid: data.equipmentsetid, make: data.make ?? '', model: data.model ?? '',
-      color: data.color ?? '', num_of_plugs: data.num_of_plugs ?? 1, misc_note: data.misc_note ?? '',
+      color: data.color ?? '', num_of_plugs: data.num_of_plugs ?? '', misc_note: data.misc_note ?? '',
     };
     case 'ExtensionCord': return {
       equipmentsetid: data.equipmentsetid, color: data.color ?? '',
@@ -167,17 +167,20 @@ function stateToPayload(type: GearType, state: any): any {
 // ── Port/bool checkbox grid ──────────────────────────────────────────────────
 
 function PortCheckboxes({
-  state, onChange, includeUsb = false,
+  state, onChange, includeUsb = false, direction = 'Out',
 }: {
   state: any;
   onChange: (key: string, val: boolean) => void;
   includeUsb?: boolean;
+  /** Signal direction of the video ports — "Out" for a source (e.g. computer), "In" for a display
+   *  that receives the signal (e.g. monitor). */
+  direction?: 'Out' | 'In';
 }) {
   const ports = [
-    { key: 'has_vga_out_port', label: 'VGA Out' },
-    { key: 'has_dvi_out_port', label: 'DVI Out' },
-    { key: 'has_hdmi_out_port', label: 'HDMI Out' },
-    { key: 'has_display_port_out', label: 'DisplayPort Out' },
+    { key: 'has_vga_out_port', label: `VGA ${direction}` },
+    { key: 'has_dvi_out_port', label: `DVI ${direction}` },
+    { key: 'has_hdmi_out_port', label: `HDMI ${direction}` },
+    { key: 'has_display_port_out', label: `DisplayPort ${direction}` },
     ...(includeUsb ? [{ key: 'has_usb_port', label: 'USB Port' }] : []),
   ];
   return (
@@ -233,16 +236,43 @@ function GearTypeForm({
           {field('brand', 'Brand', { required: true })}
           {field('operating_system', 'Operating System', { required: true })}
           {field('quizmachine_version', 'QuizMachine Version', { required: true })}
-          {field('wifi_capabilities', 'Wi-Fi Capabilities', { required: true })}
+          <FormControl fullWidth required sx={{ mb: 2 }}>
+            <InputLabel id="wifi-capabilities-label">Wi-Fi Capabilities</InputLabel>
+            <Select
+              labelId="wifi-capabilities-label"
+              label="Wi-Fi Capabilities"
+              value={state.wifi_capabilities ?? ''}
+              onChange={e => onChange({ wifi_capabilities: e.target.value })}
+            >
+              <MenuItem value="Yes">Yes</MenuItem>
+              <MenuItem value="Yes but requires an adapter">Yes but requires an adapter</MenuItem>
+              <MenuItem value="No">No</MenuItem>
+            </Select>
+          </FormControl>
           {field('login_username', 'Login Username', { required: true })}
           {field('login_password', 'Login Password', { required: true })}
-          {field('clientkey', 'Client Key')}
+          {field('clientkey', 'QuizMachine Activated Registration Code')}
           <PortCheckboxes state={state} onChange={(k, v) => onChange({ [k]: v })} includeUsb />
         </>
       );
 
     case 'JumpPad':
-      return <>{field('color', 'Color', { required: true })}</>;
+      return (
+        <FormControl fullWidth required sx={{ mb: 2 }}>
+          <InputLabel id="jumppad-color-label">Color</InputLabel>
+          <Select
+            labelId="jumppad-color-label"
+            label="Color"
+            value={state.color ?? ''}
+            onChange={e => onChange({ color: e.target.value })}
+          >
+            <MenuItem value="Red">Red</MenuItem>
+            <MenuItem value="Yellow">Yellow</MenuItem>
+            <MenuItem value="Blue">Blue</MenuItem>
+            <MenuItem value="Green">Green</MenuItem>
+          </Select>
+        </FormControl>
+      );
 
     case 'InterfaceBox':
       return (
@@ -257,7 +287,7 @@ function GearTypeForm({
         <>
           {field('size', 'Screen Size (e.g. "24")', { required: true })}
           {field('brand', 'Brand', { required: true })}
-          <PortCheckboxes state={state} onChange={(k, v) => onChange({ [k]: v })} />
+          <PortCheckboxes state={state} onChange={(k, v) => onChange({ [k]: v })} direction="In" />
         </>
       );
 
@@ -280,7 +310,7 @@ function GearTypeForm({
       return (
         <>
           {field('brand', 'Brand', { required: true })}
-          <PortCheckboxes state={state} onChange={(k, v) => onChange({ [k]: v })} />
+          <PortCheckboxes state={state} onChange={(k, v) => onChange({ [k]: v })} direction="In" />
         </>
       );
 
@@ -291,13 +321,13 @@ function GearTypeForm({
           {field('model', 'Model', { required: true })}
           {field('color', 'Color', { required: true })}
           <TextField
-            label="Number of Plugs"
+            label="Number of Working Plugs"
             fullWidth
             required
             type="number"
-            inputProps={{ min: 1 }}
-            value={state.num_of_plugs ?? 1}
-            onChange={e => onChange({ num_of_plugs: parseInt(e.target.value, 10) || 1 })}
+            inputProps={{ min: 0 }}
+            value={state.num_of_plugs ?? ''}
+            onChange={e => onChange({ num_of_plugs: e.target.value })}
             sx={{ mb: 2 }}
           />
         </>
@@ -334,8 +364,8 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
   const [error, setError] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(confirmDialogDefaultState);
 
-  // In create mode the user picks the type; in edit mode it's fixed
-  const [selectedType, setSelectedType] = useState<GearType>('Computer');
+  // In create mode the user picks the type (blank until chosen); in edit mode it's fixed.
+  const [selectedType, setSelectedType] = useState<GearType | ''>('');
   const [form, setForm] = useState<any>({});
   const [loadedDetail, setLoadedDetail] = useState<EquipmentDetail | null>(null);
 
@@ -361,9 +391,9 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
     if (editingDbo) {
       loadEditDetail(editingDbo);
     } else {
-      const initialType: GearType = 'Computer';
-      setSelectedType(initialType);
-      setForm(defaultState(initialType, defaultSetId ?? gearSets[0]?.id ?? 0));
+      // Start with no type chosen — the type-specific fields appear only once one is selected.
+      setSelectedType('');
+      setForm({ equipmentsetid: defaultSetId ?? gearSets[0]?.id ?? 0 });
     }
   }, [isOpen, editingDbo, defaultSetId, gearSets, loadEditDetail]);
 
@@ -385,6 +415,7 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
   };
 
   const handleSave = async () => {
+    if (!selectedType) return; // A gear type must be chosen before there's anything to save.
     setSaving(true);
     setError(null);
     const payload = stateToPayload(selectedType, form);
@@ -416,7 +447,7 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6">{title}</Typography>
-            <SaveButton onClick={handleSave} saving={saving} disabled={loading} autoFocus={false} />
+            <SaveButton onClick={handleSave} saving={saving} disabled={loading || !selectedType} autoFocus={false} />
           </Toolbar>
         </AppBar>
 
@@ -465,21 +496,26 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
                 </FormControl>
               )}
 
-              <Divider sx={{ mb: 2 }} />
+              {/* Nothing below the Gear Type selector until a type is chosen. */}
+              {selectedType && (
+                <>
+                  <Divider sx={{ mb: 2 }} />
 
-              {/* Type-specific fields */}
-              <GearTypeForm type={selectedType} state={form} onChange={updateForm} />
+                  {/* Type-specific fields */}
+                  <GearTypeForm type={selectedType} state={form} onChange={updateForm} />
 
-              {/* Common note field */}
-              <TextField
-                label="Note"
-                fullWidth
-                multiline
-                minRows={2}
-                value={form.misc_note ?? ''}
-                onChange={e => updateForm({ misc_note: e.target.value })}
-                helperText="Optional — visible in all gear lists"
-              />
+                  {/* Common note field */}
+                  <TextField
+                    label="Note"
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    value={form.misc_note ?? ''}
+                    onChange={e => updateForm({ misc_note: e.target.value })}
+                    helperText="Optional — visible in all gear lists"
+                  />
+                </>
+              )}
             </>
           )}
         </Box>

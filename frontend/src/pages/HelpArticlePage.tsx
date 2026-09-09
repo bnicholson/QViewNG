@@ -1,12 +1,43 @@
 import { useParams, Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import HelpSidebar from '../components/HelpSidebar'
-import { kbArticleBySlug } from '../data/knowledgeBase'
+import { kbArticleBySlug, kbAdjacentArticles } from '../data/knowledgeBase'
 
 export const HelpArticlePage = () => {
   const { slug } = useParams<{ slug: string }>()
   const article = slug ? kbArticleBySlug(slug) : undefined
+  const { prev, next } = article ? kbAdjacentArticles(article.slug) : {}
+
+  // Previous/Next across the whole article hierarchy, treated as one flat list. Rendered above the
+  // title and below the content so readers can page through without returning to the sidebar.
+  const navRow = (prev || next) ? (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+      {prev ? (
+        <Button
+          component={RouterLink}
+          to={`/help/${prev.slug}`}
+          startIcon={<ChevronLeftIcon />}
+          sx={{ textTransform: 'none', textAlign: 'left', maxWidth: '48%' }}
+        >
+          Previous: {prev.title}
+        </Button>
+      ) : <Box />}
+      {next ? (
+        <Button
+          component={RouterLink}
+          to={`/help/${next.slug}`}
+          endIcon={<ChevronRightIcon />}
+          sx={{ textTransform: 'none', textAlign: 'right', maxWidth: '48%', ml: 'auto' }}
+        >
+          Next: {next.title}
+        </Button>
+      ) : <Box />}
+    </Box>
+  ) : null
 
   return (
     <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start', textAlign: 'left' }}>
@@ -15,6 +46,8 @@ export const HelpArticlePage = () => {
       <Box sx={{ flex: 1, minWidth: 0, maxWidth: 760 }}>
         {article ? (
           <>
+            {navRow && <Box sx={{ mb: 2 }}>{navRow}</Box>}
+
             <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>
               {article.title}
             </Typography>
@@ -33,6 +66,10 @@ export const HelpArticlePage = () => {
               }}
               dangerouslySetInnerHTML={{ __html: article.contentHtml }}
             />
+
+            {navRow && (
+              <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>{navRow}</Box>
+            )}
           </>
         ) : (
           <Box sx={{ py: 4 }}>
