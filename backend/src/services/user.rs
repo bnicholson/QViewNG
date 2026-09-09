@@ -1,4 +1,5 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use crate::auth::policies::UserContext;
 use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{RosterCoach, RosterCoachBuilder}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
@@ -259,11 +260,19 @@ async fn create(
 #[post("/{coach_id}/rosters")]
 async fn create_roster(
     db: Data<Database>,
-    Json(item): Json<NewRoster>,
+    Json(mut item): Json<NewRoster>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
     let mut db = db.get_connection().expect("Failed to get connection");
+
+    // Set last_modified_user server-side from the authenticated user; a client-sent value is
+    // ignored. Fall back to the roster's creator (always a valid user) so the FK is never nil.
+    item.last_modified_user = req
+        .extensions()
+        .get::<UserContext>()
+        .map(|u| u.user_id)
+        .unwrap_or(item.created_by_userid);
 
     tracing::debug!("{} Roster model create {:?}", line!(), item);
 
@@ -271,7 +280,7 @@ async fn create_roster(
     models::apicalllog::create(&mut db, &req);
 
     // Create the Roster:
-    
+
     let command_1_result: QueryResult<Roster> = models::roster::create(&mut db, &item);
 
     if command_1_result.is_err() {
