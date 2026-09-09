@@ -154,6 +154,7 @@ function CoachesSection({ rosterId, createdByUserId }: { rosterId: string; creat
         isOpen={pickerOpen}
         title="Add Coach to Roster"
         excludeIds={coaches.map(c => c.id)}
+        minSearchChars={3}
         onCancel={() => setPickerOpen(false)}
         onPick={async (user) => {
           await handleAddCoach(user);

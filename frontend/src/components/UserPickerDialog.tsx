@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -30,37 +31,65 @@ interface Props {
   onPick: (user: UserTS) => Promise<void>;
   /** When provided, only these users are shown instead of fetching all users from the API. */
   availableUsers?: UserTS[];
+  /**
+   * When set, no results are shown until the search term reaches this many characters. Forces the
+   * user to search rather than browse the full list up front.
+   */
+  minSearchChars?: number;
 }
 
-export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, availableUsers }: Props) => {
+export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, availableUsers, minSearchChars }: Props) => {
   const [fetchedUsers, setFetchedUsers] = useState<UserTS[]>([]);
   const [filter, setFilter] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState('');
 
+  // When minSearchChars is set we defer the fetch until the user has typed enough characters,
+  // rather than loading the whole user list up front.
+  const deferred = minSearchChars !== undefined && !availableUsers;
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
   const loadUsers = useCallback(async () => {
     if (availableUsers) return; // Skip fetch when caller provides the list
+    setLoading(true);
     try {
       const result = await UserAPI.get(0, 500);
       setFetchedUsers(result.items);
+      setHasFetched(true);
     } catch {
       setError('Failed to load users.');
+    } finally {
+      setLoading(false);
     }
   }, [availableUsers]);
 
+  // Reset per-open state, and eagerly load only when not deferring.
   useEffect(() => {
     if (isOpen) {
       setFilter('');
       setError('');
       setAdding(null);
+      setFetchedUsers([]);
+      setHasFetched(false);
+      if (!deferred) loadUsers();
+    }
+  }, [isOpen, deferred, loadUsers]);
+
+  // Deferred mode: fetch once the search term first reaches the threshold.
+  useEffect(() => {
+    if (isOpen && deferred && !hasFetched && !loading
+        && filter.trim().length >= (minSearchChars ?? 0)) {
       loadUsers();
     }
-  }, [isOpen, loadUsers]);
+  }, [isOpen, deferred, hasFetched, loading, filter, minSearchChars, loadUsers]);
 
   const allUsers = availableUsers ?? fetchedUsers;
   const excludeSet = new Set(excludeIds);
   const lowerFilter = filter.toLowerCase();
-  const filtered = allUsers.filter(u => {
+  // When minSearchChars is set, force a search: show nothing until the term is long enough.
+  const searchGated = minSearchChars !== undefined && filter.trim().length < minSearchChars;
+  const filtered = searchGated ? [] : allUsers.filter(u => {
     if (excludeSet.has(u.id)) return false;
     if (!lowerFilter) return true;
     const fullName = `${u.fname} ${u.mname} ${u.lname}`.toLowerCase();
@@ -118,15 +147,16 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 1 }}>
                 <th style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, fontSize: 12, color: '#6b7280', textTransform: 'uppercase' }}>Name</th>
                 <th style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, fontSize: 12, color: '#6b7280', textTransform: 'uppercase' }}>Username</th>
-                <th style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, fontSize: 12, color: '#6b7280', textTransform: 'uppercase' }}>Email</th>
                 <th style={{ padding: '8px 14px', width: 80 }} />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '32px 14px', textAlign: 'center', color: '#9ca3af' }}>
-                    {allUsers.length === 0 ? 'Loading...' : 'No matching users found.'}
+                  <td colSpan={3} style={{ padding: '32px 14px', textAlign: 'center', color: '#9ca3af' }}>
+                    {searchGated
+                      ? `Type at least ${minSearchChars} characters to search.`
+                      : loading || allUsers.length === 0 ? 'Loading...' : 'No matching users found.'}
                   </td>
                 </tr>
               ) : (
@@ -138,11 +168,12 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
                       borderBottom: '1px solid #f3f4f6',
                     }}
                   >
-                    <td style={{ padding: '8px 14px', color: '#374151', fontWeight: 500 }}>
-                      {`${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`}
+                    <td style={{ padding: '8px 14px', fontWeight: 500 }}>
+                      <Link to={`/user/${u.id}/overview`} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none' }}>
+                        {`${u.fname} ${u.mname ? u.mname + ' ' : ''}${u.lname}`}
+                      </Link>
                     </td>
                     <td style={{ padding: '8px 14px', color: '#6b7280' }}>{u.username}</td>
-                    <td style={{ padding: '8px 14px', color: '#6b7280' }}>{u.email}</td>
                     <td style={{ padding: '8px 14px' }}>
                       <Button
                         size="small"
@@ -162,7 +193,9 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'right' }}>
-          {filtered.length} user{filtered.length !== 1 ? 's' : ''} shown
+          {searchGated
+            ? `Enter ${minSearchChars}+ characters to search`
+            : `${filtered.length} user${filtered.length !== 1 ? 's' : ''} shown`}
         </Typography>
       </Box>
     </Dialog>
