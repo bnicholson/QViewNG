@@ -20,6 +20,7 @@ import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { RosterAPI } from '../features/RosterAPI'
 import type { UserTS } from '../features/UserAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -59,6 +60,7 @@ interface Props {
 }
 
 export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, onSave }: Props) => {
+  const { accessToken } = useAuth();
   const [form, setForm] = useState<FormState>(emptyState);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [alertOpened, setAlertOpened] = useState(false);
@@ -132,11 +134,14 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
         password: form.password || "",
       });
 
-      console.log(stringified_body);
-      
+      // Send the coach's bearer token so the backend records them (from the verified token, not a
+      // client-supplied id) as this quizzer's creator.
       const registerResponse = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: stringified_body,
       });
       if (!registerResponse.ok) {

@@ -217,7 +217,8 @@ pub struct UserRosterQuizzerRow {
 }
 
 /// Returns one page of the distinct quizzers across all rosters `coach_id` coaches (created or
-/// shared with them), plus the total distinct count — a single scoped, paginated call.
+/// shared with them), plus quizzers `coach_id` created that are currently on no roster, plus the
+/// total distinct count — a single scoped, paginated call.
 pub fn read_roster_quizzer_rows_of_coach(
     db: &mut database::Connection,
     coach_id: Uuid,
@@ -248,6 +249,17 @@ pub fn read_roster_quizzer_rows_of_coach(
             .distinct()
             .load::<Uuid>(db)?
     };
+    // Also include quizzers this coach created, even if they're currently on no roster — so a coach
+    // never loses access to an account they made once it's removed from every roster.
+    let created_ids: Vec<Uuid> = {
+        use crate::schema::users::dsl::*;
+        users
+            .filter(created_by_userid.eq(coach_id))
+            .filter(del_fl.eq(false))
+            .select(id)
+            .load::<Uuid>(db)?
+    };
+    quizzer_ids.extend(created_ids);
     quizzer_ids.sort();
     quizzer_ids.dedup();
     let total = quizzer_ids.len() as i64;

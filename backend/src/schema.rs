@@ -695,6 +695,7 @@ diesel::table! {
         username -> Nullable<Varchar>,
         hash_password -> Nullable<Text>,
         del_fl -> Bool,
+        created_by_userid -> Nullable<Uuid>,
     }
 }
 

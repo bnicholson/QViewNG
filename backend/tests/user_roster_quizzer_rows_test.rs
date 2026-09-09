@@ -38,6 +38,12 @@ fn seed(conn: &mut backend::database::Connection) -> uuid::Uuid {
     RosterQuizzerBuilder::new_default(dana.id, shared_roster.rosterid).build_and_insert(conn).unwrap();
     RosterCoachBuilder::new_default(coach.id, shared_roster.rosterid).build_and_insert(conn).unwrap();
 
+    // A quizzer our coach created but who is on NO roster — must still appear so the coach can get
+    // them back (e.g. re-add them to a roster) after removing them from every roster.
+    UserBuilder::new_default("Evan").set_email("evan@fakeemail.com").set_hash_password("Pwd123!")
+        .set_created_by_userid(coach.id)
+        .build_and_insert(conn).unwrap();
+
     coach.id
 }
 
@@ -57,11 +63,11 @@ async fn user_roster_quizzer_rows_returns_distinct_paginated_quizzers() {
     assert_eq!(resp.status(), StatusCode::OK);
     let body: PagedResponse<UserRosterQuizzerRow> = test::read_body_json(resp).await;
 
-    // Four distinct quizzers (Bob only once; Dana from the shared roster), ordered by (lname,
-    // fname) — all share lname "Den".
-    assert_eq!(body.count, 4);
+    // Five distinct quizzers (Bob only once; Dana from the shared roster; Evan created by the coach
+    // but on no roster), ordered by (lname, fname) — all share lname "Den".
+    assert_eq!(body.count, 5);
     let fnames: Vec<&str> = body.items.iter().map(|q| q.fname.as_str()).collect();
-    assert_eq!(fnames, vec!["Anna", "Bob", "Cara", "Dana"]);
+    assert_eq!(fnames, vec!["Anna", "Bob", "Cara", "Dana", "Evan"]);
 
     // Pagination: first page of size 2.
     let req2 = test::TestRequest::get()
@@ -69,7 +75,7 @@ async fn user_roster_quizzer_rows_returns_distinct_paginated_quizzers() {
         .to_request();
     let resp2 = test::call_service(&app, req2).await;
     let body2: PagedResponse<UserRosterQuizzerRow> = test::read_body_json(resp2).await;
-    assert_eq!(body2.count, 4);
+    assert_eq!(body2.count, 5);
     let fnames2: Vec<&str> = body2.items.iter().map(|q| q.fname.as_str()).collect();
     assert_eq!(fnames2, vec!["Anna", "Bob"]);
 }

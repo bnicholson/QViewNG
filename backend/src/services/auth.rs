@@ -1,5 +1,6 @@
-use actix_web::{delete, get, post, HttpRequest, HttpResponse, web::{Data, Json, Path, Query}};
+use actix_web::{delete, get, post, HttpMessage, HttpRequest, HttpResponse, web::{Data, Json, Path, Query}};
 use serde::{Deserialize, Serialize};
+use crate::auth::policies::UserContext;
 use chrono::{Utc, Duration};
 use uuid::Uuid;
 use crate::database::Database;
@@ -108,6 +109,12 @@ async fn register(db: Data<Database>, Json(body): Json<RegisterRequest>, req: Ht
         if !uname.is_empty() {
             builder = builder.set_username(uname);
         }
+    }
+    // Attribute the account to its creator, taken only from the authenticated caller (a coach
+    // creating a quizzer). Self-registration has no caller identity, so created_by stays NULL.
+    let creator = req.extensions().get::<UserContext>().map(|u| u.user_id);
+    if let Some(creator_id) = creator {
+        builder = builder.set_created_by_userid(creator_id);
     }
     let new_user = match builder.build_and_insert(&mut conn) {
         Ok(u) => u,

@@ -14,12 +14,13 @@ use uuid::Uuid;
 
 pub struct UserBuilder {
     email: Option<String>,
-    hash_password: Option<String>,     
-    activated: Option<bool>,            
-    fname: String,            
-    mname: Option<String>,           
-    lname: Option<String>,         
-    username: Option<String>
+    hash_password: Option<String>,
+    activated: Option<bool>,
+    fname: String,
+    mname: Option<String>,
+    lname: Option<String>,
+    username: Option<String>,
+    created_by_userid: Option<Uuid>,
 }
 
 impl UserBuilder {
@@ -28,10 +29,11 @@ impl UserBuilder {
             email: None,
             hash_password: None,     
             activated: None,            
-            fname: fname.to_string(),            
-            mname: None,           
-            lname: None,         
-            username: None
+            fname: fname.to_string(),
+            mname: None,
+            lname: None,
+            username: None,
+            created_by_userid: None,
         }
     }
     pub fn new_default(fname: &str) -> Self {
@@ -42,7 +44,8 @@ impl UserBuilder {
             fname: fname.to_string(),
             mname: Some("Maurice".to_string()),
             lname: Some("Den".to_string()),
-            username: Some("1denmanforthejob1".to_string())
+            username: Some("1denmanforthejob1".to_string()),
+            created_by_userid: None,
         }
     }
     pub fn set_email(mut self, email: &str) -> Self {
@@ -67,6 +70,10 @@ impl UserBuilder {
     }
     pub fn set_username(mut self, username: &str) -> Self {
         self.username = Some(username.to_string());
+        self
+    }
+    pub fn set_created_by_userid(mut self, created_by_userid: Uuid) -> Self {
+        self.created_by_userid = Some(created_by_userid);
         self
     }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
@@ -104,8 +111,9 @@ impl UserBuilder {
                         activated: self.activated.unwrap(),            
                         fname: self.fname,            
                         mname: self.mname.unwrap_or("".to_string()),           
-                        lname: self.lname.unwrap(),         
-                        username: self.username.unwrap_or("".to_string())
+                        lname: self.lname.unwrap(),
+                        username: self.username.unwrap_or("".to_string()),
+                        created_by_userid: self.created_by_userid,
                     }
                 )
             }
@@ -143,6 +151,7 @@ pub struct User {
     pub username: Option<String>,
     pub hash_password: Option<String>,
     pub del_fl: bool,
+    pub created_by_userid: Option<Uuid>,
 }
 
 #[derive(
@@ -158,8 +167,11 @@ pub struct NewUser {
     pub activated: bool,            
     pub fname: String,            
     pub mname: String,            
-    pub lname: String,            
-    pub username: String  
+    pub lname: String,
+    pub username: String,
+    // The coach who created this account on someone's behalf; None for self-registration.
+    #[serde(default)]
+    pub created_by_userid: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
