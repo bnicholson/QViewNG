@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -7,14 +7,7 @@ import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
-import Paper from '@mui/material/Paper'
 import Tab from '@mui/material/Tab'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
@@ -182,6 +175,8 @@ function GearTable({
   preloadedDetails,
   auditByEquipId,
   showAuditColumns = false,
+  loading = false,
+  headerActions,
 }: {
   rows: EquipmentDboTS[];
   gearSets: GearSetTS[];
@@ -194,11 +189,17 @@ function GearTable({
   preloadedDetails?: Record<number, EquipmentDetail>;
   auditByEquipId?: Record<number, GearAudit>;
   showAuditColumns?: boolean;
+  /** Shows the "Loading…" empty state while true (keeps the toolbar/actions visible). */
+  loading?: boolean;
+  /** Extra controls in the table toolbar, on the same line as the title (e.g. an "Add Gear" button). */
+  headerActions?: ReactNode;
 }) {
   const setById = Object.fromEntries(gearSets.map(s => [s.id, s]));
 
   const [fetchedDetails, setFetchedDetails] = useState<Record<number, EquipmentDetail>>({});
   const detailsByEquipId = preloadedDetails ?? fetchedDetails;
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     if (preloadedDetails || rows.length === 0) return;
@@ -210,107 +211,88 @@ function GearTable({
       });
   }, [rows, preloadedDetails]);
 
-  if (rows.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-        No gear items yet.
-      </Typography>
-    );
-  }
+  // Keep pagination in range as the row set changes (add / remove / refresh).
+  useEffect(() => { setPage(0); }, [rows]);
+
+  const columns: ColumnDef<EquipmentDboTS>[] = [
+    {
+      header: 'Type',
+      render: (row) => {
+        const type = detectGearType(row);
+        return type
+          ? <Chip label={GEAR_TYPE_LABELS[type]} color={GEAR_TYPE_COLORS[type]} size="small" variant="outlined" />
+          : <Chip label="Unknown" size="small" />;
+      },
+    },
+    {
+      header: 'Info',
+      render: (row) => (
+        <Typography variant="body2" sx={{ minWidth: 260 }}>
+          {detailsByEquipId[row.id] ? getGearInfo(detailsByEquipId[row.id], row) : `ID: ${row.id}`}
+        </Typography>
+      ),
+    },
+    ...(showSetColumn ? [{
+      header: 'Gear Set',
+      render: (row: EquipmentDboTS) => <Typography variant="body2">{setById[row.equipmentsetid]?.name ?? '—'}</Typography>,
+    }] : []),
+    {
+      header: 'Added',
+      render: (row) => (
+        <Typography variant="body2" color="text.secondary">
+          {new Date(row.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+        </Typography>
+      ),
+    },
+    ...(showAuditColumns ? [
+      {
+        header: 'Last Modified',
+        render: (row: EquipmentDboTS) => (
+          <Typography variant="body2" color="text.secondary">
+            {auditByEquipId?.[row.id] ? new Date(auditByEquipId[row.id].updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+          </Typography>
+        ),
+      },
+      {
+        header: 'Last Modified By',
+        render: (row: EquipmentDboTS) => auditByEquipId?.[row.id]
+          ? <EntityLink to={`/user/${auditByEquipId[row.id].last_modified_user_id}/overview`}>{auditByEquipId[row.id].last_modified_user_name}</EntityLink>
+          : <Typography variant="body2" color="text.secondary">—</Typography>,
+      },
+    ] : []),
+    {
+      header: 'Actions',
+      render: (row) => (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+          {showSetColumn && <MoveButton dbo={row} gearSets={gearSets} onMoved={onRefresh} />}
+          <Tooltip title="Edit">
+            <IconButton size="small" onClick={() => onEdit(row)}><EditIcon fontSize="small" /></IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton size="small" color="error" onClick={() => onDelete(row)}><DeleteIcon fontSize="small" /></IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ];
 
   return (
-    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow sx={{ '& th': { fontWeight: 600, backgroundColor: 'action.hover' } }}>
-            <TableCell>Type</TableCell>
-            <TableCell>Info</TableCell>
-            {showSetColumn && <TableCell>Gear Set</TableCell>}
-            <TableCell>Added</TableCell>
-            {showAuditColumns && <TableCell>Created By</TableCell>}
-            {showAuditColumns && <TableCell>Last Modified</TableCell>}
-            {showAuditColumns && <TableCell>Last Modified By</TableCell>}
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map(row => {
-            const type = detectGearType(row);
-            return (
-              <TableRow key={row.id} hover>
-                <TableCell>
-                  {type ? (
-                    <Chip
-                      label={GEAR_TYPE_LABELS[type]}
-                      color={GEAR_TYPE_COLORS[type]}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ) : (
-                    <Chip label="Unknown" size="small" />
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {detailsByEquipId[row.id]
-                      ? getGearInfo(detailsByEquipId[row.id], row)
-                      : `ID: ${row.id}`}
-                  </Typography>
-                </TableCell>
-                {showSetColumn && (
-                  <TableCell>
-                    <Typography variant="body2">{setById[row.equipmentsetid]?.name ?? '—'}</Typography>
-                  </TableCell>
-                )}
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {new Date(row.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </Typography>
-                </TableCell>
-                {showAuditColumns && (
-                  <TableCell>
-                    {auditByEquipId?.[row.id]
-                      ? <EntityLink to={`/user/${auditByEquipId[row.id].creator_id}/overview`}>{auditByEquipId[row.id].creator_name}</EntityLink>
-                      : <Typography variant="body2" color="text.secondary">—</Typography>}
-                  </TableCell>
-                )}
-                {showAuditColumns && (
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {auditByEquipId?.[row.id] ? new Date(auditByEquipId[row.id].updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
-                    </Typography>
-                  </TableCell>
-                )}
-                {showAuditColumns && (
-                  <TableCell>
-                    {auditByEquipId?.[row.id]
-                      ? <EntityLink to={`/user/${auditByEquipId[row.id].last_modified_user_id}/overview`}>{auditByEquipId[row.id].last_modified_user_name}</EntityLink>
-                      : <Typography variant="body2" color="text.secondary">—</Typography>}
-                  </TableCell>
-                )}
-                <TableCell align="right">
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                    {showSetColumn && (
-                      <MoveButton dbo={row} gearSets={gearSets} onMoved={onRefresh} />
-                    )}
-                    <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => onEdit(row)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => onDelete(row)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <DataTableTemplate<EquipmentDboTS>
+      entityLabel="Gear Item"
+      showCreateButton={false}
+      showDeleteButton={false}
+      columns={columns}
+      rows={rows.slice(page * pageSize, (page + 1) * pageSize)}
+      totalCount={rows.length}
+      getId={(r) => r.id}
+      onDelete={async () => {}}
+      page={page}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      onPageSizeChange={(s) => { setPage(0); setPageSize(s); }}
+      loading={loading}
+      headerActions={headerActions}
+    />
   );
 }
 
@@ -361,8 +343,6 @@ function AllGearPanel({
   const [details, setDetails] = useState<Record<number, EquipmentDetail>>({});
   const [audit, setAudit] = useState<Record<number, GearAudit>>({});
   const [innerLoading, setInnerLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // One scoped call carries every gear item with its detail + audit already resolved.
   const load = useCallback(async () => {
@@ -370,7 +350,6 @@ function AllGearPanel({
     try {
       const { items } = await UserAPI.getGearRows(userId, 0, 500);
       setRows(items.map(userGearRowToDbo));
-      setPage(0);
       const d: Record<number, EquipmentDetail> = {};
       const a: Record<number, GearAudit> = {};
       for (const r of items) {
@@ -398,72 +377,6 @@ function AllGearPanel({
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>;
   }
 
-  const setById = Object.fromEntries(gearSets.map(s => [s.id, s]));
-
-  // Same content as the per-set GearTable, expressed as DataTableTemplate columns. Delete lives in
-  // the Actions column (alongside Move/Edit), so the template's built-in delete column is disabled.
-  const columns: ColumnDef<EquipmentDboTS>[] = [
-    {
-      header: 'Type',
-      render: (row) => {
-        const type = detectGearType(row);
-        return type
-          ? <Chip label={GEAR_TYPE_LABELS[type]} color={GEAR_TYPE_COLORS[type]} size="small" variant="outlined" />
-          : <Chip label="Unknown" size="small" />;
-      },
-    },
-    {
-      header: 'Info',
-      render: (row) => (
-        <Typography variant="body2" sx={{ minWidth: 260 }}>
-          {details[row.id] ? getGearInfo(details[row.id], row) : `ID: ${row.id}`}
-        </Typography>
-      ),
-    },
-    {
-      header: 'Gear Set',
-      render: (row) => <Typography variant="body2">{setById[row.equipmentsetid]?.name ?? '—'}</Typography>,
-    },
-    {
-      header: 'Added',
-      render: (row) => (
-        <Typography variant="body2" color="text.secondary">
-          {new Date(row.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-        </Typography>
-      ),
-    },
-    ...(showAuditColumns ? [
-      {
-        header: 'Last Modified',
-        render: (row: EquipmentDboTS) => (
-          <Typography variant="body2" color="text.secondary">
-            {audit[row.id] ? new Date(audit[row.id].updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
-          </Typography>
-        ),
-      },
-      {
-        header: 'Last Modified By',
-        render: (row: EquipmentDboTS) => audit[row.id]
-          ? <EntityLink to={`/user/${audit[row.id].last_modified_user_id}/overview`}>{audit[row.id].last_modified_user_name}</EntityLink>
-          : <Typography variant="body2" color="text.secondary">—</Typography>,
-      },
-    ] : []),
-    {
-      header: 'Actions',
-      render: (row) => (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-          <MoveButton dbo={row} gearSets={gearSets} onMoved={handleRefresh} />
-          <Tooltip title="Edit">
-            <IconButton size="small" onClick={() => onEdit(row)}><EditIcon fontSize="small" /></IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton size="small" color="error" onClick={() => onDelete(row)}><DeleteIcon fontSize="small" /></IconButton>
-          </Tooltip>
-        </Box>
-      ),
-    },
-  ];
-
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'left' }}>
@@ -471,19 +384,16 @@ function AllGearPanel({
         one gear set. This tab shows all gear across your {gearSets.length} gear set{gearSets.length !== 1 ? 's' : ''}.
         Use the <DriveFileMoveIcon sx={{ fontSize: 14, verticalAlign: 'middle' }} /> button on any row to move gear between sets.
       </Typography>
-      <DataTableTemplate<EquipmentDboTS>
-        entityLabel="Gear Item"
-        showCreateButton={false}
-        showDeleteButton={false}
-        columns={columns}
-        rows={rows.slice(page * pageSize, (page + 1) * pageSize)}
-        totalCount={rows.length}
-        getId={(r) => r.id}
-        onDelete={async () => {}}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => { setPage(0); setPageSize(s); }}
+      <GearTable
+        rows={rows}
+        gearSets={gearSets}
+        showSetColumn
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onRefresh={handleRefresh}
+        preloadedDetails={details}
+        auditByEquipId={audit}
+        showAuditColumns={showAuditColumns}
       />
     </Box>
   );
@@ -571,32 +481,27 @@ function GearSetPanel({
 
       <Divider sx={{ mb: 2 }} />
 
-      {/* Gear items section */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="subtitle1" fontWeight={600}>Gear Items</Typography>
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onAddGear}
-          sx={{ ml: 'auto', textTransform: 'none' }}
-        >
-          Add Gear
-        </Button>
-      </Box>
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-      ) : (
-        <GearTable
-          rows={rows}
-          gearSets={allGearSets}
-          showSetColumn={false}
-          onEdit={onEditGear}
-          onDelete={onDeleteGear}
-          onRefresh={handleRefresh}
-        />
-      )}
+      {/* Gear items — the table renders its own "Gear Items" title; Add Gear sits on that line. */}
+      <GearTable
+        rows={rows}
+        gearSets={allGearSets}
+        showSetColumn={false}
+        onEdit={onEditGear}
+        onDelete={onDeleteGear}
+        onRefresh={handleRefresh}
+        loading={loading}
+        headerActions={
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={onAddGear}
+            sx={{ textTransform: 'none' }}
+          >
+            Add Gear
+          </Button>
+        }
+      />
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
