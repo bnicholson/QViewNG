@@ -254,6 +254,11 @@ function RosterPanel({
 
       <Divider sx={{ mb: 2 }} />
 
+      {/* Coaches Section */}
+      <CoachesSection rosterId={roster.rosterid} createdByUserId={roster.created_by_userid} />
+
+      <Divider sx={{ my: 3 }} />
+
       {/* Quizzers Section */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
         <Typography variant="subtitle1" fontWeight={600}>Quizzers</Typography>
@@ -281,11 +286,6 @@ function RosterPanel({
         externalRows={quizzers}
         onDelete={handleRemoveQuizzer}
       />
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* Coaches Section */}
-      <CoachesSection rosterId={roster.rosterid} createdByUserId={roster.created_by_userid} />
 
       {/* Dialogs */}
       <QuizzerCreatorDialog
