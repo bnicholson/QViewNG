@@ -300,6 +300,7 @@ function RosterPanel({
       <UserPickerDialog
         isOpen={pickerOpen}
         title={`Add Existing Quizzer to "${roster.name}"`}
+        note="Select one of your existing quizzers to add to this roster."
         excludeIds={quizzers.map(q => q.id)}
         availableUsers={allQuizzers}
         onCancel={() => setPickerOpen(false)}

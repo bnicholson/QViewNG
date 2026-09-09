@@ -36,9 +36,11 @@ interface Props {
    * user to search rather than browse the full list up front.
    */
   minSearchChars?: number;
+  /** Optional instructional note shown above the search bar. */
+  note?: string;
 }
 
-export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, availableUsers, minSearchChars }: Props) => {
+export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, availableUsers, minSearchChars, note }: Props) => {
   const [fetchedUsers, setFetchedUsers] = useState<UserTS[]>([]);
   const [filter, setFilter] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
@@ -89,6 +91,9 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
   const lowerFilter = filter.toLowerCase();
   // When minSearchChars is set, force a search: show nothing until the term is long enough.
   const searchGated = minSearchChars !== undefined && filter.trim().length < minSearchChars;
+  // Only truly loading while fetching from the API — a caller-supplied list (availableUsers) is a
+  // synchronous cache lookup, so an empty one is "no results", never a perpetual "Loading…".
+  const showLoading = loading || (!availableUsers && !hasFetched);
   const filtered = searchGated ? [] : allUsers.filter(u => {
     if (excludeSet.has(u.id)) return false;
     if (!lowerFilter) return true;
@@ -130,6 +135,12 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
           </Alert>
         </Collapse>
 
+        {note && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {note}
+          </Typography>
+        )}
+
         <TextField
           placeholder="Search by name, username, or email..."
           value={filter}
@@ -156,7 +167,7 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
                   <td colSpan={3} style={{ padding: '32px 14px', textAlign: 'center', color: '#9ca3af' }}>
                     {searchGated
                       ? `Type at least ${minSearchChars} characters to search.`
-                      : loading || allUsers.length === 0 ? 'Loading...' : 'No matching users found.'}
+                      : showLoading ? 'Loading...' : 'No matching users found.'}
                   </td>
                 </tr>
               ) : (
