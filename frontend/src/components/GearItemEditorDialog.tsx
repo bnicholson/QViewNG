@@ -5,6 +5,7 @@ import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
 import { SaveButton } from './SaveButton'
 import Checkbox from '@mui/material/Checkbox'
+import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
 import Divider from '@mui/material/Divider'
@@ -46,6 +47,18 @@ const ALL_GEAR_TYPES: GearType[] = [
   'Computer', 'JumpPad', 'InterfaceBox', 'Monitor',
   'MicrophoneRecorder', 'Projector', 'PowerStrip', 'ExtensionCord',
 ];
+
+// Chip colors per gear type — matches the "All Gear" table so the type is visually consistent.
+const GEAR_TYPE_COLORS: Record<GearType, 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'default'> = {
+  Computer: 'primary',
+  JumpPad: 'success',
+  InterfaceBox: 'secondary',
+  Monitor: 'info',
+  MicrophoneRecorder: 'warning',
+  Projector: 'default',
+  PowerStrip: 'error',
+  ExtensionCord: 'default',
+};
 
 // ── Per-type default state helpers ──────────────────────────────────────────
 
@@ -451,7 +464,7 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ p: 3, maxWidth: 640 }}>
+        <Box sx={{ p: 3, width: '100%' }}>
           {loading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
               <CircularProgress />
@@ -480,20 +493,24 @@ export function GearItemEditorDialog({ isOpen, onCancel, onSave, gearSets, editi
                 </Select>
               </FormControl>
 
-              {/* Gear type selector — only shown when creating */}
+              {/* Gear type selector — a single row of clickable chips, only shown when creating.
+                  Selecting one renders that type's fields below. */}
               {!isEditing && (
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Gear Type</InputLabel>
-                  <Select
-                    value={selectedType}
-                    label="Gear Type"
-                    onChange={e => handleTypeChange(e.target.value as GearType)}
-                  >
+                <Box sx={{ mb: 2 }}>
+                  <FormLabel component="legend" sx={{ mb: 1, display: 'block' }}>Gear Type (select to display fields)</FormLabel>
+                  <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 1, overflowX: 'auto', pb: 0.5 }}>
                     {ALL_GEAR_TYPES.map(t => (
-                      <MenuItem key={t} value={t}>{GEAR_TYPE_LABELS[t]}</MenuItem>
+                      <Chip
+                        key={t}
+                        label={GEAR_TYPE_LABELS[t]}
+                        color={GEAR_TYPE_COLORS[t]}
+                        variant={selectedType === t ? 'filled' : 'outlined'}
+                        onClick={() => handleTypeChange(t)}
+                        sx={{ cursor: 'pointer' }}
+                      />
                     ))}
-                  </Select>
-                </FormControl>
+                  </Box>
+                </Box>
               )}
 
               {/* Nothing below the Gear Type selector until a type is chosen. */}
