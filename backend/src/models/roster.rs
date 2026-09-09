@@ -202,7 +202,7 @@ pub fn read_all_rosters_containing_quizzer(db: &mut database::Connection, quizze
 }
 
 /// One row of the user's "My Rosters" quizzers table: a quizzer that appears on any roster the
-/// user (coach) created. No audit columns — a quizzer isn't an audited domain entity.
+/// user (coach) created, plus the quizzer's account created/last-updated timestamps.
 #[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct UserRosterQuizzerRow {
     pub quizzer_id: Uuid,
@@ -210,6 +210,10 @@ pub struct UserRosterQuizzerRow {
     pub mname: String,
     pub lname: String,
     pub email: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Returns one page of the distinct quizzers across all rosters created by `coach_id`, plus the
@@ -252,6 +256,8 @@ pub fn read_roster_quizzer_rows_of_coach(
                 mname: u.mname,
                 lname: u.lname,
                 email: u.email,
+                created_at: u.created_at,
+                updated_at: u.updated_at,
             })
             .collect()
     };

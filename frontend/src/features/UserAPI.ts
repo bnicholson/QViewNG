@@ -208,6 +208,8 @@ export interface UserRosterQuizzerRowTS {
   mname: string;
   lname: string;
   email: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** A gear item across the user's equipment sets, enriched for a single-call table. */

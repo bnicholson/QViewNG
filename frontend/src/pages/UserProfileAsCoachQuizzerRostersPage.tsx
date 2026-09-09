@@ -39,8 +39,8 @@ function useAllQuizzers(userId: string) {
         mname: q.mname,
         lname: q.lname,
         activated: true,
-        created_at: '',
-        updated_at: '',
+        created_at: q.created_at,
+        updated_at: q.updated_at,
       })));
     } catch {
       console.error('Failed to aggregate quizzers');
