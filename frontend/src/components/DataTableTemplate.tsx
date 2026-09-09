@@ -277,6 +277,8 @@ export interface DataTableProps<T> {
   getRowStyle?: (row: T) => { background?: string; color?: string } | undefined;
   /** While true, the empty state shows "Loading…" instead of "No <entity>s found". */
   loading?: boolean;
+  /** Extra controls rendered in the toolbar, right-aligned on the same line as the title. */
+  headerActions?: ReactNode;
 }
 
 export function DataTableTemplate<T>({
@@ -298,6 +300,7 @@ export function DataTableTemplate<T>({
   dense = false,
   getRowStyle,
   loading = false,
+  headerActions,
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
@@ -324,6 +327,7 @@ export function DataTableTemplate<T>({
           </p>
         </div>
 
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {showCreateButton && onCreate ? (
           <button
             onClick={onCreate}
@@ -376,6 +380,8 @@ export function DataTableTemplate<T>({
             {btnLabel}
           </a>
         ) : null}
+        {headerActions}
+        </div>
       </div>
 
       {/* ── Table ── */}

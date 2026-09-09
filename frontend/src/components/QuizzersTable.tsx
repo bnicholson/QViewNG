@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { UserAPI, type UserTS } from '../features/UserAPI';
@@ -90,9 +90,11 @@ interface Props {
   showAuditColumns?: boolean;
   /** Column headers to omit — lets a consumer hide a column that's redundant in its context. */
   hiddenColumns?: string[];
+  /** Extra controls rendered in the table toolbar, on the same line as the "Quizzers" title. */
+  headerActions?: ReactNode;
 }
 
-export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true, hiddenColumns = [] }: Props) {
+export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete, createLabel, showSensitiveColumns = false, showAuditColumns = true, hiddenColumns = [], headerActions }: Props) {
   // externalRows (a fixed roster) paginate client-side; everything else paginates server-side.
   const usesExternal = externalRows !== undefined;
   const usesEnriched = tid !== undefined || did !== undefined;
@@ -181,6 +183,7 @@ export default function QuizzersTable({ tid, did, externalRows, onAdd, onDelete,
       pageSize={pageSize}
       onPageChange={handlePageChange}
       onPageSizeChange={handlePageSizeChange}
+      headerActions={headerActions}
     />
   );
 }

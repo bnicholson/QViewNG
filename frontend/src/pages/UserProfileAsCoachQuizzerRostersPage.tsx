@@ -259,32 +259,32 @@ function RosterPanel({
 
       <Divider sx={{ my: 3 }} />
 
-      {/* Quizzers Section */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <Typography variant="subtitle1" fontWeight={600}>Quizzers</Typography>
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreatorOpen(true)}
-          sx={{ ml: 'auto', textTransform: 'none' }}
-        >
-          Create New Quizzer
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<PersonAddIcon />}
-          onClick={() => setPickerOpen(true)}
-          sx={{ textTransform: 'none' }}
-        >
-          Add Existing
-        </Button>
-      </Box>
-
+      {/* Quizzers Section — the table renders its own "Quizzers" title; the actions sit on that line. */}
       <QuizzersTable
         externalRows={quizzers}
         onDelete={handleRemoveQuizzer}
+        headerActions={
+          <>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreatorOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Create New Quizzer
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setPickerOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Add Existing
+            </Button>
+          </>
+        }
       />
 
       {/* Dialogs */}
