@@ -52,7 +52,6 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
 
   const handleSave = async () => {
     if (!dname.trim()) { setError('Division name is required.'); return }
-    if (!breadcrumb.trim()) { setError('Breadcrumb is required.'); return }
     if (!shortinfo.trim()) { setError('Short info is required.'); return }
     setSaving(true)
     setError(null)
@@ -80,6 +79,28 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
         )}
 
         <Grid container spacing={{ xs: 1, sm: 2 }}>
+
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Visibility</Typography>
+            {editing ? (
+              <Select size="small" value={isPublic ? 'true' : 'false'} onChange={e => setIsPublic(e.target.value === 'true')} sx={{ mt: 0.5 }}>
+                <MenuItem value="true">Public</MenuItem>
+                <MenuItem value="false">Private</MenuItem>
+              </Select>
+            ) : (
+              <Typography variant="body1">{division.is_public ? 'Public' : 'Private'}</Typography>
+            )}
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Division Name</Typography>
+            {editing ? (
+              <TextField size="small" value={dname} onChange={e => setDname(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
+            ) : (
+              <Typography variant="body1">{division.dname}</Typography>
+            )}
+          </Grid>
+
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Tournament</Typography>
             <Typography variant="body1">
@@ -95,34 +116,22 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Division Name</Typography>
+            <Typography variant="body2" color="text.secondary">Short Info</Typography>
             {editing ? (
-              <TextField size="small" value={dname} onChange={e => setDname(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
+              <TextField size="small" value={shortinfo} onChange={e => setShortinfo(e.target.value)} fullWidth multiline minRows={2} sx={{ mt: 0.5 }} />
             ) : (
-              <Typography variant="body1">{division.dname}</Typography>
+              <Typography variant="body1">{division.shortinfo}</Typography>
             )}
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          {/* <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Breadcrumb</Typography>
             {editing ? (
               <TextField size="small" value={breadcrumb} onChange={e => setBreadcrumb(e.target.value)} fullWidth sx={{ mt: 0.5 }} />
             ) : (
               <Typography variant="body1">{division.breadcrumb}</Typography>
             )}
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Visibility</Typography>
-            {editing ? (
-              <Select size="small" value={isPublic ? 'true' : 'false'} onChange={e => setIsPublic(e.target.value === 'true')} sx={{ mt: 0.5 }}>
-                <MenuItem value="true">Public</MenuItem>
-                <MenuItem value="false">Private</MenuItem>
-              </Select>
-            ) : (
-              <Typography variant="body1">{division.is_public ? 'Public' : 'Private'}</Typography>
-            )}
-          </Grid>
+          </Grid> */}
 
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Created</Typography>
@@ -132,15 +141,6 @@ export const DivisionProfileOverviewPage = ({ division, tournament, onUpdated, c
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Last Modified</Typography>
             <Typography variant="body1" color="text.secondary">{formatDate(division.updated_at)}</Typography>
-          </Grid>
-
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="body2" color="text.secondary">Short Info</Typography>
-            {editing ? (
-              <TextField size="small" value={shortinfo} onChange={e => setShortinfo(e.target.value)} fullWidth multiline minRows={2} sx={{ mt: 0.5 }} />
-            ) : (
-              <Typography variant="body1">{division.shortinfo}</Typography>
-            )}
           </Grid>
         </Grid>
 
