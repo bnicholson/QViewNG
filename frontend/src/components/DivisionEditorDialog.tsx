@@ -92,11 +92,6 @@ export const DivisionEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
-    if (!form.shortinfo.trim()) {
-      setErrorMsg("Short info is required.");
-      setAlertOpened(true);
-      return;
-    }
 
     const payload: NewDivisionPayload = {
       tid,
@@ -213,7 +208,7 @@ export const DivisionEditorDialog = (props: Props) => {
           <ListItem>
             <Grid container>
               <Grid size={{ xs: 12 }}>
-                <InputLabel>Short Info (*required)</InputLabel>
+                <InputLabel>Short Info</InputLabel>
                 <TextField
                   variant="outlined"
                   placeholder="Short description of this division"

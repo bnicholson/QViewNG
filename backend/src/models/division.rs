@@ -83,9 +83,7 @@ impl DivisionBuilder {
         if self.is_public.is_none() {
             errors.push("is_public is required".to_string());
         }
-        if self.shortinfo.is_none() {
-            errors.push("shortinfo is required".to_string());
-        }
+        // shortinfo (Short Description) is optional; it defaults to an empty string when omitted.
 
         if !errors.is_empty() {
             return Err(errors);
@@ -106,7 +104,7 @@ impl DivisionBuilder {
                         dname: self.dname.unwrap(),
                         breadcrumb: self.breadcrumb.unwrap(),
                         is_public: self.is_public.unwrap(),
-                        shortinfo: self.shortinfo.unwrap(),
+                        shortinfo: self.shortinfo.unwrap_or_default(),
                         last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil)
                     }
                 )
@@ -164,6 +162,8 @@ pub struct NewDivision {
     pub dname: String,
     pub breadcrumb: String,
     pub is_public: bool,
+    // Short Description is optional; when omitted it defaults to an empty string.
+    #[serde(default)]
     pub shortinfo: String,
     // Set server-side from the authenticated user; a client-sent value is ignored/overwritten.
     #[serde(default)]
