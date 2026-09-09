@@ -177,7 +177,7 @@ export const RosterEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <InputLabel>Roster Name (*required)</InputLabel>
                 <TextField
                   variant="outlined"
