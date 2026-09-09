@@ -76,7 +76,7 @@ function AllQuizzersPanel({ allQuizzers, loading, rosterCount }: { allQuizzers: 
 
 // ── Coaches Section ─────────────────────────────────────────────────────────
 
-function CoachesSection({ rosterId, createdByUserId }: { rosterId: string; createdByUserId: string }) {
+function CoachesSection({ rosterId, createdByUserId, currentUserId, onSelfRemoved }: { rosterId: string; createdByUserId: string; currentUserId: string; onSelfRemoved: () => void }) {
   const [coaches, setCoaches] = useState<UserTS[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
@@ -98,15 +98,23 @@ function CoachesSection({ rosterId, createdByUserId }: { rosterId: string; creat
 
   const handleRemoveCoach = (coach: UserTS) => {
     if (coach.id === createdByUserId) return; // Can't remove the creator
+    const removingSelf = coach.id === currentUserId;
     setConfirmDialog({
       isOpen: true,
-      title: 'Remove coach access?',
-      message: `${coach.fname} ${coach.lname} will no longer be able to view or manage this roster.`,
+      title: removingSelf ? 'Remove yourself from this roster?' : 'Remove coach access?',
+      message: removingSelf
+        ? 'You will no longer be able to view or manage this roster, and it will be removed from your rosters.'
+        : `${coach.fname} ${coach.lname} will no longer be able to view or manage this roster.`,
       onCancel: () => setConfirmDialog(confirmDialogDefaultState),
       onConfirm: async () => {
         setConfirmDialog(confirmDialogDefaultState);
         await RosterAPI.removeCoach(rosterId, coach.id);
-        await loadCoaches();
+        if (removingSelf) {
+          // Losing my own access — drop this roster's tab and return to All Quizzers.
+          onSelfRemoved();
+        } else {
+          await loadCoaches();
+        }
       },
     });
   };
@@ -178,14 +186,18 @@ function CoachesSection({ rosterId, createdByUserId }: { rosterId: string; creat
 function RosterPanel({
   roster,
   allQuizzers,
+  currentUserId,
   onEditRoster,
   onDeleteRoster,
+  onLeaveRoster,
   onQuizzersChanged,
 }: {
   roster: RosterTS;
   allQuizzers: UserTS[];
+  currentUserId: string;
   onEditRoster: () => void;
   onDeleteRoster: () => void;
+  onLeaveRoster: () => void;
   onQuizzersChanged: () => void;
 }) {
   const [quizzers, setQuizzers] = useState<UserTS[]>([]);
@@ -256,7 +268,12 @@ function RosterPanel({
       <Divider sx={{ mb: 2 }} />
 
       {/* Coaches Section */}
-      <CoachesSection rosterId={roster.rosterid} createdByUserId={roster.created_by_userid} />
+      <CoachesSection
+        rosterId={roster.rosterid}
+        createdByUserId={roster.created_by_userid}
+        currentUserId={currentUserId}
+        onSelfRemoved={onLeaveRoster}
+      />
 
       <Divider sx={{ my: 3 }} />
 
@@ -368,11 +385,20 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
     if (!selectedRoster) return;
     try {
       await RosterAPI.delete(selectedRoster.rosterid);
-      setTabIndex(0); // Go back to All Quizzers
-      await loadRosters();
+      // Bump back to the All Quizzers tab, drop the deleted roster's tab, and refresh the
+      // aggregated quizzer list so it no longer reflects the removed roster.
+      setTabIndex(0);
+      await Promise.all([loadRosters(), reloadAllQuizzers()]);
     } catch (err: any) {
       console.error('Failed to delete roster:', err.message);
     }
+  };
+
+  // A shared coach removed their own access: the roster is no longer theirs to see, so drop its
+  // tab and return them to All Quizzers.
+  const handleLeaveRoster = async () => {
+    setTabIndex(0);
+    await loadRosters();
   };
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -419,8 +445,10 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
           key={selectedRoster.rosterid}
           roster={selectedRoster}
           allQuizzers={allQuizzers}
+          currentUserId={userId}
           onEditRoster={() => setEditDialogOpen(true)}
           onDeleteRoster={handleDeleteRoster}
+          onLeaveRoster={handleLeaveRoster}
           onQuizzersChanged={reloadAllQuizzers}
         />
       )}
