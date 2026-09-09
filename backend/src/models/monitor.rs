@@ -476,36 +476,38 @@ pub fn update(db: &mut database::Connection, equipment_id: i64, item: &MonitorCh
     )
 }
 
+/// Soft delete the gear item: mark the equipment row deleted (del_fl = true) and keep the
+/// underlying monitor row so the item remains recoverable. Returns (0, equipment_rows_affected).
+/// Use `purge` to permanently remove both rows.
 pub fn delete(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(usize, usize)> {
-    use crate::schema::monitors::dsl::*;
-
-    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_id);
-
-    if equipment_dbo_result.is_err() {
-        return Err(equipment_dbo_result.err().unwrap());
-    }
-
-    let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
+    let equipment_dbo: EquipmentDbo = models::equipment_dbo::read(db, equipment_id)?;
 
     if equipment_dbo.monitorid.is_none() {
-        println!("EquipmentDbo's id is none. Monitor could not be updated.");
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("Error: EquipmentDbo's id is none. Monitor could not be updated.").into()
+            format!("Error: EquipmentDbo's monitorid is none. Monitor could not be deleted.").into()
         ));
     }
 
-    let equipment_dbo_delete_result = models::equipment_dbo::delete(db, equipment_id);
+    let equipment_soft_deleted = models::equipment_dbo::delete(db, equipment_id)?;
+    Ok((0, equipment_soft_deleted))
+}
 
-    if equipment_dbo_delete_result.is_err() {
-        return Err(equipment_dbo_delete_result.err().unwrap());
-    }
+/// Purge the gear item: permanently remove both the equipment row and its monitor row. Reads the
+/// equipment row regardless of del_fl so an already soft-deleted item can still be purged.
+pub fn purge(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(usize, usize)> {
+    use crate::schema::monitors::dsl::*;
 
-    let monitor_delete_result = 
-        diesel::delete(monitors.filter(id.eq(equipment_dbo.monitorid.unwrap()))).execute(db);
+    let equipment_dbo: EquipmentDbo = models::equipment_dbo::read_any(db, equipment_id)?;
 
-    if monitor_delete_result.is_err() {
-        return Err(monitor_delete_result.err().unwrap());
-    }
+    let type_id = match equipment_dbo.monitorid {
+        Some(v) => v,
+        None => return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: EquipmentDbo's monitorid is none. Monitor could not be purged.").into()
+        )),
+    };
 
-    Ok((monitor_delete_result.unwrap(), equipment_dbo_delete_result.unwrap()))
+    // Remove the equipment row first (clears the FK reference), then the monitor row.
+    let equipment_purged = models::equipment_dbo::purge(db, equipment_id)?;
+    let monitor_purged = diesel::delete(monitors.filter(id.eq(type_id))).execute(db)?;
+    Ok((monitor_purged, equipment_purged))
 }

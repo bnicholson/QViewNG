@@ -122,6 +122,7 @@ diesel::table! {
         equipmentsetid -> Int8,
         creator_id -> Uuid,
         last_modified_user -> Uuid,
+        del_fl -> Bool,
     }
 }
 

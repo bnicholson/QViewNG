@@ -1,0 +1,1 @@
+ALTER TABLE equipment ADD COLUMN del_fl BOOLEAN NOT NULL DEFAULT false;

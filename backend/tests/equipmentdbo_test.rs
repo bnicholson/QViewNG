@@ -4,6 +4,7 @@ mod fixtures;
 
 use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::{EquipmentDbo, EquipmentDboChangeset}}};
 use crate::common::{PAGE_SIZE, TEST_DB_URL, clean_database};
+use diesel::prelude::*;
 
 #[actix_web::test]
 async fn create_works() {
@@ -169,4 +170,47 @@ async fn delete_works() {
 
     let equipment_dbo_vec = get_result.unwrap();
     assert_eq!(equipment_dbo_vec.len(), 0);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_keeps_component_and_purge_removes_both() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let computer = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
+    let equipment_id = computer.equipmentid;
+    let component_id = computer.computerid;
+
+    // Act + Assert: a gear-item delete soft-deletes the equipment row (hidden from reads) but keeps
+    // the underlying component row so the item stays recoverable.
+    let (component_deleted, equipment_soft_deleted) =
+        models::computer::delete(&mut conn, equipment_id).unwrap();
+    assert_eq!(component_deleted, 0);
+    assert_eq!(equipment_soft_deleted, 1);
+    assert!(models::equipment_dbo::read(&mut conn, equipment_id).is_err());
+
+    // The equipment row still exists with del_fl = true (raw query that ignores the flag)...
+    use backend::schema::equipment::dsl as e;
+    let eq_count: i64 = e::equipment.filter(e::id.eq(equipment_id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(eq_count, 1);
+    let flag: bool = e::equipment.filter(e::id.eq(equipment_id)).select(e::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+    // ...and the underlying component row is untouched.
+    use backend::schema::computers::dsl as c;
+    let comp_count: i64 = c::computers.filter(c::computerid.eq(component_id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(comp_count, 1);
+
+    // Act + Assert: purge permanently removes both the equipment row and its component row.
+    let (component_purged, equipment_purged) =
+        models::computer::purge(&mut conn, equipment_id).unwrap();
+    assert_eq!(component_purged, 1);
+    assert_eq!(equipment_purged, 1);
+    let eq_count_after: i64 = e::equipment.filter(e::id.eq(equipment_id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(eq_count_after, 0);
+    let comp_count_after: i64 = c::computers.filter(c::computerid.eq(component_id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(comp_count_after, 0);
 }

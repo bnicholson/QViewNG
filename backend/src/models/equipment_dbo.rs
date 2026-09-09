@@ -204,6 +204,7 @@ pub struct EquipmentDbo {
     pub equipmentsetid: i64,
     pub creator_id: Uuid,
     pub last_modified_user: Uuid,
+    pub del_fl: bool,
 }
 
 #[derive(
@@ -247,14 +248,22 @@ pub fn create(db: &mut database::Connection, item: &NewEquipmentDbo) -> QueryRes
 }
 
 pub fn exists(db: &mut database::Connection, equipmentid: i64) -> bool {
-    use crate::schema::equipment::dsl::equipment;
+    use crate::schema::equipment::dsl::*;
     equipment
         .find(equipmentid)
+        .filter(del_fl.eq(false))
         .get_result::<EquipmentDbo>(db)
         .is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: i64) -> QueryResult<EquipmentDbo> {
+    use crate::schema::equipment::dsl::*;
+    equipment.filter(id.eq(item_id)).filter(del_fl.eq(false)).first::<EquipmentDbo>(db)
+}
+
+/// Reads an equipment row regardless of its del_fl flag. Used by purge flows so an already
+/// soft-deleted gear item can still be permanently removed.
+pub fn read_any(db: &mut database::Connection, item_id: i64) -> QueryResult<EquipmentDbo> {
     use crate::schema::equipment::dsl::*;
     equipment.filter(id.eq(item_id)).first::<EquipmentDbo>(db)
 }
@@ -266,6 +275,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let offset_val = pagination.page * page_size;
 
     equipment
+        .filter(del_fl.eq(false))
         .order(created_at)
         .limit(page_size)
         .offset(offset_val)
@@ -324,7 +334,7 @@ pub fn read_gear_rows_of_owner(
 
     let total: i64 = {
         use crate::schema::equipment::dsl::*;
-        equipment.filter(equipmentsetid.eq_any(&set_ids)).count().get_result(db)?
+        equipment.filter(equipmentsetid.eq_any(&set_ids)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
@@ -332,6 +342,7 @@ pub fn read_gear_rows_of_owner(
         use crate::schema::equipment::dsl::*;
         equipment
             .filter(equipmentsetid.eq_any(&set_ids))
+            .filter(del_fl.eq(false))
             .order((created_at.asc(), id.asc()))
             .limit(page_size)
             .offset(offset_val)
@@ -388,7 +399,14 @@ pub fn update(db: &mut database::Connection, item_id: i64, item: &EquipmentDboCh
         .get_result(db)
 }
 
+/// Soft delete: mark the equipment row deleted (excluded from reads) without removing it.
 pub fn delete(db: &mut database::Connection, item_id: i64) -> QueryResult<usize> {
+    use crate::schema::equipment::dsl::*;
+    diesel::update(equipment.filter(id.eq(item_id))).set(del_fl.eq(true)).execute(db)
+}
+
+/// Purge: permanently remove the equipment row from the database.
+pub fn purge(db: &mut database::Connection, item_id: i64) -> QueryResult<usize> {
     use crate::schema::equipment::dsl::*;
     diesel::delete(equipment.filter(id.eq(item_id))).execute(db)
 }
@@ -397,6 +415,7 @@ pub fn read_all_by_equipmentset(db: &mut database::Connection, set_id: i64) -> Q
     use crate::schema::equipment::dsl::*;
     equipment
         .filter(equipmentsetid.eq(set_id))
+        .filter(del_fl.eq(false))
         .order(created_at)
         .load::<EquipmentDbo>(db)
 }

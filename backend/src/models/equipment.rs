@@ -33,9 +33,10 @@ pub enum Equipment {
 
 pub fn read(db: &mut database::Connection, equipment_id: i64) -> QueryResult<Equipment> {
 
-    let equipment_dbo_result = 
+    let equipment_dbo_result =
         crate::schema::equipment::dsl::equipment
             .filter(crate::schema::equipment::dsl::id.eq(equipment_id))
+            .filter(crate::schema::equipment::dsl::del_fl.eq(false))
             .first::<EquipmentDbo>(db);
 
     if equipment_dbo_result.is_err() {

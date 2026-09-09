@@ -435,36 +435,38 @@ pub fn update(db: &mut database::Connection, equipment_id: i64, item: &PowerStri
     )
 }
 
+/// Soft delete the gear item: mark the equipment row deleted (del_fl = true) and keep the
+/// underlying powerstrip row so the item remains recoverable. Returns (0, equipment_rows_affected).
+/// Use `purge` to permanently remove both rows.
 pub fn delete(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(usize, usize)> {
-    use crate::schema::powerstrips::dsl::*;
-
-    let equipment_dbo_result = models::equipment_dbo::read(db, equipment_id);
-
-    if equipment_dbo_result.is_err() {
-        return Err(equipment_dbo_result.err().unwrap());
-    }
-
-    let equipment_dbo: EquipmentDbo = equipment_dbo_result.unwrap();
+    let equipment_dbo: EquipmentDbo = models::equipment_dbo::read(db, equipment_id)?;
 
     if equipment_dbo.powerstripid.is_none() {
-        println!("EquipmentDbo's id is none. PowerStrip could not be updated.");
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("Error: EquipmentDbo's id is none. PowerStrip could not be updated.").into()
+            format!("Error: EquipmentDbo's powerstripid is none. PowerStrip could not be deleted.").into()
         ));
     }
 
-    let equipment_dbo_delete_result = models::equipment_dbo::delete(db, equipment_id);
+    let equipment_soft_deleted = models::equipment_dbo::delete(db, equipment_id)?;
+    Ok((0, equipment_soft_deleted))
+}
 
-    if equipment_dbo_delete_result.is_err() {
-        return Err(equipment_dbo_delete_result.err().unwrap());
-    }
+/// Purge the gear item: permanently remove both the equipment row and its powerstrip row. Reads the
+/// equipment row regardless of del_fl so an already soft-deleted item can still be purged.
+pub fn purge(db: &mut database::Connection, equipment_id: i64) -> QueryResult<(usize, usize)> {
+    use crate::schema::powerstrips::dsl::*;
 
-    let powerstrip_delete_result = 
-        diesel::delete(powerstrips.filter(id.eq(equipment_dbo.powerstripid.unwrap()))).execute(db);
+    let equipment_dbo: EquipmentDbo = models::equipment_dbo::read_any(db, equipment_id)?;
 
-    if powerstrip_delete_result.is_err() {
-        return Err(powerstrip_delete_result.err().unwrap());
-    }
+    let type_id = match equipment_dbo.powerstripid {
+        Some(v) => v,
+        None => return Err(diesel::result::Error::QueryBuilderError(
+            format!("Error: EquipmentDbo's powerstripid is none. PowerStrip could not be purged.").into()
+        )),
+    };
 
-    Ok((powerstrip_delete_result.unwrap(), equipment_dbo_delete_result.unwrap()))
+    // Remove the equipment row first (clears the FK reference), then the powerstrip row.
+    let equipment_purged = models::equipment_dbo::purge(db, equipment_id)?;
+    let powerstrip_purged = diesel::delete(powerstrips.filter(id.eq(type_id))).execute(db)?;
+    Ok((powerstrip_purged, equipment_purged))
 }
