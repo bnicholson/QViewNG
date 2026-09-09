@@ -24,6 +24,9 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogContentText from '@mui/material/DialogContentText'
 import Toolbar from '@mui/material/Toolbar'
 import CloseIcon from '@mui/icons-material/Close'
+import Visibility from '@mui/icons-material/Visibility'
+import VisibilityOff from '@mui/icons-material/VisibilityOff'
+import InputAdornment from '@mui/material/InputAdornment'
 import Slide from '@mui/material/Slide'
 import { type TransitionProps } from '@mui/material/transitions'
 import Button from '@mui/material/Button';
@@ -150,6 +153,8 @@ export const TournamentEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
   const [pairingCodeWarningOpen, setPairingCodeWarningOpen] = useState(false);
   const [pairingCodeWarningAcknowledged, setPairingCodeWarningAcknowledged] = useState(false);
+  // The pairing code is hidden (masked) by default; toggling reveals it and enables editing.
+  const [pairingCodeVisible, setPairingCodeVisible] = useState(false);
 
   /** Call this whenever the tournament editor is closed. */
   const resetState = () => {
@@ -158,11 +163,13 @@ export const TournamentEditorDialog = (props: Props) => {
     setErrorMsg("Simple error message");
     setPairingCodeWarningOpen(false);
     setPairingCodeWarningAcknowledged(false);
+    setPairingCodeVisible(false);
   };
 
   // If the initial tournament changes or the dialog opens, set or clear the initial fields.
   useEffect(() => {
     if (!isOpen) return;
+    setPairingCodeVisible(false);
     if (initialTournament !== undefined) {
       setTournament(initialTournament);
     } else {
@@ -609,10 +616,24 @@ export const TournamentEditorDialog = (props: Props) => {
                     variant="outlined"
                     sx={{ width: 500, maxWidth: '100%' }}
                     placeholder="Pairing Code"
+                    type={pairingCodeVisible ? 'text' : 'password'}
                     value={tournament.pairing_code ?? ""}
-                    inputProps={{ maxLength: 64 }}
+                    inputProps={{ maxLength: 64, readOnly: !pairingCodeVisible }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setPairingCodeVisible(v => !v)}
+                            aria-label={pairingCodeVisible ? 'Hide pairing code' : 'Show pairing code'}
+                          >
+                            {pairingCodeVisible ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                     onFocus={() => {
-                      if (!pairingCodeWarningAcknowledged) {
+                      if (pairingCodeVisible && !pairingCodeWarningAcknowledged) {
                         setPairingCodeWarningOpen(true);
                       }
                     }}
