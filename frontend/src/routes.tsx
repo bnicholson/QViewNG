@@ -26,9 +26,6 @@ import { CRMProfile } from "./pages/CRMProfile";
 import { DevPage } from "./pages/DevPage";
 import { Divisions } from "./pages/DivisionPageOld";
 
-// NOTE: This component was created for ease-of-access and modularity, not reusability.
-//       ONLY the App.tsx file should use this component. 
-
 export default function QViewRoutes() {
     return (
         <Routes>
