@@ -120,6 +120,12 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
   const registrationIsOpen = tournament ? isRegistrationOpen(tournament) : false;
 
+  // Which registration types the tournament offers (each gates its tab). Default true if unset.
+  const useTeamRegistration = tournament?.use_team_registration ?? true;
+  const useGearRegistration = tournament?.use_gear_registration ?? true;
+  const useVolunteerRegistration = tournament?.use_volunteer_registration ?? true;
+  const anyRegistrationEnabled = useTeamRegistration || useGearRegistration || useVolunteerRegistration;
+
   // Shown when someone navigates directly to a registration URL while the window is closed.
   const registrationWindowText =
     tournament?.registration_open_date && tournament?.registration_close_date
@@ -136,7 +142,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
   const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string; visible?: boolean }> = [
     { kind: 'route', label: 'Overview',     to: `/tournament/${tid}/overview`     },
-    { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`,      visible: registrationIsOpen },
+    { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`,      visible: registrationIsOpen && anyRegistrationEnabled },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
     { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
     { kind: 'route', label: 'Teams',        to: `/tournament/${tid}/teams`        },
@@ -169,9 +175,9 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>
-          {props.childRoute === 'register/team'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" /> : registrationClosedNotice)}
-          {props.childRoute === 'register/gear'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" /> : registrationClosedNotice)}
-          {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" /> : registrationClosedNotice)}
+          {props.childRoute === 'register/team'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="team" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
+          {props.childRoute === 'register/gear'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
+          {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')} showAuditColumns={canViewAuditColumns}/>}

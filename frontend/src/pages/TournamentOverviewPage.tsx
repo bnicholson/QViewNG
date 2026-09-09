@@ -71,11 +71,20 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
               Edit
             </Button>
           )}
-          {isRegistrationOpen(tournament) && (
-            <Button variant="contained" size="small" onClick={() => navigate(`/tournament/${tournament.tid}/register/team`)}>
-              Register
-            </Button>
-          )}
+          {isRegistrationOpen(tournament) && (() => {
+            // Land on the first registration type this tournament actually offers; hide the button
+            // entirely if none are offered.
+            const firstEnabledTab =
+              (tournament.use_team_registration ?? true) ? 'team'
+              : (tournament.use_gear_registration ?? true) ? 'gear'
+              : (tournament.use_volunteer_registration ?? true) ? 'as-volunteer'
+              : null;
+            return firstEnabledTab && (
+              <Button variant="contained" size="small" onClick={() => navigate(`/tournament/${tournament.tid}/register/${firstEnabledTab}`)}>
+                Register
+              </Button>
+            );
+          })()}
         </Box>
       </Box>
 
@@ -93,14 +102,25 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
               : ''
           }
         />
-        <InfoItem
-          label={`Registration Window (${isRegistrationOpen(tournament) ? 'OPEN' : 'CLOSED'})`}
-          value={
-            tournament.registration_open_date && tournament.registration_close_date
-              ? `${tournament.registration_open_date.format('MMM D, YYYY')} – ${tournament.registration_close_date.format('MMM D, YYYY')}`
-              : 'Not set'
-          }
-        />
+        {(() => {
+          const anyRegistrationEnabled =
+            (tournament.use_team_registration ?? true) ||
+            (tournament.use_gear_registration ?? true) ||
+            (tournament.use_volunteer_registration ?? true);
+          // With no registration types enabled there's no window to speak of — show "Registration: None".
+          return anyRegistrationEnabled ? (
+            <InfoItem
+              label={`Registration Window (${isRegistrationOpen(tournament) ? 'OPEN' : 'CLOSED'})`}
+              value={
+                tournament.registration_open_date && tournament.registration_close_date
+                  ? `${tournament.registration_open_date.format('MMM D, YYYY')} – ${tournament.registration_close_date.format('MMM D, YYYY')}`
+                  : 'Not set'
+              }
+            />
+          ) : (
+            <InfoItem label="Registration" value="None" />
+          );
+        })()}
         <InfoItem label="Venue" value={tournament.venue}/>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Typography variant="body2" color="text.secondary">Address</Typography>
@@ -123,6 +143,18 @@ export const TournamentOverviewPage = ({ tournament, isTournamentUpdate, canView
         <InfoItem label="Organization" value={tournament.organization}/>
         {canViewPairingCodeAndVisibility && (
           <PairingCodeInfoItem code={tournament.pairing_code ?? ''}/>
+        )}
+        {canViewPairingCodeAndVisibility && (
+          <InfoItem
+            label="Registration Types Being Used"
+            value={
+              [
+                (tournament.use_team_registration ?? true) && 'Team',
+                (tournament.use_gear_registration ?? true) && 'Gear',
+                (tournament.use_volunteer_registration ?? true) && 'Volunteer',
+              ].filter(Boolean).join(', ') || 'None'
+            }
+          />
         )}
       </Grid>
       <br/>

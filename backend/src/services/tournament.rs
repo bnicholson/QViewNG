@@ -607,6 +607,9 @@ async fn create(
         registration_open_date: payload.registration_open_date,
         registration_close_date: payload.registration_close_date,
         last_modified_user: user_ctx.user_id,
+        use_team_registration: payload.use_team_registration,
+        use_gear_registration: payload.use_gear_registration,
+        use_volunteer_registration: payload.use_volunteer_registration,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);

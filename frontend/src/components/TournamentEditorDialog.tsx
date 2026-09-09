@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { styled } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import FormGroup from '@mui/material/FormGroup'
+import FormLabel from '@mui/material/FormLabel'
 import Box from '@mui/material/Box'
 import IconButton from '@mui/material/IconButton'
 import Collapse from '@mui/material/Collapse'
@@ -115,7 +119,10 @@ const tournamentEmptyState: TournamentChangesetTS = {
   state: "",
   zip_code: "",
   registration_open_date: null,
-  registration_close_date: null
+  registration_close_date: null,
+  use_team_registration: true,
+  use_gear_registration: true,
+  use_volunteer_registration: true
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -205,6 +212,9 @@ export const TournamentEditorDialog = (props: Props) => {
       zip_code: tournament.zip_code,
       registration_open_date: tournament.registration_open_date ? tournament.registration_open_date.format("YYYY-MM-DD") : null,
       registration_close_date: tournament.registration_close_date ? tournament.registration_close_date.format("YYYY-MM-DD") : null,
+      use_team_registration: tournament.use_team_registration,
+      use_gear_registration: tournament.use_gear_registration,
+      use_volunteer_registration: tournament.use_volunteer_registration,
     };
     if (canViewPairingCode) {
       tournamentCS.pairing_code = tournament.pairing_code;
@@ -243,6 +253,14 @@ export const TournamentEditorDialog = (props: Props) => {
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleTournamentEditorSave(); },
     title: "Save changes to the tournament?"
   });
+
+  // When no registration type is offered, the registration window dates are irrelevant. Each flag
+  // defaults to true (matching the checkboxes) so a missing/undefined value counts as enabled —
+  // only an explicit all-false disables the dates.
+  const registrationDisabled =
+    !(tournament.use_team_registration ?? true) &&
+    !(tournament.use_gear_registration ?? true) &&
+    !(tournament.use_volunteer_registration ?? true);
 
   return (
     <Dialog
@@ -476,14 +494,55 @@ export const TournamentEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container>
+              <Grid size={{ xs: 12 }}>
+                <FormLabel component="legend">Registration Types</FormLabel>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Controls which registration tabs are available on the tournament. Disabling all three
+                  turns registration off entirely.
+                </Typography>
+                <FormGroup row>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={tournament.use_team_registration ?? true}
+                        onChange={e => setTournament(state => ({ ...state, use_team_registration: e.target.checked }))}
+                      />
+                    }
+                    label="Team Registration&nbsp;&nbsp;&nbsp;|"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={tournament.use_gear_registration ?? true}
+                        onChange={e => setTournament(state => ({ ...state, use_gear_registration: e.target.checked }))}
+                      />
+                    }
+                    label="Gear Registration&nbsp;&nbsp;&nbsp;|"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={tournament.use_volunteer_registration ?? true}
+                        onChange={e => setTournament(state => ({ ...state, use_volunteer_registration: e.target.checked }))}
+                      />
+                    }
+                    label="Volunteer Registration"
+                  />
+                </FormGroup>
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
               <Grid size={{ xs: 6, md: 4 }}>
-                <InputLabel>Registration Open Date</InputLabel>
+                <InputLabel sx={{ color: registrationDisabled ? 'text.disabled' : undefined }}>Registration Open Date</InputLabel>
                 <Item>
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DesktopDatePicker
                       enableAccessibleFieldDOMStructure={false}
                       label=""
                       format="MM/DD/YYYY"
+                      disabled={registrationDisabled}
                       value={tournament.registration_open_date}
                       onChange={registration_open_date => setTournament(state => ({ ...state, registration_open_date }))}
                       slotProps={{ field: { clearable: true } }}
@@ -494,13 +553,14 @@ export const TournamentEditorDialog = (props: Props) => {
               </Grid>
               &nbsp;&nbsp;
               <Grid size={{ xs: 6, md: 4 }}>
-                <InputLabel>Registration Close Date</InputLabel>
+                <InputLabel sx={{ color: registrationDisabled ? 'text.disabled' : undefined }}>Registration Close Date</InputLabel>
                 <Item>
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DesktopDatePicker
                       enableAccessibleFieldDOMStructure={false}
                       label=""
                       format="MM/DD/YYYY"
+                      disabled={registrationDisabled}
                       value={tournament.registration_close_date}
                       onChange={registration_close_date => setTournament(state => ({ ...state, registration_close_date }))}
                       slotProps={{ field: { clearable: true } }}

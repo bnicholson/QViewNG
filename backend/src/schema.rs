@@ -650,6 +650,9 @@ diesel::table! {
         registration_close_date -> Nullable<Date>,
         last_modified_user -> Uuid,
         del_fl -> Bool,
+        use_team_registration -> Bool,
+        use_gear_registration -> Bool,
+        use_volunteer_registration -> Bool,
     }
 }
 

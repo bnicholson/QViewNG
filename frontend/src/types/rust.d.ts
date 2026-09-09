@@ -226,6 +226,9 @@ interface Tournament {
   zip_code: string;
   registration_open_date?: NaiveDate | null;
   registration_close_date?: NaiveDate | null;
+  use_team_registration: boolean;
+  use_gear_registration: boolean;
+  use_volunteer_registration: boolean;
 }
 
 interface TournamentChangeset {
@@ -249,6 +252,9 @@ interface TournamentChangeset {
   zip_code?: string;
   registration_open_date?: NaiveDate | null;
   registration_close_date?: NaiveDate | null;
+  use_team_registration?: boolean;
+  use_gear_registration?: boolean;
+  use_volunteer_registration?: boolean;
 }
 
 interface FileInfo {

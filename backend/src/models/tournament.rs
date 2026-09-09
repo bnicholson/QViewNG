@@ -34,6 +34,9 @@ pub struct TournamentBuilder {
     registration_open_date: Option<chrono::naive::NaiveDate>,
     registration_close_date: Option<chrono::naive::NaiveDate>,
     last_modified_user: Option<Uuid>,
+    use_team_registration: bool,
+    use_gear_registration: bool,
+    use_volunteer_registration: bool,
 }
 
 impl TournamentBuilder {
@@ -61,6 +64,9 @@ impl TournamentBuilder {
             registration_open_date: None,
             registration_close_date: None,
             last_modified_user: None,
+            use_team_registration: true,
+            use_gear_registration: true,
+            use_volunteer_registration: true,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -88,7 +94,23 @@ impl TournamentBuilder {
             registration_open_date: None,
             registration_close_date: None,
             last_modified_user: None,
+            use_team_registration: true,
+            use_gear_registration: true,
+            use_volunteer_registration: true,
         }
+    }
+
+    pub fn set_use_team_registration(mut self, v: bool) -> Self {
+        self.use_team_registration = v;
+        self
+    }
+    pub fn set_use_gear_registration(mut self, v: bool) -> Self {
+        self.use_gear_registration = v;
+        self
+    }
+    pub fn set_use_volunteer_registration(mut self, v: bool) -> Self {
+        self.use_volunteer_registration = v;
+        self
     }
 
     pub fn set_organization(mut self, org: &str) -> Self {
@@ -259,6 +281,9 @@ impl TournamentBuilder {
                     registration_open_date: self.registration_open_date,
                     registration_close_date: self.registration_close_date,
                     last_modified_user: self.last_modified_user.unwrap_or(self.owner_id.unwrap()),
+                    use_team_registration: self.use_team_registration,
+                    use_gear_registration: self.use_gear_registration,
+                    use_volunteer_registration: self.use_volunteer_registration,
                 })
             }
         }
@@ -323,6 +348,9 @@ pub struct Tournament {
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
     pub last_modified_user: Uuid,
     pub del_fl: bool,
+    pub use_team_registration: bool,
+    pub use_gear_registration: bool,
+    pub use_volunteer_registration: bool,
 }
 
 #[derive(
@@ -358,6 +386,9 @@ pub struct NewTournament {
     pub registration_open_date: Option<chrono::naive::NaiveDate>,
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
     pub last_modified_user: Uuid,
+    pub use_team_registration: bool,
+    pub use_gear_registration: bool,
+    pub use_volunteer_registration: bool,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -389,7 +420,16 @@ pub struct NewTournamentPayload {
     pub registration_open_date: Option<chrono::naive::NaiveDate>,
     #[serde(default)]
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
+    // Which registration types the tournament offers. Default to true when omitted.
+    #[serde(default = "default_true")]
+    pub use_team_registration: bool,
+    #[serde(default = "default_true")]
+    pub use_gear_registration: bool,
+    #[serde(default = "default_true")]
+    pub use_volunteer_registration: bool,
 }
+
+fn default_true() -> bool { true }
 
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
@@ -416,6 +456,9 @@ pub struct TournamentChangeset {
     pub zip_code: Option<String>,
     pub registration_open_date: Option<chrono::naive::NaiveDate>,
     pub registration_close_date: Option<chrono::naive::NaiveDate>,
+    pub use_team_registration: Option<bool>,
+    pub use_gear_registration: Option<bool>,
+    pub use_volunteer_registration: Option<bool>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {

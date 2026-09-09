@@ -324,6 +324,10 @@ async fn create_with_tournament_create_permission_works() {
     assert_eq!(tournament.organization.as_str(), "Nazarene");
     assert_eq!(tournament.tname.as_str(), "Test Tour");
     assert_eq!(tournament.owner_id, user.id);
+    // The registration-type flags default to true when the create payload omits them.
+    assert!(tournament.use_team_registration);
+    assert!(tournament.use_gear_registration);
+    assert!(tournament.use_volunteer_registration);
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let logs: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
@@ -471,6 +475,10 @@ async fn update_works() {
     assert_eq!(new_tournament.todate, new_todate);
     assert_eq!(new_tournament.info.as_str(), new_info);
     assert_ne!(new_tournament.created_at, new_tournament.updated_at);
+    // A partial update that omits the registration-type flags leaves them unchanged (still true).
+    assert!(new_tournament.use_team_registration);
+    assert!(new_tournament.use_gear_registration);
+    assert!(new_tournament.use_volunteer_registration);
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
@@ -493,6 +501,75 @@ async fn update_works() {
         .to_request();
     let unauthorized_resp = test::call_service(&app, unauthorized_req).await;
     assert_eq!(unauthorized_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[actix_web::test]
+async fn update_registration_type_flags_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner) = fixtures::tournaments::arrange_update_works_integration_test(&mut conn);
+    // A freshly-created tournament offers all three registration types by default.
+    assert!(tournament.use_team_registration);
+    assert!(tournament.use_gear_registration);
+    assert!(tournament.use_volunteer_registration);
+
+    let token = common::make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["tournament:update".to_string()],
+    );
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // Turn every registration type off.
+    let put_payload = json!({
+        "use_team_registration": false,
+        "use_gear_registration": false,
+        "use_volunteer_registration": false
+    });
+    let put_uri = format!("/api/tournaments/{}", &tournament.tid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&put_payload)
+        .to_request();
+
+    // Act:
+
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+
+    assert_eq!(put_resp.status(), StatusCode::OK);
+    let put_resp_body: EntityResponse<Tournament> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    let updated = put_resp_body.data.unwrap();
+    assert!(!updated.use_team_registration);
+    assert!(!updated.use_gear_registration);
+    assert!(!updated.use_volunteer_registration);
+
+    // Re-enabling only one type leaves the other two off.
+    let put_payload_2 = json!({ "use_gear_registration": true });
+    let put_req_2 = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&put_payload_2)
+        .to_request();
+    let put_resp_2 = test::call_service(&app, put_req_2).await;
+    assert_eq!(put_resp_2.status(), StatusCode::OK);
+    let updated_2: EntityResponse<Tournament> = test::read_body_json(put_resp_2).await;
+    let updated_2 = updated_2.data.unwrap();
+    assert!(!updated_2.use_team_registration);
+    assert!(updated_2.use_gear_registration);
+    assert!(!updated_2.use_volunteer_registration);
 }
 
 #[actix_web::test]
