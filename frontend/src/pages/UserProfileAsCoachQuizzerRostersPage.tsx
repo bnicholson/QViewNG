@@ -404,7 +404,9 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
   // tab and return them to All Quizzers.
   const handleLeaveRoster = async () => {
     setTabIndex(0);
-    await loadRosters();
+    // Refresh both the roster tabs and the All Quizzers aggregate so the left roster's quizzers
+    // no longer appear.
+    await Promise.all([loadRosters(), reloadAllQuizzers()]);
   };
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -412,6 +414,10 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
     if (newValue === rosters.length + 1) {
       setCreateDialogOpen(true);
       return;
+    }
+    // Switching to the All Quizzers tab re-fetches its aggregate so it reflects the latest rosters.
+    if (newValue === 0) {
+      reloadAllQuizzers();
     }
     setTabIndex(newValue);
   };
