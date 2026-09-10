@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { BoolBadge, DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { GameAPI, type GameTS, type GameRowTS } from '../features/GameAPI';
 import { GameEditorDialog } from './GameEditorDialog';
 
@@ -19,7 +19,7 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
-function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): ColumnDef<GameRowTS>[] {
+function gameColumns(showAuditColumns: boolean): ColumnDef<GameRowTS>[] {
   return [
     {
       header: '',
@@ -69,10 +69,6 @@ function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): 
       header: 'Right Team',
       render: (g) => <EntityLink to={`/team/${g.rightteamid}/overview`}>{g.right_team_name || g.rightteamid}</EntityLink>,
     },
-    ...(showSensitiveColumns ? [{
-      header: 'Ignore',
-      render: (g: GameRowTS) => <BoolBadge value={g.ignore} />,
-    }] : []),
     ...(showAuditColumns ? [
       {
         header: 'Created',
@@ -96,7 +92,7 @@ function gameColumns(showSensitiveColumns: boolean, showAuditColumns: boolean): 
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showSensitiveColumns = false, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showSensitiveColumns?: boolean; showAuditColumns?: boolean;
+export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit — lets a consumer hide a column that's redundant in its context
    *  (e.g. the Round profile hides "Round", the Room profile hides "Room"). */
   hiddenColumns?: string[] }) {
@@ -162,7 +158,7 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
         showDeleteButton={showDeleteButton}
         onCreate={() => setEditorIsOpen(true)}
         loading={loading}
-        columns={gameColumns(showSensitiveColumns, showAuditColumns).filter(c => !hiddenColumns.includes(c.header))}
+        columns={gameColumns(showAuditColumns).filter(c => !hiddenColumns.includes(c.header))}
         rows={rows}
         totalCount={totalCount}
         getId={(g) => g.gid}

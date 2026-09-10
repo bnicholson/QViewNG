@@ -71,7 +71,7 @@ export const RoundProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} roundid={roundid}
               showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
-              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              showAuditColumns={canViewAuditColumns}
               // Breadcrumb here is Home / Tournament / Division / Round, so both Division and Round are fixed context.
               hiddenColumns={['Division', 'Round']} />
           )}

@@ -89,7 +89,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} did={did}
               showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
-              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'stats-groups' && canViewStatsGroups && (

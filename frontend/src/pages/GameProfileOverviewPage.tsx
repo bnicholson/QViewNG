@@ -3,14 +3,11 @@ import { Link } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
-import Switch from '@mui/material/Switch'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { GameAPI, type GameTS, type GameChangeset } from '../features/GameAPI'
@@ -65,7 +62,6 @@ interface FormState {
   roomid: string
   roundid: string
   ruleset: string
-  ignore: boolean
   leftteamid: string
   centerteamid: string
   rightteamid: string
@@ -123,7 +119,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
       roomid: game.roomid,
       roundid: game.roundid,
       ruleset: game.ruleset,
-      ignore: game.ignore,
       leftteamid: game.leftteamid,
       centerteamid: game.centerteamid ?? '',
       rightteamid: game.rightteamid,
@@ -162,7 +157,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
         roomid: form.roomid,
         roundid: form.roundid,
         ruleset: form.ruleset,
-        ignore: form.ignore,
         leftteamid: form.leftteamid,
         centerteamid: form.centerteamid || null,
         rightteamid: form.rightteamid,
@@ -203,83 +197,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
         )}
 
         <Grid container spacing={{ xs: 1, sm: 2 }}>
-
-          {/* Tournament */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Tournament</Typography>
-            <Typography variant="body1">
-              <Link
-                to={`/tournament/${tournament.tid}/overview`}
-                style={{ color: '#2563eb', textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
-              >
-                {tournament.tname}
-              </Link>
-            </Typography>
-          </Grid>
-
-          {/* Org */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Org</Typography>
-            {editing && form ? (
-              <TextField size="small" value={form.org} onChange={e => set({ org: e.target.value })} fullWidth sx={{ mt: 0.5 }} />
-            ) : (
-              <Typography variant="body1">{game.org}</Typography>
-            )}
-          </Grid>
-
-          {/* Ruleset */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Ruleset</Typography>
-            {editing && form ? (
-              <TextField size="small" value={form.ruleset} onChange={e => set({ ruleset: e.target.value })} fullWidth sx={{ mt: 0.5 }} />
-            ) : (
-              <Typography variant="body1">{game.ruleset}</Typography>
-            )}
-          </Grid>
-
-          {/* Division */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Division</Typography>
-            {editing && form ? (
-              <Select size="small" fullWidth value={form.divisionid} onChange={e => set({ divisionid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
-                {lookups?.divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
-              </Select>
-            ) : (
-              <Typography variant="body1"><ProfileLink to={`/division/${game.divisionid}/overview`} label={divMap.get(game.divisionid) ?? game.divisionid} /></Typography>
-            )}
-          </Grid>
-
-          {/* Room */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Room</Typography>
-            {editing && form ? (
-              <Select size="small" fullWidth value={form.roomid} onChange={e => set({ roomid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
-                {lookups?.rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
-              </Select>
-            ) : (
-              <Typography variant="body1"><ProfileLink to={`/room/${game.roomid}/overview`} label={roomMap.get(game.roomid) ?? game.roomid} /></Typography>
-            )}
-          </Grid>
-
-          {/* Start Time */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Start Time</Typography>
-            {editing && form ? (
-              <Select size="small" fullWidth value={form.roundid} onChange={e => set({ roundid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
-                {lookups?.rounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{formatDateTime(r.scheduled_start_time)}</MenuItem>)}
-              </Select>
-            ) : (
-              <Typography variant="body1"><ProfileLink to={`/round/${game.roundid}/overview`} label={formatDateTime(roundMap.get(game.roundid))} /></Typography>
-            )}
-          </Grid>
-
-          {/* Round (this game's ordinal within its room) */}
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Round</Typography>
-            <Typography variant="body1">{roundOrdinal ?? '—'}</Typography>
-          </Grid>
 
           {/* Left Team */}
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -322,6 +239,36 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
             )}
           </Grid>
 
+          {/* Start Time */}
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Start Time</Typography>
+            {editing && form ? (
+              <Select size="small" fullWidth value={form.roundid} onChange={e => set({ roundid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
+                {lookups?.rounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{formatDateTime(r.scheduled_start_time)}</MenuItem>)}
+              </Select>
+            ) : (
+              <Typography variant="body1"><ProfileLink to={`/round/${game.roundid}/overview`} label={formatDateTime(roundMap.get(game.roundid))} /></Typography>
+            )}
+          </Grid>
+
+          {/* Room */}
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Room</Typography>
+            {editing && form ? (
+              <Select size="small" fullWidth value={form.roomid} onChange={e => set({ roomid: e.target.value })} displayEmpty sx={{ mt: 0.5 }}>
+                {lookups?.rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
+              </Select>
+            ) : (
+              <Typography variant="body1"><ProfileLink to={`/room/${game.roomid}/overview`} label={roomMap.get(game.roomid) ?? game.roomid} /></Typography>
+            )}
+          </Grid>
+
+          {/* Round (this game's ordinal within its room) */}
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Round</Typography>
+            <Typography variant="body1">{roundOrdinal ?? '—'}</Typography>
+          </Grid>
+
           {/* Quizmaster */}
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Quizmaster</Typography>
@@ -351,22 +298,26 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
             )}
           </Grid>
 
-          {/* Ignore */}
-          {canEdit && (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} sx={{ display: 'flex', alignItems: 'center' }}>
-              {editing && form ? (
-                <FormControlLabel
-                  control={<Switch checked={form.ignore} onChange={e => set({ ignore: e.target.checked })} />}
-                  label="Ignore"
-                />
-              ) : (
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Ignore</Typography>
-                  <Chip label={game.ignore ? 'Yes' : 'No'} size="small" color={game.ignore ? 'warning' : 'default'} sx={{ mt: 0.5 }} />
-                </Box>
-              )}
-            </Grid>
-          )}
+          {/* Org */}
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Org</Typography>
+            {editing && form ? (
+              <TextField size="small" value={form.org} onChange={e => set({ org: e.target.value })} fullWidth sx={{ mt: 0.5 }} />
+            ) : (
+              <Typography variant="body1">{game.org}</Typography>
+            )}
+          </Grid>
+
+          {/* Ruleset */}
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Typography variant="body2" color="text.secondary">Ruleset</Typography>
+            {editing && form ? (
+              <TextField size="small" value={form.ruleset} onChange={e => set({ ruleset: e.target.value })} fullWidth sx={{ mt: 0.5 }} />
+            ) : (
+              <Typography variant="body1">{game.ruleset}</Typography>
+            )}
+          </Grid>
+
 
           {/* Timestamps */}
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
