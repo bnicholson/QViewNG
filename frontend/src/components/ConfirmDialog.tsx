@@ -33,7 +33,7 @@ export const ConfirmDialog = (props: Props) => {
     <Dialog open={props.isOpen} maxWidth="sm" fullWidth>
       <DialogTitle>{props.title}</DialogTitle>
       <Box position="absolute" top={0} right={0}>
-        <IconButton aria-label="Close">
+        <IconButton aria-label="Close" onClick={props.onCancel}>
           <CloseIcon />
         </IconButton>
       </Box>
