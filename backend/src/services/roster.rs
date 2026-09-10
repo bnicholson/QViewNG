@@ -172,7 +172,23 @@ async fn destroy(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    let result = models::roster::delete(&mut db, item_id.into_inner());
+    let roster_id = item_id.into_inner();
+
+    // Only the roster's owner/creator may delete it. Identify the caller from the verified access
+    // token (not a client-supplied value).
+    let caller_id = match req.extensions().get::<UserContext>() {
+        Some(ctx) => ctx.user_id,
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+    let roster = match models::roster::read(&mut db, roster_id) {
+        Ok(r) => r,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    if roster.created_by_userid != caller_id {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let result = models::roster::delete(&mut db, roster_id);
 
     if result.is_ok() {
         HttpResponse::Ok().finish()

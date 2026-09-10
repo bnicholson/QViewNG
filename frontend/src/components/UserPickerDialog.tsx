@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
@@ -41,6 +41,9 @@ interface Props {
 }
 
 export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, availableUsers, minSearchChars, note }: Props) => {
+  // Focused once the open transition finishes — autoFocus alone doesn't stick through the
+  // full-screen Slide transition.
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [fetchedUsers, setFetchedUsers] = useState<UserTS[]>([]);
   const [filter, setFilter] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
@@ -116,7 +119,13 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
   };
 
   return (
-    <Dialog fullScreen open={isOpen} onClose={onCancel} slots={{ transition: Transition }}>
+    <Dialog
+      fullScreen
+      open={isOpen}
+      onClose={onCancel}
+      slots={{ transition: Transition }}
+      slotProps={{ transition: { onEntered: () => searchInputRef.current?.focus() } }}
+    >
       <AppBar sx={{ position: 'sticky' }}>
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={onCancel} aria-label="close">
@@ -150,6 +159,7 @@ export const UserPickerDialog = ({ isOpen, title, excludeIds, onCancel, onPick, 
           size="small"
           sx={{ mb: 2 }}
           autoFocus
+          inputRef={searchInputRef}
         />
 
         <Box sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 180px)', borderRadius: 2, border: '1px solid #e5e7eb' }}>

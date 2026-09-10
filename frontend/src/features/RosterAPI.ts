@@ -60,8 +60,11 @@ export const RosterAPI = {
     const result = await response.json();
     return result.data;
   },
-  delete: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/rosters/${id}`, { method: 'DELETE' });
+  delete: async (id: string, accessToken?: string): Promise<void> => {
+    const response = await fetch(`/api/rosters/${id}`, {
+      method: 'DELETE',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    });
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`Failed to delete roster (${response.status}): ${text}`);

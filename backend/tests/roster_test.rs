@@ -149,17 +149,20 @@ async fn delete_works() {
             .configure(configure_routes)
     ).await;
     
+    // The roster's owner/creator is the only user allowed to delete it.
+    let owner_token = common::make_token(roster.created_by_userid, vec![], vec![]);
     let delete_uri = format!("/api/rosters/{}", roster.rosterid);
     let delete_req = test::TestRequest::delete()
         .uri(&delete_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
         .to_request();
 
     // Act:
-    
+
     let delete_resp = test::call_service(&app, delete_req).await;
 
     // Assert:
-    
+
     assert_eq!(delete_resp.status(), StatusCode::OK);
 
     let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
@@ -183,6 +186,49 @@ async fn delete_works() {
     assert_eq!(apicalllog_records.iter().count(), 2);
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
     assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
+}
+
+#[actix_web::test]
+async fn delete_by_non_owner_is_rejected() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let roster = fixtures::rosters::arrange_delete_works_integration_test(&mut conn);
+    // A different user (not the roster's creator).
+    let other = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let delete_uri = format!("/api/rosters/{}", roster.rosterid);
+
+    // Without any token → unauthorized.
+    let no_token_resp = test::call_service(
+        &app,
+        test::TestRequest::delete().uri(&delete_uri).to_request(),
+    ).await;
+    assert_eq!(no_token_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // As a non-owner user → unauthorized.
+    let other_token = common::make_token(other.id, vec![], vec![]);
+    let other_resp = test::call_service(
+        &app,
+        test::TestRequest::delete()
+            .uri(&delete_uri)
+            .insert_header(("Authorization", format!("Bearer {}", other_token)))
+            .to_request(),
+    ).await;
+    assert_eq!(other_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // The roster still exists (was not deleted by either rejected attempt).
+    assert!(models::roster::read(&mut conn, roster.rosterid).is_ok());
 }
 
 #[actix_web::test]

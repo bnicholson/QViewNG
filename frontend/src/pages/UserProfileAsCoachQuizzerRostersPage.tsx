@@ -19,6 +19,7 @@ import { ConfirmDialog, confirmDialogDefaultState } from '../components/ConfirmD
 import QuizzersTable from '../components/QuizzersTable'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 // ── Shared hook: aggregate all quizzers across rosters ──────────────────────
 
@@ -247,22 +248,25 @@ function RosterPanel({
           <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEditRoster} sx={{ textTransform: 'none' }}>
             Edit Roster
           </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setConfirmDialog({
-              isOpen: true,
-              title: 'Delete this roster?',
-              message: `"${roster.name}" and all its quizzer/coach associations will be permanently removed. The users themselves will not be deleted.`,
-              onCancel: () => setConfirmDialog(confirmDialogDefaultState),
-              onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); onDeleteRoster(); },
-            })}
-            sx={{ textTransform: 'none' }}
-          >
-            Delete Roster
-          </Button>
+          {/* Only the roster's owner/creator may delete it. */}
+          {roster.created_by_userid === currentUserId && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setConfirmDialog({
+                isOpen: true,
+                title: 'Delete this roster?',
+                message: `"${roster.name}" and all its quizzer/coach associations will be permanently removed. The users themselves will not be deleted.`,
+                onCancel: () => setConfirmDialog(confirmDialogDefaultState),
+                onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); onDeleteRoster(); },
+              })}
+              sx={{ textTransform: 'none' }}
+            >
+              Delete Roster
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -343,6 +347,7 @@ function RosterPanel({
 
 export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; isSuperUser: boolean }) => {
   const { userId } = props;
+  const { accessToken } = useAuth();
 
   const [rosters, setRosters] = useState<RosterTS[]>([]);
   const [tabIndex, setTabIndex] = useState(0); // 0 = All Quizzers, 1..N = roster tabs
@@ -385,7 +390,7 @@ export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; is
   const handleDeleteRoster = async () => {
     if (!selectedRoster) return;
     try {
-      await RosterAPI.delete(selectedRoster.rosterid);
+      await RosterAPI.delete(selectedRoster.rosterid, accessToken);
       // Bump back to the All Quizzers tab, drop the deleted roster's tab, and refresh the
       // aggregated quizzer list so it no longer reflects the removed roster.
       setTabIndex(0);
