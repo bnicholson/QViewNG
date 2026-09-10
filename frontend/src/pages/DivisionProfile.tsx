@@ -51,6 +51,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
     { kind: 'route' as const, label: 'Quizzers',     to: `/division/${did}/quizzers`     },
     { kind: 'route' as const, label: 'Sessions',     to: `/division/${did}/sessions`     },
     { kind: 'route' as const, label: 'Pools',        to: `/division/${did}/pools`        },
+    { kind: 'route' as const, label: 'Brackets',     to: `/division/${did}/brackets`     },
     { kind: 'route' as const, label: 'Rounds',       to: `/division/${did}/rounds`       },
     { kind: 'route' as const, label: 'Games',        to: `/division/${did}/games`        },
     ...(canViewStatsGroups
@@ -101,6 +102,16 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
               showDeleteButton={canCreate('division:delete')}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every pool is in this division, so the Division column is redundant.
+              hiddenColumns={['Division']} />
+          )}
+          {props.childRoute === 'brackets' && (
+            <PoolBracketsTable tid={tournament.tid} did={did}
+              type="bracket" entityLabel="Bracket" title="Brackets"
+              showCreateButton={canCreate('division:create')}
+              showEditButton={canCreate('division:update')}
+              showDeleteButton={canCreate('division:delete')}
+              showAuditColumns={canViewAuditColumns}
+              // In the Division profile every bracket is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'rounds' && (

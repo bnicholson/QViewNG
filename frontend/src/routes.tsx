@@ -90,6 +90,7 @@ export default function QViewRoutes() {
             <Route path="/division/:did/teams" element={<DivisionProfile childRoute="teams" />} />
             <Route path="/division/:did/sessions" element={<DivisionProfile childRoute="sessions" />} />
             <Route path="/division/:did/pools" element={<DivisionProfile childRoute="pools" />} />
+            <Route path="/division/:did/brackets" element={<DivisionProfile childRoute="brackets" />} />
             <Route path="/division/:did/quizzers" element={<DivisionProfile childRoute="quizzers" />} />
             <Route path="/division/:did/rounds" element={<DivisionProfile childRoute="rounds" />} />
             <Route path="/division/:did/games" element={<DivisionProfile childRoute="games" />} />
