@@ -168,6 +168,49 @@ pub fn read_all_of_division_session(db: &mut database::Connection, session_id: U
     pool_brackets.filter(division_session_id.eq(session_id)).order(created_date).load::<PoolBracket>(db)
 }
 
+/// All pool brackets in the given division, across all of its division sessions.
+pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
+    let session_ids: Vec<Uuid> = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(did.eq(division_id)).select(division_session_id).load::<Uuid>(db)?
+    };
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets
+        .filter(division_session_id.eq_any(&session_ids))
+        .order(created_date)
+        .load::<PoolBracket>(db)
+}
+
+/// Returns a pool bracket id for the division, creating a default division session + bracket if the
+/// division has none yet. Used by programmatic game creation (e.g. seeds, tests) where no bracket
+/// was explicitly chosen. The API create path never reaches this — it rejects a nil poolbracket_id.
+pub fn resolve_default_for_division(db: &mut database::Connection, division_id: Uuid, user_id: Uuid) -> QueryResult<Uuid> {
+    if let Some(existing) = read_all_of_division(db, division_id)?.into_iter().next() {
+        return Ok(existing.pool_bracket_id);
+    }
+    // No brackets yet — create a default session + bracket.
+    let session = crate::models::division_session::create(
+        db,
+        &crate::models::division_session::NewDivisionSession {
+            did: division_id,
+            name: "Default Session".to_string(),
+            creator_userid: user_id,
+            last_modified_userid: user_id,
+        },
+    )?;
+    let bracket = create(
+        db,
+        &NewPoolBracket {
+            division_session_id: session.division_session_id,
+            name: "Default".to_string(),
+            type_: "pool".to_string(),
+            creator_userid: user_id,
+            last_modified_userid: user_id,
+        },
+    )?;
+    Ok(bracket.pool_bracket_id)
+}
+
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &PoolBracketChangeset, modified_by: Uuid) -> QueryResult<PoolBracket> {
     // Enforce name uniqueness within the (possibly changed) parent division session.
     let existing = read(db, item_id)?;

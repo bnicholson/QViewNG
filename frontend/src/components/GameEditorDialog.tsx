@@ -25,6 +25,7 @@ import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { GameAPI, type NewGamePayload, type GameTS } from '../features/GameAPI'
+import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
@@ -53,6 +54,7 @@ function roundLabel(round: RoundTS | undefined): string {
 interface GameFormState {
   org: string;
   divisionid: string;
+  poolbracket_id: string;
   roomid: string;
   roundid: string;
   ruleset: string;
@@ -67,6 +69,7 @@ interface GameFormState {
 const emptyState: GameFormState = {
   org: '',
   divisionid: '',
+  poolbracket_id: '',
   roomid: '',
   roundid: '',
   ruleset: 'Nazarene',
@@ -94,6 +97,7 @@ export const GameEditorDialog = (props: Props) => {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [rooms, setRooms] = useState<RoomTS[]>([]);
   const [rounds, setRounds] = useState<RoundTS[]>([]);
+  const [poolBrackets, setPoolBrackets] = useState<PoolBracketTS[]>([]);
   const [teams, setTeams] = useState<TeamTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
   const [qmFromRoom, setQmFromRoom] = useState(false);
@@ -152,6 +156,17 @@ export const GameEditorDialog = (props: Props) => {
       .catch(() => console.error('Failed to load form data for game editor'));
   }, [isOpen, tid, lockedDivisionId]);
 
+  // Pool brackets are scoped to the chosen Division, so (re)load them whenever it changes.
+  useEffect(() => {
+    if (!isOpen || !form.divisionid) {
+      setPoolBrackets([]);
+      return;
+    }
+    PoolBracketAPI.getByDivision(form.divisionid)
+      .then(setPoolBrackets)
+      .catch(() => { console.error('Failed to load pool brackets'); setPoolBrackets([]); });
+  }, [isOpen, form.divisionid]);
+
   const isDirty = () => Object.entries(form).some(([k, v]) => {
     const empty = (emptyState as any)[k];
     return v !== empty;
@@ -173,6 +188,7 @@ export const GameEditorDialog = (props: Props) => {
 
   const handleSave = async () => {
     if (!form.divisionid) { setErrorMsg('Division is required.'); setAlertOpened(true); return; }
+    if (!form.poolbracket_id) { setErrorMsg('Pool bracket is required.'); setAlertOpened(true); return; }
     if (!form.roomid) { setErrorMsg('Room is required.'); setAlertOpened(true); return; }
     if (!form.roundid) { setErrorMsg('Round is required.'); setAlertOpened(true); return; }
     if (!form.leftteamid) { setErrorMsg('Left team is required.'); setAlertOpened(true); return; }
@@ -184,6 +200,7 @@ export const GameEditorDialog = (props: Props) => {
       org: '',
       tournamentid: tid,
       divisionid: form.divisionid,
+      poolbracket_id: form.poolbracket_id,
       roomid: form.roomid,
       roundid: form.roundid,
       ruleset: '',
@@ -266,16 +283,16 @@ export const GameEditorDialog = (props: Props) => {
           {/* Row 1: Division, Room, Round */}
           <ListItem>
             <Grid container spacing={2} sx={{ width: '100%' }}>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Division (*required)</InputLabel>
-                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
+                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, poolbracket_id: '', roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
                   displayEmpty fullWidth disabled={!!lockedDivisionId}
                   renderValue={(v) => v ? (divisions.find(d => d.did === v)?.dname ?? v) : <em>Select a division</em>}
                 >
                   {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Room (*required)</InputLabel>
                 <Select value={form.roomid} onChange={(e) => handleRoomChange(e.target.value)}
                   displayEmpty fullWidth
@@ -284,7 +301,7 @@ export const GameEditorDialog = (props: Props) => {
                   {rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
                   displayEmpty fullWidth disabled={!divisionChosen}
@@ -293,13 +310,22 @@ export const GameEditorDialog = (props: Props) => {
                   {divisionRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
                 </Select>
               </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <InputLabel>Pool Bracket (*required)</InputLabel>
+                <Select value={form.poolbracket_id} onChange={(e) => set({ poolbracket_id: e.target.value })}
+                  displayEmpty fullWidth disabled={!divisionChosen}
+                  renderValue={(v) => v ? (poolBrackets.find(b => b.pool_bracket_id === v)?.name ?? v) : <em>Select a pool bracket</em>}
+                >
+                  {poolBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
+                </Select>
+              </Grid>
             </Grid>
           </ListItem>
 
           {/* Row 2: Left Team, Center Team, Right Team */}
           <ListItem>
             <Grid container spacing={2} sx={{ width: '100%' }}>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Left Team (*required)</InputLabel>
                 <Select value={form.leftteamid} onChange={(e) => set({ leftteamid: e.target.value })}
                   displayEmpty fullWidth disabled={!divisionChosen}
@@ -308,7 +334,7 @@ export const GameEditorDialog = (props: Props) => {
                   {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Center Team</InputLabel>
                 <Select value={form.centerteamid} onChange={(e) => set({ centerteamid: e.target.value })}
                   displayEmpty fullWidth disabled={!divisionChosen}
@@ -317,7 +343,7 @@ export const GameEditorDialog = (props: Props) => {
                   {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
                 </Select>
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Right Team (*required)</InputLabel>
                 <Select value={form.rightteamid} onChange={(e) => set({ rightteamid: e.target.value })}
                   displayEmpty fullWidth disabled={!divisionChosen}
@@ -332,7 +358,7 @@ export const GameEditorDialog = (props: Props) => {
           {/* Row 3: Quizmaster, Content Judge */}
           <ListItem>
             <Grid container spacing={2} sx={{ width: '100%' }}>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <Typography variant="body2" color="text.secondary">
                   Note: At the time of Game creation, Games that have Rooms specified inherit the Quizmaster and Content Judge of the Room.
                 </Typography>
@@ -341,7 +367,7 @@ export const GameEditorDialog = (props: Props) => {
           </ListItem>
           <ListItem>
             <Grid container spacing={2} sx={{ width: '100%' }}>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Quizmaster (*required)</InputLabel>
                 <Select value={form.quizmasterid} onChange={(e) => set({ quizmasterid: e.target.value })}
                   displayEmpty fullWidth disabled={qmFromRoom}
@@ -357,7 +383,7 @@ export const GameEditorDialog = (props: Props) => {
                   <Typography variant="caption" color="text.secondary">Set by Room</Typography>
                 )}
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Content Judge</InputLabel>
                 <Select value={form.contentjudgeid} onChange={(e) => set({ contentjudgeid: e.target.value })}
                   displayEmpty fullWidth disabled={cjFromRoom}

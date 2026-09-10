@@ -1,5 +1,7 @@
 use backend::database;
 use backend::models::division::{Division, DivisionBuilder, NewDivision};
+use backend::models::division_session::DivisionSessionBuilder;
+use backend::models::pool_bracket::PoolBracketBuilder;
 use backend::models::team::{Team};
 use backend::models::tournament::{Tournament, TournamentBuilder};
 use backend::models::tournament_admin::TournamentAdminBuilder;
@@ -202,6 +204,71 @@ pub fn seed_get_rounds_by_division(db: &mut database::Connection) -> Division {
     seed_rounds_with_sched_start_times(db, div_3.did, start_time_7, start_time_8, start_time_9);
 
     div_3.clone()
+}
+
+/// Seeds a division with two division sessions holding three pool brackets between them, plus a
+/// second division with its own session + bracket that must NOT leak into the first division's
+/// results. Returns the first division (which owns exactly three brackets across its sessions).
+pub fn seed_get_pool_brackets_by_division(db: &mut database::Connection) -> Division {
+    let owner = UserBuilder::new_default("Bracket Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Bracket Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    // Two sessions under the division; brackets spread across both to prove read_all_of_division
+    // aggregates every session in the division.
+    let session_1 = DivisionSessionBuilder::new(division.did)
+        .set_name("Session A")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let session_2 = DivisionSessionBuilder::new(division.did)
+        .set_name("Session B")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    PoolBracketBuilder::new(session_1.division_session_id)
+        .set_name("Pool 1")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    PoolBracketBuilder::new(session_1.division_session_id)
+        .set_name("Pool 2")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    PoolBracketBuilder::new(session_2.division_session_id)
+        .set_name("Bracket 1")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    // A second division with its own session + bracket that must stay out of the first's results.
+    let other_division = DivisionBuilder::new_default("Other Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let other_session = DivisionSessionBuilder::new(other_division.did)
+        .set_name("Other Session")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    PoolBracketBuilder::new(other_session.division_session_id)
+        .set_name("Other Pool")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    division
 }
 
 pub fn seed_get_teams_by_division(db: &mut database::Connection) -> Team {

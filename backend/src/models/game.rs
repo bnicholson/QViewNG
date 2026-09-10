@@ -26,6 +26,7 @@ pub struct GameBuilder {
     quizmasterid: Option<Uuid>,
     contentjudgeid: Option<Uuid>,
     clientkey: Option<String>,
+    poolbracket_id: Uuid,
     last_modified_user: Option<Uuid>,
     creator_id: Option<Uuid>
 }
@@ -46,6 +47,7 @@ impl GameBuilder {
             quizmasterid: None,
             contentjudgeid: None,
             clientkey: None,
+            poolbracket_id: uuid::Uuid::nil(),
             last_modified_user: None,
             creator_id: None
         }
@@ -65,9 +67,14 @@ impl GameBuilder {
             quizmasterid: None,
             contentjudgeid: None,
             clientkey: Some(String::new()),
+            poolbracket_id: uuid::Uuid::nil(),
             last_modified_user: None,
             creator_id: None
         }
+    }
+    pub fn set_poolbracket_id(mut self, val: Uuid) -> Self {
+        self.poolbracket_id = val;
+        self
     }
     pub fn set_org(mut self, val: String) -> Self {
         self.org = Some(val);
@@ -176,6 +183,7 @@ impl GameBuilder {
                         quizmasterid: self.quizmasterid.unwrap(),
                         contentjudgeid: self.contentjudgeid,
                         clientkey: self.clientkey.unwrap_or_default(),
+                        poolbracket_id: self.poolbracket_id,
                         last_modified_user: self.last_modified_user.unwrap_or(self.quizmasterid.unwrap()),
                         creator_id: self.creator_id.unwrap_or(self.quizmasterid.unwrap())
                     }
@@ -189,16 +197,6 @@ impl GameBuilder {
     }
 }
 
-// #[tsync::tsync]
-// #[diesel(belongs_to(Tournament, foreign_key = "tournamentid"))]
-// #[diesel(belongs_to(Division, foreign_key = "divisionid"))]
-// #[diesel(belongs_to(Room, foreign_key = "roomid"))]
-// #[diesel(belongs_to(Game, foreign_key = "roundid"))]
-// #[diesel(belongs_to(LeftTeam, foreign_key = "leftteamid"))]
-// #[diesel(belongs_to(CenterTeam, foreign_key = "centerteamid"))]
-// #[diesel(belongs_to(RightTeam, foreign_key = "rightteamid"))]
-// #[diesel(belongs_to(QuizMaster, foreign_key = "quizmasterid"))]
-// #[diesel(belongs_to(ContentJudge, foreign_key = "contentjudgeid"))]
 #[derive(
     Debug,
     Serialize,
@@ -261,6 +259,11 @@ pub struct NewGame {
     pub quizmasterid: Uuid,
     pub contentjudgeid: Option<Uuid>,
     pub clientkey: String,
+    // The pool bracket this game belongs to (required FK). The create endpoint requires this; when
+    // it is nil (programmatic callers such as seeds), the model resolves a default bracket for the
+    // game's division.
+    #[serde(default)]
+    pub poolbracket_id: Uuid,
     #[serde(default)]
     pub last_modified_user: Uuid,
     // Set server-side from the authenticated user on create; a client-sent value is ignored.
@@ -268,13 +271,6 @@ pub struct NewGame {
     pub creator_id: Uuid
 }
 
-
-// #[tsync::tsync]
-// #[belongs_to(Tournament, foreign_key = "tournamentid")]
-// #[belongs_to(Division, foreign_key = "divisionid")]
-// #[belongs_to(Room, foreign_key = "roomid")]
-// #[belongs_to(Game, foreign_key = "roundid")]
-// #[diesel(primary_key(gid))]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::games)]
 pub struct GameChangeset {
@@ -291,6 +287,7 @@ pub struct GameChangeset {
     pub quizmasterid: Option<Uuid>,
     pub contentjudgeid: Option<Uuid>,
     pub clientkey: Option<String>,
+    pub poolbracket_id: Option<Uuid>,
     pub resend_gameevents_request_ts: Option<DateTime<Utc>>,
     pub resend_gameevents_response: Option<String>,
     pub resend_request_sent_ts: Option<DateTime<Utc>>
@@ -312,6 +309,7 @@ impl GameChangeset {
             quizmasterid: None,
             contentjudgeid: None,
             clientkey: None,
+            poolbracket_id: None,
             resend_gameevents_request_ts: None,
             resend_gameevents_response: None,
             resend_request_sent_ts: None
@@ -347,6 +345,14 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
             divisionid: Some(round.did),
             ..game.clone()
         }
+    }
+
+    // API callers must supply a pool bracket (enforced in the service). Programmatic callers (e.g.
+    // seeds, tests) may leave it nil, in which case we resolve/create a default bracket for the
+    // division so a game always references a real bracket.
+    if game.poolbracket_id.is_nil() {
+        let division_id = game.divisionid.expect("divisionid resolved above");
+        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, division_id, game.creator_id)?;
     }
 
     if !models::room::exists(db, item.roomid) {

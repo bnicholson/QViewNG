@@ -606,6 +606,53 @@ async fn get_all_rounds_of_division_works() {
 }
 
 #[actix_web::test]
+async fn get_all_pool_brackets_of_division_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let division = fixtures::divisions::seed_get_pool_brackets_by_division(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/divisions/{}/pool-brackets", division.did);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert: exactly the three brackets across the division's two sessions (the other division's
+    // bracket must not leak in).
+    let body: Vec<backend::models::pool_bracket::PoolBracket> = test::read_body_json(resp).await;
+    assert_eq!(body.len(), 3);
+
+    let names: Vec<&str> = body.iter().map(|b| b.name.as_str()).collect();
+    assert!(names.contains(&"Pool 1"));
+    assert!(names.contains(&"Pool 2"));
+    assert!(names.contains(&"Bracket 1"));
+    assert!(!names.contains(&"Other Pool"));
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
 async fn get_all_teams_of_division_works() {
 
     // Arrange:

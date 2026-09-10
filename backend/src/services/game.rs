@@ -113,6 +113,13 @@ async fn create(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
+    // A pool bracket must be provided when creating a game via the API.
+    if item.poolbracket_id.is_nil() {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": "poolbracket_id is required"
+        })));
+    }
+
     let tournament_id = match item.tournamentid {
         Some(tid) => tid,
         None => {

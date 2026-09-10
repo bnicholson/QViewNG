@@ -76,6 +76,23 @@ async fn read_rounds(
     }
 }
 
+#[get("/{id}/pool-brackets")]
+async fn read_pool_brackets(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::pool_bracket::read_all_of_division(&mut conn, item_id.into_inner()) {
+        Ok(brackets) => HttpResponse::Ok().json(brackets),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[get("/{id}/teams")]
 async fn read_teams(
     db: Data<Database>,
@@ -390,6 +407,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(read_rounds)
+        .service(read_pool_brackets)
         .service(read_teams)
         .service(read_quizzer_rows)
         .service(read_team_rows)
