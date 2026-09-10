@@ -22,7 +22,7 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import { TeamAPI, type TeamTS, type TeamChangeset } from '../features/TeamAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { RosterAPI, type RosterTS } from '../features/RosterAPI'
-import { type UserTS } from '../features/UserAPI'
+import { UserAPI, type UserTS } from '../features/UserAPI'
 import { useAuth } from '../hooks/useAuth'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
@@ -98,6 +98,10 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
   const [divisions, setDivisions] = useState<DivisionTS[]>([])
   const [rosters, setRosters] = useState<RosterTS[]>([])
   const [quizzersByRoster, setQuizzersByRoster] = useState<Record<string, UserTS[]>>({})
+  // The coach's full "My Quizzers" aggregate (roster quizzers + quizzers they created, even if on
+  // no roster). Drives the nudge / table visibility and the picker's "All Quizzers" tab.
+  const [allQuizzersFull, setAllQuizzersFull] = useState<UserTS[]>([])
+  const myQuizzersCount = allQuizzersFull.length
 
   // Keep the page in range as teams are added/removed.
   useEffect(() => { setPage(0) }, [myTeams.length])
@@ -121,14 +125,28 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
     setLoading(true)
     setError(null)
     try {
-      const [divs, teamsResult, rosterList] = await Promise.all([
+      const [divs, teamsResult, rosterList, myQuizzers] = await Promise.all([
         DivisionAPI.getByTournament(tid, 0, 100),
         TeamAPI.getByTournament(tid, 0, 100),
         RosterAPI.getByCoach(userId),
+        // Same aggregate as the "My Quizzers" table — includes quizzers the coach created.
+        UserAPI.getRosterQuizzerRows(userId, 0, 500).catch(() => ({ count: 0, items: [] })),
       ])
       setDivisions(divs)
       setMyTeams(teamsResult.items.filter(t => t.coachid === userId))
       setRosters(rosterList)
+      setAllQuizzersFull(myQuizzers.items.map(q => ({
+        id: q.quizzer_id,
+        username: '',
+        email: q.email,
+        fname: q.fname,
+        mname: q.mname,
+        lname: q.lname,
+        activated: true,
+        created_at: q.created_at,
+        updated_at: q.updated_at,
+        del_fl: false,
+      })))
 
       if (rosterList.length > 0) {
         const quizzerResults = await Promise.all(
@@ -149,13 +167,15 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
-  const allQuizzers = Object.values(quizzersByRoster)
-    .flat()
-    .filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i)
+  // True when the coach's "My Quizzers" aggregate is empty — counting both roster quizzers and
+  // quizzers they created (even if on no roster). Drives the nudge notice and hides the table.
+  const hasNoQuizzers = myQuizzersCount === 0
 
+  // "All Quizzers" tab shows the full aggregate (incl. created quizzers); each roster tab shows
+  // only that roster's quizzers.
   const pickerQuizzers: UserTS[] =
     selectedRosterId === 'all'
-      ? allQuizzers
+      ? allQuizzersFull
       : (quizzersByRoster[selectedRosterId] ?? [])
 
   const divisionName = (did: string) => divisions.find(d => d.did === did)?.dname ?? did
@@ -365,7 +385,7 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
       render: (team) => {
         const isEditing = editingTeamId === team.teamid
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
             <IconButton
               size="small"
               onClick={() => isEditing ? closeForm() : openEdit(team)}
@@ -392,7 +412,8 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
       )}
 
-      {/* ── Teams table ── the title and "Register New Team" button live in the table toolbar ── */}
+      {/* ── Teams table ── hidden entirely when the user has no quizzers (the nudge shows instead) ── */}
+      {!hasNoQuizzers && (
       <Box sx={{ mb: 3 }}>
         <DataTableTemplate<TeamTS>
           entityLabel="Team"
@@ -422,6 +443,7 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
           }
         />
       </Box>
+      )}
 
       {/* ── Team form ── */}
       {formOpen && (
@@ -483,7 +505,7 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {form.quizzers.map((qid, idx) => {
-                  const quizzer = qid ? allQuizzers.find(u => u.id === qid) : null
+                  const quizzer = qid ? allQuizzersFull.find(u => u.id === qid) : null
                   return (
                     <Chip
                       key={idx}
@@ -518,6 +540,16 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
                     <ToggleButton key={r.rosterid} value={r.rosterid}>{r.name}</ToggleButton>
                   ))}
                 </ToggleButtonGroup>
+                {rosters.length === 0 && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => navigate(`/user/${userId}/my-rosters`)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    No Rosters? Click here to create one now.
+                  </Button>
+                )}
                 {canAssignAll && (
                   <Button
                     size="small"
@@ -589,20 +621,16 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
         </Paper>
       )}
 
-      {/* ── No rosters nudge ── */}
-      {!formOpen && rosters.length === 0 && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          You have no rosters yet.{' '}
-          <Button
-            size="small"
-            variant="text"
-            sx={{ p: 0, minWidth: 0, textDecoration: 'underline', verticalAlign: 'baseline' }}
-            onClick={() => navigate(`/user/${userId}/my-rosters`)}
-          >
-            Add quizzers to a roster
+      {/* ── No quizzers nudge (shown when the "My Quizzers" aggregate would be empty) ── */}
+      {!formOpen && hasNoQuizzers && (
+        <Stack spacing={2} alignItems="flex-start" sx={{ mt: 2 }}>
+          <Alert severity="info" sx={{ width: '100%' }}>
+            You have no quizzers yet. Add quizzers to a roster in your profile to assign them to teams here.
+          </Alert>
+          <Button variant="outlined" onClick={() => navigate(`/user/${userId}/my-rosters`)}>
+            Go to My Rosters →
           </Button>
-          {' '}in your profile to assign them to teams here.
-        </Alert>
+        </Stack>
       )}
 
       <ConfirmDialog
