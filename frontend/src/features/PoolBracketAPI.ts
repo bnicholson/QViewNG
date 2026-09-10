@@ -51,6 +51,9 @@ export const PoolBracketAPI = {
   /** One page of the division's enriched pool-bracket rows for a given `type`, plus total count. */
   getRowsByDivision: async (did: string, type: string, page: number, size: number): Promise<PagedPoolBracketRows> =>
     (await fetch(`/api/divisions/${did}/pool-bracket-rows?type=${encodeURIComponent(type)}&page=${page}&page_size=${size}`)).json(),
+  /** One page of a single division session's enriched pool-bracket rows for a given `type`. */
+  getRowsByDivisionSession: async (sessionId: string, type: string, page: number, size: number): Promise<PagedPoolBracketRows> =>
+    (await fetch(`/api/divisionsessions/${sessionId}/pool-bracket-rows?type=${encodeURIComponent(type)}&page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<PoolBracketTS> => {
     const response = await fetch(`/api/poolbrackets/${id}`);
     if (!response.ok) throw new Error(`Pool bracket not found (${response.status})`);

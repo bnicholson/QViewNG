@@ -38,7 +38,7 @@ function sessionColumns(
     },
     {
       header: "Session",
-      render: (s) => <span style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{s.name}</span>,
+      render: (s) => <EntityLink to={`/division-session/${s.division_session_id}/overview`}>{s.name}</EntityLink>,
     },
     ...(showAuditColumns ? [
       {

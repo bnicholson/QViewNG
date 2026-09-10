@@ -39,7 +39,7 @@ function bracketColumns(
     },
     {
       header: "Session",
-      render: (b) => <span style={{ whiteSpace: "nowrap" }}>{b.session_name}</span>,
+      render: (b) => <EntityLink to={`/division-session/${b.division_session_id}/overview`}>{b.session_name}</EntityLink>,
     },
     {
       header: entityLabel,
@@ -82,6 +82,7 @@ function bracketColumns(
 export default function PoolBracketsTable({
   tid,
   did,
+  sessionId,
   type,
   entityLabel,
   title,
@@ -93,6 +94,9 @@ export default function PoolBracketsTable({
 }: {
   tid: string;
   did: string;
+  /** When set, rows are scoped to this single division session (not the whole division), and new
+   *  brackets are created under it. */
+  sessionId?: string;
   type: string;
   entityLabel: string;
   title: string;
@@ -114,7 +118,10 @@ export default function PoolBracketsTable({
 
   const loadBrackets = useCallback((p: number, ps: number) => {
     setLoading(true);
-    PoolBracketAPI.getRowsByDivision(did, type, p, ps)
+    const request = sessionId
+      ? PoolBracketAPI.getRowsByDivisionSession(sessionId, type, p, ps)
+      : PoolBracketAPI.getRowsByDivision(did, type, p, ps);
+    request
       .then(({ count, items }) => {
         setRows(items);
         setTotalCount(count);
@@ -123,11 +130,11 @@ export default function PoolBracketsTable({
       })
       .catch(() => console.error("Failed to load pool brackets"))
       .finally(() => setLoading(false));
-  }, [did, type]);
+  }, [did, sessionId, type]);
 
   useEffect(() => {
     loadBrackets(0, pageSizeRef.current);
-  }, [did, type]);
+  }, [did, sessionId, type]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadBrackets(newPage, pageSize);
@@ -171,7 +178,7 @@ export default function PoolBracketsTable({
     <>
       <DataTableTemplate<PoolBracketRowTS>
         loading={loading}
-        key={`${did}-${type}`}
+        key={`${sessionId ?? did}-${type}`}
         entityLabel={entityLabel}
         title={title}
         createLabel={`Create ${entityLabel}`}
@@ -193,6 +200,7 @@ export default function PoolBracketsTable({
         did={did}
         type={type}
         entityLabel={entityLabel}
+        lockedSessionId={sessionId}
         bracket={editingBracket}
         isOpen={editorIsOpen}
         onCancel={() => { setEditorIsOpen(false); setEditingBracket(null); }}

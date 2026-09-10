@@ -293,6 +293,68 @@ pub fn read_pool_bracket_rows_of_division(
     Ok((rows, total))
 }
 
+/// Returns one page of pool-bracket-table rows for a single division session (enriched), filtered
+/// to `type_val`, plus the total count for that type within the session.
+pub fn read_pool_bracket_rows_of_division_session(
+    db: &mut database::Connection,
+    session_id: Uuid,
+    type_val: &str,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PoolBracketRow>, i64)> {
+    let session = crate::models::division_session::read(db, session_id)?;
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(session.did)).select(dname).first::<String>(db)?
+    };
+
+    let total: i64 = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(division_session_id.eq(session_id))
+            .filter(type_.eq(type_val))
+            .count()
+            .get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let bracket_list: Vec<PoolBracket> = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(division_session_id.eq(session_id))
+            .filter(type_.eq(type_val))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<PoolBracket>(db)?
+    };
+
+    let name_ids: Vec<Uuid> = bracket_list.iter().map(|b| b.last_modified_userid).collect();
+    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
+
+    let rows = bracket_list
+        .into_iter()
+        .map(|b| PoolBracketRow {
+            pool_bracket_id: b.pool_bracket_id,
+            session_name: session.name.clone(),
+            division_session_id: b.division_session_id,
+            did: session.did,
+            division_name: dname_val.clone(),
+            name: b.name,
+            type_: b.type_,
+            created_date: b.created_date,
+            last_modified_date: b.last_modified_date,
+            last_modified_user_name: name_by_id
+                .get(&b.last_modified_userid)
+                .cloned()
+                .unwrap_or_else(|| b.last_modified_userid.to_string()),
+            last_modified_user_id: b.last_modified_userid,
+        })
+        .collect();
+
+    Ok((rows, total))
+}
+
 /// Returns a pool bracket id for the division, creating a default division session + bracket if the
 /// division has none yet. Used by programmatic game creation (e.g. seeds, tests) where no bracket
 /// was explicitly chosen. The API create path never reaches this — it rejects a nil poolbracket_id.

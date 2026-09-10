@@ -50,6 +50,8 @@ interface Props {
   type: string;
   /** Singular label for the entity ("Pool", "Bracket"). */
   entityLabel: string;
+  /** When set, the Session is fixed to this id and its dropdown is disabled (e.g. from a Session profile). */
+  lockedSessionId?: string;
   isOpen: boolean;
   /** When set, the dialog edits this existing bracket instead of creating a new one. */
   bracket?: PoolBracketTS | null;
@@ -58,7 +60,7 @@ interface Props {
 }
 
 export const PoolBracketEditorDialog = (props: Props) => {
-  const { tid, did, type, entityLabel, isOpen, bracket, onCancel, onSave } = props;
+  const { tid, did, type, entityLabel, lockedSessionId, isOpen, bracket, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const isEdit = !!bracket;
   const [form, setForm] = useState<FormState>(emptyState);
@@ -71,7 +73,7 @@ export const PoolBracketEditorDialog = (props: Props) => {
     if (bracket) {
       setForm({ division_session_id: bracket.division_session_id, name: bracket.name });
     } else {
-      setForm(emptyState);
+      setForm(lockedSessionId ? { ...emptyState, division_session_id: lockedSessionId } : emptyState);
     }
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("");
@@ -89,7 +91,7 @@ export const PoolBracketEditorDialog = (props: Props) => {
   const openCancelDialog = () => {
     const initial = bracket
       ? { division_session_id: bracket.division_session_id, name: bracket.name }
-      : { division_session_id: "", name: "" };
+      : { division_session_id: lockedSessionId ?? "", name: "" };
     const isDirty = form.division_session_id !== initial.division_session_id || form.name !== initial.name;
     if (!isDirty) {
       onCancel();
@@ -201,7 +203,7 @@ export const PoolBracketEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, division_session_id: e.target.value }))}
                   displayEmpty
                   fullWidth
-                  disabled={isEdit}
+                  disabled={isEdit || !!lockedSessionId}
                   renderValue={(val) => {
                     if (!val) return <em>Select a session</em>;
                     return sessions.find(s => s.division_session_id === val)?.name ?? val;
