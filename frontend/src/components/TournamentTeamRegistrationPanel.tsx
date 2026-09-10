@@ -11,12 +11,6 @@ import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
@@ -31,6 +25,7 @@ import { RosterAPI, type RosterTS } from '../features/RosterAPI'
 import { type UserTS } from '../features/UserAPI'
 import { useAuth } from '../hooks/useAuth'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
+import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -98,9 +93,14 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
   const [error, setError] = useState<string | null>(null)
 
   const [myTeams, setMyTeams] = useState<TeamTS[]>([])
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [divisions, setDivisions] = useState<DivisionTS[]>([])
   const [rosters, setRosters] = useState<RosterTS[]>([])
   const [quizzersByRoster, setQuizzersByRoster] = useState<Record<string, UserTS[]>>({})
+
+  // Keep the page in range as teams are added/removed.
+  useEffect(() => { setPage(0) }, [myTeams.length])
 
   // Form state
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
@@ -332,98 +332,96 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
     )
   }
 
+  // Teams table columns. Name links to the team's profile and Division to the division's profile;
+  // the Quizzers chip and Edit/Delete actions are unchanged.
+  const teamColumns: ColumnDef<TeamTS>[] = [
+    {
+      header: 'Name',
+      render: (team) => <EntityLink to={`/team/${team.teamid}`}>{team.name}</EntityLink>,
+    },
+    {
+      header: 'Division',
+      render: (team) => <EntityLink to={`/division/${team.did}`}>{divisionName(team.did)}</EntityLink>,
+    },
+    {
+      header: 'Quizzers',
+      render: (team) => {
+        const quizzerCount = [
+          team.quizzer_one_id, team.quizzer_two_id, team.quizzer_three_id,
+          team.quizzer_four_id, team.quizzer_five_id, team.quizzer_six_id,
+        ].filter(Boolean).length
+        return (
+          <Chip
+            label={`${quizzerCount} / ${MAX_QUIZZERS}`}
+            size="small"
+            color={quizzerCount === MAX_QUIZZERS ? 'success' : quizzerCount === 0 ? 'default' : 'warning'}
+            variant="outlined"
+          />
+        )
+      },
+    },
+    {
+      header: 'Actions',
+      render: (team) => {
+        const isEditing = editingTeamId === team.teamid
+        return (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={() => isEditing ? closeForm() : openEdit(team)}
+              title={isEditing ? 'Cancel editing' : 'Edit team'}
+            >
+              <EditIcon fontSize="small" color={isEditing ? 'primary' : undefined} />
+            </IconButton>
+            {session?.hasPermission('team:delete') && (
+              <IconButton size="small" color="error" onClick={() => confirmDelete(team)}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+        )
+      },
+    },
+  ]
+
   // ── UI ────────────────────────────────────────────────────────────────────────
 
   return (
     <Box>
-      {/* ── Header ── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">My Registered Teams</Typography>
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{ ml: 'auto' }}
-          onClick={openCreate}
-          disabled={formOpen && editingTeamId === null}
-        >
-          Register New Team
-        </Button>
-      </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
       )}
 
-      {/* ── Teams table ── */}
-      {myTeams.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          No teams registered for this tournament yet.
-        </Typography>
-      ) : (
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ '& th': { fontWeight: 600, backgroundColor: 'action.hover' } }}>
-                <TableCell>Name</TableCell>
-                <TableCell>Division</TableCell>
-                <TableCell>Quizzers</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {myTeams.map(team => {
-                const quizzerCount = [
-                  team.quizzer_one_id, team.quizzer_two_id, team.quizzer_three_id,
-                  team.quizzer_four_id, team.quizzer_five_id, team.quizzer_six_id,
-                ].filter(Boolean).length
-                const isEditing = editingTeamId === team.teamid
-                return (
-                  <TableRow key={team.teamid} selected={isEditing} hover>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        fontWeight={isEditing ? 600 : 400}
-                        onClick={() => isEditing ? closeForm() : openEdit(team)}
-                        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                      >
-                        {team.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{divisionName(team.did)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={`${quizzerCount} / ${MAX_QUIZZERS}`}
-                        size="small"
-                        color={quizzerCount === MAX_QUIZZERS ? 'success' : quizzerCount === 0 ? 'default' : 'warning'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => isEditing ? closeForm() : openEdit(team)}
-                          title={isEditing ? 'Cancel editing' : 'Edit team'}
-                        >
-                          <EditIcon fontSize="small" color={isEditing ? 'primary' : undefined} />
-                        </IconButton>
-                        {session?.hasPermission('team:delete') && (
-                          <IconButton size="small" color="error" onClick={() => confirmDelete(team)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* ── Teams table ── the title and "Register New Team" button live in the table toolbar ── */}
+      <Box sx={{ mb: 3 }}>
+        <DataTableTemplate<TeamTS>
+          entityLabel="Team"
+          title="My Registered Teams"
+          showCreateButton={false}
+          showDeleteButton={false}
+          columns={teamColumns}
+          rows={myTeams.slice(page * pageSize, (page + 1) * pageSize)}
+          totalCount={myTeams.length}
+          getId={(t) => t.teamid}
+          onDelete={async () => {}}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPage(0); setPageSize(s) }}
+          getRowStyle={(t) => editingTeamId === t.teamid ? { background: '#eef2ff' } : undefined}
+          headerActions={
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={openCreate}
+              disabled={formOpen && editingTeamId === null}
+            >
+              Register New Team
+            </Button>
+          }
+        />
+      </Box>
 
       {/* ── Team form ── */}
       {formOpen && (

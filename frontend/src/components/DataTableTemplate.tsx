@@ -243,6 +243,8 @@ export interface ColumnDef<T> {
 export interface DataTableProps<T> {
   /** Singular entity name used in the toolbar ("Division", "Room", "Round") */
   entityLabel: string;
+  /** Overrides the table's heading text (default: "<entityLabel>s"). */
+  title?: string;
   /** Overrides the full text of the create button (default: "Create <entityLabel>") */
   createLabel?: string;
   /** href for the "Create <entityLabel>" button — use this OR onCreate, not both */
@@ -283,6 +285,7 @@ export interface DataTableProps<T> {
 
 export function DataTableTemplate<T>({
   entityLabel,
+  title,
   createLabel,
   createHref,
   onCreate,
@@ -320,7 +323,7 @@ export function DataTableTemplate<T>({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>
-            {entityLabel}s
+            {title ?? `${entityLabel}s`}
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
             ({totalCount} row{totalCount !== 1 ? "s" : ""})
