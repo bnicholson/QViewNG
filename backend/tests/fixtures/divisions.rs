@@ -271,6 +271,45 @@ pub fn seed_get_pool_brackets_by_division(db: &mut database::Connection) -> Divi
     division
 }
 
+/// Seeds a division with three division sessions, plus a second division with its own session that
+/// must NOT leak into the first division's results. Returns the first division (which owns exactly
+/// three sessions).
+pub fn seed_get_sessions_by_division(db: &mut database::Connection) -> Division {
+    let owner = UserBuilder::new_default("Session Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Session Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    for name in ["Pool Play", "Bracket Play", "Finals"] {
+        DivisionSessionBuilder::new(division.did)
+            .set_name(name)
+            .set_creator_userid(owner.id)
+            .build_and_insert(db)
+            .unwrap();
+    }
+
+    // A second division with its own session that must stay out of the first's results.
+    let other_division = DivisionBuilder::new_default("Other Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    DivisionSessionBuilder::new(other_division.did)
+        .set_name("Other Session")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    division
+}
+
 pub fn seed_get_teams_by_division(db: &mut database::Connection) -> Team {
     let owner = UserBuilder::new_default("Tour Owner")
         .set_hash_password("OwnerPwd123!")

@@ -11,6 +11,7 @@ import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
+import SessionsTable from '../components/SessionsTable'
 import GamesTable from '../components/GamesTable'
 import QuizzersTable from '../components/QuizzersTable'
 import { DivisionProfileOverviewPage } from './DivisionProfileOverviewPage'
@@ -47,6 +48,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
     { kind: 'route' as const, label: 'Overview',     to: `/division/${did}/overview`     },
     { kind: 'route' as const, label: 'Teams',        to: `/division/${did}/teams`        },
     { kind: 'route' as const, label: 'Quizzers',     to: `/division/${did}/quizzers`     },
+    { kind: 'route' as const, label: 'Sessions',     to: `/division/${did}/sessions`     },
     { kind: 'route' as const, label: 'Rounds',       to: `/division/${did}/rounds`       },
     { kind: 'route' as const, label: 'Games',        to: `/division/${did}/games`        },
     ...(canViewStatsGroups
@@ -78,6 +80,15 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'quizzers' && (
             <QuizzersTable did={did}
               showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              hiddenColumns={['Division']} />
+          )}
+          {props.childRoute === 'sessions' && (
+            <SessionsTable tid={tournament.tid} did={did}
+              showCreateButton={canCreate('division:create')}
+              showEditButton={canCreate('division:update')}
+              showDeleteButton={canCreate('division:delete')}
+              showAuditColumns={canViewAuditColumns}
+              // In the Division profile every session is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'rounds' && (

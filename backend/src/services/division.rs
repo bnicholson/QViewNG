@@ -93,6 +93,43 @@ async fn read_pool_brackets(
     }
 }
 
+#[get("/{id}/sessions")]
+async fn read_sessions(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::division_session::read_all_of_division(&mut conn, item_id.into_inner()) {
+        Ok(sessions) => HttpResponse::Ok().json(sessions),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// Returns fully-formed session data-table rows (session + division name + last-modified user name)
+/// for the division in a single paginated call.
+#[get("/{id}/session-rows")]
+async fn read_session_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::division_session::read_session_rows_of_division(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/teams")]
 async fn read_teams(
     db: Data<Database>,
@@ -408,6 +445,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_rounds)
         .service(read_pool_brackets)
+        .service(read_sessions)
+        .service(read_session_rows)
         .service(read_teams)
         .service(read_quizzer_rows)
         .service(read_team_rows)

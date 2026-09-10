@@ -1,8 +1,10 @@
 use crate::database;
+use crate::models::common::PaginationParams;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult, AsChangeset, Insertable};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
@@ -82,7 +84,10 @@ pub struct DivisionSession {
 pub struct NewDivisionSession {
     pub did: Uuid,
     pub name: String,
+    // Set from the authenticated user in the service layer; API payloads omit these.
+    #[serde(default)]
     pub creator_userid: Uuid,
+    #[serde(default)]
     pub last_modified_userid: Uuid,
 }
 
@@ -144,6 +149,73 @@ pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<DivisionSessio
 pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<DivisionSession>> {
     use crate::schema::division_sessions::dsl::*;
     division_sessions.filter(did.eq(division_id)).order(created_date).load::<DivisionSession>(db)
+}
+
+/// One fully-formed row of the sessions data table: the session plus its division name and the
+/// display name of the user who last modified it, so the whole table is populated in a single call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct DivisionSessionRow {
+    pub division_session_id: Uuid,
+    pub did: Uuid,
+    pub division_name: String,
+    pub name: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_date: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub last_modified_date: DateTime<Utc>,
+    pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
+}
+
+/// Returns one page of session-table rows for the division (enriched) and the total session count.
+pub fn read_session_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<DivisionSessionRow>, i64)> {
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
+    };
+
+    let total: i64 = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(did.eq(division_id)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let session_list: Vec<DivisionSession> = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions
+            .filter(did.eq(division_id))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<DivisionSession>(db)?
+    };
+
+    let name_ids: Vec<Uuid> = session_list.iter().map(|s| s.last_modified_userid).collect();
+    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
+
+    let rows = session_list
+        .into_iter()
+        .map(|s| DivisionSessionRow {
+            division_session_id: s.division_session_id,
+            did: s.did,
+            division_name: dname_val.clone(),
+            name: s.name,
+            created_date: s.created_date,
+            last_modified_date: s.last_modified_date,
+            last_modified_user_name: name_by_id
+                .get(&s.last_modified_userid)
+                .cloned()
+                .unwrap_or_else(|| s.last_modified_userid.to_string()),
+            last_modified_user_id: s.last_modified_userid,
+        })
+        .collect();
+
+    Ok((rows, total))
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionSessionChangeset, modified_by: Uuid) -> QueryResult<DivisionSession> {
