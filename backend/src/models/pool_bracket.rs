@@ -7,7 +7,7 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 
-pub struct TeamGroupBuilder {
+pub struct PoolBracketBuilder {
     division_session_id: Uuid,
     name: Option<String>,
     type_: String,
@@ -15,7 +15,7 @@ pub struct TeamGroupBuilder {
     last_modified_userid: Option<Uuid>,
 }
 
-impl TeamGroupBuilder {
+impl PoolBracketBuilder {
     pub fn new(division_session_id: Uuid) -> Self {
         Self {
             division_session_id,
@@ -48,13 +48,13 @@ impl TeamGroupBuilder {
         self.last_modified_userid = Some(user_id);
         self
     }
-    pub fn build(self) -> Result<NewTeamGroup, Vec<String>> {
+    pub fn build(self) -> Result<NewPoolBracket, Vec<String>> {
         let mut errors = Vec::new();
         if self.name.is_none() { errors.push("name is required".to_string()); }
         if self.creator_userid.is_none() { errors.push("creator_userid is required".to_string()); }
         if !errors.is_empty() { return Err(errors); }
         let creator = self.creator_userid.unwrap();
-        Ok(NewTeamGroup {
+        Ok(NewPoolBracket {
             division_session_id: self.division_session_id,
             name: self.name.unwrap(),
             type_: self.type_,
@@ -62,7 +62,7 @@ impl TeamGroupBuilder {
             last_modified_userid: self.last_modified_userid.unwrap_or(creator),
         })
     }
-    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<TeamGroup> {
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<PoolBracket> {
         create(db, &self.build().unwrap())
     }
 }
@@ -77,10 +77,10 @@ impl TeamGroupBuilder {
     Identifiable,
     ToSchema
 )]
-#[diesel(table_name = crate::schema::team_groups)]
-#[diesel(primary_key(team_group_id))]
-pub struct TeamGroup {
-    pub team_group_id: Uuid,                  // identifies the team group uniquely
+#[diesel(table_name = crate::schema::pool_brackets)]
+#[diesel(primary_key(pool_bracket_id))]
+pub struct PoolBracket {
+    pub pool_bracket_id: Uuid,                // identifies the pool bracket uniquely
     pub division_session_id: Uuid,            // parent division session
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
@@ -93,8 +93,8 @@ pub struct TeamGroup {
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
-#[diesel(table_name = crate::schema::team_groups)]
-pub struct NewTeamGroup {
+#[diesel(table_name = crate::schema::pool_brackets)]
+pub struct NewPoolBracket {
     pub division_session_id: Uuid,
     pub name: String,
     #[diesel(column_name = type_)]
@@ -105,9 +105,9 @@ pub struct NewTeamGroup {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, AsChangeset)]
-#[diesel(table_name = crate::schema::team_groups)]
-#[diesel(primary_key(team_group_id))]
-pub struct TeamGroupChangeset {
+#[diesel(table_name = crate::schema::pool_brackets)]
+#[diesel(primary_key(pool_bracket_id))]
+pub struct PoolBracketChangeset {
     pub division_session_id: Option<Uuid>,
     pub name: Option<String>,
     #[diesel(column_name = type_)]
@@ -115,8 +115,8 @@ pub struct TeamGroupChangeset {
     pub type_: Option<String>,
 }
 
-/// Whether a team group named `name_val` already exists in division session `session_id`. When
-/// `exclude` is set (e.g. during an update), that group id is ignored so a row doesn't clash with
+/// Whether a pool bracket named `name_val` already exists in division session `session_id`. When
+/// `exclude` is set (e.g. during an update), that bracket id is ignored so a row doesn't clash with
 /// itself.
 pub fn name_exists_in_division_session(
     db: &mut database::Connection,
@@ -124,62 +124,62 @@ pub fn name_exists_in_division_session(
     name_val: &str,
     exclude: Option<Uuid>,
 ) -> QueryResult<bool> {
-    use crate::schema::team_groups::dsl::*;
-    let mut query = team_groups
+    use crate::schema::pool_brackets::dsl::*;
+    let mut query = pool_brackets
         .filter(division_session_id.eq(session_id))
         .filter(name.eq(name_val))
         .into_boxed();
     if let Some(ex) = exclude {
-        query = query.filter(team_group_id.ne(ex));
+        query = query.filter(pool_bracket_id.ne(ex));
     }
     let count: i64 = query.count().get_result(db)?;
     Ok(count > 0)
 }
 
-pub fn create(db: &mut database::Connection, item: &NewTeamGroup) -> QueryResult<TeamGroup> {
-    // A team group's name must be unique within its parent division session.
+pub fn create(db: &mut database::Connection, item: &NewPoolBracket) -> QueryResult<PoolBracket> {
+    // A bracket's name must be unique within its parent division session.
     if name_exists_in_division_session(db, item.division_session_id, &item.name, None)? {
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("A team group named \"{}\" already exists in this division session.", item.name).into()
+            format!("A pool bracket named \"{}\" already exists in this division session.", item.name).into()
         ));
     }
-    use crate::schema::team_groups::dsl::*;
-    insert_into(team_groups).values(item).get_result::<TeamGroup>(db)
+    use crate::schema::pool_brackets::dsl::*;
+    insert_into(pool_brackets).values(item).get_result::<PoolBracket>(db)
 }
 
 pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
-    use crate::schema::team_groups::dsl::*;
-    team_groups.find(item_id).get_result::<TeamGroup>(db).is_ok()
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets.find(item_id).get_result::<PoolBracket>(db).is_ok()
 }
 
-pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<TeamGroup> {
-    use crate::schema::team_groups::dsl::*;
-    team_groups.filter(team_group_id.eq(item_id)).first::<TeamGroup>(db)
+pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<PoolBracket> {
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets.filter(pool_bracket_id.eq(item_id)).first::<PoolBracket>(db)
 }
 
-pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<TeamGroup>> {
-    use crate::schema::team_groups::dsl::*;
-    team_groups.order(created_date).load::<TeamGroup>(db)
+pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<PoolBracket>> {
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets.order(created_date).load::<PoolBracket>(db)
 }
 
-/// All team groups belonging to the given division session.
-pub fn read_all_of_division_session(db: &mut database::Connection, session_id: Uuid) -> QueryResult<Vec<TeamGroup>> {
-    use crate::schema::team_groups::dsl::*;
-    team_groups.filter(division_session_id.eq(session_id)).order(created_date).load::<TeamGroup>(db)
+/// All pool brackets belonging to the given division session.
+pub fn read_all_of_division_session(db: &mut database::Connection, session_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets.filter(division_session_id.eq(session_id)).order(created_date).load::<PoolBracket>(db)
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamGroupChangeset, modified_by: Uuid) -> QueryResult<TeamGroup> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &PoolBracketChangeset, modified_by: Uuid) -> QueryResult<PoolBracket> {
     // Enforce name uniqueness within the (possibly changed) parent division session.
     let existing = read(db, item_id)?;
     let effective_session = item.division_session_id.unwrap_or(existing.division_session_id);
     let effective_name = item.name.clone().unwrap_or(existing.name.clone());
     if name_exists_in_division_session(db, effective_session, &effective_name, Some(item_id))? {
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("A team group named \"{}\" already exists in this division session.", effective_name).into()
+            format!("A pool bracket named \"{}\" already exists in this division session.", effective_name).into()
         ));
     }
-    use crate::schema::team_groups::dsl::*;
-    diesel::update(team_groups.filter(team_group_id.eq(item_id)))
+    use crate::schema::pool_brackets::dsl::*;
+    diesel::update(pool_brackets.filter(pool_bracket_id.eq(item_id)))
         .set((
             item,
             last_modified_date.eq(diesel::dsl::now),
@@ -189,6 +189,6 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamGroupChan
 }
 
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
-    use crate::schema::team_groups::dsl::*;
-    diesel::delete(team_groups.filter(team_group_id.eq(item_id))).execute(db)
+    use crate::schema::pool_brackets::dsl::*;
+    diesel::delete(pool_brackets.filter(pool_bracket_id.eq(item_id))).execute(db)
 }

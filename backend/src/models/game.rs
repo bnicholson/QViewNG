@@ -234,7 +234,9 @@ pub struct Game {
     pub last_modified_user: Uuid,
     pub creator_id: Uuid,
     /// Soft-delete flag. When true the game is treated as deleted and excluded from reads.
-    pub del_fl: bool
+    pub del_fl: bool,
+    /// Pool bracket this game belongs to (required FK to pool_brackets).
+    pub poolbracket_id: Uuid
 }
 
 #[derive(

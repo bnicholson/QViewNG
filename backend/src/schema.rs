@@ -274,6 +274,7 @@ diesel::table! {
         last_modified_user -> Uuid,
         creator_id -> Uuid,
         del_fl -> Bool,
+        poolbracket_id -> Uuid,
     }
 }
 
@@ -357,6 +358,22 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         id -> Uuid,
+    }
+}
+
+diesel::table! {
+    pool_brackets (pool_bracket_id) {
+        pool_bracket_id -> Uuid,
+        division_session_id -> Uuid,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+        #[max_length = 64]
+        name -> Varchar,
     }
 }
 
@@ -576,25 +593,23 @@ diesel::table! {
 }
 
 diesel::table! {
-    team_groups (team_group_id) {
+    team_teamgroups (teamid, team_group_id) {
+        teamid -> Uuid,
         team_group_id -> Uuid,
-        division_session_id -> Uuid,
-        #[sql_name = "type"]
-        #[max_length = 64]
-        type_ -> Varchar,
         created_date -> Timestamptz,
         creator_userid -> Uuid,
         last_modified_date -> Timestamptz,
         last_modified_userid -> Uuid,
-        #[max_length = 64]
-        name -> Varchar,
     }
 }
 
 diesel::table! {
-    team_teamgroups (teamid, team_group_id) {
-        teamid -> Uuid,
+    teamgroups (team_group_id) {
         team_group_id -> Uuid,
+        pool_bracket_id -> Uuid,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
         created_date -> Timestamptz,
         creator_userid -> Uuid,
         last_modified_date -> Timestamptz,
@@ -769,11 +784,13 @@ diesel::joinable!(equipmentregistrations -> tournaments (tournamentid));
 diesel::joinable!(equipmentsets -> users (equipmentownerid));
 diesel::joinable!(gameevents -> games (gid));
 diesel::joinable!(games -> divisions (divisionid));
+diesel::joinable!(games -> pool_brackets (poolbracket_id));
 diesel::joinable!(games -> rounds (roundid));
 diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
 diesel::joinable!(password_reset_tokens -> users (user_id));
+diesel::joinable!(pool_brackets -> division_sessions (division_session_id));
 diesel::joinable!(roles_permissions -> permissions (permission_id));
 diesel::joinable!(roles_permissions -> roles (role_id));
 diesel::joinable!(rooms -> tournaments (tid));
@@ -785,9 +802,9 @@ diesel::joinable!(rounds -> divisions (did));
 diesel::joinable!(rounds -> users (last_modified_user));
 diesel::joinable!(statsgroups -> divisions (division_id));
 diesel::joinable!(statsgroups -> tournaments (tournament_id));
-diesel::joinable!(team_groups -> division_sessions (division_session_id));
-diesel::joinable!(team_teamgroups -> team_groups (team_group_id));
+diesel::joinable!(team_teamgroups -> teamgroups (team_group_id));
 diesel::joinable!(team_teamgroups -> teams (teamid));
+diesel::joinable!(teamgroups -> pool_brackets (pool_bracket_id));
 diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
@@ -820,6 +837,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     monitors,
     password_reset_tokens,
     permissions,
+    pool_brackets,
     powerstrips,
     projectors,
     questionsandanswers,
@@ -832,8 +850,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     rounds,
     schedules,
     statsgroups,
-    team_groups,
     team_teamgroups,
+    teamgroups,
     teams,
     tournamentgroups,
     tournamentgroups_tournaments,
