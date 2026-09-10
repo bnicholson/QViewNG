@@ -12,6 +12,7 @@ import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
 import SessionsTable from '../components/SessionsTable'
+import PoolBracketsTable from '../components/PoolBracketsTable'
 import GamesTable from '../components/GamesTable'
 import QuizzersTable from '../components/QuizzersTable'
 import { DivisionProfileOverviewPage } from './DivisionProfileOverviewPage'
@@ -49,6 +50,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
     { kind: 'route' as const, label: 'Teams',        to: `/division/${did}/teams`        },
     { kind: 'route' as const, label: 'Quizzers',     to: `/division/${did}/quizzers`     },
     { kind: 'route' as const, label: 'Sessions',     to: `/division/${did}/sessions`     },
+    { kind: 'route' as const, label: 'Pools',        to: `/division/${did}/pools`        },
     { kind: 'route' as const, label: 'Rounds',       to: `/division/${did}/rounds`       },
     { kind: 'route' as const, label: 'Games',        to: `/division/${did}/games`        },
     ...(canViewStatsGroups
@@ -89,6 +91,16 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
               showDeleteButton={canCreate('division:delete')}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every session is in this division, so the Division column is redundant.
+              hiddenColumns={['Division']} />
+          )}
+          {props.childRoute === 'pools' && (
+            <PoolBracketsTable tid={tournament.tid} did={did}
+              type="pool" entityLabel="Pool" title="Pools"
+              showCreateButton={canCreate('division:create')}
+              showEditButton={canCreate('division:update')}
+              showDeleteButton={canCreate('division:delete')}
+              showAuditColumns={canViewAuditColumns}
+              // In the Division profile every pool is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'rounds' && (

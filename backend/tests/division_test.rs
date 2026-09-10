@@ -653,6 +653,52 @@ async fn get_all_pool_brackets_of_division_works() {
 }
 
 #[actix_web::test]
+async fn get_pool_bracket_rows_of_division_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let division = fixtures::divisions::seed_get_pool_bracket_rows_by_division(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // ── type=pool returns only the two pools ─────────────────────────────────
+    let pool_uri = format!("/api/divisions/{}/pool-bracket-rows?type=pool&page={}&page_size={}", division.did, PAGE_NUM, PAGE_SIZE);
+    let pool_resp = test::call_service(&app, test::TestRequest::get().uri(&pool_uri).to_request()).await;
+    assert_eq!(pool_resp.status(), StatusCode::OK);
+    let pool_body: PagedResponse<backend::models::pool_bracket::PoolBracketRow> = test::read_body_json(pool_resp).await;
+    assert_eq!(pool_body.count, 2);
+    assert_eq!(pool_body.items.len(), 2);
+    let pool_names: Vec<&str> = pool_body.items.iter().map(|b| b.name.as_str()).collect();
+    assert!(pool_names.contains(&"Pool A"));
+    assert!(pool_names.contains(&"Pool B"));
+    assert!(!pool_names.contains(&"Bracket A"));
+    for row in &pool_body.items {
+        assert_eq!(row.type_, "pool");
+        assert_eq!(row.division_name, "Pool Div");
+        assert_eq!(row.session_name, "Pool Play");
+        assert!(row.last_modified_user_name.starts_with("Pool Owner"));
+    }
+
+    // ── type=bracket returns only the one bracket ────────────────────────────
+    let bracket_uri = format!("/api/divisions/{}/pool-bracket-rows?type=bracket&page={}&page_size={}", division.did, PAGE_NUM, PAGE_SIZE);
+    let bracket_resp = test::call_service(&app, test::TestRequest::get().uri(&bracket_uri).to_request()).await;
+    assert_eq!(bracket_resp.status(), StatusCode::OK);
+    let bracket_body: PagedResponse<backend::models::pool_bracket::PoolBracketRow> = test::read_body_json(bracket_resp).await;
+    assert_eq!(bracket_body.count, 1);
+    assert_eq!(bracket_body.items.len(), 1);
+    assert_eq!(bracket_body.items[0].name.as_str(), "Bracket A");
+    assert_eq!(bracket_body.items[0].type_, "bracket");
+}
+
+#[actix_web::test]
 async fn get_all_sessions_of_division_works() {
 
     // Arrange:

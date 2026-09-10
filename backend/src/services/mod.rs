@@ -2,6 +2,7 @@ pub mod auth;
 pub mod tournament;
 pub mod division;
 pub mod division_session;
+pub mod pool_bracket;
 pub mod user;
 pub mod common;
 pub mod room;

@@ -271,6 +271,48 @@ pub fn seed_get_pool_brackets_by_division(db: &mut database::Connection) -> Divi
     division
 }
 
+/// Seeds a division with one session holding two "pool"-type and one "bracket"-type pool_brackets.
+/// Returns the division. Used to verify the type-filtered rows endpoint returns only the requested
+/// type.
+pub fn seed_get_pool_bracket_rows_by_division(db: &mut database::Connection) -> Division {
+    let owner = UserBuilder::new_default("Pool Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let division = DivisionBuilder::new_default("Pool Div", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+
+    let session = DivisionSessionBuilder::new(division.did)
+        .set_name("Pool Play")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    for name in ["Pool A", "Pool B"] {
+        PoolBracketBuilder::new(session.division_session_id)
+            .set_name(name)
+            .set_type("pool")
+            .set_creator_userid(owner.id)
+            .build_and_insert(db)
+            .unwrap();
+    }
+    PoolBracketBuilder::new(session.division_session_id)
+        .set_name("Bracket A")
+        .set_type("bracket")
+        .set_creator_userid(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    division
+}
+
 /// Seeds a division with three division sessions, plus a second division with its own session that
 /// must NOT leak into the first division's results. Returns the first division (which owns exactly
 /// three sessions).
