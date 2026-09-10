@@ -88,6 +88,19 @@ diesel::table! {
 }
 
 diesel::table! {
+    division_sessions (division_session_id) {
+        division_session_id -> Uuid,
+        did -> Uuid,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+        #[max_length = 64]
+        name -> Varchar,
+    }
+}
+
+diesel::table! {
     divisions (did) {
         did -> Uuid,
         tid -> Uuid,
@@ -563,6 +576,33 @@ diesel::table! {
 }
 
 diesel::table! {
+    team_groups (team_group_id) {
+        team_group_id -> Uuid,
+        division_session_id -> Uuid,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+        #[max_length = 64]
+        name -> Varchar,
+    }
+}
+
+diesel::table! {
+    team_teamgroups (teamid, team_group_id) {
+        teamid -> Uuid,
+        team_group_id -> Uuid,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+    }
+}
+
+diesel::table! {
     teams (teamid) {
         teamid -> Uuid,
         did -> Uuid,
@@ -712,6 +752,7 @@ diesel::table! {
 
 diesel::joinable!(activation_tokens -> users (user_id));
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
+diesel::joinable!(division_sessions -> divisions (did));
 diesel::joinable!(divisions -> users (last_modified_user));
 diesel::joinable!(equipment -> computers (computerid));
 diesel::joinable!(equipment -> equipmentsets (equipmentsetid));
@@ -744,6 +785,9 @@ diesel::joinable!(rounds -> divisions (did));
 diesel::joinable!(rounds -> users (last_modified_user));
 diesel::joinable!(statsgroups -> divisions (division_id));
 diesel::joinable!(statsgroups -> tournaments (tournament_id));
+diesel::joinable!(team_groups -> division_sessions (division_session_id));
+diesel::joinable!(team_teamgroups -> team_groups (team_group_id));
+diesel::joinable!(team_teamgroups -> teams (teamid));
 diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));
@@ -760,6 +804,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     attachments,
     computers,
     create_tournament_applicants,
+    division_sessions,
     divisions,
     equipment,
     equipmentregistrations,
@@ -787,6 +832,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     rounds,
     schedules,
     statsgroups,
+    team_groups,
+    team_teamgroups,
     teams,
     tournamentgroups,
     tournamentgroups_tournaments,
