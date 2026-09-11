@@ -182,6 +182,9 @@ export const GameAPI = {
   /** One page of the pool bracket's enriched game rows (games whose poolbracket_id matches). */
   getRowsByPoolBracket: async (bracketId: string, page: number, size: number): Promise<PagedGameRows> =>
     (await fetch(`/api/poolbrackets/${bracketId}/game-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the division session's enriched game rows (games across its pool brackets). */
+  getRowsByDivisionSession: async (sessionId: string, page: number, size: number): Promise<PagedGameRows> =>
+    (await fetch(`/api/divisionsessions/${sessionId}/game-rows?page=${page}&page_size=${size}`)).json(),
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/games/${id}`, { method: 'DELETE' });
     if (!response.ok) {

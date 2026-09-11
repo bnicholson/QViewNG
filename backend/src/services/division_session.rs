@@ -76,6 +76,25 @@ async fn read_pool_bracket_rows(
     }
 }
 
+/// Enriched game rows for the session (games across its pool brackets), in one paginated call.
+#[get("/{id}/game-rows")]
+async fn read_game_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::game::read_game_rows_of_division_session(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -254,6 +273,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(read_pool_bracket_rows)
+        .service(read_game_rows)
         .service(create)
         .service(update)
         .service(destroy);

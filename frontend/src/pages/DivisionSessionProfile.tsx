@@ -9,6 +9,7 @@ import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import PoolBracketsTable from '../components/PoolBracketsTable'
+import GamesTable from '../components/GamesTable'
 import { DivisionSessionProfileOverviewPage } from './DivisionSessionProfileOverviewPage'
 
 export const DivisionSessionProfile = (props: { childRoute?: string }) => {
@@ -48,6 +49,7 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
     { kind: 'route' as const, label: 'Overview', to: `/division-session/${sessionid}/overview` },
     { kind: 'route' as const, label: 'Pools',    to: `/division-session/${sessionid}/pools`    },
     { kind: 'route' as const, label: 'Brackets', to: `/division-session/${sessionid}/brackets` },
+    { kind: 'route' as const, label: 'Games',    to: `/division-session/${sessionid}/games`    },
   ]
 
   return (
@@ -83,6 +85,13 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
               showDeleteButton={canCreate('division:delete')}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division', 'Session']} />
+          )}
+          {props.childRoute === 'games' && (
+            // Games across this session's pool brackets. Division is fixed context here.
+            <GamesTable tid={tournament.tid} divisionSessionId={sessionid}
+              showCreateButton={false} showDeleteButton={canCreate('game:delete')}
+              showAuditColumns={canViewAuditColumns}
+              hiddenColumns={['Division']} />
           )}
         </Box>
 

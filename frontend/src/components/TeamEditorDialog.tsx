@@ -208,7 +208,8 @@ export const TeamEditorDialog = (props: Props) => {
         result = await TeamAPI.create(payload, accessToken);
       }
     } catch (err: any) {
-      setErrorMsg('Failed to save: ' + err.message);
+      // Show the server's message (e.g. the division quizzer-conflict notice) verbatim.
+      setErrorMsg(err.message);
       setAlertOpened(true);
       return;
     }

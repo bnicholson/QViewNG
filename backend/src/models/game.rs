@@ -495,6 +495,37 @@ pub fn read_all_games_of_pool_bracket(db: &mut database::Connection, bracket_id:
     read_games_ordered!(db, pagination, poolbracket_id, bracket_id)
 }
 
+/// One page of games belonging to a division session — i.e. games whose `poolbracket_id` is one of
+/// the session's pool brackets.
+pub fn read_all_games_of_division_session(db: &mut database::Connection, session_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+    let bracket_ids: Vec<Uuid> = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets.filter(division_session_id.eq(session_id)).select(pool_bracket_id).load::<Uuid>(db)?
+    };
+    if bracket_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    use crate::schema::{games, divisions, rounds, rooms};
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    games::table
+        .inner_join(divisions::table.on(games::divisionid.eq(divisions::did)))
+        .inner_join(rounds::table.on(games::roundid.eq(rounds::roundid)))
+        .inner_join(rooms::table.on(games::roomid.eq(rooms::roomid)))
+        .filter(games::poolbracket_id.eq_any(&bracket_ids))
+        .filter(games::del_fl.eq(false))
+        .order((
+            divisions::dname.asc(),
+            rounds::scheduled_start_time.asc(),
+            rooms::name.asc(),
+            games::gid.asc(),
+        ))
+        .select(games::all_columns)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)
+}
+
 /// One fully-formed row of the games data table: the game plus the display names of its
 /// division/room/teams, the round's scheduled start time, and the game's 1-based ordinal
 /// within its room (the "Round" column). Populates the whole table from a single request.
@@ -738,6 +769,33 @@ pub fn read_game_rows_of_pool_bracket(
         games.filter(poolbracket_id.eq(bracket_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_pool_bracket(db, bracket_id, pagination)?;
+    Ok((build_game_rows(db, page, tournament_id)?, total))
+}
+
+/// Returns one page of enriched game rows for a division session (games across its pool brackets),
+/// plus the total game count.
+pub fn read_game_rows_of_division_session(
+    db: &mut database::Connection,
+    session_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    let division_id: Uuid = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(division_session_id.eq(session_id)).select(did).first::<Uuid>(db)?
+    };
+    let tournament_id: Uuid = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(tid).first::<Uuid>(db)?
+    };
+    let bracket_ids: Vec<Uuid> = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets.filter(division_session_id.eq(session_id)).select(pool_bracket_id).load::<Uuid>(db)?
+    };
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games.filter(poolbracket_id.eq_any(&bracket_ids)).filter(del_fl.eq(false)).count().get_result(db)?
+    };
+    let page = read_all_games_of_division_session(db, session_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
 }
 

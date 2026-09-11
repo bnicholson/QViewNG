@@ -342,6 +342,34 @@ pub fn read_all_teams_where_user_is_quizzer(
         .load::<Team>(db)
 }
 
+/// The first non-deleted team in `division_id` that already lists `quizzer_id` in any of its six
+/// quizzer slots, excluding `exclude_team_id` (so, on update, a team never conflicts with itself).
+/// Used to enforce that a quizzer is on at most one team per division.
+pub fn find_team_in_division_with_quizzer(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    quizzer_id: Uuid,
+    exclude_team_id: Option<Uuid>,
+) -> QueryResult<Option<Team>> {
+    use crate::schema::teams::dsl::*;
+    let mut query = teams
+        .filter(did.eq(division_id))
+        .filter(del_fl.eq(false))
+        .filter(
+            quizzer_one_id.eq(quizzer_id)
+                .or(quizzer_two_id.eq(quizzer_id))
+                .or(quizzer_three_id.eq(quizzer_id))
+                .or(quizzer_four_id.eq(quizzer_id))
+                .or(quizzer_five_id.eq(quizzer_id))
+                .or(quizzer_six_id.eq(quizzer_id))
+        )
+        .into_boxed();
+    if let Some(ex) = exclude_team_id {
+        query = query.filter(teamid.ne(ex));
+    }
+    query.first::<Team>(db).optional()
+}
+
 /// A quizzer on a team (id + display name), for the roster shown in the user's Teams table.
 #[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct TeamQuizzerRef {

@@ -7,6 +7,7 @@ use actix_web::{App, test, web};
 use backend::database::Database;
 use backend::models::division_session::{DivisionSession, DivisionSessionBuilder};
 use backend::models::pool_bracket::{PoolBracketBuilder, PoolBracketRow};
+use backend::models::game::GameRow;
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
@@ -228,6 +229,35 @@ async fn get_pool_bracket_rows_of_session_works() {
     let bracket_body: PagedResponse<PoolBracketRow> = test::read_body_json(bracket_resp).await;
     assert_eq!(bracket_body.count, 1);
     assert_eq!(bracket_body.items[0].name.as_str(), "Bracket A");
+}
+
+#[actix_web::test]
+async fn get_game_rows_of_session_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // Seeds a session with one pool bracket holding two games (via poolbracket_id).
+    let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
+    let session_id = backend::models::pool_bracket::read(&mut conn, bracket_id).unwrap().division_session_id;
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/divisionsessions/{}/game-rows?page={}&page_size={}", session_id, PAGE_NUM, PAGE_SIZE);
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&uri).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // The two games belonging to the session's pool bracket.
+    let body: PagedResponse<GameRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 2);
+    assert_eq!(body.items.len(), 2);
 }
 
 #[actix_web::test]

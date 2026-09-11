@@ -92,9 +92,11 @@ function gameColumns(showAuditColumns: boolean): ColumnDef<GameRowTS>[] {
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string;
+export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, divisionSessionId, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string;
   /** When set, rows are the games whose poolbracket_id matches this pool bracket. */
   poolbracketid?: string;
+  /** When set, rows are the games across this division session's pool brackets. */
+  divisionSessionId?: string;
   showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit — lets a consumer hide a column that's redundant in its context
    *  (e.g. the Round profile hides "Round", the Room profile hides "Room"). */
@@ -111,15 +113,17 @@ export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, s
 
   const loadGames = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = poolbracketid
-      ? GameAPI.getRowsByPoolBracket(poolbracketid, p, ps)
-      : roundid
-        ? GameAPI.getRowsByRound(roundid, p, ps)
-        : roomid
-          ? GameAPI.getRowsByRoom(roomid, p, ps)
-          : did
-            ? GameAPI.getRowsByDivision(did, p, ps)
-            : GameAPI.getRowsByTournament(tid, p, ps);
+    const request = divisionSessionId
+      ? GameAPI.getRowsByDivisionSession(divisionSessionId, p, ps)
+      : poolbracketid
+        ? GameAPI.getRowsByPoolBracket(poolbracketid, p, ps)
+        : roundid
+          ? GameAPI.getRowsByRound(roundid, p, ps)
+          : roomid
+            ? GameAPI.getRowsByRoom(roomid, p, ps)
+            : did
+              ? GameAPI.getRowsByDivision(did, p, ps)
+              : GameAPI.getRowsByTournament(tid, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -129,11 +133,11 @@ export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, s
       })
       .catch(() => console.error('Failed to load games'))
       .finally(() => setLoading(false));
-  }, [tid, did, roundid, roomid, poolbracketid]);
+  }, [tid, did, roundid, roomid, poolbracketid, divisionSessionId]);
 
   useEffect(() => {
     loadGames(0, pageSizeRef.current);
-  }, [tid, did, roundid, roomid, poolbracketid]);
+  }, [tid, did, roundid, roomid, poolbracketid, divisionSessionId]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadGames(newPage, pageSize);

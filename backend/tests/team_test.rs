@@ -666,3 +666,84 @@ async fn get_all_games_of_team_works() {
     let result = models::game::read_all_games_of_team(&mut conn, team_4_id, &pagination).expect("read failed");
     assert!(!result.is_empty());
 }
+
+#[actix_web::test]
+async fn quizzer_cannot_be_on_two_teams_in_same_division() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, division, owner, _admin_user, _unrelated_user) =
+        fixtures::teams::arrange_team_create_works_integration_test(&mut conn);
+
+    let coach = fixtures::users::create_and_insert_user(&mut conn, "Casey", "CoachPwd123!");
+    let quizzer = fixtures::users::create_and_insert_user(&mut conn, "Quinn", "QuizPwd123!");
+    let quizzer_2 = fixtures::users::create_and_insert_user(&mut conn, "Quincy", "QuizPwd123!");
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["team:create".to_string()],
+    );
+
+    // First team in the division, with two quizzers.
+    let team_1 = TeamBuilder::new_default(division.did)
+        .set_name("Lightning")
+        .set_coachid(coach.id)
+        .set_quizzer_one_id(quizzer.id)
+        .set_quizzer_two_id(quizzer_2.id)
+        .build()
+        .unwrap();
+    let resp_1 = test::call_service(&app, test::TestRequest::post()
+        .uri("/api/teams")
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&team_1)
+        .to_request()).await;
+    assert_eq!(resp_1.status(), StatusCode::CREATED);
+
+    // A second team in the SAME division reusing both quizzers must be rejected, and the message
+    // must list every conflicting quizzer (both) with their existing team.
+    let team_2 = TeamBuilder::new_default(division.did)
+        .set_name("Thunder")
+        .set_coachid(coach.id)
+        .set_quizzer_one_id(quizzer.id)
+        .set_quizzer_two_id(quizzer_2.id)
+        .build()
+        .unwrap();
+    let resp_2 = test::call_service(&app, test::TestRequest::post()
+        .uri("/api/teams")
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&team_2)
+        .to_request()).await;
+    assert_eq!(resp_2.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body: serde_json::Value = test::read_body_json(resp_2).await;
+    let msg = body["error"].as_str().unwrap();
+    assert_eq!(
+        msg,
+        "The following quizzers are already registered on other teams in division \"Test Div\": Quinn Maurice Den (team \"Lightning\"), Quincy Maurice Den (team \"Lightning\"). Quizzers cannot be on multiple teams for the same division."
+    );
+
+    // The same quizzer on a team in a DIFFERENT division is allowed.
+    let other_division = backend::models::division::DivisionBuilder::new_default("Other Div", tournament.tid)
+        .build_and_insert(&mut conn)
+        .unwrap();
+    let team_3 = TeamBuilder::new_default(other_division.did)
+        .set_name("Comets")
+        .set_coachid(coach.id)
+        .set_quizzer_one_id(quizzer.id)
+        .build()
+        .unwrap();
+    let resp_3 = test::call_service(&app, test::TestRequest::post()
+        .uri("/api/teams")
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&team_3)
+        .to_request()).await;
+    assert_eq!(resp_3.status(), StatusCode::CREATED);
+}

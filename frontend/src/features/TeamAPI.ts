@@ -78,7 +78,8 @@ async function throwApiError(verb: string, status: number, body: string): Promis
   try {
     const json = JSON.parse(body)
     if (typeof json?.error === 'string') {
-      message = `Failed to ${verb} team. Error: ${json.error} (${status})`
+      // Surface the server's message verbatim so callers can show it as the user-facing notification.
+      message = json.error
     } else {
       message = `Failed to ${verb} team (${status}): ${body}`
     }

@@ -89,7 +89,7 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
 
   const navItems: NavItem[] = [
     { kind: 'route', label: 'Overview',         to: `/user/${user_id}/overview`     },
-    { kind: 'route', label: 'Teams',         to: `/user/${user_id}/teams`     },
+    { kind: 'route', label: 'My Teams',         to: `/user/${user_id}/teams`     },
     ...(canViewPrivate ? [
       { kind: 'route' as const, label: 'My Rosters', to: `/user/${user_id}/my-rosters` },
       { kind: 'route' as const, label: 'My Gear',    to: `/user/${user_id}/my-gear`    },

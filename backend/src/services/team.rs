@@ -9,6 +9,33 @@ use crate::services::common::{EntityResponse, PagedResponse, process_response};
 use diesel::{QueryDsl, QueryResult, RunQueryDsl};
 use uuid::Uuid;
 
+/// Builds the user-facing message listing every quizzer already on another team in the division.
+/// `conflicts` is `(quizzer_id, other_team_name)` pairs.
+fn quizzer_conflicts_message(
+    conn: &mut crate::database::Connection,
+    division_name: &str,
+    conflicts: &[(Uuid, String)],
+) -> String {
+    let ids: Vec<Uuid> = conflicts.iter().map(|(id, _)| *id).collect();
+    let names = models::user::read_display_names(conn, &ids).unwrap_or_default();
+    let list = conflicts
+        .iter()
+        .map(|(id, team_name)| {
+            let quizzer_name = names
+                .get(id)
+                .cloned()
+                .filter(|n| !n.trim().is_empty())
+                .unwrap_or_else(|| id.to_string());
+            format!("{} (team \"{}\")", quizzer_name, team_name)
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "The following quizzers are already registered on other teams in division \"{}\": {}. Quizzers cannot be on multiple teams for the same division.",
+        division_name, list
+    )
+}
+
 // #[derive(OpenApi)]
 // #[openapi(paths(index))]
 // pub struct TeamDoc;
@@ -125,6 +152,25 @@ async fn create(
         })));
     }
 
+    // A quizzer may be on at most one team within the same division. Collect every conflict so the
+    // error can name all quizzers already on another team, not just the first.
+    let quizzer_ids: Vec<uuid::Uuid> = [
+        item.quizzer_one_id, item.quizzer_two_id, item.quizzer_three_id,
+        item.quizzer_four_id, item.quizzer_five_id, item.quizzer_six_id,
+    ].into_iter().flatten().collect();
+    let mut conflicts: Vec<(uuid::Uuid, String)> = Vec::new();
+    for qid in &quizzer_ids {
+        if conflicts.iter().any(|(id, _)| id == qid) { continue; }
+        if let Ok(Some(existing_team)) = models::team::find_team_in_division_with_quizzer(&mut conn, item.did, *qid, None) {
+            conflicts.push((*qid, existing_team.name));
+        }
+    }
+    if !conflicts.is_empty() {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": quizzer_conflicts_message(&mut conn, &division.dname, &conflicts)
+        })));
+    }
+
     item.last_modified_user = user_ctx.user_id;
     item.creator_id = user_ctx.user_id;
     let result: QueryResult<Team> = models::team::create(&mut conn, &item);
@@ -203,6 +249,29 @@ async fn update(
     if !has_quizzer {
         return Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": "A team must have at least one quizzer."
+        })));
+    }
+
+    // A quizzer may be on at most one team within the same division (excluding this team itself).
+    // Collect every conflict so the error can name all quizzers already on another team.
+    let effective_quizzers: Vec<uuid::Uuid> = [
+        effective(team.quizzer_one_id, item.quizzer_one_id),
+        effective(team.quizzer_two_id, item.quizzer_two_id),
+        effective(team.quizzer_three_id, item.quizzer_three_id),
+        effective(team.quizzer_four_id, item.quizzer_four_id),
+        effective(team.quizzer_five_id, item.quizzer_five_id),
+        effective(team.quizzer_six_id, item.quizzer_six_id),
+    ].into_iter().flatten().collect();
+    let mut conflicts: Vec<(uuid::Uuid, String)> = Vec::new();
+    for qid in &effective_quizzers {
+        if conflicts.iter().any(|(id, _)| id == qid) { continue; }
+        if let Ok(Some(existing_team)) = models::team::find_team_in_division_with_quizzer(&mut conn, team.did, *qid, Some(team_id)) {
+            conflicts.push((*qid, existing_team.name));
+        }
+    }
+    if !conflicts.is_empty() {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": quizzer_conflicts_message(&mut conn, &division.dname, &conflicts)
         })));
     }
 
