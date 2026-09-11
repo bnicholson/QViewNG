@@ -215,6 +215,22 @@ async fn read_roster_quizzer_rows(
     }
 }
 
+/// Users this user may assign as team quizzers: their "My Quizzers" set, plus — for tournament
+/// managers — every participant of the tournaments they manage (all tournaments, for super users).
+#[get("/{id}/eligible-quizzers")]
+async fn read_eligible_quizzers(
+    db: Data<Database>,
+    user_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+    models::apicalllog::create(&mut db, &req);
+    match models::user::read_eligible_quizzers_for_user(&mut db, user_id.into_inner()) {
+        Ok(users) => HttpResponse::Ok().json(users),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Single-call, paginated "My Gear" rows: gear items across the user's equipment sets.
 #[get("/{id}/gear-rows")]
 async fn read_gear_rows(
@@ -416,6 +432,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_managed_tournament_rows)
         .service(read_managed_tournamentgroup_rows)
         .service(read_roster_quizzer_rows)
+        .service(read_eligible_quizzers)
         .service(read_gear_rows)
         .service(create)
         .service(create_roster)

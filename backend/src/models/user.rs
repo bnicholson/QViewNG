@@ -234,6 +234,142 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
         .load::<User>(db)
 }
 
+/// Whether `user_id` has the named role (e.g. "tournament_manager", "super_user").
+fn user_has_role(db: &mut database::Connection, user_id_val: Uuid, role_name: &str) -> QueryResult<bool> {
+    let role = match crate::models::role::read_by_name(db, role_name) {
+        Ok(r) => r,
+        Err(_) => return Ok(false),
+    };
+    use crate::schema::users_roles::dsl::*;
+    let count: i64 = users_roles
+        .filter(user_id.eq(user_id_val))
+        .filter(role_id.eq(role.id))
+        .count()
+        .get_result(db)?;
+    Ok(count > 0)
+}
+
+/// Users eligible to be assigned as quizzers on a team, from the perspective of `user_id`:
+///   1. the user's "My Quizzers" set — quizzers across every roster they coach (created or shared),
+///      plus quizzer accounts they created; and
+///   2. if the user is a tournament manager, every participant (team coaches & quizzers, game
+///      quizmasters & content judges, tournament admins & owners) of any tournament they manage;
+///      a super user gets that same participant set across *all* tournaments.
+///
+/// Returned non-deleted and ordered alphabetically by display name, so a dropdown can use them
+/// directly.
+pub fn read_eligible_quizzers_for_user(db: &mut database::Connection, user_id_val: Uuid) -> QueryResult<Vec<User>> {
+    use std::collections::HashSet;
+    let mut ids: HashSet<Uuid> = HashSet::new();
+
+    // (1) "My Quizzers": quizzers across the coach's rosters, plus quizzer accounts they created.
+    {
+        let shared_roster_ids: Vec<Uuid> = {
+            use crate::schema::rosters_coaches::dsl::*;
+            rosters_coaches.filter(coachid.eq(user_id_val)).select(rosterid).load::<Uuid>(db)?
+        };
+        let roster_ids: Vec<Uuid> = {
+            use crate::schema::rosters::dsl::*;
+            rosters
+                .filter(created_by_userid.eq(user_id_val).or(rosterid.eq_any(&shared_roster_ids)))
+                .filter(del_fl.eq(false))
+                .select(rosterid)
+                .load::<Uuid>(db)?
+        };
+        let quizzer_ids: Vec<Uuid> = {
+            use crate::schema::rosters_quizzers::dsl::*;
+            rosters_quizzers.filter(rosterid.eq_any(&roster_ids)).select(quizzerid).load::<Uuid>(db)?
+        };
+        ids.extend(quizzer_ids);
+        let created_ids: Vec<Uuid> = {
+            use crate::schema::users::dsl::*;
+            users.filter(created_by_userid.eq(user_id_val)).filter(del_fl.eq(false)).select(id).load::<Uuid>(db)?
+        };
+        ids.extend(created_ids);
+    }
+
+    // (2) Participants of managed tournaments (managers) or all tournaments (super users).
+    let is_super = user_has_role(db, user_id_val, crate::models::role::AppRole::SuperUser.as_str())?;
+    let is_manager = user_has_role(db, user_id_val, crate::models::role::AppRole::TournamentManager.as_str())?;
+    if is_super || is_manager {
+        let tour_ids: Vec<Uuid> = if is_super {
+            use crate::schema::tournaments::dsl::*;
+            tournaments.select(tid).load::<Uuid>(db)?
+        } else {
+            let mut owned: Vec<Uuid> = {
+                use crate::schema::tournaments::dsl::*;
+                tournaments.filter(owner_id.eq(user_id_val)).select(tid).load::<Uuid>(db)?
+            };
+            let admin_of: Vec<Uuid> = {
+                use crate::schema::tournaments_admins::dsl::*;
+                tournaments_admins.filter(adminid.eq(user_id_val)).select(tournamentid).load::<Uuid>(db)?
+            };
+            owned.extend(admin_of);
+            owned.sort();
+            owned.dedup();
+            owned
+        };
+
+        if !tour_ids.is_empty() {
+            // Tournament owners.
+            {
+                use crate::schema::tournaments::dsl::*;
+                let owners: Vec<Uuid> = tournaments.filter(tid.eq_any(&tour_ids)).select(owner_id).load::<Uuid>(db)?;
+                ids.extend(owners);
+            }
+            // Tournament admins.
+            {
+                use crate::schema::tournaments_admins::dsl::*;
+                let admins: Vec<Uuid> = tournaments_admins.filter(tournamentid.eq_any(&tour_ids)).select(adminid).load::<Uuid>(db)?;
+                ids.extend(admins);
+            }
+            // Team coaches and quizzers, across the tournaments' divisions.
+            let div_ids: Vec<Uuid> = {
+                use crate::schema::divisions::dsl::*;
+                divisions.filter(tid.eq_any(&tour_ids)).select(did).load::<Uuid>(db)?
+            };
+            if !div_ids.is_empty() {
+                use crate::schema::teams::dsl::*;
+                let rows = teams
+                    .filter(did.eq_any(&div_ids))
+                    .filter(del_fl.eq(false))
+                    .select((coachid, quizzer_one_id, quizzer_two_id, quizzer_three_id, quizzer_four_id, quizzer_five_id, quizzer_six_id))
+                    .load::<(Uuid, Option<Uuid>, Option<Uuid>, Option<Uuid>, Option<Uuid>, Option<Uuid>, Option<Uuid>)>(db)?;
+                for (coach, q1, q2, q3, q4, q5, q6) in rows {
+                    ids.insert(coach);
+                    for q in [q1, q2, q3, q4, q5, q6].into_iter().flatten() {
+                        ids.insert(q);
+                    }
+                }
+            }
+            // Game quizmasters and content judges.
+            {
+                use crate::schema::games::dsl::*;
+                let rows = games
+                    .filter(tournamentid.eq_any(&tour_ids))
+                    .filter(del_fl.eq(false))
+                    .select((quizmasterid, contentjudgeid))
+                    .load::<(Uuid, Option<Uuid>)>(db)?;
+                for (qm, cj) in rows {
+                    ids.insert(qm);
+                    if let Some(c) = cj { ids.insert(c); }
+                }
+            }
+        }
+    }
+
+    let id_vec: Vec<Uuid> = ids.into_iter().collect();
+    if id_vec.is_empty() {
+        return Ok(Vec::new());
+    }
+    use crate::schema::users::dsl::*;
+    users
+        .filter(id.eq_any(&id_vec))
+        .filter(del_fl.eq(false))
+        .order((fname.asc(), lname.asc(), mname.asc()))
+        .load::<User>(db)
+}
+
 pub fn read_all_admins_of_tournament(
     db: &mut database::Connection,
     tour_id: Uuid,

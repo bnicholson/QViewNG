@@ -44,13 +44,30 @@ interface TeamFormState {
   name: string;
   did: string;
   coachid: string;
+  quizzer_one_id: string;
+  quizzer_two_id: string;
+  quizzer_three_id: string;
+  quizzer_four_id: string;
+  quizzer_five_id: string;
+  quizzer_six_id: string;
 }
 
 const emptyState: TeamFormState = {
   name: '',
   did: '',
   coachid: '',
+  quizzer_one_id: '',
+  quizzer_two_id: '',
+  quizzer_three_id: '',
+  quizzer_four_id: '',
+  quizzer_five_id: '',
+  quizzer_six_id: '',
 };
+
+/** The six quizzer form fields, in order — lets us render/collect them in a loop. */
+const QUIZZER_FIELDS: (keyof TeamFormState)[] = [
+  'quizzer_one_id', 'quizzer_two_id', 'quizzer_three_id', 'quizzer_four_id', 'quizzer_five_id', 'quizzer_six_id',
+];
 
 interface Props {
   tid: string;
@@ -65,18 +82,20 @@ interface Props {
 
 export const TeamEditorDialog = (props: Props) => {
   const { tid, isOpen, lockedDivisionId, team, onCancel, onSave } = props;
-  const { accessToken } = useAuth();
+  const { accessToken, session } = useAuth();
   const isEdit = !!team;
   const [form, setForm] = useState<TeamFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
+  const [eligibleQuizzers, setEligibleQuizzers] = useState<UserTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
     if (team) {
-      setForm({ name: team.name, did: team.did, coachid: team.coachid });
+      // Coach/name/division prefill immediately; quizzers fill once the full team loads below.
+      setForm({ ...emptyState, name: team.name, did: team.did, coachid: team.coachid });
     } else {
       setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
     }
@@ -88,16 +107,34 @@ export const TeamEditorDialog = (props: Props) => {
   useEffect(() => {
     if (!isOpen) return;
     resetState();
+    const userId = session?.userId ? String(session.userId) : undefined;
     Promise.all([
       DivisionAPI.getByTournament(tid, 0, 100),
       UserAPI.get(0, 200),
+      userId ? UserAPI.getEligibleQuizzers(userId) : Promise.resolve([] as UserTS[]),
     ])
-      .then(([divResult, userResult]) => {
+      .then(([divResult, userResult, quizzers]) => {
         setDivisions(divResult);
         setUsers(userResult.items);
+        setEligibleQuizzers(quizzers);
       })
       .catch(() => console.error('Failed to load form data for team editor'));
-  }, [isOpen, tid, lockedDivisionId, team]);
+
+    // On edit, load the full team to prefill the six quizzer selections.
+    if (team) {
+      TeamAPI.getById(team.teamid)
+        .then((full) => setForm(s => ({
+          ...s,
+          quizzer_one_id: full.quizzer_one_id ?? '',
+          quizzer_two_id: full.quizzer_two_id ?? '',
+          quizzer_three_id: full.quizzer_three_id ?? '',
+          quizzer_four_id: full.quizzer_four_id ?? '',
+          quizzer_five_id: full.quizzer_five_id ?? '',
+          quizzer_six_id: full.quizzer_six_id ?? '',
+        })))
+        .catch(() => console.error('Failed to load team quizzers'));
+    }
+  }, [isOpen, tid, lockedDivisionId, team, session?.userId]);
 
   const openCancelDialog = () => {
     const initial = team
@@ -133,16 +170,40 @@ export const TeamEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
+    // A team must have at least one quizzer.
+    const quizzerIds = QUIZZER_FIELDS.map(f => form[f]);
+    if (!quizzerIds.some(id => id)) {
+      setErrorMsg('At least one quizzer is required.');
+      setAlertOpened(true);
+      return;
+    }
+    // No user may occupy two quizzer slots on the same team.
+    const chosen = quizzerIds.filter(Boolean);
+    if (new Set(chosen).size !== chosen.length) {
+      setErrorMsg('Each quizzer can only be selected once.');
+      setAlertOpened(true);
+      return;
+    }
+
+    const quizzerPayload = {
+      quizzer_one_id: form.quizzer_one_id || null,
+      quizzer_two_id: form.quizzer_two_id || null,
+      quizzer_three_id: form.quizzer_three_id || null,
+      quizzer_four_id: form.quizzer_four_id || null,
+      quizzer_five_id: form.quizzer_five_id || null,
+      quizzer_six_id: form.quizzer_six_id || null,
+    };
 
     let result: TeamTS;
     try {
       if (team) {
-        result = await TeamAPI.update(team.teamid, { name: form.name, coachid: form.coachid }, accessToken);
+        result = await TeamAPI.update(team.teamid, { name: form.name, coachid: form.coachid, ...quizzerPayload }, accessToken);
       } else {
         const payload: NewTeamPayload = {
           name: form.name,
           did: form.did,
           coachid: form.coachid,
+          ...quizzerPayload,
         };
         result = await TeamAPI.create(payload, accessToken);
       }
@@ -251,6 +312,27 @@ export const TeamEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
+
+              {QUIZZER_FIELDS.map((field, i) => (
+                <Grid size={{ xs: 12, sm: 6 }} key={field}>
+                  <InputLabel>{`Quizzer ${i + 1}${i === 0 ? ' (*required)' : ''}`}</InputLabel>
+                  <Select
+                    value={form[field]}
+                    onChange={(e) => setForm(s => ({ ...s, [field]: e.target.value }))}
+                    displayEmpty
+                    fullWidth
+                    renderValue={(val) => {
+                      if (!val) return <em>None</em>;
+                      const u = eligibleQuizzers.find(u => u.id === val);
+                      return u ? userLabel(u) : val;
+                    }}
+                  >
+                    {eligibleQuizzers.map(u => (
+                      <MenuItem key={u.id} value={u.id}>{userLabel(u)}</MenuItem>
+                    ))}
+                  </Select>
+                </Grid>
+              ))}
             </Grid>
           </ListItem>
         </List>

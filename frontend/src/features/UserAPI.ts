@@ -89,6 +89,10 @@ export const UserAPI = {
     if (!response.ok) throw new Error(`User not found (${response.status})`);
     return response.json();
   },
+  /** Users this user may assign as team quizzers: their "My Quizzers", plus — for tournament
+   *  managers/super users — participants of the tournaments they manage (all, for super users). */
+  getEligibleQuizzers: async (userId: string): Promise<UserTS[]> =>
+    (await fetch(`/api/users/${userId}/eligible-quizzers`)).json(),
   create: async (user: NewUserPayload): Promise<UserTS> => {
     const response = await fetch('/api/users', {
       method: 'POST',
