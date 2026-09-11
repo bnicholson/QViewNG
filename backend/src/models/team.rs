@@ -752,6 +752,63 @@ pub fn read_team_rows_of_division(
     Ok((build_team_rows(db, team_list, &div_name_by_id)?, total))
 }
 
+/// Returns one page of team-table rows for a pool bracket (enriched) and the total team count.
+/// Teams are resolved through the pool bracket's 1-to-1 teamgroup and its team_teamgroups.
+pub fn read_team_rows_of_pool_bracket(
+    db: &mut database::Connection,
+    bracket_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<TeamRow>, i64)> {
+    // The pool bracket's 1-to-1 teamgroup; if it doesn't exist yet, there are no teams.
+    let group = match crate::models::teamgroup::read_of_pool_bracket(db, bracket_id) {
+        Ok(g) => g,
+        Err(_) => return Ok((Vec::new(), 0)),
+    };
+
+    let team_ids: Vec<Uuid> = {
+        use crate::schema::team_teamgroups::dsl::*;
+        team_teamgroups
+            .filter(team_group_id.eq(group.team_group_id))
+            .select(teamid)
+            .load::<Uuid>(db)?
+    };
+    if team_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let total: i64 = {
+        use crate::schema::teams::dsl::*;
+        teams.filter(teamid.eq_any(&team_ids)).filter(del_fl.eq(false)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(teamid.eq_any(&team_ids))
+            .filter(del_fl.eq(false))
+            .order(name.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<Team>(db)?
+    };
+
+    // Division names for whatever divisions these teams belong to.
+    let div_ids: Vec<Uuid> = team_list.iter().map(|t| t.did).collect();
+    let div_name_by_id: HashMap<Uuid, String> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(did.eq_any(&div_ids))
+            .select((did, dname))
+            .load::<(Uuid, String)>(db)?
+            .into_iter()
+            .collect()
+    };
+
+    Ok((build_team_rows(db, team_list, &div_name_by_id)?, total))
+}
+
 /// Shared assembler: attaches each team's division name and (batch-resolved) coach name.
 fn build_team_rows(
     db: &mut database::Connection,

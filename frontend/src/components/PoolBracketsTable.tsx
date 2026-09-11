@@ -43,7 +43,7 @@ function bracketColumns(
     },
     {
       header: entityLabel,
-      render: (b) => <span style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{b.name}</span>,
+      render: (b) => <EntityLink to={`/pool-bracket/${b.pool_bracket_id}/overview`}>{b.name}</EntityLink>,
     },
     ...(showAuditColumns ? [
       {

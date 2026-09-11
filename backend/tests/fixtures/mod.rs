@@ -1,6 +1,7 @@
 pub mod tournaments;
 pub mod tournaments_admins;
 pub mod divisions;
+pub mod pool_brackets;
 pub mod users;
 pub mod rooms;
 pub mod rounds;

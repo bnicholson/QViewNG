@@ -7,10 +7,12 @@ use actix_web::{App, test, web};
 use backend::database::Database;
 use backend::models::division_session::DivisionSessionBuilder;
 use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder};
+use backend::models::team::TeamRow;
+use backend::models::game::GameRow;
 use backend::routes::configure_routes;
-use backend::services::common::EntityResponse;
+use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
-use crate::common::{TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn create_works() {
@@ -105,6 +107,64 @@ async fn create_works() {
 
     let unrelated_resp = test::call_service(&app, unrelated_req).await;
     assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[actix_web::test]
+async fn get_team_rows_of_pool_bracket_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/poolbrackets/{}/team-rows?page={}&page_size={}", bracket_id, PAGE_NUM, PAGE_SIZE);
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&uri).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // The three teams associated with the bracket via its teamgroup.
+    let body: PagedResponse<TeamRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 3);
+    assert_eq!(body.items.len(), 3);
+    let names: Vec<&str> = body.items.iter().map(|t| t.name.as_str()).collect();
+    assert!(names.contains(&"Team 1"));
+    assert!(names.contains(&"Team 2"));
+    assert!(names.contains(&"Team 3"));
+}
+
+#[actix_web::test]
+async fn get_game_rows_of_pool_bracket_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/poolbrackets/{}/game-rows?page={}&page_size={}", bracket_id, PAGE_NUM, PAGE_SIZE);
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&uri).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // The two games whose poolbracket_id is this bracket.
+    let body: PagedResponse<GameRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 2);
+    assert_eq!(body.items.len(), 2);
 }
 
 #[actix_web::test]

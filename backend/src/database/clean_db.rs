@@ -128,6 +128,10 @@ pub fn clean_database(conn: &mut database::Connection) {
         .execute(conn)
         .expect("Failed to clean tournamentgroups");
     
+    diesel::delete(games::table)
+        .execute(conn)
+        .expect("Failed to clean games");
+
     diesel::delete(teams::table)
         .execute(conn)
         .expect("Failed to clean teams");
@@ -151,10 +155,6 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(activation_tokens::table)
         .execute(conn)
         .expect("Failed to clean activation tokens");
-
-    diesel::delete(games::table)
-        .execute(conn)
-        .expect("Failed to clean games");
 
     diesel::delete(pool_brackets::table)
         .execute(conn)

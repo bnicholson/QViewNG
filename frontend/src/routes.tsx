@@ -15,6 +15,7 @@ import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
 import { RoundProfile } from "./pages/RoundProfile"
 import { DivisionProfile } from "./pages/DivisionProfile"
 import { DivisionSessionProfile } from "./pages/DivisionSessionProfile"
+import { PoolBracketProfile } from "./pages/PoolBracketProfile"
 import { RoomProfile } from "./pages/RoomProfile";
 import { GameProfile } from "./pages/GameProfile";
 import { TeamProfile } from "./pages/TeamProfile";
@@ -97,6 +98,11 @@ export default function QViewRoutes() {
             <Route path="/division-session/:sessionid/overview" element={<DivisionSessionProfile childRoute="overview" />} />
             <Route path="/division-session/:sessionid/pools" element={<DivisionSessionProfile childRoute="pools" />} />
             <Route path="/division-session/:sessionid/brackets" element={<DivisionSessionProfile childRoute="brackets" />} />
+
+            <Route path="/pool-bracket/:bracketid" element={<PoolBracketProfile childRoute="overview" />} />
+            <Route path="/pool-bracket/:bracketid/overview" element={<PoolBracketProfile childRoute="overview" />} />
+            <Route path="/pool-bracket/:bracketid/teams" element={<PoolBracketProfile childRoute="teams" />} />
+            <Route path="/pool-bracket/:bracketid/games" element={<PoolBracketProfile childRoute="games" />} />
             <Route path="/division/:did/quizzers" element={<DivisionProfile childRoute="quizzers" />} />
             <Route path="/division/:did/rounds" element={<DivisionProfile childRoute="rounds" />} />
             <Route path="/division/:did/games" element={<DivisionProfile childRoute="games" />} />

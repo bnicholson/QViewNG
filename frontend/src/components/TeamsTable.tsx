@@ -57,7 +57,11 @@ function teamColumns(showAuditColumns: boolean): ColumnDef<TeamRowTS>[] {
   ];
 }
 
-export default function TeamsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
+export default function TeamsTable({ tid, did, poolBracketId, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string;
+  /** When set, rows are the teams associated with this pool bracket (via its teamgroup), not a
+   *  division/tournament's teams. */
+  poolBracketId?: string;
+  showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit. Lets a consumer hide a column that's redundant in its context —
    *  e.g. the Division profile hides "Division" since every row is the same division. */
   hiddenColumns?: string[] }) {
@@ -73,9 +77,11 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
 
   const loadTeams = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = did
-      ? TeamAPI.getRowsByDivision(did, p, ps)
-      : TeamAPI.getRowsByTournament(tid, p, ps);
+    const request = poolBracketId
+      ? TeamAPI.getRowsByPoolBracket(poolBracketId, p, ps)
+      : did
+        ? TeamAPI.getRowsByDivision(did, p, ps)
+        : TeamAPI.getRowsByTournament(tid, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -85,11 +91,11 @@ export default function TeamsTable({ tid, did, showCreateButton = true, showDele
       })
       .catch(() => console.error('Failed to load teams'))
       .finally(() => setLoading(false));
-  }, [tid, did]);
+  }, [tid, did, poolBracketId]);
 
   useEffect(() => {
     loadTeams(0, pageSizeRef.current);
-  }, [tid, did]);
+  }, [tid, did, poolBracketId]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadTeams(newPage, pageSize);

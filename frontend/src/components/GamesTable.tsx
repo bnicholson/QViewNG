@@ -92,7 +92,10 @@ function gameColumns(showAuditColumns: boolean): ColumnDef<GameRowTS>[] {
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
+export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string;
+  /** When set, rows are the games whose poolbracket_id matches this pool bracket. */
+  poolbracketid?: string;
+  showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit — lets a consumer hide a column that's redundant in its context
    *  (e.g. the Round profile hides "Round", the Room profile hides "Room"). */
   hiddenColumns?: string[] }) {
@@ -108,13 +111,15 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
 
   const loadGames = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = roundid
-      ? GameAPI.getRowsByRound(roundid, p, ps)
-      : roomid
-        ? GameAPI.getRowsByRoom(roomid, p, ps)
-        : did
-          ? GameAPI.getRowsByDivision(did, p, ps)
-          : GameAPI.getRowsByTournament(tid, p, ps);
+    const request = poolbracketid
+      ? GameAPI.getRowsByPoolBracket(poolbracketid, p, ps)
+      : roundid
+        ? GameAPI.getRowsByRound(roundid, p, ps)
+        : roomid
+          ? GameAPI.getRowsByRoom(roomid, p, ps)
+          : did
+            ? GameAPI.getRowsByDivision(did, p, ps)
+            : GameAPI.getRowsByTournament(tid, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -124,11 +129,11 @@ export default function GamesTable({ tid, did, roundid, roomid, showCreateButton
       })
       .catch(() => console.error('Failed to load games'))
       .finally(() => setLoading(false));
-  }, [tid, did, roundid, roomid]);
+  }, [tid, did, roundid, roomid, poolbracketid]);
 
   useEffect(() => {
     loadGames(0, pageSizeRef.current);
-  }, [tid, did, roundid, roomid]);
+  }, [tid, did, roundid, roomid, poolbracketid]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadGames(newPage, pageSize);

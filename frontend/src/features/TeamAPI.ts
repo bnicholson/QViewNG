@@ -101,6 +101,9 @@ export const TeamAPI = {
   /** One page of the division's enriched team rows (division + coach names), plus total count. */
   getRowsByDivision: async (did: string, page: number, size: number): Promise<PagedTeamRows> =>
     (await fetch(`/api/divisions/${did}/team-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of a pool bracket's enriched team rows (teams associated via its teamgroup). */
+  getRowsByPoolBracket: async (bracketId: string, page: number, size: number): Promise<PagedTeamRows> =>
+    (await fetch(`/api/poolbrackets/${bracketId}/team-rows?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<TeamTS> => {
     const response = await fetch(`/api/teams/${id}`);
     if (!response.ok) throw new Error(`Team not found (${response.status})`);

@@ -491,6 +491,10 @@ pub fn read_all_games_of_room(db: &mut database::Connection, room_id: Uuid, pagi
     read_games_ordered!(db, pagination, roomid, room_id)
 }
 
+pub fn read_all_games_of_pool_bracket(db: &mut database::Connection, bracket_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+    read_games_ordered!(db, pagination, poolbracket_id, bracket_id)
+}
+
 /// One fully-formed row of the games data table: the game plus the display names of its
 /// division/room/teams, the round's scheduled start time, and the game's 1-based ordinal
 /// within its room (the "Round" column). Populates the whole table from a single request.
@@ -706,6 +710,34 @@ pub fn read_game_rows_of_room(
         games.filter(roomid.eq(room_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_room(db, room_id, pagination)?;
+    Ok((build_game_rows(db, page, tournament_id)?, total))
+}
+
+/// Returns one page of enriched game rows for the pool bracket (games whose `poolbracket_id`
+/// matches), plus the total game count.
+pub fn read_game_rows_of_pool_bracket(
+    db: &mut database::Connection,
+    bracket_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    // Resolve the owning tournament: pool_bracket -> division_session -> division -> tournament.
+    let session_id: Uuid = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets.filter(pool_bracket_id.eq(bracket_id)).select(division_session_id).first::<Uuid>(db)?
+    };
+    let division_id: Uuid = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(division_session_id.eq(session_id)).select(did).first::<Uuid>(db)?
+    };
+    let tournament_id: Uuid = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(tid).first::<Uuid>(db)?
+    };
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games.filter(poolbracket_id.eq(bracket_id)).filter(del_fl.eq(false)).count().get_result(db)?
+    };
+    let page = read_all_games_of_pool_bracket(db, bracket_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
 }
 
