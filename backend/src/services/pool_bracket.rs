@@ -98,6 +98,119 @@ async fn read_game_rows(
     }
 }
 
+/// Associates a team with this pool bracket by adding it to the bracket's 1-to-1 teamgroup (created
+/// on first use). This is what makes the team appear in the bracket's Teams table.
+#[post("/{id}/teams/{teamid}")]
+async fn add_team(
+    db: Data<Database>,
+    path: Path<(Uuid, Uuid)>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let (bracket_id, team_id) = path.into_inner();
+
+    let bracket = match models::pool_bracket::read(&mut conn, bracket_id) {
+        Ok(b) => b,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+        Some(r) => r,
+        None => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
+    let permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Create.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::Team.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    if !models::team::exists(&mut conn, team_id) {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": format!("Team with ID {} does not exist", team_id)
+        })));
+    }
+
+    let group = match models::teamgroup::resolve_or_create_for_pool_bracket(&mut conn, bracket_id, user_ctx.user_id) {
+        Ok(g) => g,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    // Already associated → idempotent success.
+    if models::team_teamgroup::exists(&mut conn, team_id, group.team_group_id) {
+        return Ok(HttpResponse::Ok().finish());
+    }
+
+    let result = models::team_teamgroup::create(&mut conn, &crate::models::team_teamgroup::NewTeamTeamgroup {
+        teamid: team_id,
+        team_group_id: group.team_group_id,
+        creator_userid: user_ctx.user_id,
+        last_modified_userid: user_ctx.user_id,
+    });
+
+    match result {
+        Ok(_) => Ok(HttpResponse::Created().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+    }
+}
+
+/// Removes a team from this pool bracket (deletes the team_teamgroup association only; the team
+/// itself is untouched).
+#[delete("/{id}/teams/{teamid}")]
+async fn remove_team(
+    db: Data<Database>,
+    path: Path<(Uuid, Uuid)>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let (bracket_id, team_id) = path.into_inner();
+
+    let bracket = match models::pool_bracket::read(&mut conn, bracket_id) {
+        Ok(b) => b,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+        Some(r) => r,
+        None => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
+    let permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::Team.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let group = match models::teamgroup::read_of_pool_bracket(&mut conn, bracket_id) {
+        Ok(g) => g,
+        // No teamgroup means nothing is associated; treat as already-removed.
+        Err(_) => return Ok(HttpResponse::Ok().finish()),
+    };
+
+    match models::team_teamgroup::delete(&mut conn, team_id, group.team_group_id) {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -248,6 +361,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_team_rows)
         .service(read_game_rows)
+        .service(add_team)
+        .service(remove_team)
         .service(create)
         .service(update)
         .service(destroy);

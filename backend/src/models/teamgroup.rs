@@ -130,6 +130,25 @@ pub fn read_of_pool_bracket(db: &mut database::Connection, bracket_id: Uuid) -> 
     teamgroups.filter(pool_bracket_id.eq(bracket_id)).first::<TeamGroup>(db)
 }
 
+/// Returns the pool bracket's 1-to-1 team group, creating it (inheriting the bracket's `type`) if
+/// it doesn't exist yet. Used when associating the first team with a bracket.
+pub fn resolve_or_create_for_pool_bracket(
+    db: &mut database::Connection,
+    bracket_id: Uuid,
+    user_id: Uuid,
+) -> QueryResult<TeamGroup> {
+    if let Ok(existing) = read_of_pool_bracket(db, bracket_id) {
+        return Ok(existing);
+    }
+    let bracket = crate::models::pool_bracket::read(db, bracket_id)?;
+    create(db, &NewTeamGroup {
+        pool_bracket_id: bracket_id,
+        type_: bracket.type_,
+        creator_userid: user_id,
+        last_modified_userid: user_id,
+    })
+}
+
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamGroupChangeset, modified_by: Uuid) -> QueryResult<TeamGroup> {
     use crate::schema::teamgroups::dsl::*;
     diesel::update(teamgroups.filter(team_group_id.eq(item_id)))

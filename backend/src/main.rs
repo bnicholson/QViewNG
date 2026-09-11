@@ -46,7 +46,7 @@ async fn main() -> std::io::Result<()> {
     
     if false {
         let mut conn = db.get_connection().expect("Failed to get connection.");
-        if false {
+        if true {
             // Removes all data from DB
             let start_time_for_db_purge = Utc::now();
             println!("Starting DB Purge");
@@ -54,15 +54,16 @@ async fn main() -> std::io::Result<()> {
             let end_time_for_db_purge = Utc::now();
             let duration_for_db_purge = end_time_for_db_purge.naive_utc() - start_time_for_db_purge.naive_utc();
             println!("Done. DB Purging Time Duration: {}\n", duration_for_db_purge);
-        }
-        if true {
-            // Repopulates DB with default system data (*required in prod and dev for proper functioning)
-            let start_time_for_db_pop_system_default_data = Utc::now();
-            println!("Starting DB Data Population for System Default Data");
-            database::seed_data::system_default_data::insert_system_default_data(&mut conn);
-            let end_time_for_db_pop_system_default_data = Utc::now();
-            let duration_for_db_pop_system_default_data = end_time_for_db_pop_system_default_data.naive_utc() - start_time_for_db_pop_system_default_data.naive_utc();
-            println!("Done. DB System Default Data Population Time Duration: {}\n", duration_for_db_pop_system_default_data);
+            
+            if true {
+                // Repopulates DB with default system data (*required in prod and dev for proper functioning)
+                let start_time_for_db_pop_system_default_data = Utc::now();
+                println!("Starting DB Data Population for System Default Data");
+                database::seed_data::system_default_data::insert_system_default_data(&mut conn);
+                let end_time_for_db_pop_system_default_data = Utc::now();
+                let duration_for_db_pop_system_default_data = end_time_for_db_pop_system_default_data.naive_utc() - start_time_for_db_pop_system_default_data.naive_utc();
+                println!("Done. DB System Default Data Population Time Duration: {}\n", duration_for_db_pop_system_default_data);
+            }
         }
         if true {    
             // Repopulates DB with seed data (*for manual UI testing)

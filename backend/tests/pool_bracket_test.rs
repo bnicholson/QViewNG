@@ -7,6 +7,7 @@ use actix_web::{App, test, web};
 use backend::database::Database;
 use backend::models::division_session::DivisionSessionBuilder;
 use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder};
+use backend::models::team::TeamBuilder;
 use backend::models::team::TeamRow;
 use backend::models::game::GameRow;
 use backend::routes::configure_routes;
@@ -165,6 +166,98 @@ async fn get_game_rows_of_pool_bracket_works() {
     let body: PagedResponse<GameRow> = test::read_body_json(resp).await;
     assert_eq!(body.count, 2);
     assert_eq!(body.items.len(), 2);
+}
+
+#[actix_web::test]
+async fn add_and_remove_team_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_tournament, division, owner, _admin_user, unrelated_user) =
+        fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
+
+    let session = DivisionSessionBuilder::new(division.did)
+        .set_name("Pool Play")
+        .set_creator_userid(owner.id)
+        .build_and_insert(&mut conn)
+        .unwrap();
+    let bracket = PoolBracketBuilder::new(session.division_session_id)
+        .set_name("Pool A").set_type("pool").set_creator_userid(owner.id)
+        .build_and_insert(&mut conn)
+        .unwrap();
+    // A team in the division, not yet associated with the bracket.
+    let team = TeamBuilder::new_default(division.did)
+        .set_name("Team 1")
+        .set_coachid(owner.id)
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let assoc_uri = format!("/api/poolbrackets/{}/teams/{}", bracket.pool_bracket_id, team.teamid);
+    let rows_uri = format!("/api/poolbrackets/{}/team-rows?page={}&page_size={}", bracket.pool_bracket_id, PAGE_NUM, PAGE_SIZE);
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["team:create".to_string(), "team:delete".to_string()],
+    );
+
+    // ── Fail: unrelated user can't associate ─────────────────────────────────
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["team:create".to_string()],
+    );
+    let unrelated_resp = test::call_service(&app, test::TestRequest::post()
+        .uri(&assoc_uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .to_request()).await;
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Success: owner associates the team; it now appears in team-rows ───────
+    let add_resp = test::call_service(&app, test::TestRequest::post()
+        .uri(&assoc_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(add_resp.status(), StatusCode::CREATED);
+
+    let rows_resp = test::call_service(&app, test::TestRequest::get().uri(&rows_uri).to_request()).await;
+    let body: PagedResponse<TeamRow> = test::read_body_json(rows_resp).await;
+    assert_eq!(body.count, 1);
+    assert_eq!(body.items[0].teamid, team.teamid);
+
+    // ── Idempotent: associating again succeeds without duplicating ───────────
+    let add_again = test::call_service(&app, test::TestRequest::post()
+        .uri(&assoc_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(add_again.status(), StatusCode::OK);
+    let rows_resp2 = test::call_service(&app, test::TestRequest::get().uri(&rows_uri).to_request()).await;
+    let body2: PagedResponse<TeamRow> = test::read_body_json(rows_resp2).await;
+    assert_eq!(body2.count, 1);
+
+    // ── Success: owner removes the team from the bracket ─────────────────────
+    let remove_resp = test::call_service(&app, test::TestRequest::delete()
+        .uri(&assoc_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(remove_resp.status(), StatusCode::OK);
+
+    let rows_resp3 = test::call_service(&app, test::TestRequest::get().uri(&rows_uri).to_request()).await;
+    let body3: PagedResponse<TeamRow> = test::read_body_json(rows_resp3).await;
+    assert_eq!(body3.count, 0);
+
+    // The team itself still exists (only the association was removed).
+    assert!(backend::models::team::read(&mut conn, team.teamid).is_ok());
 }
 
 #[actix_web::test]

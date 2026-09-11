@@ -2,7 +2,16 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { DataTableTemplate, EntityLink, DEFAULT_PAGE_SIZE, type ColumnDef } from './DataTableTemplate';
 import { TeamAPI, type TeamTS, type TeamRowTS } from '../features/TeamAPI';
-import { TeamEditorDialog } from './TeamEditorDialog';
+import { TeamEditorDialog, type EditableTeam } from './TeamEditorDialog';
+import { useAuth } from '../hooks/useAuth';
+
+function editButtonStyle(): React.CSSProperties {
+  return {
+    padding: '3px 10px', borderRadius: 5, border: '1px solid #e0e0e0',
+    background: 'transparent', color: '#2563eb', fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', whiteSpace: 'nowrap',
+  };
+}
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -11,7 +20,11 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-function teamColumns(showAuditColumns: boolean): ColumnDef<TeamRowTS>[] {
+function teamColumns(
+  showAuditColumns: boolean,
+  showEditButton: boolean,
+  onEdit: (row: TeamRowTS) => void,
+): ColumnDef<TeamRowTS>[] {
   return [
     {
       header: 'Division',
@@ -54,17 +67,25 @@ function teamColumns(showAuditColumns: boolean): ColumnDef<TeamRowTS>[] {
         ),
       },
     ] : []),
+    ...(showEditButton ? [{
+      header: 'Edit',
+      render: (t: TeamRowTS) => (
+        <button style={editButtonStyle()} onClick={() => onEdit(t)}>Edit</button>
+      ),
+    }] : []),
   ];
 }
 
-export default function TeamsTable({ tid, did, poolBracketId, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string;
+export default function TeamsTable({ tid, did, poolBracketId, showCreateButton = true, showEditButton = false, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string;
   /** When set, rows are the teams associated with this pool bracket (via its teamgroup), not a
-   *  division/tournament's teams. */
+   *  division/tournament's teams. Creating a team here also associates it with the bracket, and the
+   *  row delete removes it from the bracket (the team itself is untouched). */
   poolBracketId?: string;
-  showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
+  showCreateButton?: boolean; showEditButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit. Lets a consumer hide a column that's redundant in its context —
    *  e.g. the Division profile hides "Division" since every row is the same division. */
   hiddenColumns?: string[] }) {
+  const { accessToken } = useAuth();
   // Current page of enriched rows plus the total count — paginated server-side.
   const [rows, setRows] = useState<TeamRowTS[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -72,6 +93,7 @@ export default function TeamsTable({ tid, did, poolBracketId, showCreateButton =
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [editorIsOpen, setEditorIsOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<EditableTeam | null>(null);
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
@@ -106,15 +128,40 @@ export default function TeamsTable({ tid, did, poolBracketId, showCreateButton =
   }, [loadTeams]);
 
   const handleDelete = useCallback(async (row: TeamRowTS): Promise<void> => {
-    await TeamAPI.delete(row.teamid);
+    // In a pool-bracket context, "delete" removes the team from the bracket (deletes the
+    // association only). Elsewhere it deletes the team itself.
+    if (poolBracketId) {
+      await TeamAPI.removeFromPoolBracket(poolBracketId, row.teamid, accessToken);
+    } else {
+      await TeamAPI.delete(row.teamid, accessToken);
+    }
     // Reload the current page so the count and page contents stay correct.
     loadTeams(page, pageSize);
-  }, [loadTeams, page, pageSize]);
+  }, [loadTeams, page, pageSize, poolBracketId, accessToken]);
 
-  const handleSave = useCallback((_team: TeamTS): void => {
+  const handleCreate = useCallback(() => {
+    setEditingTeam(null);
+    setEditorIsOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row: TeamRowTS) => {
+    setEditingTeam({ teamid: row.teamid, name: row.name, did: row.did, coachid: row.coachid });
+    setEditorIsOpen(true);
+  }, []);
+
+  const handleSave = useCallback(async (team: TeamTS): Promise<void> => {
+    // A team created in a pool-bracket context is associated with the bracket so it shows up here.
+    if (poolBracketId && !editingTeam) {
+      try {
+        await TeamAPI.addToPoolBracket(poolBracketId, team.teamid, accessToken);
+      } catch {
+        console.error('Team was created but could not be added to the pool bracket');
+      }
+    }
     setEditorIsOpen(false);
+    setEditingTeam(null);
     loadTeams(page, pageSize);
-  }, [loadTeams, page, pageSize]);
+  }, [loadTeams, page, pageSize, poolBracketId, editingTeam, accessToken]);
 
   return (
     <>
@@ -124,8 +171,8 @@ export default function TeamsTable({ tid, did, poolBracketId, showCreateButton =
         entityLabel="Team"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
-        onCreate={() => setEditorIsOpen(true)}
-        columns={teamColumns(showAuditColumns).filter(c => !hiddenColumns.includes(c.header))}
+        onCreate={handleCreate}
+        columns={teamColumns(showAuditColumns, showEditButton, handleEdit).filter(c => !hiddenColumns.includes(c.header))}
         rows={rows}
         totalCount={totalCount}
         getId={(t) => t.teamid}
@@ -138,8 +185,9 @@ export default function TeamsTable({ tid, did, poolBracketId, showCreateButton =
       <TeamEditorDialog
         tid={tid}
         lockedDivisionId={did}
+        team={editingTeam}
         isOpen={editorIsOpen}
-        onCancel={() => setEditorIsOpen(false)}
+        onCancel={() => { setEditorIsOpen(false); setEditingTeam(null); }}
         onSave={handleSave}
       />
     </>

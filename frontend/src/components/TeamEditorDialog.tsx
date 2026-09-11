@@ -25,6 +25,14 @@ import { UserAPI, type UserTS } from '../features/UserAPI'
 import { TeamAPI, type NewTeamPayload, type TeamTS } from '../features/TeamAPI'
 import { useAuth } from '../hooks/useAuth'
 
+/** Minimal shape needed to edit an existing team. */
+export interface EditableTeam {
+  teamid: string;
+  name: string;
+  did: string;
+  coachid: string;
+}
+
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
   ref: React.Ref<unknown>,
@@ -49,13 +57,16 @@ interface Props {
   isOpen: boolean;
   /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
   lockedDivisionId?: string;
+  /** When set, the dialog edits this existing team instead of creating a new one. */
+  team?: EditableTeam | null;
   onCancel: VoidFunction;
   onSave: (team: TeamTS) => void;
 }
 
 export const TeamEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, team, onCancel, onSave } = props;
   const { accessToken } = useAuth();
+  const isEdit = !!team;
   const [form, setForm] = useState<TeamFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
@@ -64,7 +75,11 @@ export const TeamEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
+    if (team) {
+      setForm({ name: team.name, did: team.did, coachid: team.coachid });
+    } else {
+      setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
+    }
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg('');
     setAlertOpened(false);
@@ -82,10 +97,13 @@ export const TeamEditorDialog = (props: Props) => {
         setUsers(userResult.items);
       })
       .catch(() => console.error('Failed to load form data for team editor'));
-  }, [isOpen, tid, lockedDivisionId]);
+  }, [isOpen, tid, lockedDivisionId, team]);
 
   const openCancelDialog = () => {
-    const isDirty = form.name !== '' || form.did !== '' || form.coachid !== '';
+    const initial = team
+      ? { name: team.name, did: team.did, coachid: team.coachid }
+      : { name: '', did: lockedDivisionId ?? '', coachid: '' };
+    const isDirty = form.name !== initial.name || form.did !== initial.did || form.coachid !== initial.coachid;
     if (!isDirty) {
       onCancel();
     } else {
@@ -116,15 +134,18 @@ export const TeamEditorDialog = (props: Props) => {
       return;
     }
 
-    const payload: NewTeamPayload = {
-      name: form.name,
-      did: form.did,
-      coachid: form.coachid,
-    };
-
     let result: TeamTS;
     try {
-      result = await TeamAPI.create(payload, accessToken);
+      if (team) {
+        result = await TeamAPI.update(team.teamid, { name: form.name, coachid: form.coachid }, accessToken);
+      } else {
+        const payload: NewTeamPayload = {
+          name: form.name,
+          did: form.did,
+          coachid: form.coachid,
+        };
+        result = await TeamAPI.create(payload, accessToken);
+      }
     } catch (err: any) {
       setErrorMsg('Failed to save: ' + err.message);
       setAlertOpened(true);
@@ -140,7 +161,7 @@ export const TeamEditorDialog = (props: Props) => {
     message: 'Cancel if you want to make more changes.',
     onCancel: () => setConfirmDialog(confirmDialogDefaultState),
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleSave(); },
-    title: 'Save new team?',
+    title: isEdit ? 'Save changes to this team?' : 'Save new team?',
   });
 
   const userLabel = (u: UserTS) =>
@@ -159,7 +180,7 @@ export const TeamEditorDialog = (props: Props) => {
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Create Team
+            {isEdit ? 'Edit Team' : 'Create Team'}
           </Typography>
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>
@@ -201,7 +222,7 @@ export const TeamEditorDialog = (props: Props) => {
                   onChange={(e) => setForm(s => ({ ...s, did: e.target.value }))}
                   displayEmpty
                   fullWidth
-                  disabled={!!lockedDivisionId}
+                  disabled={!!lockedDivisionId || isEdit}
                   renderValue={(val) => {
                     if (!val) return <em>Select a division</em>;
                     return divisions.find(d => d.did === val)?.dname ?? val;

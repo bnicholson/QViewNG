@@ -137,4 +137,19 @@ export const TeamAPI = {
     const response = await fetch(`/api/teams/${id}`, { method: 'DELETE', headers });
     if (!response.ok) await throwApiError('delete', response.status, await response.text());
   },
+  /** Associate a team with a pool bracket (adds it to the bracket's teamgroup) so it appears in the
+   *  bracket's Teams table. */
+  addToPoolBracket: async (bracketId: string, teamid: string, accessToken?: string): Promise<void> => {
+    const headers: Record<string, string> = {};
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const response = await fetch(`/api/poolbrackets/${bracketId}/teams/${teamid}`, { method: 'POST', headers });
+    if (!response.ok) await throwApiError('add to pool bracket', response.status, await response.text());
+  },
+  /** Remove a team from a pool bracket (deletes the association only; the team is untouched). */
+  removeFromPoolBracket: async (bracketId: string, teamid: string, accessToken?: string): Promise<void> => {
+    const headers: Record<string, string> = {};
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const response = await fetch(`/api/poolbrackets/${bracketId}/teams/${teamid}`, { method: 'DELETE', headers });
+    if (!response.ok) await throwApiError('remove from pool bracket', response.status, await response.text());
+  },
 };

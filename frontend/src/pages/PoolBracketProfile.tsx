@@ -82,10 +82,12 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
               entityLabel={label} onUpdated={setBracket} canEdit={isOwnerOrSuperUser} />
           )}
           {props.childRoute === 'teams' && (
-            // Teams are those associated with this pool bracket via its teamgroup; read-only here
-            // (membership is managed elsewhere, and row delete would delete the whole team).
-            <TeamsTable tid={tournament.tid} poolBracketId={bracketid}
-              showCreateButton={false} showDeleteButton={false}
+            // Teams associated with this pool bracket via its teamgroup. Creating a team here also
+            // adds it to this bracket; the row delete removes it from the bracket (not the team).
+            <TeamsTable tid={tournament.tid} did={division.did} poolBracketId={bracketid}
+              showCreateButton={canCreate('team:create')}
+              showEditButton={canCreate('team:update')}
+              showDeleteButton={canCreate('team:delete')}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}

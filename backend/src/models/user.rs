@@ -225,8 +225,10 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
 
+    // Alphabetical by display name (first, then last, then middle) so consumers such as the
+    // Coach dropdown get a sorted list straight from the API.
     users
-        .order(created_at)
+        .order((fname.asc(), lname.asc(), mname.asc()))
         .limit(page_size)
         .offset(offset_val)
         .load::<User>(db)
