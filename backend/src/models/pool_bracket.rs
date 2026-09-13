@@ -293,6 +293,88 @@ pub fn read_pool_bracket_rows_of_division(
     Ok((rows, total))
 }
 
+/// Returns one page of pool-bracket-table rows for a whole tournament (enriched), across every
+/// division and session, filtered to `type_val`, plus the total count for that type.
+pub fn read_pool_bracket_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    type_val: &str,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PoolBracketRow>, i64)> {
+    // Division id -> name for the tournament's divisions.
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(tid.eq(tournament_id)).select((did, dname)).load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+    if div_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    // Sessions across those divisions: id -> (name, division id).
+    let session_tuples: Vec<(Uuid, String, Uuid)> = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(did.eq_any(&div_ids)).select((division_session_id, name, did)).load::<(Uuid, String, Uuid)>(db)?
+    };
+    let session_ids: Vec<Uuid> = session_tuples.iter().map(|(id, _, _)| *id).collect();
+    let session_name_by_id: HashMap<Uuid, String> = session_tuples.iter().map(|(id, n, _)| (*id, n.clone())).collect();
+    let session_did_by_id: HashMap<Uuid, Uuid> = session_tuples.iter().map(|(id, _, d)| (*id, *d)).collect();
+    if session_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let total: i64 = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(division_session_id.eq_any(&session_ids))
+            .filter(type_.eq(type_val))
+            .count()
+            .get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let bracket_list: Vec<PoolBracket> = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(division_session_id.eq_any(&session_ids))
+            .filter(type_.eq(type_val))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<PoolBracket>(db)?
+    };
+
+    let name_ids: Vec<Uuid> = bracket_list.iter().map(|b| b.last_modified_userid).collect();
+    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
+
+    let rows = bracket_list
+        .into_iter()
+        .map(|b| {
+            let did_of = session_did_by_id.get(&b.division_session_id).cloned().unwrap_or_default();
+            PoolBracketRow {
+                pool_bracket_id: b.pool_bracket_id,
+                session_name: session_name_by_id.get(&b.division_session_id).cloned().unwrap_or_default(),
+                division_session_id: b.division_session_id,
+                did: did_of,
+                division_name: div_name_by_id.get(&did_of).cloned().unwrap_or_default(),
+                name: b.name,
+                type_: b.type_,
+                created_date: b.created_date,
+                last_modified_date: b.last_modified_date,
+                last_modified_user_name: name_by_id
+                    .get(&b.last_modified_userid)
+                    .cloned()
+                    .unwrap_or_else(|| b.last_modified_userid.to_string()),
+                last_modified_user_id: b.last_modified_userid,
+            }
+        })
+        .collect();
+
+    Ok((rows, total))
+}
+
 /// Returns one page of pool-bracket-table rows for a single division session (enriched), filtered
 /// to `type_val`, plus the total count for that type within the session.
 pub fn read_pool_bracket_rows_of_division_session(

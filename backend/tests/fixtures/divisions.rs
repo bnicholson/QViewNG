@@ -313,6 +313,40 @@ pub fn seed_get_pool_bracket_rows_by_division(db: &mut database::Connection) -> 
     division
 }
 
+/// Seeds one tournament with two divisions, each holding a session with pools and a bracket, so the
+/// tournament-scoped pool-bracket-rows endpoint can be exercised across divisions. Division A: two
+/// pools + one bracket; Division B: one pool + one bracket. Returns the tournament.
+pub fn seed_get_pool_bracket_rows_by_tournament(db: &mut database::Connection) -> Tournament {
+    let owner = UserBuilder::new_default("Pool Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+    let tournament = TournamentBuilder::new_default("Test Tour")
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let div_a = DivisionBuilder::new_default("Div A", tournament.tid).build_and_insert(db).unwrap();
+    let session_a = DivisionSessionBuilder::new(div_a.did)
+        .set_name("A Play").set_creator_userid(owner.id).build_and_insert(db).unwrap();
+    for name in ["Pool A1", "Pool A2"] {
+        PoolBracketBuilder::new(session_a.division_session_id)
+            .set_name(name).set_type("pool").set_creator_userid(owner.id).build_and_insert(db).unwrap();
+    }
+    PoolBracketBuilder::new(session_a.division_session_id)
+        .set_name("Bracket A1").set_type("bracket").set_creator_userid(owner.id).build_and_insert(db).unwrap();
+
+    let div_b = DivisionBuilder::new_default("Div B", tournament.tid).build_and_insert(db).unwrap();
+    let session_b = DivisionSessionBuilder::new(div_b.did)
+        .set_name("B Play").set_creator_userid(owner.id).build_and_insert(db).unwrap();
+    PoolBracketBuilder::new(session_b.division_session_id)
+        .set_name("Pool B1").set_type("pool").set_creator_userid(owner.id).build_and_insert(db).unwrap();
+    PoolBracketBuilder::new(session_b.division_session_id)
+        .set_name("Bracket B1").set_type("bracket").set_creator_userid(owner.id).build_and_insert(db).unwrap();
+
+    tournament
+}
+
 /// Seeds a division with three division sessions, plus a second division with its own session that
 /// must NOT leak into the first division's results. Returns the first division (which owns exactly
 /// three sessions).

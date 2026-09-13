@@ -1399,3 +1399,45 @@ async fn get_session_rows_of_tournament_works() {
     let other = body.items.iter().find(|s| s.name == "Other Session").unwrap();
     assert_eq!(other.division_name, "Other Div");
 }
+
+#[actix_web::test]
+async fn get_pool_bracket_rows_of_tournament_works() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // Two divisions: Div A (2 pools + 1 bracket), Div B (1 pool + 1 bracket).
+    let tournament = fixtures::divisions::seed_get_pool_bracket_rows_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    // type=pool → the three pools across both divisions.
+    let pool_uri = format!("/api/tournaments/{}/pool-bracket-rows?type=pool&page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let pool_resp = test::call_service(&app, test::TestRequest::get().uri(&pool_uri).to_request()).await;
+    assert_eq!(pool_resp.status(), StatusCode::OK);
+    let pool_body: PagedResponse<backend::models::pool_bracket::PoolBracketRow> = test::read_body_json(pool_resp).await;
+    assert_eq!(pool_body.count, 3);
+    let pool_names: Vec<&str> = pool_body.items.iter().map(|b| b.name.as_str()).collect();
+    assert!(pool_names.contains(&"Pool A1"));
+    assert!(pool_names.contains(&"Pool A2"));
+    assert!(pool_names.contains(&"Pool B1"));
+    // Rows are enriched with the correct division name for each bracket's division.
+    let b1 = pool_body.items.iter().find(|b| b.name == "Pool B1").unwrap();
+    assert_eq!(b1.division_name, "Div B");
+
+    // type=bracket → the two brackets across both divisions.
+    let bracket_uri = format!("/api/tournaments/{}/pool-bracket-rows?type=bracket&page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let bracket_resp = test::call_service(&app, test::TestRequest::get().uri(&bracket_uri).to_request()).await;
+    assert_eq!(bracket_resp.status(), StatusCode::OK);
+    let bracket_body: PagedResponse<backend::models::pool_bracket::PoolBracketRow> = test::read_body_json(bracket_resp).await;
+    assert_eq!(bracket_body.count, 2);
+    let names: Vec<&str> = bracket_body.items.iter().map(|b| b.name.as_str()).collect();
+    assert!(names.contains(&"Bracket A1"));
+    assert!(names.contains(&"Bracket B1"));
+    assert!(!names.contains(&"Pool A1"));
+}

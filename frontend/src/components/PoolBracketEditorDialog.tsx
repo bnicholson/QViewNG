@@ -20,7 +20,7 @@ import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
-import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
+import { DivisionSessionAPI } from '../features/DivisionSessionAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -41,11 +41,19 @@ const emptyState: FormState = {
   name: "",
 };
 
+/** One selectable session in the dropdown. */
+interface SessionOption {
+  id: string;
+  label: string;
+}
+
 interface Props {
-  /** Tournament the division belongs to (unused directly; kept for symmetry with other dialogs). */
+  /** Tournament the sessions belong to; used to list sessions across all divisions when `did` is
+   *  omitted (tournament-level table). */
   tid: string;
-  /** Division whose sessions the bracket may belong to. */
-  did: string;
+  /** When set, only this division's sessions are offered; when omitted, every session in the
+   *  tournament is offered (labelled with its division). */
+  did?: string;
   /** The pool_brackets `type` this dialog manages (e.g. "pool" or "bracket"). */
   type: string;
   /** Singular label for the entity ("Pool", "Bracket"). */
@@ -64,7 +72,7 @@ export const PoolBracketEditorDialog = (props: Props) => {
   const { accessToken } = useAuth();
   const isEdit = !!bracket;
   const [form, setForm] = useState<FormState>(emptyState);
-  const [sessions, setSessions] = useState<DivisionSessionTS[]>([]);
+  const [sessions, setSessions] = useState<SessionOption[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
@@ -83,10 +91,17 @@ export const PoolBracketEditorDialog = (props: Props) => {
   useEffect(() => {
     if (!isOpen) return;
     resetState();
-    DivisionSessionAPI.getByDivision(did)
-      .then(items => setSessions(items))
+    // Division-scoped: only that division's sessions. Tournament-scoped: every session, labelled
+    // with its division so identically-named sessions across divisions stay distinguishable.
+    const loader: Promise<SessionOption[]> = did
+      ? DivisionSessionAPI.getByDivision(did)
+          .then(items => items.map(s => ({ id: s.division_session_id, label: s.name })))
+      : DivisionSessionAPI.getRowsByTournament(tid, 0, 500)
+          .then(res => res.items.map(s => ({ id: s.division_session_id, label: `${s.name} (${s.division_name})` })));
+    loader
+      .then(setSessions)
       .catch(() => console.error("Failed to load sessions for pool/bracket form"));
-  }, [isOpen, did, bracket]);
+  }, [isOpen, did, tid, bracket]);
 
   const openCancelDialog = () => {
     const initial = bracket
@@ -206,11 +221,11 @@ export const PoolBracketEditorDialog = (props: Props) => {
                   disabled={isEdit || !!lockedSessionId}
                   renderValue={(val) => {
                     if (!val) return <em>Select a session</em>;
-                    return sessions.find(s => s.division_session_id === val)?.name ?? val;
+                    return sessions.find(s => s.id === val)?.label ?? val;
                   }}
                 >
                   {sessions.map(s => (
-                    <MenuItem key={s.division_session_id} value={s.division_session_id}>{s.name}</MenuItem>
+                    <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>
                   ))}
                 </Select>
               </Grid>

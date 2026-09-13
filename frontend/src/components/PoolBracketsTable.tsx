@@ -93,7 +93,9 @@ export default function PoolBracketsTable({
   hiddenColumns = [],
 }: {
   tid: string;
-  did: string;
+  /** When set, rows are scoped to this division; when omitted (and no `sessionId`), to the whole
+   *  tournament (`tid`). */
+  did?: string;
   /** When set, rows are scoped to this single division session (not the whole division), and new
    *  brackets are created under it. */
   sessionId?: string;
@@ -120,7 +122,9 @@ export default function PoolBracketsTable({
     setLoading(true);
     const request = sessionId
       ? PoolBracketAPI.getRowsByDivisionSession(sessionId, type, p, ps)
-      : PoolBracketAPI.getRowsByDivision(did, type, p, ps);
+      : did
+        ? PoolBracketAPI.getRowsByDivision(did, type, p, ps)
+        : PoolBracketAPI.getRowsByTournament(tid, type, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -130,11 +134,11 @@ export default function PoolBracketsTable({
       })
       .catch(() => console.error("Failed to load pool brackets"))
       .finally(() => setLoading(false));
-  }, [did, sessionId, type]);
+  }, [tid, did, sessionId, type]);
 
   useEffect(() => {
     loadBrackets(0, pageSizeRef.current);
-  }, [did, sessionId, type]);
+  }, [tid, did, sessionId, type]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadBrackets(newPage, pageSize);
@@ -178,7 +182,7 @@ export default function PoolBracketsTable({
     <>
       <DataTableTemplate<PoolBracketRowTS>
         loading={loading}
-        key={`${sessionId ?? did}-${type}`}
+        key={`${sessionId ?? did ?? tid}-${type}`}
         entityLabel={entityLabel}
         title={title}
         createLabel={`Create ${entityLabel}`}

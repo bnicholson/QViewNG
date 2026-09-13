@@ -368,6 +368,37 @@ async fn read_round_rows(
     }
 }
 
+/// Query params for the tournament pool-bracket rows endpoint: pagination plus the `type` filter
+/// (e.g. "pool" or "bracket").
+#[derive(serde::Deserialize)]
+struct PoolBracketRowsParams {
+    page: i64,
+    page_size: i64,
+    #[serde(rename = "type")]
+    type_: String,
+}
+
+/// Returns fully-formed pool-bracket rows (bracket + session/division names + last-modified user)
+/// across every division in the tournament, filtered by `type`, in a single paginated call.
+#[get("/{id}/pool-bracket-rows")]
+async fn read_pool_bracket_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PoolBracketRowsParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let pagination = PaginationParams { page: params.page, page_size: params.page_size };
+    match models::pool_bracket::read_pool_bracket_rows_of_tournament(&mut conn, item_id.into_inner(), &params.type_, &pagination) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Returns fully-formed division-session rows (session + division name + last-modified user name)
 /// across every division in the tournament, in a single paginated call.
 #[get("/{id}/session-rows")]
@@ -815,6 +846,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_team_rows)
         .service(read_round_rows)
         .service(read_session_rows)
+        .service(read_pool_bracket_rows)
         .service(read_game_rows)
         .service(read_games)
         .service(read_game_statuses)
