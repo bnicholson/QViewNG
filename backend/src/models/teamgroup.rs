@@ -81,6 +81,7 @@ pub struct TeamGroup {
     pub creator_userid: Uuid,
     pub last_modified_date: DateTime<Utc>,
     pub last_modified_userid: Uuid,
+    pub del_fl: bool,                         // soft-delete flag
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -111,23 +112,29 @@ pub fn create(db: &mut database::Connection, item: &NewTeamGroup) -> QueryResult
 
 pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
     use crate::schema::teamgroups::dsl::*;
-    teamgroups.find(item_id).get_result::<TeamGroup>(db).is_ok()
+    teamgroups.find(item_id).filter(del_fl.eq(false)).get_result::<TeamGroup>(db).is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<TeamGroup> {
+    use crate::schema::teamgroups::dsl::*;
+    teamgroups.filter(team_group_id.eq(item_id)).filter(del_fl.eq(false)).first::<TeamGroup>(db)
+}
+
+/// Read ignoring the soft-delete flag — used by purge, which must resolve even a soft-deleted row.
+pub fn read_including_deleted(db: &mut database::Connection, item_id: Uuid) -> QueryResult<TeamGroup> {
     use crate::schema::teamgroups::dsl::*;
     teamgroups.filter(team_group_id.eq(item_id)).first::<TeamGroup>(db)
 }
 
 pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<TeamGroup>> {
     use crate::schema::teamgroups::dsl::*;
-    teamgroups.order(created_date).load::<TeamGroup>(db)
+    teamgroups.filter(del_fl.eq(false)).order(created_date).load::<TeamGroup>(db)
 }
 
 /// The single team group belonging to the given pool bracket (they are one-to-one).
 pub fn read_of_pool_bracket(db: &mut database::Connection, bracket_id: Uuid) -> QueryResult<TeamGroup> {
     use crate::schema::teamgroups::dsl::*;
-    teamgroups.filter(pool_bracket_id.eq(bracket_id)).first::<TeamGroup>(db)
+    teamgroups.filter(pool_bracket_id.eq(bracket_id)).filter(del_fl.eq(false)).first::<TeamGroup>(db)
 }
 
 /// Returns the pool bracket's 1-to-1 team group, creating it (inheriting the bracket's `type`) if
@@ -160,7 +167,16 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamGroupChan
         .get_result(db)
 }
 
+/// Soft delete: hide the team group by setting its `del_fl`.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::teamgroups::dsl::*;
+    diesel::update(teamgroups.filter(team_group_id.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the team group row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::teamgroups::dsl::*;
     diesel::delete(teamgroups.filter(team_group_id.eq(item_id))).execute(db)
 }

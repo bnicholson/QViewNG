@@ -77,6 +77,7 @@ pub struct DivisionSession {
     pub last_modified_date: DateTime<Utc>,
     pub last_modified_userid: Uuid,
     pub name: String,                         // unique within the parent division
+    pub del_fl: bool,                         // soft-delete flag
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -111,6 +112,7 @@ pub fn name_exists_in_division(
     let mut query = division_sessions
         .filter(did.eq(division_id))
         .filter(name.eq(name_val))
+        .filter(del_fl.eq(false))
         .into_boxed();
     if let Some(ex) = exclude {
         query = query.filter(division_session_id.ne(ex));
@@ -132,23 +134,29 @@ pub fn create(db: &mut database::Connection, item: &NewDivisionSession) -> Query
 
 pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
     use crate::schema::division_sessions::dsl::*;
-    division_sessions.find(item_id).get_result::<DivisionSession>(db).is_ok()
+    division_sessions.find(item_id).filter(del_fl.eq(false)).get_result::<DivisionSession>(db).is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<DivisionSession> {
+    use crate::schema::division_sessions::dsl::*;
+    division_sessions.filter(division_session_id.eq(item_id)).filter(del_fl.eq(false)).first::<DivisionSession>(db)
+}
+
+/// Read ignoring the soft-delete flag — used by purge, which must resolve even a soft-deleted row.
+pub fn read_including_deleted(db: &mut database::Connection, item_id: Uuid) -> QueryResult<DivisionSession> {
     use crate::schema::division_sessions::dsl::*;
     division_sessions.filter(division_session_id.eq(item_id)).first::<DivisionSession>(db)
 }
 
 pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<DivisionSession>> {
     use crate::schema::division_sessions::dsl::*;
-    division_sessions.order(created_date).load::<DivisionSession>(db)
+    division_sessions.filter(del_fl.eq(false)).order(created_date).load::<DivisionSession>(db)
 }
 
 /// All sessions belonging to the given division.
 pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<DivisionSession>> {
     use crate::schema::division_sessions::dsl::*;
-    division_sessions.filter(did.eq(division_id)).order(created_date).load::<DivisionSession>(db)
+    division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).order(created_date).load::<DivisionSession>(db)
 }
 
 /// One fully-formed row of the sessions data table: the session plus its division name and the
@@ -180,7 +188,7 @@ pub fn read_session_rows_of_division(
 
     let total: i64 = {
         use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).count().get_result(db)?
+        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
@@ -189,6 +197,7 @@ pub fn read_session_rows_of_division(
         use crate::schema::division_sessions::dsl::*;
         division_sessions
             .filter(did.eq(division_id))
+            .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -239,7 +248,7 @@ pub fn read_session_rows_of_tournament(
 
     let total: i64 = {
         use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq_any(&div_ids)).count().get_result(db)?
+        division_sessions.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
@@ -248,6 +257,7 @@ pub fn read_session_rows_of_tournament(
         use crate::schema::division_sessions::dsl::*;
         division_sessions
             .filter(did.eq_any(&div_ids))
+            .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -297,7 +307,16 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionSessi
         .get_result(db)
 }
 
+/// Soft delete: hide the session by setting its `del_fl`.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::division_sessions::dsl::*;
+    diesel::update(division_sessions.filter(division_session_id.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the session row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::division_sessions::dsl::*;
     diesel::delete(division_sessions.filter(division_session_id.eq(item_id))).execute(db)
 }

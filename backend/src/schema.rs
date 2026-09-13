@@ -97,6 +97,7 @@ diesel::table! {
         last_modified_userid -> Uuid,
         #[max_length = 64]
         name -> Varchar,
+        del_fl -> Bool,
     }
 }
 
@@ -374,6 +375,7 @@ diesel::table! {
         last_modified_userid -> Uuid,
         #[max_length = 64]
         name -> Varchar,
+        del_fl -> Bool,
     }
 }
 
@@ -614,6 +616,7 @@ diesel::table! {
         creator_userid -> Uuid,
         last_modified_date -> Timestamptz,
         last_modified_userid -> Uuid,
+        del_fl -> Bool,
     }
 }
 

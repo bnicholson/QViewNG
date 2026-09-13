@@ -268,6 +268,59 @@ async fn destroy(
     }
 }
 
+/// Purge: permanently remove a division session (including soft-deleted ones). Not used by the
+/// frontend — the app deletes via the soft-delete `destroy` endpoint.
+#[delete("/{id}/purge")]
+async fn purge(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let session_id = item_id.into_inner();
+
+    // read_including_deleted so an already soft-deleted session can still be purged.
+    let session = match models::division_session::read_including_deleted(&mut conn, session_id) {
+        Ok(s) => s,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let division = match models::division::read(&mut conn, session.did) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::Division.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    match models::division_session::purge(&mut conn, session_id) {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
@@ -276,5 +329,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_game_rows)
         .service(create)
         .service(update)
+        .service(purge)
         .service(destroy);
 }

@@ -6,7 +6,7 @@ use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::database::Database;
 use backend::models::division_session::DivisionSessionBuilder;
-use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder};
+use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder, PoolBracketRow};
 use backend::models::team::TeamBuilder;
 use backend::models::team::TeamRow;
 use backend::models::game::GameRow;
@@ -397,4 +397,66 @@ async fn delete_works() {
 
     // The bracket is gone.
     assert!(backend::models::pool_bracket::read(&mut conn, bracket.pool_bracket_id).is_err());
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_tournament, division, owner, _admin_user, unrelated_user) =
+        fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
+
+    let session = DivisionSessionBuilder::new(division.did)
+        .set_name("Pool Play").set_creator_userid(owner.id)
+        .build_and_insert(&mut conn).unwrap();
+    let bracket = PoolBracketBuilder::new(session.division_session_id)
+        .set_name("Pool A").set_type("pool").set_creator_userid(owner.id)
+        .build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+
+    // ── DELETE is a soft delete: hidden from reads but still present. ──
+    let del_resp = test::call_service(&app, test::TestRequest::delete()
+        .uri(&format!("/api/poolbrackets/{}", bracket.pool_bracket_id))
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(del_resp.status(), StatusCode::OK);
+
+    assert!(backend::models::pool_bracket::read(&mut conn, bracket.pool_bracket_id).is_err(),
+        "soft-deleted bracket should be hidden from read");
+    let raw = backend::models::pool_bracket::read_including_deleted(&mut conn, bracket.pool_bracket_id).unwrap();
+    assert!(raw.del_fl, "row should remain with del_fl = true");
+
+    // It no longer appears in the division's pool rows.
+    let rows_resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/divisions/{}/pool-bracket-rows?type=pool&page={}&page_size={}", division.did, PAGE_NUM, PAGE_SIZE))
+        .to_request()).await;
+    let rows: PagedResponse<PoolBracketRow> = test::read_body_json(rows_resp).await;
+    assert_eq!(rows.count, 0, "soft-deleted bracket should be excluded from rows");
+
+    // ── Purge: unrelated user rejected. ──
+    let unrelated_purge = test::call_service(&app, test::TestRequest::delete()
+        .uri(&format!("/api/poolbrackets/{}/purge", bracket.pool_bracket_id))
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .to_request()).await;
+    assert_eq!(unrelated_purge.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Purge permanently removes the (already soft-deleted) row. ──
+    let purge_resp = test::call_service(&app, test::TestRequest::delete()
+        .uri(&format!("/api/poolbrackets/{}/purge", bracket.pool_bracket_id))
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(purge_resp.status(), StatusCode::OK);
+    assert!(backend::models::pool_bracket::read_including_deleted(&mut conn, bracket.pool_bracket_id).is_err(),
+        "purged bracket row should be gone");
 }

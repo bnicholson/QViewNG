@@ -386,3 +386,64 @@ async fn delete_works() {
     // The session is gone.
     assert!(backend::models::division_session::read(&mut conn, session.division_session_id).is_err());
 }
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_tournament, division, owner, _admin_user, unrelated_user) =
+        fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
+
+    let session = DivisionSessionBuilder::new(division.did)
+        .set_name("Pool Play")
+        .set_creator_userid(owner.id)
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+
+    // ── DELETE is a soft delete: the row is hidden from reads but still present. ──
+    let del_resp = test::call_service(&app, test::TestRequest::delete()
+        .uri(&format!("/api/divisionsessions/{}", session.division_session_id))
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(del_resp.status(), StatusCode::OK);
+
+    assert!(backend::models::division_session::read(&mut conn, session.division_session_id).is_err(),
+        "soft-deleted session should be hidden from read");
+    let raw = backend::models::division_session::read_including_deleted(&mut conn, session.division_session_id).unwrap();
+    assert!(raw.del_fl, "row should remain with del_fl = true");
+
+    // It no longer appears in the division's sessions list.
+    let list_resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/divisions/{}/sessions", division.did))
+        .to_request()).await;
+    let list: Vec<DivisionSession> = test::read_body_json(list_resp).await;
+    assert!(list.is_empty(), "soft-deleted session should be excluded from the list");
+
+    // ── Purge: unrelated user is rejected. ──
+    let unrelated_purge = test::call_service(&app, test::TestRequest::delete()
+        .uri(&format!("/api/divisionsessions/{}/purge", session.division_session_id))
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .to_request()).await;
+    assert_eq!(unrelated_purge.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Purge permanently removes the (already soft-deleted) row. ──
+    let purge_resp = test::call_service(&app, test::TestRequest::delete()
+        .uri(&format!("/api/divisionsessions/{}/purge", session.division_session_id))
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request()).await;
+    assert_eq!(purge_resp.status(), StatusCode::OK);
+    assert!(backend::models::division_session::read_including_deleted(&mut conn, session.division_session_id).is_err(),
+        "purged session row should be gone");
+}

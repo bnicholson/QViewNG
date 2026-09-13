@@ -355,6 +355,50 @@ async fn destroy(
     }
 }
 
+/// Purge: permanently remove a pool bracket (including soft-deleted ones). Not used by the
+/// frontend — the app deletes via the soft-delete `destroy` endpoint.
+#[delete("/{id}/purge")]
+async fn purge(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let bracket_id = item_id.into_inner();
+
+    // read_including_deleted so an already soft-deleted bracket can still be purged.
+    let bracket = match models::pool_bracket::read_including_deleted(&mut conn, bracket_id) {
+        Ok(b) => b,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+        Some(r) => r,
+        None => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+
+    let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
+    let delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::Division.as_str()).is_err() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    match models::pool_bracket::purge(&mut conn, bracket_id) {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
@@ -365,5 +409,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(remove_team)
         .service(create)
         .service(update)
+        .service(purge)
         .service(destroy);
 }

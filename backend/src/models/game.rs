@@ -500,7 +500,7 @@ pub fn read_all_games_of_pool_bracket(db: &mut database::Connection, bracket_id:
 pub fn read_all_games_of_division_session(db: &mut database::Connection, session_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     let bracket_ids: Vec<Uuid> = {
         use crate::schema::pool_brackets::dsl::*;
-        pool_brackets.filter(division_session_id.eq(session_id)).select(pool_bracket_id).load::<Uuid>(db)?
+        pool_brackets.filter(division_session_id.eq(session_id)).filter(del_fl.eq(false)).select(pool_bracket_id).load::<Uuid>(db)?
     };
     if bracket_ids.is_empty() {
         return Ok(Vec::new());
@@ -789,7 +789,7 @@ pub fn read_game_rows_of_division_session(
     };
     let bracket_ids: Vec<Uuid> = {
         use crate::schema::pool_brackets::dsl::*;
-        pool_brackets.filter(division_session_id.eq(session_id)).select(pool_bracket_id).load::<Uuid>(db)?
+        pool_brackets.filter(division_session_id.eq(session_id)).filter(del_fl.eq(false)).select(pool_bracket_id).load::<Uuid>(db)?
     };
     let total: i64 = {
         use crate::schema::games::dsl::*;

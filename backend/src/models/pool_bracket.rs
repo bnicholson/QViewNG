@@ -92,6 +92,7 @@ pub struct PoolBracket {
     pub last_modified_date: DateTime<Utc>,
     pub last_modified_userid: Uuid,
     pub name: String,                         // unique within the parent division session
+    pub del_fl: bool,                         // soft-delete flag
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -133,6 +134,7 @@ pub fn name_exists_in_division_session(
     let mut query = pool_brackets
         .filter(division_session_id.eq(session_id))
         .filter(name.eq(name_val))
+        .filter(del_fl.eq(false))
         .into_boxed();
     if let Some(ex) = exclude {
         query = query.filter(pool_bracket_id.ne(ex));
@@ -154,34 +156,41 @@ pub fn create(db: &mut database::Connection, item: &NewPoolBracket) -> QueryResu
 
 pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
     use crate::schema::pool_brackets::dsl::*;
-    pool_brackets.find(item_id).get_result::<PoolBracket>(db).is_ok()
+    pool_brackets.find(item_id).filter(del_fl.eq(false)).get_result::<PoolBracket>(db).is_ok()
 }
 
 pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<PoolBracket> {
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets.filter(pool_bracket_id.eq(item_id)).filter(del_fl.eq(false)).first::<PoolBracket>(db)
+}
+
+/// Read ignoring the soft-delete flag — used by purge, which must resolve even a soft-deleted row.
+pub fn read_including_deleted(db: &mut database::Connection, item_id: Uuid) -> QueryResult<PoolBracket> {
     use crate::schema::pool_brackets::dsl::*;
     pool_brackets.filter(pool_bracket_id.eq(item_id)).first::<PoolBracket>(db)
 }
 
 pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<PoolBracket>> {
     use crate::schema::pool_brackets::dsl::*;
-    pool_brackets.order(created_date).load::<PoolBracket>(db)
+    pool_brackets.filter(del_fl.eq(false)).order(created_date).load::<PoolBracket>(db)
 }
 
 /// All pool brackets belonging to the given division session.
 pub fn read_all_of_division_session(db: &mut database::Connection, session_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
     use crate::schema::pool_brackets::dsl::*;
-    pool_brackets.filter(division_session_id.eq(session_id)).order(created_date).load::<PoolBracket>(db)
+    pool_brackets.filter(division_session_id.eq(session_id)).filter(del_fl.eq(false)).order(created_date).load::<PoolBracket>(db)
 }
 
 /// All pool brackets in the given division, across all of its division sessions.
 pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
     let session_ids: Vec<Uuid> = {
         use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).select(division_session_id).load::<Uuid>(db)?
+        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).select(division_session_id).load::<Uuid>(db)?
     };
     use crate::schema::pool_brackets::dsl::*;
     pool_brackets
         .filter(division_session_id.eq_any(&session_ids))
+        .filter(del_fl.eq(false))
         .order(created_date)
         .load::<PoolBracket>(db)
 }
@@ -191,12 +200,13 @@ pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) ->
 pub fn read_all_of_division_by_type(db: &mut database::Connection, division_id: Uuid, type_val: &str) -> QueryResult<Vec<PoolBracket>> {
     let session_ids: Vec<Uuid> = {
         use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).select(division_session_id).load::<Uuid>(db)?
+        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).select(division_session_id).load::<Uuid>(db)?
     };
     use crate::schema::pool_brackets::dsl::*;
     pool_brackets
         .filter(division_session_id.eq_any(&session_ids))
         .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
         .order(created_date)
         .load::<PoolBracket>(db)
 }
@@ -236,7 +246,7 @@ pub fn read_pool_bracket_rows_of_division(
     };
     let session_pairs: Vec<(Uuid, String)> = {
         use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).select((division_session_id, name)).load::<(Uuid, String)>(db)?
+        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).select((division_session_id, name)).load::<(Uuid, String)>(db)?
     };
     let session_ids: Vec<Uuid> = session_pairs.iter().map(|(id, _)| *id).collect();
     let session_name_by_id: HashMap<Uuid, String> = session_pairs.into_iter().collect();
@@ -250,6 +260,7 @@ pub fn read_pool_bracket_rows_of_division(
         pool_brackets
             .filter(division_session_id.eq_any(&session_ids))
             .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
             .count()
             .get_result(db)?
     };
@@ -261,6 +272,7 @@ pub fn read_pool_bracket_rows_of_division(
         pool_brackets
             .filter(division_session_id.eq_any(&session_ids))
             .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -315,7 +327,7 @@ pub fn read_pool_bracket_rows_of_tournament(
     // Sessions across those divisions: id -> (name, division id).
     let session_tuples: Vec<(Uuid, String, Uuid)> = {
         use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq_any(&div_ids)).select((division_session_id, name, did)).load::<(Uuid, String, Uuid)>(db)?
+        division_sessions.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).select((division_session_id, name, did)).load::<(Uuid, String, Uuid)>(db)?
     };
     let session_ids: Vec<Uuid> = session_tuples.iter().map(|(id, _, _)| *id).collect();
     let session_name_by_id: HashMap<Uuid, String> = session_tuples.iter().map(|(id, n, _)| (*id, n.clone())).collect();
@@ -329,6 +341,7 @@ pub fn read_pool_bracket_rows_of_tournament(
         pool_brackets
             .filter(division_session_id.eq_any(&session_ids))
             .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
             .count()
             .get_result(db)?
     };
@@ -340,6 +353,7 @@ pub fn read_pool_bracket_rows_of_tournament(
         pool_brackets
             .filter(division_session_id.eq_any(&session_ids))
             .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -394,6 +408,7 @@ pub fn read_pool_bracket_rows_of_division_session(
         pool_brackets
             .filter(division_session_id.eq(session_id))
             .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
             .count()
             .get_result(db)?
     };
@@ -405,6 +420,7 @@ pub fn read_pool_bracket_rows_of_division_session(
         pool_brackets
             .filter(division_session_id.eq(session_id))
             .filter(type_.eq(type_val))
+        .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
@@ -487,7 +503,16 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &PoolBracketCh
         .get_result(db)
 }
 
+/// Soft delete: hide the pool bracket by setting its `del_fl`.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
+    use crate::schema::pool_brackets::dsl::*;
+    diesel::update(pool_brackets.filter(pool_bracket_id.eq(item_id)))
+        .set(del_fl.eq(true))
+        .execute(db)
+}
+
+/// Purge: permanently remove the pool bracket row from the database.
+pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::pool_brackets::dsl::*;
     diesel::delete(pool_brackets.filter(pool_bracket_id.eq(item_id))).execute(db)
 }
