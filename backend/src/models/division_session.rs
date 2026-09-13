@@ -218,6 +218,65 @@ pub fn read_session_rows_of_division(
     Ok((rows, total))
 }
 
+/// Returns one page of session-table rows for the whole tournament (enriched), across every
+/// division, plus the total session count.
+pub fn read_session_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<DivisionSessionRow>, i64)> {
+    // Division id -> name for the tournament's divisions.
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(tid.eq(tournament_id)).select((did, dname)).load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+
+    if div_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let total: i64 = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(did.eq_any(&div_ids)).count().get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let session_list: Vec<DivisionSession> = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions
+            .filter(did.eq_any(&div_ids))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<DivisionSession>(db)?
+    };
+
+    let name_ids: Vec<Uuid> = session_list.iter().map(|s| s.last_modified_userid).collect();
+    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
+
+    let rows = session_list
+        .into_iter()
+        .map(|s| DivisionSessionRow {
+            division_session_id: s.division_session_id,
+            division_name: div_name_by_id.get(&s.did).cloned().unwrap_or_default(),
+            did: s.did,
+            name: s.name,
+            created_date: s.created_date,
+            last_modified_date: s.last_modified_date,
+            last_modified_user_name: name_by_id
+                .get(&s.last_modified_userid)
+                .cloned()
+                .unwrap_or_else(|| s.last_modified_userid.to_string()),
+            last_modified_user_id: s.last_modified_userid,
+        })
+        .collect();
+
+    Ok((rows, total))
+}
+
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionSessionChangeset, modified_by: Uuid) -> QueryResult<DivisionSession> {
     // Enforce name uniqueness within the (possibly changed) parent division.
     let existing = read(db, item_id)?;

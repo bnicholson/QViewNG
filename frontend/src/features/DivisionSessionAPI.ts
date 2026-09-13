@@ -45,6 +45,9 @@ export const DivisionSessionAPI = {
   /** One page of the division's enriched session rows, plus total count. */
   getRowsByDivision: async (did: string, page: number, size: number): Promise<PagedDivisionSessionRows> =>
     (await fetch(`/api/divisions/${did}/session-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the tournament's enriched session rows (across all divisions), plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedDivisionSessionRows> =>
+    (await fetch(`/api/tournaments/${tid}/session-rows?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<DivisionSessionTS> => {
     const response = await fetch(`/api/divisionsessions/${id}`);
     if (!response.ok) throw new Error(`Session not found (${response.status})`);

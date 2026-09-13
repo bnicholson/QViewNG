@@ -71,7 +71,8 @@ function sessionColumns(
 
 export default function SessionsTable({ tid, did, showCreateButton = true, showEditButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: {
   tid: string;
-  did: string;
+  /** When set, rows are scoped to this division; otherwise to the whole tournament (`tid`). */
+  did?: string;
   showCreateButton?: boolean;
   showEditButton?: boolean;
   showDeleteButton?: boolean;
@@ -91,7 +92,10 @@ export default function SessionsTable({ tid, did, showCreateButton = true, showE
 
   const loadSessions = useCallback((p: number, ps: number) => {
     setLoading(true);
-    DivisionSessionAPI.getRowsByDivision(did, p, ps)
+    const request = did
+      ? DivisionSessionAPI.getRowsByDivision(did, p, ps)
+      : DivisionSessionAPI.getRowsByTournament(tid, p, ps);
+    request
       .then(({ count, items }) => {
         setRows(items);
         setTotalCount(count);
@@ -100,11 +104,11 @@ export default function SessionsTable({ tid, did, showCreateButton = true, showE
       })
       .catch(() => console.error("Failed to load sessions"))
       .finally(() => setLoading(false));
-  }, [did]);
+  }, [tid, did]);
 
   useEffect(() => {
     loadSessions(0, pageSizeRef.current);
-  }, [did]);
+  }, [tid, did]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadSessions(newPage, pageSize);
@@ -147,7 +151,7 @@ export default function SessionsTable({ tid, did, showCreateButton = true, showE
     <>
       <DataTableTemplate<DivisionSessionRowTS>
         loading={loading}
-        key={did}
+        key={did ?? tid}
         entityLabel="Session"
         title="Sessions"
         showCreateButton={showCreateButton}

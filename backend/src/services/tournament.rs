@@ -368,6 +368,26 @@ async fn read_round_rows(
     }
 }
 
+/// Returns fully-formed division-session rows (session + division name + last-modified user name)
+/// across every division in the tournament, in a single paginated call.
+#[get("/{id}/session-rows")]
+async fn read_session_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::division_session::read_session_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Returns fully-formed team data-table rows (team + division name + coach name) for the
 /// whole tournament in a single call, so the teams table needs only one request.
 #[get("/{id}/team-rows")]
@@ -794,6 +814,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_quizzer_rows)
         .service(read_team_rows)
         .service(read_round_rows)
+        .service(read_session_rows)
         .service(read_game_rows)
         .service(read_games)
         .service(read_game_statuses)
