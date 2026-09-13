@@ -13,6 +13,11 @@ export interface TeamTS {
   quizzer_six_id: string | null;
 }
 
+/** A team plus its division name — the shape returned by the "my registered teams" endpoint. */
+export interface MyTeamTS extends TeamTS {
+  division_name: string;
+}
+
 export interface NewTeamPayload {
   did: string;
   coachid: string;
@@ -92,6 +97,15 @@ async function throwApiError(verb: string, status: number, body: string): Promis
 export const TeamAPI = {
   get: async (page: number, size: number): Promise<PagedTeams> =>
     (await fetch(`/api/teams?page=${page}&page_size=${size}`)).json(),
+  /** The logged-in user's registered teams for a tournament, enriched with division name — one call
+   *  that fully populates the Team registration page's "My Registered Teams" table. */
+  getMyByTournament: async (tid: string, accessToken?: string): Promise<MyTeamTS[]> => {
+    const res = await fetch(`/api/tournaments/${tid}/my-teams`, {
+      headers: { ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) },
+    });
+    if (!res.ok) throw new Error(`Failed to load your teams (${res.status})`);
+    return res.json();
+  },
   getByTournament: async (tid: string, page: number, size: number): Promise<PagedTeamsWithCoach> =>
     (await fetch(`/api/tournaments/${tid}/teams?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<TeamTS[]> =>

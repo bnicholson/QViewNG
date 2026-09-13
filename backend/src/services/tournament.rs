@@ -307,6 +307,108 @@ async fn read_teams(
     }
 }
 
+/// The logged-in user's registered teams for this tournament, enriched with division name — a
+/// single call that fully populates the Team registration page's "My Registered Teams" table.
+#[get("/{id}/my-teams")]
+async fn read_my_teams(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+
+    match models::team::read_teams_of_tournament_for_coach(&mut conn, item_id.into_inner(), user_ctx.user_id) {
+        Ok(rows) => HttpResponse::Ok().json(rows),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// The logged-in user's gear sets with each item's detail and its registration status for this
+/// tournament — one call that fully populates the Gear registration page.
+#[get("/{id}/my-gear-registration")]
+async fn read_my_gear_registration(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+
+    match models::equipmentset::read_owner_gear_with_registration(&mut conn, user_ctx.user_id, item_id.into_inner()) {
+        Ok(data) => HttpResponse::Ok().json(data),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Payload for registering several pieces of gear for a tournament in one call.
+#[derive(Deserialize)]
+struct BulkGearRegistrationPayload {
+    equipment_ids: Vec<i64>,
+    /// Initial status for each new registration; defaults when omitted.
+    status: Option<String>,
+}
+
+/// Registers many pieces of gear for this tournament in a single call. Pieces already registered
+/// are skipped. Returns the registrations that were created.
+#[post("/{id}/gear-registrations")]
+async fn create_gear_registrations(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Json(body): Json<BulkGearRegistrationPayload>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    if extensions.get::<UserContext>().is_none() {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    let tournament_id = item_id.into_inner();
+    let status = body.status.unwrap_or_else(|| "Not Yet Received from Owner".to_string());
+
+    // Skip pieces already registered for this tournament so re-submitting a set is idempotent.
+    let existing: std::collections::HashSet<i64> = models::equipmentregistration::read_all_equipmentregistrations_of_tournament(
+        &mut conn, tournament_id, &PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 },
+    ).unwrap_or_default().into_iter().map(|r| r.equipmentid).collect();
+
+    let mut created = Vec::new();
+    for equipment_id in body.equipment_ids {
+        if existing.contains(&equipment_id) { continue; }
+        let new_reg = models::equipmentregistration::NewEquipmentRegistration {
+            equipmentid: equipment_id,
+            tournamentid: tournament_id,
+            roomid: None,
+            status: status.clone(),
+        };
+        if let Ok(reg) = models::equipmentregistration::create(&mut conn, &new_reg) {
+            created.push(reg);
+        }
+    }
+
+    Ok(HttpResponse::Created().json(created))
+}
+
 #[get("/{id}/quizzers")]
 async fn read_quizzers(
     db: Data<Database>,
@@ -841,6 +943,9 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_divisions)
         .service(read_statsgroups)
         .service(read_teams)
+        .service(read_my_teams)
+        .service(read_my_gear_registration)
+        .service(create_gear_registrations)
         .service(read_quizzers)
         .service(read_quizzer_rows)
         .service(read_team_rows)

@@ -563,6 +563,51 @@ pub fn count_by_tournament(db: &mut database::Connection, tournament_id: Uuid) -
     teams.filter(did.eq_any(&division_ids)).filter(del_fl.eq(false)).count().get_result(db)
 }
 
+/// A team enriched with its division name — the shape the Team registration page needs to render a
+/// coach's registered teams in a single request (all `Team` fields via `flatten`, plus the name).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MyTeamRow {
+    #[serde(flatten)]
+    pub team: Team,
+    pub division_name: String,
+}
+
+/// The logged-in coach's teams for a tournament (one per division they coach in), enriched with the
+/// division name. Serves the Team registration page's "My Registered Teams" table in one call.
+pub fn read_teams_of_tournament_for_coach(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    coach_id: Uuid,
+) -> QueryResult<Vec<MyTeamRow>> {
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(tid.eq(tournament_id)).select((did, dname)).load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+    if div_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let team_list: Vec<Team> = {
+        use crate::schema::teams::dsl::*;
+        teams
+            .filter(did.eq_any(&div_ids))
+            .filter(coachid.eq(coach_id))
+            .filter(del_fl.eq(false))
+            .order(name.asc())
+            .load::<Team>(db)?
+    };
+
+    Ok(team_list
+        .into_iter()
+        .map(|t| MyTeamRow {
+            division_name: div_name_by_id.get(&t.did).cloned().unwrap_or_default(),
+            team: t,
+        })
+        .collect())
+}
+
 pub fn read_all_teams_of_tournament(
     db: &mut database::Connection,
     tournament_id: Uuid,

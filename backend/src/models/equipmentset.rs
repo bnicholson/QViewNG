@@ -1,6 +1,7 @@
 
 use crate::database;
 use crate::models::common::PaginationParams;
+use std::collections::HashMap;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
@@ -189,4 +190,55 @@ pub fn read_all_by_owner(db: &mut database::Connection, owner_id: Uuid) -> Query
         .filter(equipmentownerid.eq(owner_id))
         .order(created_at)
         .load::<EquipmentSet>(db)
+}
+
+// ── Gear registration aggregate ───────────────────────────────────────────────
+// One request that fully populates the Gear registration page: the owner's gear sets, each with its
+// equipment items, each item's polymorphic detail, and (if any) its registration for a tournament.
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GearItemWithRegistration {
+    pub dbo: crate::models::equipment_dbo::EquipmentDbo,
+    /// The item's type-specific detail (Computer, JumpPad, …); None if it couldn't be resolved.
+    pub detail: Option<crate::models::equipment::Equipment>,
+    /// This item's registration for the tournament, if it is registered.
+    pub registration: Option<crate::models::equipmentregistration::EquipmentRegistration>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GearSetWithItems {
+    pub set: EquipmentSet,
+    pub items: Vec<GearItemWithRegistration>,
+}
+
+/// Assembles the owner's gear sets with each item's detail and its registration status for the given
+/// tournament — everything the Gear registration page needs, in one call.
+pub fn read_owner_gear_with_registration(
+    db: &mut database::Connection,
+    owner_id: Uuid,
+    tournament_id: Uuid,
+) -> QueryResult<Vec<GearSetWithItems>> {
+    let sets = read_all_by_owner(db, owner_id)?;
+
+    // All of the tournament's registrations, keyed by equipment id (at most one per piece).
+    let regs = crate::models::equipmentregistration::read_all_equipmentregistrations_of_tournament(
+        db,
+        tournament_id,
+        &PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 },
+    )?;
+    let mut reg_by_equip: HashMap<i64, crate::models::equipmentregistration::EquipmentRegistration> =
+        regs.into_iter().map(|r| (r.equipmentid, r)).collect();
+
+    let mut out = Vec::with_capacity(sets.len());
+    for set in sets {
+        let dbos = crate::models::equipment_dbo::read_all_by_equipmentset(db, set.id)?;
+        let mut items = Vec::with_capacity(dbos.len());
+        for dbo in dbos {
+            let detail = crate::models::equipment::read(db, dbo.id).ok();
+            let registration = reg_by_equip.remove(&dbo.id);
+            items.push(GearItemWithRegistration { dbo, detail, registration });
+        }
+        out.push(GearSetWithItems { set, items });
+    }
+    Ok(out)
 }

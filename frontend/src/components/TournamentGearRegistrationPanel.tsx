@@ -14,7 +14,6 @@ import Typography from '@mui/material/Typography'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import {
-  EquipmentSetAPI,
   type GearSetTS,
   type EquipmentDboTS,
   type EquipmentDetail,
@@ -84,7 +83,7 @@ interface Props {
 }
 
 export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
-  const { session } = useAuth()
+  const { session, accessToken } = useAuth()
   const navigate = useNavigate()
   const userId = session?.userId
 
@@ -102,39 +101,31 @@ export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
     setLoading(true)
     setError(null)
     try {
-      const sets = await EquipmentSetAPI.getByOwner(userId)
-      setGearSets(sets)
+      // One call returns the owner's gear sets, each item's detail, and its registration status for
+      // this tournament — no per-set / per-item fan-out.
+      const data = await EquipmentRegistrationAPI.getMyGearRegistration(tid, accessToken)
 
-      if (sets.length === 0) {
-        setEquipmentBySet({})
-        setDetailsByEquipId({})
-        setRegistrations([])
-        return
-      }
+      setGearSets(data.map(d => d.set))
 
-      const equipResults = await Promise.all(sets.map(s => EquipmentSetAPI.getEquipmentInSet(s.id)))
       const bySet: Record<number, EquipmentDboTS[]> = {}
-      sets.forEach((s, i) => { bySet[s.id] = equipResults[i] })
-      setEquipmentBySet(bySet)
-
-      const allItems = equipResults.flat()
-      const allEquipIds = allItems.map(e => e.id)
-
-      const [regs, detailResults] = await Promise.all([
-        EquipmentRegistrationAPI.getForEquipmentInTournament(allEquipIds, tid),
-        Promise.all(allItems.map(e => EquipmentSetAPI.getEquipmentDetail(e.id).catch(() => null))),
-      ])
-      setRegistrations(regs)
-
       const detailMap: Record<number, EquipmentDetail> = {}
-      allItems.forEach((e, i) => { if (detailResults[i]) detailMap[e.id] = detailResults[i]! })
+      const regs: EquipmentRegistrationTS[] = []
+      for (const { set, items } of data) {
+        bySet[set.id] = items.map(i => i.dbo)
+        for (const item of items) {
+          if (item.detail) detailMap[item.dbo.id] = item.detail
+          if (item.registration) regs.push(item.registration)
+        }
+      }
+      setEquipmentBySet(bySet)
       setDetailsByEquipId(detailMap)
+      setRegistrations(regs)
     } catch (e: any) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [userId, tid])
+  }, [userId, tid, accessToken])
 
   useEffect(() => { load() }, [load])
 
@@ -158,15 +149,8 @@ export const TournamentGearRegistrationPanel = ({ tid }: Props) => {
     const ids = unregistered.map(e => e.id)
     addBusy(ids)
     try {
-      const created = await Promise.all(
-        unregistered.map(e =>
-          EquipmentRegistrationAPI.create({
-            equipmentid: e.id,
-            tournamentid: tid,
-            status: 'Not Yet Received from Owner',
-          }),
-        ),
-      )
+      // Single bulk call registers all the selected pieces at once.
+      const created = await EquipmentRegistrationAPI.registerMany(tid, ids, accessToken, 'Not Yet Received from Owner')
       setRegistrations(prev => [...prev, ...created])
     } catch (e: any) {
       setError(e.message)

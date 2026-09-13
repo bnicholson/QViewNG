@@ -19,7 +19,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import GroupsIcon from '@mui/icons-material/Groups'
-import { TeamAPI, type TeamTS, type TeamChangeset } from '../features/TeamAPI'
+import { TeamAPI, type TeamTS, type MyTeamTS, type TeamChangeset } from '../features/TeamAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { RosterAPI, type RosterTS } from '../features/RosterAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
@@ -92,7 +92,7 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [myTeams, setMyTeams] = useState<TeamTS[]>([])
+  const [myTeams, setMyTeams] = useState<MyTeamTS[]>([])
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [divisions, setDivisions] = useState<DivisionTS[]>([])
@@ -125,15 +125,17 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
     setLoading(true)
     setError(null)
     try {
-      const [divs, teamsResult, rosterList, myQuizzers] = await Promise.all([
+      const [divs, myTeamRows, rosterList, myQuizzers] = await Promise.all([
         DivisionAPI.getByTournament(tid, 0, 100),
-        TeamAPI.getByTournament(tid, 0, 100),
+        // One call returns exactly this user's registered teams for the tournament, enriched with
+        // division name — no over-fetching all tournament teams or a second lookup for names.
+        TeamAPI.getMyByTournament(tid, accessToken),
         RosterAPI.getByCoach(userId),
         // Same aggregate as the "My Quizzers" table — includes quizzers the coach created.
         UserAPI.getRosterQuizzerRows(userId, 0, 500).catch(() => ({ count: 0, items: [] })),
       ])
       setDivisions(divs)
-      setMyTeams(teamsResult.items.filter(t => t.coachid === userId))
+      setMyTeams(myTeamRows)
       setRosters(rosterList)
       setAllQuizzersFull(myQuizzers.items.map(q => ({
         id: q.quizzer_id,
@@ -161,7 +163,7 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
     } finally {
       setLoading(false)
     }
-  }, [userId, tid])
+  }, [userId, tid, accessToken])
 
   useEffect(() => { load() }, [load])
 
@@ -258,9 +260,12 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
     setSaving(true)
     setFormError(null)
     try {
+      // Registering / editing is a single write; we enrich the returned team with its division name
+      // locally (from the divisions already loaded) so no extra fetch is needed to refresh the table.
       if (editingTeamId) {
         const updated = await TeamAPI.update(editingTeamId, formToChangeset(form), accessToken)
-        setMyTeams(prev => prev.map(t => t.teamid === editingTeamId ? updated : t))
+        const enriched: MyTeamTS = { ...updated, division_name: divisionName(updated.did) }
+        setMyTeams(prev => prev.map(t => t.teamid === editingTeamId ? enriched : t))
         closeForm()
       } else {
         const created = await TeamAPI.create({
@@ -274,7 +279,8 @@ export const TournamentTeamRegistrationPanel = ({ tid }: Props) => {
           quizzer_five_id: form.quizzers[4],
           quizzer_six_id: form.quizzers[5],
         }, accessToken)
-        setMyTeams(prev => [...prev, created])
+        const enriched: MyTeamTS = { ...created, division_name: divisionName(created.did) }
+        setMyTeams(prev => [...prev, enriched])
         closeForm()
       }
     } catch (e: any) {

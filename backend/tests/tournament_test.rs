@@ -9,7 +9,7 @@ use backend::models::{division::Division, tournament::Tournament};
 use backend::database::Database;
 use diesel::prelude::*;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn get_all_works() {
@@ -1440,4 +1440,109 @@ async fn get_pool_bracket_rows_of_tournament_works() {
     assert!(names.contains(&"Bracket A1"));
     assert!(names.contains(&"Bracket B1"));
     assert!(!names.contains(&"Pool A1"));
+}
+
+#[actix_web::test]
+async fn my_teams_returns_only_the_users_teams_enriched() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let owner = backend::models::user::UserBuilder::new_default("Coach A").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let other = backend::models::user::UserBuilder::new_default("Coach B").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let quizzer = backend::models::user::UserBuilder::new_default("Quinn").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+
+    let tournament = backend::models::tournament::TournamentBuilder::new_default("Reg Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let division = backend::models::division::DivisionBuilder::new_default("D1", tournament.tid).build_and_insert(&mut conn).unwrap();
+
+    // One team coached by the logged-in user, one by someone else — only the former should return.
+    backend::models::team::TeamBuilder::new_default(division.did)
+        .set_name("My Team").set_coachid(owner.id).set_quizzer_one_id(quizzer.id)
+        .build_and_insert(&mut conn).unwrap();
+    backend::models::team::TeamBuilder::new_default(division.did)
+        .set_name("Other Team").set_coachid(other.id).set_quizzer_one_id(quizzer.id)
+        .build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let token = make_token(owner.id, vec!["member".to_string()], vec![]);
+    let uri = format!("/api/tournaments/{}/my-teams", tournament.tid);
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let rows: Vec<backend::models::team::MyTeamRow> = test::read_body_json(resp).await;
+    assert_eq!(rows.len(), 1, "only the logged-in user's team should be returned");
+    assert_eq!(rows[0].team.name, "My Team");
+    assert_eq!(rows[0].division_name, "D1");
+}
+
+#[actix_web::test]
+async fn my_gear_registration_and_bulk_register_work() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let owner = backend::models::user::UserBuilder::new_default("Gear Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = backend::models::tournament::TournamentBuilder::new_default("Gear Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let set = backend::models::equipmentset::EquipmentSetBuilder::new_default(owner.id).set_name("My Set").build_and_insert(&mut conn).unwrap();
+    let c1 = backend::models::computer::ComputerBuilder::new_default(set.id).build_and_insert(&mut conn).unwrap();
+    let c2 = backend::models::computer::ComputerBuilder::new_default(set.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let token = make_token(owner.id, vec!["member".to_string()], vec![]);
+
+    // ── Aggregate before registering: one set, two items, no registrations. ──
+    let get_uri = format!("/api/tournaments/{}/my-gear-registration", tournament.tid);
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&get_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sets: Vec<backend::models::equipmentset::GearSetWithItems> = test::read_body_json(resp).await;
+    assert_eq!(sets.len(), 1);
+    assert_eq!(sets[0].items.len(), 2);
+    assert!(sets[0].items.iter().all(|i| i.registration.is_none()), "nothing registered yet");
+
+    // ── Bulk register both pieces in one call. ──
+    let post_uri = format!("/api/tournaments/{}/gear-registrations", tournament.tid);
+    let post_resp = test::call_service(&app, test::TestRequest::post()
+        .uri(&post_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(serde_json::json!({ "equipment_ids": [c1.equipmentid, c2.equipmentid] }))
+        .to_request()).await;
+    assert_eq!(post_resp.status(), StatusCode::CREATED);
+    let created: Vec<backend::models::equipmentregistration::EquipmentRegistration> = test::read_body_json(post_resp).await;
+    assert_eq!(created.len(), 2);
+
+    // ── Aggregate after registering: both items now registered. ──
+    let resp2 = test::call_service(&app, test::TestRequest::get()
+        .uri(&get_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request()).await;
+    let sets2: Vec<backend::models::equipmentset::GearSetWithItems> = test::read_body_json(resp2).await;
+    assert!(sets2[0].items.iter().all(|i| i.registration.is_some()), "both items should be registered");
+
+    // ── Re-registering is idempotent: no new rows created. ──
+    let post_again = test::call_service(&app, test::TestRequest::post()
+        .uri(&post_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(serde_json::json!({ "equipment_ids": [c1.equipmentid, c2.equipmentid] }))
+        .to_request()).await;
+    assert_eq!(post_again.status(), StatusCode::CREATED);
+    let created_again: Vec<backend::models::equipmentregistration::EquipmentRegistration> = test::read_body_json(post_again).await;
+    assert_eq!(created_again.len(), 0, "already-registered pieces are skipped");
 }
