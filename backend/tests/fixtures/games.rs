@@ -109,7 +109,6 @@ pub fn get_game_payload(
 ) -> NewGame {
     GameBuilder::new_default(room_id, round_id)
         .set_tournamentid(Some(tid))
-        .set_divisionid(Some(did))
         .set_leftteamid(left_team_id)
         .set_centerteamid(center_team_id)
         .set_rightteamid(right_team_id)
@@ -119,10 +118,9 @@ pub fn get_game_payload(
 }
 
 pub fn create_and_insert_game(db: &mut database::Connection, new_game: NewGame) -> Game {
-    diesel::insert_into(games::table)
-        .values(new_game)
-        .returning(Game::as_returning())
-        .get_result::<Game>(db)
+    // Route through the model create so a game with no explicit pool bracket gets a default one
+    // resolved for its division (games.poolbracket_id is a required FK).
+    backend::models::game::create(db, &new_game)
         .expect("Failed to create game")
 }
 
@@ -1157,7 +1155,6 @@ pub fn arrange_game_delete_works_integration_test(
 
     let game_1 = GameBuilder::new_default(room_1.roomid, round.roundid)
         .set_tournamentid(Some(tournament.tid))
-        .set_divisionid(Some(division.did))
         .set_leftteamid(teams.0.teamid)
         .set_rightteamid(teams.1.teamid)
         .set_quizmasterid(quizmaster.id)
@@ -1166,7 +1163,6 @@ pub fn arrange_game_delete_works_integration_test(
 
     let game_2 = GameBuilder::new_default(room_2.roomid, round.roundid)
         .set_tournamentid(Some(tournament.tid))
-        .set_divisionid(Some(division.did))
         .set_leftteamid(teams.1.teamid)
         .set_rightteamid(teams.2.teamid)
         .set_quizmasterid(quizmaster.id)
@@ -1220,7 +1216,6 @@ pub fn arrange_game_update_works_integration_test(
 
     let game = GameBuilder::new_default(room.roomid, round.roundid)
         .set_tournamentid(Some(tournament.tid))
-        .set_divisionid(Some(division.did))
         .set_leftteamid(teams.0.teamid)
         .set_rightteamid(teams.1.teamid)
         .set_quizmasterid(quizmaster.id)

@@ -258,7 +258,7 @@ async fn index(
                     // Incomplete + a fresh resend request not yet sent: issue the command once for
                     // THIS game's division/round (which may differ from the current ping), then
                     // stamp resend_request_sent_ts so future pings won't repeat it.
-                    let div_name = crate::models::division::read(&mut conn, g.divisionid)
+                    let div_name = crate::models::game::read_division_of_game(&mut conn, &g)
                         .map(|d| d.dname)
                         .unwrap_or_default();
                     let round_name = crate::models::round::read(&mut conn, g.roundid)

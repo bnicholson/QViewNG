@@ -57,7 +57,8 @@ async fn create_works() {
 
     let game = body.data.unwrap();
     let room = backend::models::room::read(&mut conn, room_id).expect("Room should exist");
-    assert_eq!(game.divisionid, did);
+    // Division is derived via game -> pool_bracket -> division_session -> division.
+    assert_eq!(backend::models::game::read_division_of_game(&mut conn, &game).unwrap().did, did);
     assert_eq!(game.quizmasterid, room.quizmaster_id.expect("Room should have a quizmaster"));
     assert_eq!(game.contentjudgeid, room.contentjudge_id);
     assert_eq!(game.leftteamid, left_team_id);
@@ -279,7 +280,7 @@ async fn get_by_id_works() {
     assert_eq!(resp.status(), StatusCode::OK);
     
     let game: Game = test::read_body_json(resp).await;
-    assert_eq!(game.divisionid, games[game_of_interest_idx].divisionid);
+    assert_eq!(game.gid, games[game_of_interest_idx].gid);
     assert_eq!(game.rightteamid, games[game_of_interest_idx].rightteamid);
     assert_eq!(game.centerteamid.unwrap(), games[game_of_interest_idx].centerteamid.unwrap());
     assert_eq!(game.leftteamid, games[game_of_interest_idx].leftteamid);

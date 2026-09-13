@@ -2,7 +2,6 @@ export interface GameTS {
   gid: string;
   org: string;
   tournamentid: string;
-  divisionid: string;
   roomid: string;
   roundid: string;
   ignore: boolean;
@@ -19,7 +18,6 @@ export interface GameTS {
 export interface NewGamePayload {
   org: string;
   tournamentid: string;
-  divisionid: string;
   poolbracket_id: string;
   roomid: string;
   roundid: string;
@@ -94,7 +92,6 @@ export interface GameEventTS {
 
 export interface GameChangeset {
   org?: string;
-  divisionid?: string;
   poolbracket_id?: string;
   roomid?: string;
   roundid?: string;

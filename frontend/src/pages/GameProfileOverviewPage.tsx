@@ -58,7 +58,6 @@ interface Lookups {
 
 interface FormState {
   org: string
-  divisionid: string
   roomid: string
   roundid: string
   ruleset: string
@@ -115,7 +114,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
   const startEdit = () => {
     setForm({
       org: game.org,
-      divisionid: game.divisionid,
       roomid: game.roomid,
       roundid: game.roundid,
       ruleset: game.ruleset,
@@ -140,7 +138,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
   const handleSave = async () => {
     if (!form) return
     if (!form.org.trim()) { setError('Org is required.'); return }
-    if (!form.divisionid) { setError('Division is required.'); return }
     if (!form.roomid) { setError('Room is required.'); return }
     if (!form.roundid) { setError('Round is required.'); return }
     if (!form.ruleset.trim()) { setError('Ruleset is required.'); return }
@@ -153,7 +150,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
     try {
       const changeset: GameChangeset = {
         org: form.org,
-        divisionid: form.divisionid,
         roomid: form.roomid,
         roundid: form.roundid,
         ruleset: form.ruleset,
@@ -175,7 +171,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
   }
 
   // Lookup helpers for display
-  const divMap = new Map(lookups?.divisions.map(d => [d.did, d.dname]) ?? [])
   const roomMap = new Map(lookups?.rooms.map(r => [r.roomid, r.name]) ?? [])
   const roundMap = new Map(lookups?.rounds.map(r => [r.roundid, r.scheduled_start_time]) ?? [])
   const teamMap = new Map(lookups?.teams.map(t => [t.teamid, t.name]) ?? [])

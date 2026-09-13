@@ -15,7 +15,6 @@ use utoipa::ToSchema;
 pub struct GameBuilder {
     org: Option<String>,
     tournamentid: Option<Uuid>,
-    divisionid: Option<Uuid>,
     roomid: Uuid,
     roundid: Uuid,
     ignore: Option<bool>,
@@ -36,7 +35,6 @@ impl GameBuilder {
         Self {
             org: None,
             tournamentid: None,
-            divisionid: None,
             roomid: room_id,
             roundid: round_id,
             ignore: None,
@@ -56,7 +54,6 @@ impl GameBuilder {
         Self {
             org: Some("Nazarene".to_string()),
             tournamentid: None,
-            divisionid: None,
             roomid: room_id,
             roundid: round_id,
             ignore: Some(false),
@@ -90,10 +87,6 @@ impl GameBuilder {
     }
     pub fn set_tournamentid(mut self, val: Option<Uuid>) -> Self {
         self.tournamentid = val;
-        self
-    }
-    pub fn set_divisionid(mut self, val: Option<Uuid>) -> Self {
-        self.divisionid = val;
         self
     }
     pub fn set_roomid(mut self, val: Uuid) -> Self {
@@ -172,7 +165,6 @@ impl GameBuilder {
                     NewGame {
                         org: self.org.unwrap(),
                         tournamentid: self.tournamentid,
-                        divisionid: self.divisionid,
                         roomid: self.roomid,
                         roundid: self.roundid,
                         ignore: self.ignore.unwrap(),
@@ -213,7 +205,6 @@ pub struct Game {
     pub gid: Uuid,
     pub org: String,
     pub tournamentid: Uuid,
-    pub divisionid: Uuid,
     pub roomid: Uuid,
     pub roundid: Uuid,
     pub ignore: bool,
@@ -248,7 +239,6 @@ pub struct Game {
 pub struct NewGame {
     pub org: String,
     pub tournamentid: Option<Uuid>,
-    pub divisionid: Option<Uuid>,
     pub roomid: Uuid,
     pub roundid: Uuid,
     pub ignore: bool,
@@ -276,7 +266,6 @@ pub struct NewGame {
 pub struct GameChangeset {
     pub org: Option<String>,
     pub tournamentid: Option<Uuid>,
-    pub divisionid: Option<Uuid>,
     pub roomid: Option<Uuid>,
     pub roundid: Option<Uuid>,
     pub ignore: Option<bool>,
@@ -298,7 +287,6 @@ impl GameChangeset {
         Self {
             org: None,
             tournamentid: None,
-            divisionid: None,
             roomid: None,
             roundid: None,
             ignore: None,
@@ -329,30 +317,24 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
 
     let mut game = item.clone();
 
-    if item.tournamentid.is_none() {
+    // Derive the tournament from the round's division when the caller didn't supply it. (Division
+    // itself is no longer stored on the game — it is derived via the pool bracket.)
+    if game.tournamentid.is_none() {
         let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
         let division = crate::models::division::read(db, round.did).expect("division not found in database by ID");
 
         game = NewGame {
             tournamentid: Some(division.tid),
-            divisionid: Some(round.did),
-            ..game.clone()
-        }
-    } else if item.divisionid.is_none() {
-        let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
-
-        game = NewGame {
-            divisionid: Some(round.did),
             ..game.clone()
         }
     }
 
     // API callers must supply a pool bracket (enforced in the service). Programmatic callers (e.g.
     // seeds, tests) may leave it nil, in which case we resolve/create a default bracket for the
-    // division so a game always references a real bracket.
+    // game's division (derived from its round) so a game always references a real bracket.
     if game.poolbracket_id.is_nil() {
-        let division_id = game.divisionid.expect("divisionid resolved above");
-        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, division_id, game.creator_id)?;
+        let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
+        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, round.did, game.creator_id)?;
     }
 
     if !models::room::exists(db, item.roomid) {
@@ -453,11 +435,15 @@ pub fn read_all(db_conn: &mut database::Connection, pagination: &PaginationParam
 /// only materializes the requested page.
 macro_rules! read_games_ordered {
     ($db:expr, $pagination:expr, $col:ident, $val:expr) => {{
-        use crate::schema::{games, divisions, rounds, rooms};
+        use crate::schema::{games, pool_brackets, division_sessions, divisions, rounds, rooms};
         let page_size = $pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
         let offset_val = $pagination.page * page_size;
+        // Division is reached via game -> pool_bracket -> division_session -> division (it is no
+        // longer a column on games), so the ORDER BY by division name still works.
         games::table
-            .inner_join(divisions::table.on(games::divisionid.eq(divisions::did)))
+            .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+            .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+            .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
             .inner_join(rounds::table.on(games::roundid.eq(rounds::roundid)))
             .inner_join(rooms::table.on(games::roomid.eq(rooms::roomid)))
             .filter(games::$col.eq($val))
@@ -479,8 +465,59 @@ pub fn read_all_games_of_round(db_conn: &mut database::Connection, round_id: Uui
     read_games_ordered!(db_conn, pagination, roundid, round_id)
 }
 
+/// Games belonging to a division — i.e. games whose pool bracket's division session is in that
+/// division. Ordered by division/round-start/room like the other scoped reads.
 pub fn read_all_games_of_division(db: &mut database::Connection, division_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
-    read_games_ordered!(db, pagination, divisionid, division_id)
+    use crate::schema::{games, pool_brackets, division_sessions, divisions, rounds, rooms};
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    games::table
+        .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+        .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+        .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
+        .inner_join(rounds::table.on(games::roundid.eq(rounds::roundid)))
+        .inner_join(rooms::table.on(games::roomid.eq(rooms::roomid)))
+        .filter(division_sessions::did.eq(division_id))
+        .filter(games::del_fl.eq(false))
+        .order((
+            divisions::dname.asc(),
+            rounds::scheduled_start_time.asc(),
+            rooms::name.asc(),
+            games::gid.asc(),
+        ))
+        .select(games::all_columns)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)
+}
+
+/// Division id + name for a set of pool bracket ids, via pool_bracket -> division_session ->
+/// division. Used to enrich game rows now that games don't store divisionid.
+fn divisions_by_pool_brackets(
+    db: &mut database::Connection,
+    bracket_ids: &[Uuid],
+) -> QueryResult<HashMap<Uuid, (Uuid, String)>> {
+    use crate::schema::{pool_brackets, division_sessions, divisions};
+    let rows: Vec<(Uuid, Uuid, String)> = pool_brackets::table
+        .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+        .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
+        .filter(pool_brackets::pool_bracket_id.eq_any(bracket_ids))
+        .select((pool_brackets::pool_bracket_id, divisions::did, divisions::dname))
+        .load::<(Uuid, Uuid, String)>(db)?;
+    Ok(rows.into_iter().map(|(b, d, n)| (b, (d, n))).collect())
+}
+
+/// The division a game belongs to, via game -> pool_bracket -> division_session -> division.
+pub fn read_division_of_game(db: &mut database::Connection, game: &Game) -> QueryResult<crate::models::division::Division> {
+    let session_id: Uuid = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets.filter(pool_bracket_id.eq(game.poolbracket_id)).select(division_session_id).first::<Uuid>(db)?
+    };
+    let division_id: Uuid = {
+        use crate::schema::division_sessions::dsl::*;
+        division_sessions.filter(division_session_id.eq(session_id)).select(did).first::<Uuid>(db)?
+    };
+    crate::models::division::read(db, division_id)
 }
 
 pub fn read_all_games_of_tournament(db: &mut database::Connection, tournament_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
@@ -505,11 +542,13 @@ pub fn read_all_games_of_division_session(db: &mut database::Connection, session
     if bracket_ids.is_empty() {
         return Ok(Vec::new());
     }
-    use crate::schema::{games, divisions, rounds, rooms};
+    use crate::schema::{games, pool_brackets, division_sessions, divisions, rounds, rooms};
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
     games::table
-        .inner_join(divisions::table.on(games::divisionid.eq(divisions::did)))
+        .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+        .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+        .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
         .inner_join(rounds::table.on(games::roundid.eq(rounds::roundid)))
         .inner_join(rooms::table.on(games::roomid.eq(rooms::roomid)))
         .filter(games::poolbracket_id.eq_any(&bracket_ids))
@@ -615,12 +654,9 @@ fn build_game_rows(
 
     let sequence = compute_room_sequence(&all_games, &round_start);
 
-    // Display names for just the page of games.
-    let div_ids: Vec<Uuid> = page_games.iter().map(|g| g.divisionid).collect();
-    let division_name_by_id: HashMap<Uuid, String> = {
-        use crate::schema::divisions::dsl::*;
-        divisions.filter(did.eq_any(&div_ids)).select((did, dname)).load::<(Uuid, String)>(db)?.into_iter().collect()
-    };
+    // Division (id + name) for the page of games, derived via each game's pool bracket.
+    let bracket_ids: Vec<Uuid> = page_games.iter().map(|g| g.poolbracket_id).collect();
+    let division_by_bracket = divisions_by_pool_brackets(db, &bracket_ids)?;
     let room_ids: Vec<Uuid> = page_games.iter().map(|g| g.roomid).collect();
     let room_name_by_id: HashMap<Uuid, String> = {
         use crate::schema::rooms::dsl::*;
@@ -643,10 +679,12 @@ fn build_game_rows(
 
     let rows = page_games
         .into_iter()
-        .map(|g| GameRow {
+        .map(|g| {
+            let (did, dname) = division_by_bracket.get(&g.poolbracket_id).cloned().unwrap_or_default();
+            GameRow {
             gid: g.gid,
-            division_name: division_name_by_id.get(&g.divisionid).cloned().unwrap_or_default(),
-            divisionid: g.divisionid,
+            division_name: dname,
+            divisionid: did,
             room_name: room_name_by_id.get(&g.roomid).cloned().unwrap_or_default(),
             roomid: g.roomid,
             round_number: sequence.get(&g.gid).copied(),
@@ -666,6 +704,7 @@ fn build_game_rows(
                 .cloned()
                 .unwrap_or_else(|| g.last_modified_user.to_string()),
             last_modified_user_id: g.last_modified_user,
+            }
         })
         .collect();
 
@@ -697,8 +736,14 @@ pub fn read_game_rows_of_division(
         divisions.filter(did.eq(division_id)).select(tid).first::<Uuid>(db)?
     };
     let total: i64 = {
-        use crate::schema::games::dsl::*;
-        games.filter(divisionid.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
+        use crate::schema::{games, pool_brackets, division_sessions};
+        games::table
+            .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+            .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+            .filter(division_sessions::did.eq(division_id))
+            .filter(games::del_fl.eq(false))
+            .count()
+            .get_result(db)?
     };
     let page = read_all_games_of_division(db, division_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
@@ -916,9 +961,14 @@ fn enrich_games_with_names(
     let user_name_map = crate::models::user::read_display_names(db, &modifier_ids)?;
     let name_of = |id: Uuid| user_name_map.get(&id).cloned().unwrap_or_else(|| id.to_string());
 
+    // Division is derived via each game's pool bracket (no longer stored on the game).
+    let bracket_ids: Vec<Uuid> = game_list.iter().map(|g| g.poolbracket_id).collect();
+    let division_by_bracket = divisions_by_pool_brackets(db, &bracket_ids)?;
+
     Ok(game_list.into_iter().filter_map(|g| {
         let (tournament_name, tournament_fromdate, tournament_todate) =
             tournament_map.get(&g.tournamentid)?.clone();
+        let divisionid = division_by_bracket.get(&g.poolbracket_id).map(|(d, _)| *d).unwrap_or_default();
         let left_team_name = team_map.get(&g.leftteamid).cloned().unwrap_or_default();
         let right_team_name = team_map.get(&g.rightteamid).cloned().unwrap_or_default();
         let center_team_name = g.centerteamid.and_then(|cid| team_map.get(&cid).cloned());
@@ -933,7 +983,7 @@ fn enrich_games_with_names(
             tournament_name,
             tournament_fromdate,
             tournament_todate,
-            divisionid: g.divisionid,
+            divisionid,
             roomid: g.roomid,
             roundid: g.roundid,
             ignore: g.ignore,

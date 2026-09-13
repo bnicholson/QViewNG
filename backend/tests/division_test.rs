@@ -93,11 +93,15 @@ async fn create_works() {
             .filter(gsg::statsgroupid.eq(statsgroup.sgid))
             .load(&mut conn)
             .expect("failed to query games_statsgroups");
-        let division_game_count: i64 = backend::schema::games::dsl::games
-            .filter(backend::schema::games::dsl::divisionid.eq(division.did))
-            .count()
-            .get_result(&mut conn)
-            .expect("failed to count division games");
+        // Games no longer store divisionid; a division's games are derived via the pool-bracket
+        // path, so count them through the model helper.
+        let pagination = backend::models::common::PaginationParams {
+            page: 0,
+            page_size: backend::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
+        };
+        let division_game_count = backend::models::game::read_all_games_of_division(&mut conn, division.did, &pagination)
+            .expect("failed to read division games")
+            .len() as i64;
         assert_eq!(links.len() as i64, division_game_count);
     }
 

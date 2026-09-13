@@ -26,6 +26,7 @@ import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { GameAPI, type NewGamePayload, type GameTS } from '../features/GameAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
+import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
 import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
@@ -54,6 +55,7 @@ function roundLabel(round: RoundTS | undefined): string {
 interface GameFormState {
   org: string;
   divisionid: string;
+  division_session_id: string;
   poolbracket_id: string;
   roomid: string;
   roundid: string;
@@ -69,6 +71,7 @@ interface GameFormState {
 const emptyState: GameFormState = {
   org: '',
   divisionid: '',
+  division_session_id: '',
   poolbracket_id: '',
   roomid: '',
   roundid: '',
@@ -97,6 +100,7 @@ export const GameEditorDialog = (props: Props) => {
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [rooms, setRooms] = useState<RoomTS[]>([]);
   const [rounds, setRounds] = useState<RoundTS[]>([]);
+  const [divisionSessions, setDivisionSessions] = useState<DivisionSessionTS[]>([]);
   const [poolBrackets, setPoolBrackets] = useState<PoolBracketTS[]>([]);
   const [teams, setTeams] = useState<TeamTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
@@ -156,12 +160,17 @@ export const GameEditorDialog = (props: Props) => {
       .catch(() => console.error('Failed to load form data for game editor'));
   }, [isOpen, tid, lockedDivisionId]);
 
-  // Pool brackets are scoped to the chosen Division, so (re)load them whenever it changes.
+  // Division Sessions and Pool/Brackets are scoped to the chosen Division, so (re)load them whenever
+  // it changes. (The Pool/Bracket dropdown is then further filtered to the chosen Division Session.)
   useEffect(() => {
     if (!isOpen || !form.divisionid) {
+      setDivisionSessions([]);
       setPoolBrackets([]);
       return;
     }
+    DivisionSessionAPI.getByDivision(form.divisionid)
+      .then(setDivisionSessions)
+      .catch(() => { console.error('Failed to load division sessions'); setDivisionSessions([]); });
     PoolBracketAPI.getByDivision(form.divisionid)
       .then(setPoolBrackets)
       .catch(() => { console.error('Failed to load pool brackets'); setPoolBrackets([]); });
@@ -188,7 +197,8 @@ export const GameEditorDialog = (props: Props) => {
 
   const handleSave = async () => {
     if (!form.divisionid) { setErrorMsg('Division is required.'); setAlertOpened(true); return; }
-    if (!form.poolbracket_id) { setErrorMsg('Pool bracket is required.'); setAlertOpened(true); return; }
+    if (!form.division_session_id) { setErrorMsg('Division Session is required.'); setAlertOpened(true); return; }
+    if (!form.poolbracket_id) { setErrorMsg('Pool/Bracket is required.'); setAlertOpened(true); return; }
     if (!form.roomid) { setErrorMsg('Room is required.'); setAlertOpened(true); return; }
     if (!form.roundid) { setErrorMsg('Round is required.'); setAlertOpened(true); return; }
     if (!form.leftteamid) { setErrorMsg('Left team is required.'); setAlertOpened(true); return; }
@@ -197,9 +207,10 @@ export const GameEditorDialog = (props: Props) => {
 
     const payload: NewGamePayload = {
       // Org, Ruleset and Ignore are no longer collected in the form; send backend-safe defaults.
+      // Division is not sent — it is derived server-side from the chosen pool bracket. The Division
+      // selector here only scopes the pool bracket / round / team choices.
       org: '',
       tournamentid: tid,
-      divisionid: form.divisionid,
       poolbracket_id: form.poolbracket_id,
       roomid: form.roomid,
       roundid: form.roundid,
@@ -241,8 +252,13 @@ export const GameEditorDialog = (props: Props) => {
   // Rounds and Teams selectable for this Game are scoped to the chosen Division (not just the Tournament).
   // Until a Division is chosen, the Round/Team dropdowns stay disabled.
   const divisionChosen = !!form.divisionid;
+  const sessionChosen = !!form.division_session_id;
   const divisionRounds = divisionChosen ? rounds.filter(r => r.did === form.divisionid) : [];
   const divisionTeams = divisionChosen ? teams.filter(t => t.did === form.divisionid) : [];
+  // The Pool/Bracket dropdown lists only brackets in the chosen Division Session.
+  const sessionPoolBrackets = sessionChosen
+    ? poolBrackets.filter(b => b.division_session_id === form.division_session_id)
+    : [];
 
   return (
     <Dialog
@@ -280,18 +296,9 @@ export const GameEditorDialog = (props: Props) => {
         </Collapse>
 
         <List>
-          {/* Row 1: Division, Room, Round */}
+          {/* Row 1: Division, Division Session, Pool/Bracket, Room, Round */}
           <ListItem>
             <Grid container spacing={2} sx={{ width: '100%' }}>
-              <Grid size={{ xs: 12, md: 7 }}>
-                <InputLabel>Division (*required)</InputLabel>
-                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, poolbracket_id: '', roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
-                  displayEmpty fullWidth disabled={!!lockedDivisionId}
-                  renderValue={(v) => v ? (divisions.find(d => d.did === v)?.dname ?? v) : <em>Select a division</em>}
-                >
-                  {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
-                </Select>
-              </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Room (*required)</InputLabel>
                 <Select value={form.roomid} onChange={(e) => handleRoomChange(e.target.value)}
@@ -302,21 +309,39 @@ export const GameEditorDialog = (props: Props) => {
                 </Select>
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
+                <InputLabel>Division (*required)</InputLabel>
+                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, division_session_id: '', poolbracket_id: '', roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
+                  displayEmpty fullWidth disabled={!!lockedDivisionId}
+                  renderValue={(v) => v ? (divisions.find(d => d.did === v)?.dname ?? v) : <em>Select a division</em>}
+                >
+                  {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
+                </Select>
+              </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <InputLabel>Division Session (*required)</InputLabel>
+                <Select value={form.division_session_id} onChange={(e) => set({ division_session_id: e.target.value, poolbracket_id: '' })}
+                  displayEmpty fullWidth disabled={!divisionChosen}
+                  renderValue={(v) => v ? (divisionSessions.find(s => s.division_session_id === v)?.name ?? v) : <em>Select a division session</em>}
+                >
+                  {divisionSessions.map(s => <MenuItem key={s.division_session_id} value={s.division_session_id}>{s.name}</MenuItem>)}
+                </Select>
+              </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <InputLabel>Pool/Bracket (*required)</InputLabel>
+                <Select value={form.poolbracket_id} onChange={(e) => set({ poolbracket_id: e.target.value })}
+                  displayEmpty fullWidth disabled={!sessionChosen}
+                  renderValue={(v) => v ? (poolBrackets.find(b => b.pool_bracket_id === v)?.name ?? v) : <em>Select a pool/bracket</em>}
+                >
+                  {sessionPoolBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
+                </Select>
+              </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
                   displayEmpty fullWidth disabled={!divisionChosen}
                   renderValue={(v) => v ? roundLabel(rounds.find(r => r.roundid === v)) : <em>Select a round</em>}
                 >
                   {divisionRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
-                </Select>
-              </Grid>
-              <Grid size={{ xs: 12, md: 7 }}>
-                <InputLabel>Pool Bracket (*required)</InputLabel>
-                <Select value={form.poolbracket_id} onChange={(e) => set({ poolbracket_id: e.target.value })}
-                  displayEmpty fullWidth disabled={!divisionChosen}
-                  renderValue={(v) => v ? (poolBrackets.find(b => b.pool_bracket_id === v)?.name ?? v) : <em>Select a pool bracket</em>}
-                >
-                  {poolBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
                 </Select>
               </Grid>
             </Grid>

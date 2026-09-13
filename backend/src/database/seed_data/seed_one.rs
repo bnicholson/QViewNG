@@ -1482,7 +1482,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) 
     if include_gameevents { seed_game_events(db, game.gid, &team_3_decades, &team_4_decades); }
 
     // Add every game of each division to its division's statsgroup (games_statsgroups).
-    // Seeded games derive their divisionid from their round, so we can look them up per division.
+    // A game's division is derived via its pool bracket (game -> pool_bracket -> division_session
+    // -> division), so read_all_games_of_division groups them correctly.
     let all_games_pagination = crate::models::common::PaginationParams {
         page: 0,
         page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,

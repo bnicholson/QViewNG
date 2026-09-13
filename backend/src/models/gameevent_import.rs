@@ -209,10 +209,10 @@ fn games_in_room(db: &mut database::Connection, room_id: Uuid) -> Vec<Game> {
 
 /// (division name, room name, round name) for an existing game, for display in errors.
 fn game_ref(db: &mut database::Connection, game: &Game) -> GameRef {
-    use crate::schema::divisions::dsl as d;
     use crate::schema::rooms::dsl as rm;
     use crate::schema::rounds::dsl as rd;
-    let division = d::divisions.filter(d::did.eq(game.divisionid)).select(d::dname).first::<String>(db).unwrap_or_default();
+    // Division is derived via game -> pool_bracket -> division_session -> division.
+    let division = crate::models::game::read_division_of_game(db, game).map(|d| d.dname).unwrap_or_default();
     let room = rm::rooms.filter(rm::roomid.eq(game.roomid)).select(rm::name).first::<String>(db).unwrap_or_default();
     let round = rd::rounds.filter(rd::roundid.eq(game.roundid)).select(rd::name).first::<String>(db).unwrap_or_default();
     GameRef { division, room, round }
