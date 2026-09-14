@@ -12,6 +12,9 @@ import Chip from '@mui/material/Chip'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import Divider from '@mui/material/Divider'
 import Alert from '@mui/material/Alert'
@@ -71,14 +74,13 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const [divisionBrackets, setDivisionBrackets] = useState<PoolBracketTS[]>([])
   const [divisionTeams, setDivisionTeams] = useState<TeamTS[]>([])
 
-  // Row 3 — the selected pool/bracket
+  // The "active" pool/bracket — the target the unplaced-team chips add to. With the dropdown gone,
+  // every pool is shown as a card and the active one is chosen by clicking its card.
   const [selectedBracketId, setSelectedBracketId] = useState('')
 
-  // Teams per pool/bracket in the selected session (drives placement + the card's team list)
+  // Teams and games per pool/bracket in the selected session (drive each card's team list + matrix).
   const [teamsByBracket, setTeamsByBracket] = useState<Record<string, TeamRowTS[]>>({})
-
-  // Row 4 — games in the selected pool/bracket (drive the matchup matrix)
-  const [cardGames, setCardGames] = useState<GameRowTS[]>([])
+  const [gamesByBracket, setGamesByBracket] = useState<Record<string, GameRowTS[]>>({})
 
   // Create-dialog visibility
   const [divDialogOpen, setDivDialogOpen] = useState(false)
@@ -110,16 +112,26 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       .catch(() => setError('Failed to load team placements.'))
   }, [])
 
-  const loadGames = useCallback((bracketId: string) => {
-    if (!bracketId) { setCardGames([]); return }
-    GameAPI.getRowsByPoolBracket(bracketId, PAGE, SIZE)
-      .then(r => setCardGames(r.items))
+  const loadGamesForSession = useCallback((sessionId: string, brackets: PoolBracketTS[]) => {
+    const sessionBrackets = brackets.filter(b => b.division_session_id === sessionId)
+    Promise.all(
+      sessionBrackets.map(b =>
+        GameAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE).then(r => [b.pool_bracket_id, r.items] as const)
+      )
+    )
+      .then(entries => setGamesByBracket(Object.fromEntries(entries)))
       .catch(() => setError('Failed to load games.'))
   }, [])
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => { loadDivisions() }, [loadDivisions])
+
+  // Auto-select the first division as soon as divisions load (keeping any valid current choice), so
+  // the cascade below fills in and the user lands on a populated schedule instead of empty dropdowns.
+  useEffect(() => {
+    setSelectedDid(prev => divisions.some(d => d.did === prev) ? prev : (divisions[0]?.did ?? ''))
+  }, [divisions])
 
   useEffect(() => {
     setSelectedSessionId('')
@@ -130,13 +142,20 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     if (selectedDid) loadDivisionData(selectedDid)
   }, [selectedDid, loadDivisionData])
 
+  // Auto-select the first session once the chosen division's sessions load (which in turn auto-selects
+  // its first pool/bracket via the row3Options effect below).
   useEffect(() => {
-    setSelectedBracketId('')
-    setTeamsByBracket({})
-    if (selectedSessionId) loadPlacement(selectedSessionId, divisionBrackets)
-  }, [selectedSessionId, divisionBrackets, loadPlacement])
+    setSelectedSessionId(prev => sessions.some(s => s.division_session_id === prev) ? prev : (sessions[0]?.division_session_id ?? ''))
+  }, [sessions])
 
-  useEffect(() => { loadGames(selectedBracketId) }, [selectedBracketId, loadGames])
+  useEffect(() => {
+    setTeamsByBracket({})
+    setGamesByBracket({})
+    if (selectedSessionId) {
+      loadPlacement(selectedSessionId, divisionBrackets)
+      loadGamesForSession(selectedSessionId, divisionBrackets)
+    }
+  }, [selectedSessionId, divisionBrackets, loadPlacement, loadGamesForSession])
 
   // ── Derived values ───────────────────────────────────────────────────────
 
@@ -154,9 +173,17 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     : brackets.length > 0 ? 'Tournament Bracket(s)'
     : 'Undecided'
 
-  // The pools/brackets the Row-3 dropdown offers, and whether we're in bracket mode.
+  // The pools/brackets shown as cards, and whether we're in bracket mode.
   const isBracketMode = sessionType === 'Tournament Bracket(s)'
   const row3Options = isBracketMode ? brackets : pools
+
+  // Keep the active pool/bracket (the unplaced-team target) valid: default to the first one and
+  // fall back to the first whenever the current one disappears (session/division change, deletion).
+  useEffect(() => {
+    setSelectedBracketId(prev =>
+      row3Options.some(b => b.pool_bracket_id === prev) ? prev : (row3Options[0]?.pool_bracket_id ?? '')
+    )
+  }, [row3Options])
 
   const placedTeamIds = useMemo(
     () => new Set(Object.values(teamsByBracket).flat().map(t => t.teamid)),
@@ -168,13 +195,12 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   )
 
   const selectedBracket = sessionBrackets.find(b => b.pool_bracket_id === selectedBracketId) ?? null
-  const cardTeams = teamsByBracket[selectedBracketId] ?? []
 
   // ── Team placement handlers ──────────────────────────────────────────────
 
   const refresh = () => {
     loadPlacement(selectedSessionId, divisionBrackets)
-    loadGames(selectedBracketId)
+    loadGamesForSession(selectedSessionId, divisionBrackets)
   }
 
   const handleAddTeam = async (teamid: string) => {
@@ -187,10 +213,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     }
   }
 
-  const handleRemoveTeam = async (teamid: string) => {
-    if (!selectedBracketId) return
+  const handleRemoveTeam = async (bracketId: string, teamid: string) => {
     try {
-      await TeamAPI.removeFromPoolBracket(selectedBracketId, teamid, accessToken)
+      await TeamAPI.removeFromPoolBracket(bracketId, teamid, accessToken)
       refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove team.')
@@ -251,76 +276,88 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
             </Button>
           </Box>
 
-          {/* Row 2b — teams awaiting placement */}
+          {/* The schedule card: teams awaiting placement on top, then the pool/bracket tabs (with a
+              "+" to create another at the end of the row), then the selected pool/bracket's detail. */}
           {selectedSessionId && (
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Teams needing placement{selectedBracketId ? ` — click to add to "${selectedBracket?.name}"` : ' — select a pool/bracket first'}:
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                {unplacedTeams.length === 0
-                  ? <Typography variant="body2" color="text.secondary">All teams placed.</Typography>
-                  : unplacedTeams.map(t => (
-                      <Chip
-                        key={t.teamid}
-                        label={t.name}
-                        size="small"
-                        onClick={canEdit && selectedBracketId ? () => handleAddTeam(t.teamid) : undefined}
-                        disabled={!canEdit || !selectedBracketId}
+            <Card variant="outlined">
+              <CardContent>
+                {/* Teams awaiting placement — left aligned, above the tabs */}
+                <Box sx={{ textAlign: 'left' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Teams needing placement{selectedBracket ? ` — click to add to the selected tab, "${selectedBracket.name}"` : ' — create a pool/bracket first'}:
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                    {unplacedTeams.length === 0
+                      ? <Typography variant="body2" color="text.secondary">All teams placed.</Typography>
+                      : unplacedTeams.map(t => (
+                          <Chip
+                            key={t.teamid}
+                            label={t.name}
+                            size="small"
+                            onClick={canEdit && selectedBracketId ? () => handleAddTeam(t.teamid) : undefined}
+                            disabled={!canEdit || !selectedBracketId}
+                          />
+                        ))
+                    }
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 1.5 }} />
+
+                {sessionType === 'Undecided' ? (
+                  // No pools/brackets yet — offer to create the first of either kind.
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="body2" color="text.secondary">This session has no pools or brackets yet:</Typography>
+                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'pool' })} disabled={!canEdit}>
+                      Create Pool
+                    </Button>
+                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'bracket' })} disabled={!canEdit}>
+                      Create Bracket
+                    </Button>
+                  </Box>
+                ) : (
+                  <>
+                    {/* Tabs row: a "Pools:"/"Brackets:" label, one tab per pool/bracket, then a "+" to create another. */}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="body1" sx={{ mr: 1, flexShrink: 0 }}>
+                        {isBracketMode ? 'Brackets:' : 'Pools:'}
+                      </Typography>
+                      <Tabs
+                        value={row3Options.some(b => b.pool_bracket_id === selectedBracketId) ? selectedBracketId : false}
+                        onChange={(_e, value: string) => setSelectedBracketId(value)}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        sx={{ minHeight: 0 }}
+                      >
+                        {row3Options.map(b => <Tab key={b.pool_bracket_id} value={b.pool_bracket_id} label={b.name} />)}
+                      </Tabs>
+                      <Tooltip title={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool' })}
+                            disabled={!canEdit}
+                            aria-label={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}
+                          >
+                            <AddIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
+
+                    {selectedBracket && (
+                      <PoolDetail
+                        teams={teamsByBracket[selectedBracket.pool_bracket_id] ?? []}
+                        games={gamesByBracket[selectedBracket.pool_bracket_id] ?? []}
+                        canEdit={canEdit}
+                        onRemoveTeam={(teamid) => handleRemoveTeam(selectedBracket.pool_bracket_id, teamid)}
+                        onNavigateTeam={(teamid) => navigate(`/team/${teamid}/overview`)}
                       />
-                    ))
-                }
-              </Box>
-            </Box>
-          )}
-
-          {/* Row 3 / Row 3 Alternate — Pools or Brackets */}
-          {selectedSessionId && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              {sessionType === 'Undecided' ? (
-                <>
-                  <Typography variant="body2" color="text.secondary">This session has no pools or brackets yet:</Typography>
-                  <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'pool' })} disabled={!canEdit}>
-                    Create Pool
-                  </Button>
-                  <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'bracket' })} disabled={!canEdit}>
-                    Create Bracket
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <FormControl size="small" sx={{ minWidth: 240 }}>
-                    <InputLabel>{isBracketMode ? 'Brackets' : 'Pools'}</InputLabel>
-                    <Select
-                      label={isBracketMode ? 'Brackets' : 'Pools'}
-                      value={selectedBracketId}
-                      onChange={(e: SelectChangeEvent) => setSelectedBracketId(e.target.value)}
-                    >
-                      {row3Options.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-                  <Button
-                    startIcon={<AddIcon />}
-                    onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool' })}
-                    disabled={!canEdit}
-                  >
-                    Create {isBracketMode ? 'Bracket' : 'Pool'}
-                  </Button>
-                </>
-              )}
-            </Box>
-          )}
-
-          {/* Row 4 — the pool/bracket card */}
-          {selectedBracket && (
-            <PoolCard
-              bracket={selectedBracket}
-              teams={cardTeams}
-              games={cardGames}
-              canEdit={canEdit}
-              onRemoveTeam={handleRemoveTeam}
-              onNavigateTeam={(teamid) => navigate(`/team/${teamid}/overview`)}
-            />
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
           )}
         </Stack>
       )}
@@ -370,10 +407,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   )
 }
 
-// ── Pool/Bracket card ────────────────────────────────────────────────────────
+// ── Pool/Bracket detail ──────────────────────────────────────────────────────
 
-interface PoolCardProps {
-  bracket: PoolBracketTS
+interface PoolDetailProps {
   teams: TeamRowTS[]
   games: GameRowTS[]
   canEdit: boolean
@@ -382,17 +418,11 @@ interface PoolCardProps {
 }
 
 /**
- * One pool/bracket: its name, the teams in it (numbered chips), and a Rooms × Rounds matrix of the
- * matchups played in it, rendered with each team's assigned number.
+ * The detail for the selected pool/bracket (its name is shown by its tab): the teams in it (chips)
+ * and a Rooms × Rounds matrix of the matchups played in it, rendered with each team's name. Renders
+ * inline (no card of its own) since it lives inside the schedule card, below the tabs.
  */
-const PoolCard = ({ bracket, teams, games, canEdit, onRemoveTeam, onNavigateTeam }: PoolCardProps) => {
-  // Each team gets a 1-based number, used both on its chip and in the matrix cells.
-  const numberByTeam = useMemo(() => {
-    const m = new Map<string, number>()
-    teams.forEach((t, i) => m.set(t.teamid, i + 1))
-    return m
-  }, [teams])
-
+const PoolDetail = ({ teams, games, canEdit, onRemoveTeam, onNavigateTeam }: PoolDetailProps) => {
   // Distinct rooms (X axis) and rounds (Y axis) taken from the games in this pool/bracket.
   const rooms = useMemo(() => {
     const m = new Map<string, string>()
@@ -416,21 +446,17 @@ const PoolCard = ({ bracket, teams, games, canEdit, onRemoveTeam, onNavigateTeam
     return m
   }, [games])
 
-  // A single team's number, with the team name on hover and a click through to its profile.
-  const teamToken = (teamid: string, name: string) => {
-    const n = numberByTeam.get(teamid)
-    return (
-      <Tooltip title={name} key={teamid}>
-        <Box
-          component="span"
-          onClick={() => onNavigateTeam(teamid)}
-          sx={{ cursor: 'pointer', textDecoration: 'underline', fontWeight: 600, px: 0.25 }}
-        >
-          {n ?? '—'}
-        </Box>
-      </Tooltip>
-    )
-  }
+  // A single team's name, clickable through to its profile.
+  const teamToken = (teamid: string, name: string) => (
+    <Box
+      component="span"
+      key={teamid}
+      onClick={() => onNavigateTeam(teamid)}
+      sx={{ cursor: 'pointer', color: 'primary.main', textDecoration: 'underline', px: 0.25, whiteSpace: 'nowrap' }}
+    >
+      {name}
+    </Box>
+  )
 
   const matchup = (g: GameRowTS) => {
     const tokens: React.ReactNode[] = [teamToken(g.leftteamid, g.left_team_name)]
@@ -441,23 +467,18 @@ const PoolCard = ({ bracket, teams, games, canEdit, onRemoveTeam, onNavigateTeam
   }
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        {/* Card Row 1 — name */}
-        <Typography variant="h6">{bracket.name}</Typography>
-        <Divider sx={{ my: 1 }} />
-
-        {/* Card Row 2 — teams (numbered chips) */}
+    <Box sx={{ mt: 1.5, textAlign: 'left' }}>
+        {/* Teams in this pool/bracket (chips) */}
         <Typography variant="caption" color="text.secondary">
           Teams{canEdit ? ' — click a team to remove it from this pool/bracket' : ''}:
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5, mb: 1 }}>
           {teams.length === 0
             ? <Typography variant="body2" color="text.secondary">No teams yet.</Typography>
-            : teams.map((t, i) => (
+            : teams.map(t => (
                 <Chip
                   key={t.teamid}
-                  label={`${i + 1}. ${t.name}`}
+                  label={t.name}
                   size="small"
                   onClick={canEdit ? () => onRemoveTeam(t.teamid) : undefined}
                   onDelete={canEdit ? () => onRemoveTeam(t.teamid) : undefined}
@@ -503,7 +524,6 @@ const PoolCard = ({ bracket, teams, games, canEdit, onRemoveTeam, onNavigateTeam
             </Table>
           </TableContainer>
         )}
-      </CardContent>
-    </Card>
+    </Box>
   )
 }
