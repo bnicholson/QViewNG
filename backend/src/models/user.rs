@@ -342,13 +342,17 @@ pub fn read_eligible_quizzers_for_user(db: &mut database::Connection, user_id_va
                     }
                 }
             }
-            // Game quizmasters and content judges.
-            {
-                use crate::schema::games::dsl::*;
-                let rows = games
-                    .filter(tournamentid.eq_any(&tour_ids))
-                    .filter(del_fl.eq(false))
-                    .select((quizmasterid, contentjudgeid))
+            // Game quizmasters and content judges. Games no longer store the tournament, so we
+            // scope them through the pool bracket chain: game -> pool_bracket -> division_session,
+            // keeping those whose session belongs to one of the tournaments' divisions.
+            if !div_ids.is_empty() {
+                use crate::schema::{games, pool_brackets, division_sessions};
+                let rows = games::table
+                    .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+                    .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+                    .filter(division_sessions::did.eq_any(&div_ids))
+                    .filter(games::del_fl.eq(false))
+                    .select((games::quizmasterid, games::contentjudgeid))
                     .load::<(Uuid, Option<Uuid>)>(db)?;
                 for (qm, cj) in rows {
                     ids.insert(qm);

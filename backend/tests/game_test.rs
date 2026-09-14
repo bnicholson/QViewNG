@@ -338,7 +338,11 @@ async fn update_works() {
     assert_eq!(owner_resp_body.message, "");
 
     let updated_game = owner_resp_body.data.unwrap();
-    assert_eq!(updated_game.tournamentid, tournament.tid);
+    // tournamentid is no longer stored on the game; derive it via the pool bracket chain.
+    assert_eq!(
+        backend::models::game::read_tournament_of_game(&mut conn, &updated_game).unwrap().tid,
+        tournament.tid
+    );
     assert_eq!(updated_game.gid, game.gid);
     assert_eq!(updated_game.org.as_str(), "Owner Updated Org");
     assert_ne!(updated_game.created_at, updated_game.updated_at);

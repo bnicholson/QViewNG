@@ -58,6 +58,35 @@ async fn read(
     }
 }
 
+/// The game's division and tournament, derived via its pool bracket
+/// (game -> pool_bracket -> division_session -> division -> tournament). Neither is stored on the
+/// game any more, so the Game profile fetches them here in one call.
+#[get("/{id}/context")]
+async fn read_context(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let game = match models::game::read(&mut conn, item_id.into_inner()) {
+        Ok(g) => g,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let division = match models::game::read_division_of_game(&mut conn, &game) {
+        Ok(d) => d,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
+        Ok(t) => t,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    HttpResponse::Ok().json(json!({ "division": division, "tournament": tournament }))
+}
+
 #[get("/{id}/gameevents")]
 async fn read_gameevents(
     db: Data<Database>,
@@ -120,29 +149,26 @@ async fn create(
         })));
     }
 
-    let tournament_id = match item.tournamentid {
-        Some(tid) => tid,
-        None => {
-            let round = match models::round::read(&mut conn, item.roundid) {
-                Ok(r) => r,
-                Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                    "error": format!("Round with ID {} does not exist", item.roundid)
-                }))),
-            };
-            let division = match models::division::read(&mut conn, round.did) {
-                Ok(d) => d,
-                Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                    "error": format!("Division with ID {} does not exist", round.did)
-                }))),
-            };
-            division.tid
-        }
+    // The game's tournament is derived from its pool bracket:
+    // pool_bracket -> division_session -> division -> tournament.
+    let bracket = match models::pool_bracket::read(&mut conn, item.poolbracket_id) {
+        Ok(b) => b,
+        Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": format!("Pool bracket with ID {} does not exist", item.poolbracket_id)
+        }))),
     };
-
-    let tournament = match models::tournament::read(&mut conn, tournament_id) {
+    let session = match models::division_session::read(&mut conn, bracket.division_session_id) {
+        Ok(s) => s,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    let division = match models::division::read(&mut conn, session.did) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    let tournament = match models::tournament::read(&mut conn, division.tid) {
         Ok(t) => t,
         Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Tournament with ID {} does not exist", tournament_id)
+            "error": format!("Tournament with ID {} does not exist", division.tid)
         }))),
     };
 
@@ -211,7 +237,7 @@ async fn update(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let tournament = match models::tournament::read(&mut conn, game.tournamentid) {
+    let tournament = match models::game::read_tournament_of_game(&mut conn, &game) {
         Ok(t) => t,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -263,7 +289,7 @@ async fn destroy(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let tournament = match models::tournament::read(&mut conn, game.tournamentid) {
+    let tournament = match models::game::read_tournament_of_game(&mut conn, &game) {
         Ok(t) => t,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -293,6 +319,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_context)
         .service(read_gameevents)
         .service(request_resend)
         .service(create)

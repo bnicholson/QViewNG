@@ -1,7 +1,15 @@
+import type { DivisionTS } from './DivisionAPI'
+import type { TournamentTS } from './TournamentAPI'
+
+/** A game's division and tournament, derived server-side from its pool bracket. */
+export interface GameContextTS {
+  division: DivisionTS;
+  tournament: TournamentTS;
+}
+
 export interface GameTS {
   gid: string;
   org: string;
-  tournamentid: string;
   roomid: string;
   roundid: string;
   ignore: boolean;
@@ -17,7 +25,6 @@ export interface GameTS {
 
 export interface NewGamePayload {
   org: string;
-  tournamentid: string;
   poolbracket_id: string;
   roomid: string;
   roundid: string;
@@ -115,6 +122,12 @@ export const GameAPI = {
   getById: async (id: string): Promise<GameTS> => {
     const response = await fetch(`/api/games/${id}`);
     if (!response.ok) throw new Error(`Game not found (${response.status})`);
+    return response.json();
+  },
+  /** The game's division + tournament (derived from its pool bracket) in one call. */
+  getContext: async (id: string): Promise<GameContextTS> => {
+    const response = await fetch(`/api/games/${id}/context`);
+    if (!response.ok) throw new Error(`Game context not found (${response.status})`);
     return response.json();
   },
   update: async (id: string, changeset: GameChangeset, accessToken?: string): Promise<GameTS> => {

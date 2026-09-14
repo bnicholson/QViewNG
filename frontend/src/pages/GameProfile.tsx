@@ -6,8 +6,8 @@ import Stack from '@mui/material/Stack'
 import ProfileLayout from '../components/ProfileLayout'
 import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { GameAPI, type GameTS } from '../features/GameAPI'
-import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
-import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
+import { type TournamentTS } from '../features/TournamentAPI'
+import { type DivisionTS } from '../features/DivisionAPI'
 import { GameProfileOverviewPage } from './GameProfileOverviewPage'
 import { useAuth } from '../hooks/useAuth'
 
@@ -22,17 +22,12 @@ export const GameProfile = (props: { childRoute?: string }) => {
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    GameAPI.getById(gid)
-      .then(g => {
+    // The game's tournament and division are derived server-side from its pool bracket.
+    Promise.all([GameAPI.getById(gid), GameAPI.getContext(gid)])
+      .then(([g, ctx]) => {
         setGame(g)
-        return Promise.all([
-          TournamentAPI.getById(g.tournamentid),
-          DivisionAPI.getById(g.divisionid),
-        ])
-      })
-      .then(([t, d]) => {
-        setTournament(t)
-        setDivision(d)
+        setTournament(ctx.tournament)
+        setDivision(ctx.division)
       })
       .catch(() => setNotFound(true))
   }, [gid])

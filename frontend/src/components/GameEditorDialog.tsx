@@ -207,10 +207,9 @@ export const GameEditorDialog = (props: Props) => {
 
     const payload: NewGamePayload = {
       // Org, Ruleset and Ignore are no longer collected in the form; send backend-safe defaults.
-      // Division is not sent — it is derived server-side from the chosen pool bracket. The Division
-      // selector here only scopes the pool bracket / round / team choices.
+      // Neither Division nor Tournament is sent — both are derived server-side from the chosen pool
+      // bracket. The Division/Session selectors here only scope the pool bracket / round / team choices.
       org: '',
-      tournamentid: tid,
       poolbracket_id: form.poolbracket_id,
       roomid: form.roomid,
       roundid: form.roundid,

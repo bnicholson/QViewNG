@@ -108,7 +108,6 @@ pub fn get_game_payload(
     qm_id: Uuid
 ) -> NewGame {
     GameBuilder::new_default(room_id, round_id)
-        .set_tournamentid(Some(tid))
         .set_leftteamid(left_team_id)
         .set_centerteamid(center_team_id)
         .set_rightteamid(right_team_id)
@@ -264,7 +263,6 @@ pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) { 
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_3.teamid)
         .set_rightteamid(team_2.teamid)
         .set_quizmasterid(qm_1.id)
@@ -272,7 +270,6 @@ pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) { 
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_1.teamid)
         .set_rightteamid(team_4.teamid)
         .set_quizmasterid(qm_2.id)
@@ -430,7 +427,6 @@ pub fn seed_get_games_of_division(db: &mut database::Connection) -> (Uuid, Game,
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1.roomid, round_1_of_div_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_5.teamid)
         .set_rightteamid(team_6.teamid)
         .set_quizmasterid(qm_1.id)
@@ -438,7 +434,6 @@ pub fn seed_get_games_of_division(db: &mut database::Connection) -> (Uuid, Game,
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2.roomid, round_1_of_div_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_7.teamid)
         .set_rightteamid(team_8.teamid)
         .set_quizmasterid(qm_2.id)
@@ -599,7 +594,6 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1_of_tour_2.roomid, round_1_of_tour_2.roundid)
-        .set_tournamentid(Some(tour_2.tid))
         .set_leftteamid(team_5.teamid)
         .set_rightteamid(team_6.teamid)
         .set_quizmasterid(qm_1.id)
@@ -607,7 +601,6 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2_of_tour_2.roomid, round_1_of_tour_2.roundid)
-        .set_tournamentid(Some(tour_2.tid))
         .set_leftteamid(team_7.teamid)
         .set_rightteamid(team_8.teamid)
         .set_quizmasterid(qm_2.id)
@@ -760,7 +753,6 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_4.teamid)
         .set_rightteamid(team_1.teamid)
         .set_quizmasterid(qm_1.id)
@@ -768,7 +760,6 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_3.teamid)
         .set_rightteamid(team_2.teamid)
         .set_quizmasterid(qm_2.id)
@@ -888,7 +879,6 @@ pub fn seed_get_games_of_team(db: &mut database::Connection) -> (Uuid, Game, Gam
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_4.teamid)
         .set_rightteamid(team_1.teamid)
         .set_quizmasterid(qm_1.id)
@@ -896,7 +886,6 @@ pub fn seed_get_games_of_team(db: &mut database::Connection) -> (Uuid, Game, Gam
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_3.teamid)
         .set_rightteamid(team_2.teamid)
         .set_quizmasterid(qm_2.id)
@@ -1018,7 +1007,6 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
         .unwrap();
 
     let game_3 = GameBuilder::new_default(room_1.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_4.teamid)
         .set_rightteamid(team_1.teamid)
         .set_quizmasterid(user_1.id)
@@ -1027,7 +1015,6 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
         .unwrap();
 
     let game_4 = GameBuilder::new_default(room_2.roomid, round_2.roundid)
-        .set_tournamentid(Some(tour_1.tid))
         .set_leftteamid(team_3.teamid)
         .set_rightteamid(team_2.teamid)
         .set_quizmasterid(user_2.id)
@@ -1154,7 +1141,6 @@ pub fn arrange_game_delete_works_integration_test(
     let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
 
     let game_1 = GameBuilder::new_default(room_1.roomid, round.roundid)
-        .set_tournamentid(Some(tournament.tid))
         .set_leftteamid(teams.0.teamid)
         .set_rightteamid(teams.1.teamid)
         .set_quizmasterid(quizmaster.id)
@@ -1162,7 +1148,6 @@ pub fn arrange_game_delete_works_integration_test(
         .unwrap();
 
     let game_2 = GameBuilder::new_default(room_2.roomid, round.roundid)
-        .set_tournamentid(Some(tournament.tid))
         .set_leftteamid(teams.1.teamid)
         .set_rightteamid(teams.2.teamid)
         .set_quizmasterid(quizmaster.id)
@@ -1215,7 +1200,6 @@ pub fn arrange_game_update_works_integration_test(
     let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
 
     let game = GameBuilder::new_default(room.roomid, round.roundid)
-        .set_tournamentid(Some(tournament.tid))
         .set_leftteamid(teams.0.teamid)
         .set_rightteamid(teams.1.teamid)
         .set_quizmasterid(quizmaster.id)

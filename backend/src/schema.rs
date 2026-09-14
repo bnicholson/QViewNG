@@ -252,7 +252,6 @@ diesel::table! {
         gid -> Uuid,
         #[max_length = 48]
         org -> Varchar,
-        tournamentid -> Uuid,
         roomid -> Uuid,
         roundid -> Uuid,
         ignore -> Bool,
@@ -787,7 +786,6 @@ diesel::joinable!(equipmentsets -> users (equipmentownerid));
 diesel::joinable!(gameevents -> games (gid));
 diesel::joinable!(games -> pool_brackets (poolbracket_id));
 diesel::joinable!(games -> rounds (roundid));
-diesel::joinable!(games -> tournaments (tournamentid));
 diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
 diesel::joinable!(password_reset_tokens -> users (user_id));
