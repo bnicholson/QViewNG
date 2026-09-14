@@ -22,6 +22,7 @@ import GamesTable from '../components/GamesTable'
 import RoomMonitorTable from '../components/RoomMonitorTable'
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog'
 import ProfileLayout from '../components/ProfileLayout'
+import { TournamentSchedule } from '../components/TournamentSchedule'
 import { TournamentOverviewPage } from './TournamentOverviewPage'
 import { TournamentRegisterPage } from './TournamentRegisterPage'
 import { TournamentGearPage } from './TournamentGearPage'
@@ -152,6 +153,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
   const allNavItems: Array<{ kind: 'route'; label: string; to: string; requiredPermission?: string; visible?: boolean }> = [
     { kind: 'route', label: 'Overview',     to: `/tournament/${tid}/overview`     },
     { kind: 'route', label: 'Registration', to: `/tournament/${tid}/register`,      visible: registrationIsOpen && anyRegistrationEnabled },
+    { kind: 'route', label: 'Schedule',     to: `/tournament/${tid}/schedule`     },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`    },
     { kind: 'route', label: 'Division Sessions', to: `/tournament/${tid}/division-sessions` },
     { kind: 'route', label: 'Pools',        to: `/tournament/${tid}/pools`        },
@@ -195,6 +197,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'register/gear'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
+          {props.childRoute === 'schedule'          && <TournamentSchedule tid={String(tournament?.tid)} canEdit={isOwnerOrSuperUser || canViewAdmins === true} />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'division-sessions' && <SessionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'pools'             && <PoolBracketsTable tid={String(tournament?.tid)} type="pool" entityLabel="Pool" title="Pools" showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
