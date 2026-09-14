@@ -181,7 +181,36 @@ pub struct DivisionChangeset {
     pub shortinfo: Option<String>
 }
 
+/// Whether a division named `dname_val` already exists in tournament `tournament_id`. When
+/// `exclude` is set (e.g. during an update), that division id is ignored so a row doesn't clash
+/// with itself. Mirrors the name-uniqueness helpers on division sessions and pool brackets; the
+/// DB's `divisions_tid_dname_key` unique constraint is the hard backstop.
+pub fn dname_exists_in_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    dname_val: &str,
+    exclude: Option<Uuid>,
+) -> QueryResult<bool> {
+    use crate::schema::divisions::dsl::*;
+    let mut query = divisions
+        .filter(tid.eq(tournament_id))
+        .filter(dname.eq(dname_val))
+        .filter(del_fl.eq(false))
+        .into_boxed();
+    if let Some(ex) = exclude {
+        query = query.filter(did.ne(ex));
+    }
+    let count: i64 = query.count().get_result(db)?;
+    Ok(count > 0)
+}
+
 pub fn create(db: &mut database::Connection, item: &NewDivision) -> QueryResult<Division> {
+    // A division's name must be unique within its parent tournament.
+    if dname_exists_in_tournament(db, item.tid, &item.dname, None)? {
+        return Err(diesel::result::Error::QueryBuilderError(
+            format!("A division named \"{}\" already exists in this tournament.", item.dname).into()
+        ));
+    }
     use crate::schema::divisions::dsl::*;
     insert_into(divisions).values(item).get_result::<Division>(db)
 }
@@ -291,6 +320,15 @@ pub fn read_all_divisions_of_tournament(
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionChangeset, modified_by: Uuid) -> QueryResult<Division> {
+    // Enforce name uniqueness within the parent tournament when the name is being changed.
+    if let Some(new_name) = &item.dname {
+        let existing = read(db, item_id)?;
+        if dname_exists_in_tournament(db, existing.tid, new_name, Some(item_id))? {
+            return Err(diesel::result::Error::QueryBuilderError(
+                format!("A division named \"{}\" already exists in this tournament.", new_name).into()
+            ));
+        }
+    }
     use crate::schema::divisions::dsl::*;
     diesel::update(divisions.filter(did.eq(item_id)))
         .set((
