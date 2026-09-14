@@ -1,6 +1,7 @@
 
 use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
+use backend::database::Database;
 use backend::database::clean_db::clean_database;
 use backend::database::seed_data::seed_one::insert_seed_data_one;
 use backend::database::seed_data::system_default_data::insert_system_default_data;
@@ -44,7 +45,7 @@ async fn main() -> std::io::Result<()> {
     };
     let host_and_port = format!("{host}:{port}");
 
-    let db = database::Database::new("DATABASE_URL");
+    let db = Database::new("DATABASE_URL");
     
     if true {
         let mut conn = db.get_connection().expect("Failed to get connection.");
