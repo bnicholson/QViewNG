@@ -2,6 +2,7 @@ use crate::database;
 use crate::schema::{
     activation_tokens, apicalllog, computers, create_tournament_applicants, division_sessions, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameeventlogs, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, pool_brackets, projectors, roles, roles_permissions, rooms, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, team_teamgroups, teamgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
 };
+use chrono::Utc;
 use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};  // , MigrationHarness};
 
@@ -28,6 +29,10 @@ pub const PAGE_SIZE: i64 = 10;
 // }
 
 pub fn clean_database(conn: &mut database::Connection) {
+
+    let start_time_for_db_purge = Utc::now();
+    println!("Starting DB Purge");
+
     // establish_test_connection();  // mostly for running pending migrations
     // let db = Database::new(TEST_DB_URL);
     // let mut conn = db.get_connection().expect("Failed to get connection.");
@@ -183,6 +188,10 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(users::table)
         .execute(conn)
         .expect("Failed to clean users");
+
+    let end_time_for_db_purge = Utc::now();
+    let duration_for_db_purge = end_time_for_db_purge.naive_utc() - start_time_for_db_purge.naive_utc();
+    println!("Done. DB Purging Time Duration: {}\n", duration_for_db_purge);
 }
 
 // pub fn prepare_database() -> {

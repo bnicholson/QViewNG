@@ -1,7 +1,9 @@
 
 use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
-use backend::database;
+use backend::database::clean_db::clean_database;
+use backend::database::seed_data::seed_one::insert_seed_data_one;
+use backend::database::seed_data::system_default_data::insert_system_default_data;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use backend::routes::configure_routes;
@@ -44,36 +46,18 @@ async fn main() -> std::io::Result<()> {
 
     let db = database::Database::new("DATABASE_URL");
     
-    if false {
+    if true {
         let mut conn = db.get_connection().expect("Failed to get connection.");
         if true {
-            // Removes all data from DB
-            let start_time_for_db_purge = Utc::now();
-            println!("Starting DB Purge");
-            database::clean_db::clean_database(&mut conn);
-            let end_time_for_db_purge = Utc::now();
-            let duration_for_db_purge = end_time_for_db_purge.naive_utc() - start_time_for_db_purge.naive_utc();
-            println!("Done. DB Purging Time Duration: {}\n", duration_for_db_purge);
-            
+            clean_database(&mut conn);  // Removes all data from DB
+
             if true {
-                // Repopulates DB with default system data (*required in prod and dev for proper functioning)
-                let start_time_for_db_pop_system_default_data = Utc::now();
-                println!("Starting DB Data Population for System Default Data");
-                database::seed_data::system_default_data::insert_system_default_data(&mut conn);
-                let end_time_for_db_pop_system_default_data = Utc::now();
-                let duration_for_db_pop_system_default_data = end_time_for_db_pop_system_default_data.naive_utc() - start_time_for_db_pop_system_default_data.naive_utc();
-                println!("Done. DB System Default Data Population Time Duration: {}\n", duration_for_db_pop_system_default_data);
+                insert_system_default_data(&mut conn);  // (*required in prod and dev for proper functioning)
             }
         }
         if true {    
-            // Repopulates DB with seed data (*for manual UI testing)
             let include_gameevents_in_reseed: bool = false;
-            let start_time_for_db_pop_seed_data = Utc::now();
-            println!("Starting DB Data Population for Seed Data");
-            database::seed_data::seed_one::insert_seed_data_one(&mut conn, include_gameevents_in_reseed);
-            let end_time_for_db_pop_seed_data = Utc::now();
-            let duration_for_db_pop_seed_data = end_time_for_db_pop_seed_data.naive_utc() - start_time_for_db_pop_seed_data.naive_utc();
-            println!("Done. DB Seed Data Population Time Duration: {}\n", duration_for_db_pop_seed_data);
+            insert_seed_data_one(&mut conn, include_gameevents_in_reseed);  // Repopulates DB with seed data (*for manual UI testing)
         }
         let conn = conn;
         drop(conn);

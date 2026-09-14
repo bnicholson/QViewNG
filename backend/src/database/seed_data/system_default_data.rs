@@ -10,8 +10,15 @@ pub fn default_password() -> String {
 }
 
 pub fn insert_system_default_data(db: &mut database::Connection) {
+    let start_time_for_db_pop_system_default_data = Utc::now();
+    println!("Starting DB Data Population for System Default Data");
+    
     init_roles_and_permissions(db);
     add_super_user(db);
+
+    let end_time_for_db_pop_system_default_data = Utc::now();
+    let duration_for_db_pop_system_default_data = end_time_for_db_pop_system_default_data.naive_utc() - start_time_for_db_pop_system_default_data.naive_utc();
+    println!("Done. DB System Default Data Population Time Duration: {}\n", duration_for_db_pop_system_default_data);
 }
 
 fn add_super_user(db: &mut database::Connection) {
