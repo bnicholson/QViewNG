@@ -47,7 +47,7 @@ async fn main() -> std::io::Result<()> {
 
     let db = Database::new("DATABASE_URL");
     
-    if true {
+    if false {
         let mut conn = db.get_connection().expect("Failed to get connection.");
         if true {
             clean_database(&mut conn);  // Removes all data from DB
