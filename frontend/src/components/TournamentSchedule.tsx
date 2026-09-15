@@ -27,6 +27,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Paper from '@mui/material/Paper'
 import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
 
 import { useAuth } from '../hooks/useAuth'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
@@ -92,9 +93,10 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const [gamesByBracket, setGamesByBracket] = useState<Record<string, GameRowTS[]>>({})
 
   // Create-dialog visibility
-  const [divDialogOpen, setDivDialogOpen] = useState(false)
-  const [sessionDialogOpen, setSessionDialogOpen] = useState(false)
-  const [bracketDialog, setBracketDialog] = useState<{ open: boolean; type: 'pool' | 'bracket' }>({ open: false, type: 'pool' })
+  // Create/Edit dialog state — each carries the entity being edited, or null when creating.
+  const [divDialog, setDivDialog] = useState<{ open: boolean; division: DivisionTS | null }>({ open: false, division: null })
+  const [sessionDialog, setSessionDialog] = useState<{ open: boolean; session: DivisionSessionTS | null }>({ open: false, session: null })
+  const [bracketDialog, setBracketDialog] = useState<{ open: boolean; type: 'pool' | 'bracket'; bracket: PoolBracketTS | null }>({ open: false, type: 'pool', bracket: null })
 
   // ── Loaders ──────────────────────────────────────────────────────────────
 
@@ -204,6 +206,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   )
 
   const selectedBracket = sessionBrackets.find(b => b.pool_bracket_id === selectedBracketId) ?? null
+  const selectedDivision = divisions.find(d => d.did === selectedDid) ?? null
+  const selectedSession = sessions.find(s => s.division_session_id === selectedSessionId) ?? null
 
   // ── Team placement handlers ──────────────────────────────────────────────
 
@@ -243,7 +247,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         <ButtonGroup variant="outlined" size="small">
           <Button variant={activeMode === 'read' ? 'contained' : 'outlined'} onClick={() => setMode('read')}>Read</Button>
           <Button variant={activeMode === 'conflicts' ? 'contained' : 'outlined'} onClick={() => setMode('conflicts')}>Conflicts</Button>
-          <Button variant={activeMode === 'edit' ? 'contained' : 'outlined'} onClick={() => setMode('edit')}>Edit</Button>
+          <Button variant={activeMode === 'edit' ? 'contained' : 'outlined'} onClick={() => setMode('edit')}>Create / Edit</Button>
         </ButtonGroup>
       )}
 
@@ -268,7 +272,10 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                 {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
               </Select>
             </FormControl>
-            <Button startIcon={<AddIcon />} onClick={() => setDivDialogOpen(true)} disabled={!canEdit}>
+            <Button startIcon={<EditIcon />} onClick={() => setDivDialog({ open: true, division: selectedDivision })} disabled={!canEdit || !selectedDivision}>
+              Edit
+            </Button>
+            <Button startIcon={<AddIcon />} onClick={() => setDivDialog({ open: true, division: null })} disabled={!canEdit}>
               Create Division
             </Button>
           </Box>
@@ -288,7 +295,10 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
             {selectedSessionId && (
               <Typography variant="body2" color="text.secondary">Type: <strong>{sessionType}</strong></Typography>
             )}
-            <Button startIcon={<AddIcon />} onClick={() => setSessionDialogOpen(true)} disabled={!canEdit || !selectedDid}>
+            <Button startIcon={<EditIcon />} onClick={() => setSessionDialog({ open: true, session: selectedSession })} disabled={!canEdit || !selectedSession}>
+              Edit
+            </Button>
+            <Button startIcon={<AddIcon />} onClick={() => setSessionDialog({ open: true, session: null })} disabled={!canEdit || !selectedDid}>
               Create Session
             </Button>
           </Box>
@@ -325,10 +335,10 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                   // No pools/brackets yet — offer to create the first of either kind.
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                     <Typography variant="body2" color="text.secondary">This session has no pools or brackets yet:</Typography>
-                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'pool' })} disabled={!canEdit}>
+                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'pool', bracket: null })} disabled={!canEdit}>
                       Create Pool
                     </Button>
-                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'bracket' })} disabled={!canEdit}>
+                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'bracket', bracket: null })} disabled={!canEdit}>
                       Create Bracket
                     </Button>
                   </Box>
@@ -348,11 +358,23 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                       >
                         {row3Options.map(b => <Tab key={b.pool_bracket_id} value={b.pool_bracket_id} label={b.name} />)}
                       </Tabs>
+                      <Tooltip title={`Edit ${isBracketMode ? 'Bracket' : 'Pool'}`}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: selectedBracket })}
+                            disabled={!canEdit || !selectedBracket}
+                            aria-label={`Edit ${isBracketMode ? 'Bracket' : 'Pool'}`}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                       <Tooltip title={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}>
                         <span>
                           <IconButton
                             size="small"
-                            onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool' })}
+                            onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })}
                             disabled={!canEdit}
                             aria-label={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}
                           >
@@ -382,10 +404,11 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       {/* ── Create dialogs ── */}
       <DivisionEditorDialog
         tid={tid}
-        isOpen={divDialogOpen}
-        onCancel={() => setDivDialogOpen(false)}
+        division={divDialog.division}
+        isOpen={divDialog.open}
+        onCancel={() => setDivDialog({ open: false, division: null })}
         onSave={(division) => {
-          setDivDialogOpen(false)
+          setDivDialog({ open: false, division: null })
           loadDivisions()
           setSelectedDid(division.did)
         }}
@@ -394,10 +417,11 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       <DivisionSessionEditorDialog
         tid={tid}
         lockedDivisionId={selectedDid || undefined}
-        isOpen={sessionDialogOpen}
-        onCancel={() => setSessionDialogOpen(false)}
+        session={sessionDialog.session}
+        isOpen={sessionDialog.open}
+        onCancel={() => setSessionDialog({ open: false, session: null })}
         onSave={(sessionRow) => {
-          setSessionDialogOpen(false)
+          setSessionDialog({ open: false, session: null })
           if (selectedDid) loadDivisionData(selectedDid)
           setSelectedSessionId(sessionRow.division_session_id)
         }}
@@ -409,10 +433,11 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         type={bracketDialog.type}
         entityLabel={bracketDialog.type === 'bracket' ? 'Bracket' : 'Pool'}
         lockedSessionId={selectedSessionId || undefined}
+        bracket={bracketDialog.bracket}
         isOpen={bracketDialog.open}
-        onCancel={() => setBracketDialog(d => ({ ...d, open: false }))}
+        onCancel={() => setBracketDialog(d => ({ ...d, open: false, bracket: null }))}
         onSave={(bracket) => {
-          setBracketDialog(d => ({ ...d, open: false }))
+          setBracketDialog(d => ({ ...d, open: false, bracket: null }))
           if (selectedDid) {
             PoolBracketAPI.getByDivision(selectedDid)
               .then(bs => { setDivisionBrackets(bs); setSelectedBracketId(bracket.pool_bracket_id) })

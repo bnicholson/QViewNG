@@ -47,12 +47,15 @@ const emptyState: DivisionFormState = {
 interface Props {
   tid: string;
   isOpen: boolean;
+  /** When set, the dialog edits this existing division instead of creating a new one. */
+  division?: DivisionTS | null;
   onCancel: VoidFunction;
   onSave: (division: DivisionTS) => void;
 }
 
 export const DivisionEditorDialog = (props: Props) => {
-  const { tid, isOpen, onCancel, onSave } = props;
+  const { tid, isOpen, division, onCancel, onSave } = props;
+  const isEdit = !!division;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<DivisionFormState>(emptyState);
   const [alertOpened, setAlertOpened] = useState(false);
@@ -68,11 +71,19 @@ export const DivisionEditorDialog = (props: Props) => {
 
   useEffect(() => {
     if (!isOpen) return;
-    resetState();
-  }, [isOpen]);
+    // Prefill from the division being edited; otherwise start blank.
+    setForm(division
+      ? { dname: division.dname, breadcrumb: division.breadcrumb, is_public: division.is_public, shortinfo: division.shortinfo }
+      : emptyState);
+    setConfirmDialog(confirmDialogDefaultState);
+    setErrorMsg("");
+    setAlertOpened(false);
+  }, [isOpen, division]);
 
   const openCancelDialog = () => {
-    const isDirty = form.dname !== "" || form.breadcrumb !== "" || form.shortinfo !== "";
+    const isDirty = division
+      ? (form.dname !== division.dname || form.is_public !== division.is_public || form.shortinfo !== division.shortinfo)
+      : (form.dname !== "" || form.breadcrumb !== "" || form.shortinfo !== "");
     if (!isDirty) {
       onCancel();
     } else {
@@ -104,7 +115,9 @@ export const DivisionEditorDialog = (props: Props) => {
 
     let result: DivisionTS;
     try {
-      result = await DivisionAPI.create(payload, accessToken);
+      result = isEdit
+        ? await DivisionAPI.update(division!.did, payload, accessToken)
+        : await DivisionAPI.create(payload, accessToken);
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
       setAlertOpened(true);
@@ -120,7 +133,7 @@ export const DivisionEditorDialog = (props: Props) => {
     message: "Cancel if you want to make more changes.",
     onCancel: () => setConfirmDialog(confirmDialogDefaultState),
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleSave(); },
-    title: "Save new division?",
+    title: isEdit ? "Save changes?" : "Save new division?",
   });
 
   return (
@@ -136,7 +149,7 @@ export const DivisionEditorDialog = (props: Props) => {
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Create Division
+            {isEdit ? 'Edit Division' : 'Create Division'}
           </Typography>
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>
