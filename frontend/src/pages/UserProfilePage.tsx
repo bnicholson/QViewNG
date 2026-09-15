@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import Stack from '@mui/material/Stack'
+import Box from '@mui/material/Box'
 import ProfileLayout from '../components/ProfileLayout'
 import type { NavItem } from '../components/ProfileLayout'
+import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { UserProfileOverviewPage } from './UserProfileOverviewPage'
 import { UserProfilePermissionsPage } from './UserProfilePermissionsPage'
 import { UserProfileChangePasswordPage } from './UserProfileChangePasswordPage'
@@ -116,18 +119,31 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
 
   return (
     <ProfileLayout title={<>User:<br />{userName ? `${userName.fname} ${userName.lname}` : ''}</>} navItems={navItems}>
-      {props.childRoute === 'overview'         && <UserProfileOverviewPage userId={user_id} />}
-      {props.childRoute === 'permissions'      && (canViewPrivate ? <UserProfilePermissionsPage userId={user_id} /> : null)}
-      {props.childRoute === 'change-password'  && (canViewPrivate ? <UserProfileChangePasswordPage /> : null)}
-      {props.childRoute === 'sessions'         && (canViewPrivate ? <UserProfileSessionsPage /> : null)}
-      {props.childRoute === 'teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
-      {props.childRoute === 'my-rosters' && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
-      {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
-      {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
-      {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
-      {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
-      {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} isTournamentManager={isTournamentManager} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} targetIsSuperUser={targetIsSuperUser ?? false} targetIsTournamentManager={targetIsTournamentManager} />}
-      {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} targetIsTournamentManager={targetIsTournamentManager} />}
+      <Stack spacing={3}>
+
+        {/* ── Breadcrumb (shown on every page of the profile) ── */}
+        <ProfileBreadcrumbs crumbs={[
+          { name: 'Home', to: '/' },
+          { label: 'User', name: userName ? `${userName.fname} ${userName.lname}` : '' },
+        ]} />
+
+        {/* ── Section content ── */}
+        <Box sx={{ overflowX: 'auto' }}>
+          {props.childRoute === 'overview'         && <UserProfileOverviewPage userId={user_id} />}
+          {props.childRoute === 'permissions'      && (canViewPrivate ? <UserProfilePermissionsPage userId={user_id} /> : null)}
+          {props.childRoute === 'change-password'  && (canViewPrivate ? <UserProfileChangePasswordPage /> : null)}
+          {props.childRoute === 'sessions'         && (canViewPrivate ? <UserProfileSessionsPage /> : null)}
+          {props.childRoute === 'teams'   && <UserProfileMyTeamsPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+          {props.childRoute === 'my-rosters' && <UserProfileAsCoachQuizzerRostersPage userId={user_id} isSuperUser={isSuperUser} />}
+          {props.childRoute === 'my-gear'             && <UserProfileAsCoachGearPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+          {props.childRoute === 'as-admin'         && <UserProfileAsAdminPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+          {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+          {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} />}
+          {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} isTournamentManager={isTournamentManager} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} targetIsSuperUser={targetIsSuperUser ?? false} targetIsTournamentManager={targetIsTournamentManager} />}
+          {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} isSuperUser={isSuperUser} isOwnProfile={isOwnProfile} targetIsTournamentManager={targetIsTournamentManager} />}
+        </Box>
+
+      </Stack>
     </ProfileLayout>
   )
 }
