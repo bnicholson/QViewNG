@@ -82,6 +82,13 @@ export interface GameWithNamesTS {
 export const UserAPI = {
   get: async (page: number, size: number): Promise<PagedUsers> =>
     (await fetch(`/api/users?page=${page}&page_size=${size}`)).json(),
+  /** Everyone involved in the tournament, deduplicated and name-ordered — used for the schedule's
+   *  "Person" filter. `role` ("quizmaster" | "content_judge" | "coach" | "quizzer") narrows the list
+   *  to that single capacity; omit it (or pass "All") for everyone. */
+  getPersonsByTournament: async (tid: string, role?: string): Promise<UserTS[]> => {
+    const query = role && role !== 'All' ? `?role=${encodeURIComponent(role)}` : ''
+    return (await (await fetch(`/api/tournaments/${tid}/persons${query}`)).json()).items
+  },
   getByTournament: async (tid: string): Promise<PagedUsers> =>
     (await fetch(`/api/tournaments/${tid}/quizzers`)).json(),
   getById: async (id: string): Promise<UserTS> => {

@@ -74,6 +74,19 @@ export interface PagedGameRows {
   items: GameRowTS[];
 }
 
+/** A game row plus the filtered person's role in it: "Quizmaster" | "Content Judge" | "Coach" |
+ *  "Quizzer" (| "Participant"). For Coach/Quizzer the team they're on is included so it can link. */
+export interface PersonGameRowTS extends GameRowTS {
+  person_role: string;
+  person_role_team_id: string | null;
+  person_role_team_name: string | null;
+}
+
+export interface PagedPersonGameRows {
+  count: number;
+  items: PersonGameRowTS[];
+}
+
 export interface GameStatusTS {
   gid: string;
   done: boolean;
@@ -195,6 +208,13 @@ export const GameAPI = {
   /** One page of the division session's enriched game rows (games across its pool brackets). */
   getRowsByDivisionSession: async (sessionId: string, page: number, size: number): Promise<PagedGameRows> =>
     (await fetch(`/api/divisionsessions/${sessionId}/game-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the enriched game rows the team plays in (any position), plus total count. */
+  getRowsByTeam: async (teamId: string, page: number, size: number): Promise<PagedGameRows> =>
+    (await fetch(`/api/teams/${teamId}/game-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of enriched game rows in the tournament that the person is part of in any role
+   *  (quizmaster, content judge, coach, or quizzer), each tagged with that role, plus total count. */
+  getRowsByPersonInTournament: async (tid: string, personId: string, page: number, size: number): Promise<PagedPersonGameRows> =>
+    (await fetch(`/api/tournaments/${tid}/persons/${personId}/game-rows?page=${page}&page_size=${size}`)).json(),
   delete: async (id: string): Promise<void> => {
     const response = await fetch(`/api/games/${id}`, { method: 'DELETE' });
     if (!response.ok) {

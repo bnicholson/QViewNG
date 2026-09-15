@@ -1262,3 +1262,68 @@ pub fn arrange_game_create_works_integration_test(
 
     (tournament, owner, admin_user, unrelated_user, round.roundid, room.roomid, division.did, teams.0.teamid, teams.1.teamid, teams.2.teamid, quizmaster.id, content_judge.id)
 }
+
+/// A scenario for exercising the person/team game-row endpoints: one tournament whose `game_1` ties
+/// together a person in every role — `coach_id` and `quizzer_id` are on its left team (`team_1_id`),
+/// `quizmaster_id` runs it, `contentjudge_id` judges it — while `game_2` (different people) acts as a
+/// control. `other_coach_id` coaches a team only in `game_2`.
+pub struct PersonGamesScenario {
+    pub tid: Uuid,
+    pub coach_id: Uuid,
+    pub quizzer_id: Uuid,
+    pub quizmaster_id: Uuid,
+    pub contentjudge_id: Uuid,
+    pub other_coach_id: Uuid,
+    pub team_1_id: Uuid,
+    pub game_1: Game,
+    pub game_2: Game,
+}
+
+pub fn seed_person_and_team_games(db: &mut database::Connection) -> PersonGamesScenario {
+    let owner = UserBuilder::new_default("PG Owner").set_hash_password("OwnerPwd123!").build_and_insert(db).unwrap();
+    let coach = UserBuilder::new_default("PG Coach").set_hash_password("CoachPwd123!").build_and_insert(db).unwrap();
+    let quizzer = UserBuilder::new_default("PG Quizzer").set_hash_password("QuizPwd1234!").build_and_insert(db).unwrap();
+    let quizmaster = UserBuilder::new_default("PG Quizmaster").set_hash_password("QmPwd12345!").build_and_insert(db).unwrap();
+    let contentjudge = UserBuilder::new_default("PG ContentJudge").set_hash_password("CjPwd12345!").build_and_insert(db).unwrap();
+    let team_2_coach = UserBuilder::new_default("PG Team2 Coach").set_hash_password("T2Pwd12345!").build_and_insert(db).unwrap();
+    let other_coach = UserBuilder::new_default("PG Other Coach").set_hash_password("OcPwd12345!").build_and_insert(db).unwrap();
+    let team_4_coach = UserBuilder::new_default("PG Team4 Coach").set_hash_password("T4Pwd12345!").build_and_insert(db).unwrap();
+    let quizmaster_2 = UserBuilder::new_default("PG Quizmaster 2").set_hash_password("Qm2Pwd1234!").build_and_insert(db).unwrap();
+
+    let tour = TournamentBuilder::new_default("Person Games Tour").set_owner_id(owner.id).build_and_insert(db).unwrap();
+    let division = DivisionBuilder::new_default("PG Div", tour.tid).build_and_insert(db).unwrap();
+    let room_1 = RoomBuilder::new_default("Room 1", tour.tid).build_and_insert(db).unwrap();
+    let room_2 = RoomBuilder::new_default("Room 2", tour.tid).build_and_insert(db).unwrap();
+    let round_1 = RoundBuilder::new_default(division.did).set_name("1").build_and_insert(db).unwrap();
+
+    // team_1 carries the target coach + quizzer; the other teams carry unrelated people.
+    let team_1 = TeamBuilder::new_default(division.did).set_name("PG Team 1")
+        .set_coachid(coach.id).set_quizzer_one_id(quizzer.id).build_and_insert(db).unwrap();
+    let team_2 = TeamBuilder::new_default(division.did).set_name("PG Team 2")
+        .set_coachid(team_2_coach.id).build_and_insert(db).unwrap();
+    let team_3 = TeamBuilder::new_default(division.did).set_name("PG Team 3")
+        .set_coachid(other_coach.id).build_and_insert(db).unwrap();
+    let team_4 = TeamBuilder::new_default(division.did).set_name("PG Team 4")
+        .set_coachid(team_4_coach.id).build_and_insert(db).unwrap();
+
+    let game_1 = GameBuilder::new_default(room_1.roomid, round_1.roundid)
+        .set_leftteamid(team_1.teamid).set_rightteamid(team_2.teamid)
+        .set_quizmasterid(quizmaster.id).set_contentjudgeid(Some(contentjudge.id))
+        .build_and_insert(db).unwrap();
+    let game_2 = GameBuilder::new_default(room_2.roomid, round_1.roundid)
+        .set_leftteamid(team_3.teamid).set_rightteamid(team_4.teamid)
+        .set_quizmasterid(quizmaster_2.id)
+        .build_and_insert(db).unwrap();
+
+    PersonGamesScenario {
+        tid: tour.tid,
+        coach_id: coach.id,
+        quizzer_id: quizzer.id,
+        quizmaster_id: quizmaster.id,
+        contentjudge_id: contentjudge.id,
+        other_coach_id: other_coach.id,
+        team_1_id: team_1.teamid,
+        game_1,
+        game_2,
+    }
+}

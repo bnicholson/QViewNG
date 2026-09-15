@@ -374,6 +374,69 @@ pub fn read_eligible_quizzers_for_user(db: &mut database::Connection, user_id_va
         .load::<User>(db)
 }
 
+/// Every person involved in the tournament — quizmaster or content judge of one of its games, or
+/// coach/quizzer of one of its teams — as a deduplicated, name-ordered user list. Used to populate
+/// the schedule's "Person" filter. `role` optionally narrows the result to a single capacity:
+/// "quizmaster", "content_judge", "coach", or "quizzer" (None / anything else means all roles).
+pub fn read_all_persons_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    role: Option<&str>,
+) -> QueryResult<Vec<User>> {
+    use std::collections::HashSet;
+    let mut ids: HashSet<Uuid> = HashSet::new();
+    // A given role is wanted when no specific role was requested, or it matches the request.
+    let want = |r: &str| role.map_or(true, |sel| sel == r);
+
+    // Quizmasters and content judges of the tournament's games (game -> pool_bracket ->
+    // division_session -> division).
+    if want("quizmaster") || want("content_judge") {
+        use crate::schema::{games, pool_brackets, division_sessions, divisions};
+        let rows: Vec<(Uuid, Option<Uuid>)> = games::table
+            .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+            .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+            .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
+            .filter(divisions::tid.eq(tournament_id))
+            .filter(games::del_fl.eq(false))
+            .select((games::quizmasterid, games::contentjudgeid))
+            .load::<(Uuid, Option<Uuid>)>(db)?;
+        for (qm, cj) in rows {
+            if want("quizmaster") { ids.insert(qm); }
+            if want("content_judge") { if let Some(c) = cj { ids.insert(c); } }
+        }
+    }
+
+    // Coaches and quizzers of the tournament's teams.
+    if want("coach") || want("quizzer") {
+        use crate::schema::{teams, divisions};
+        let rows = teams::table
+            .inner_join(divisions::table.on(teams::did.eq(divisions::did)))
+            .filter(divisions::tid.eq(tournament_id))
+            .filter(teams::del_fl.eq(false))
+            .select((
+                teams::coachid,
+                teams::quizzer_one_id, teams::quizzer_two_id, teams::quizzer_three_id,
+                teams::quizzer_four_id, teams::quizzer_five_id, teams::quizzer_six_id,
+            ))
+            .load::<(Uuid, Option<Uuid>, Option<Uuid>, Option<Uuid>, Option<Uuid>, Option<Uuid>, Option<Uuid>)>(db)?;
+        for (coach, q1, q2, q3, q4, q5, q6) in rows {
+            if want("coach") { ids.insert(coach); }
+            if want("quizzer") { for q in [q1, q2, q3, q4, q5, q6].into_iter().flatten() { ids.insert(q); } }
+        }
+    }
+
+    let id_vec: Vec<Uuid> = ids.into_iter().collect();
+    if id_vec.is_empty() {
+        return Ok(Vec::new());
+    }
+    use crate::schema::users::dsl::*;
+    users
+        .filter(id.eq_any(&id_vec))
+        .filter(del_fl.eq(false))
+        .order((fname.asc(), lname.asc(), mname.asc()))
+        .load::<User>(db)
+}
+
 pub fn read_all_admins_of_tournament(
     db: &mut database::Connection,
     tour_id: Uuid,

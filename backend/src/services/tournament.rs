@@ -430,6 +430,60 @@ async fn read_quizzers(
     }
 }
 
+#[derive(serde::Deserialize)]
+struct PersonRoleQuery {
+    /// Optional role filter: "quizmaster", "content_judge", "coach", or "quizzer". Absent or "all"
+    /// returns people of every role.
+    role: Option<String>,
+}
+
+/// Every person involved in the tournament in any role (quizmaster, content judge, coach, quizzer),
+/// deduplicated and name-ordered — used to populate the schedule's "Person" filter. An optional
+/// `role` query param narrows the list to a single capacity.
+#[get("/{id}/persons")]
+async fn read_persons(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PersonRoleQuery>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    // Treat a missing role or the sentinel "all" as no filter.
+    let role = params.role.as_deref().filter(|r| !r.is_empty() && *r != "all");
+    match models::user::read_all_persons_of_tournament(&mut conn, item_id.into_inner(), role) {
+        Ok(items) => {
+            let count = items.len() as i64;
+            HttpResponse::Ok().json(PagedResponse { count, items })
+        },
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Game data-table rows for every game in this tournament that the given person is part of in any
+/// capacity (quizmaster, content judge, coach, or quizzer), in a single paginated call.
+#[get("/{id}/persons/{uid}/game-rows")]
+async fn read_person_game_rows(
+    db: Data<Database>,
+    path: Path<(Uuid, Uuid)>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let (tid, uid) = path.into_inner();
+    match models::game::read_game_rows_of_user_any_role(&mut conn, tid, uid, &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Returns fully-formed game data-table rows (game + division/room/team names, start time, and
 /// room sequence number) for the whole tournament in a single paginated call.
 #[get("/{id}/game-rows")]
@@ -949,6 +1003,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_my_gear_registration)
         .service(create_gear_registrations)
         .service(read_quizzers)
+        .service(read_persons)
+        .service(read_person_game_rows)
         .service(read_quizzer_rows)
         .service(read_session_rows)
         .service(read_pool_bracket_rows)

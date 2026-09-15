@@ -819,7 +819,9 @@ pub fn read_game_rows_of_room(
         games.filter(roomid.eq(room_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let page = read_all_games_of_room(db, room_id, pagination)?;
-    Ok((build_game_rows(db, page, tournament_id)?, total))
+    let mut rows = build_game_rows(db, page, tournament_id)?;
+    sort_rows_by_start_time(&mut rows);
+    Ok((rows, total))
 }
 
 /// Returns one page of enriched game rows for the pool bracket (games whose `poolbracket_id`
@@ -894,6 +896,176 @@ pub fn read_all_games_of_team(db: &mut database::Connection, team_id: Uuid, pagi
         .limit(page_size)
         .offset(offset_val)
         .load::<Game>(db)
+}
+
+/// Returns one page of enriched game rows for a team (games it plays in any position), plus total.
+pub fn read_game_rows_of_team(
+    db: &mut database::Connection,
+    team_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<GameRow>, i64)> {
+    // A team belongs to exactly one division, which belongs to the tournament.
+    let division_id: Uuid = {
+        use crate::schema::teams::dsl::*;
+        teams.filter(teamid.eq(team_id)).select(did).first::<Uuid>(db)?
+    };
+    let tournament_id: Uuid = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(tid).first::<Uuid>(db)?
+    };
+    let total: i64 = {
+        use crate::schema::games::dsl::*;
+        games
+            .filter(leftteamid.eq(team_id).or(centerteamid.eq(team_id)).or(rightteamid.eq(team_id)))
+            .filter(del_fl.eq(false))
+            .count()
+            .get_result(db)?
+    };
+    let page = read_all_games_of_team(db, team_id, pagination)?;
+    let mut rows = build_game_rows(db, page, tournament_id)?;
+    sort_rows_by_start_time(&mut rows);
+    Ok((rows, total))
+}
+
+/// Sorts enriched game rows by scheduled start time ascending; rows with no scheduled time sort last.
+fn sort_rows_by_start_time(rows: &mut [GameRow]) {
+    rows.sort_by_key(|r| (r.scheduled_start_time.is_none(), r.scheduled_start_time));
+}
+
+/// The team ids in `tournament_id` for which `user_id` is the coach.
+fn coach_team_ids_of_user(db: &mut database::Connection, tournament_id: Uuid, user_id: Uuid) -> QueryResult<Vec<Uuid>> {
+    use crate::schema::{teams, divisions};
+    teams::table
+        .inner_join(divisions::table.on(teams::did.eq(divisions::did)))
+        .filter(divisions::tid.eq(tournament_id))
+        .filter(teams::del_fl.eq(false))
+        .filter(teams::coachid.eq(user_id))
+        .select(teams::teamid)
+        .load::<Uuid>(db)
+}
+
+/// The team ids in `tournament_id` for which `user_id` is one of the quizzers.
+fn quizzer_team_ids_of_user(db: &mut database::Connection, tournament_id: Uuid, user_id: Uuid) -> QueryResult<Vec<Uuid>> {
+    use crate::schema::{teams, divisions};
+    teams::table
+        .inner_join(divisions::table.on(teams::did.eq(divisions::did)))
+        .filter(divisions::tid.eq(tournament_id))
+        .filter(teams::del_fl.eq(false))
+        .filter(
+            teams::quizzer_one_id.eq(user_id)
+                .or(teams::quizzer_two_id.eq(user_id))
+                .or(teams::quizzer_three_id.eq(user_id))
+                .or(teams::quizzer_four_id.eq(user_id))
+                .or(teams::quizzer_five_id.eq(user_id))
+                .or(teams::quizzer_six_id.eq(user_id))
+        )
+        .select(teams::teamid)
+        .load::<Uuid>(db)
+}
+
+/// An enriched game row plus the selected person's role in that game (for the schedule's "Person"
+/// filter). `person_role` is "Quizmaster", "Content Judge", "Coach", or "Quizzer"; for the last two
+/// the team the person is on is included so the UI can link to it.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PersonGameRow {
+    #[serde(flatten)]
+    pub row: GameRow,
+    pub person_role: String,
+    pub person_role_team_id: Option<Uuid>,
+    pub person_role_team_name: Option<String>,
+}
+
+/// Games in `tournament_id` that `user_id` is involved in, in ANY capacity: quizmaster, content
+/// judge, coach, or quizzer (via a team they belong to), each tagged with that role. Sorted by
+/// scheduled start time; returns one page + total.
+pub fn read_game_rows_of_user_any_role(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    user_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PersonGameRow>, i64)> {
+    let coach_team_ids = coach_team_ids_of_user(db, tournament_id, user_id)?;
+    let quizzer_team_ids = quizzer_team_ids_of_user(db, tournament_id, user_id)?;
+    let mut user_team_ids = coach_team_ids.clone();
+    user_team_ids.extend(quizzer_team_ids.iter().copied());
+    let coach_set: std::collections::HashSet<Uuid> = coach_team_ids.into_iter().collect();
+    let quizzer_set: std::collections::HashSet<Uuid> = quizzer_team_ids.into_iter().collect();
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+
+    use crate::schema::{games, pool_brackets, division_sessions, divisions};
+
+    // The same filter is applied to the count and the page; the query isn't Clone, so it's spelled
+    // out twice. A game qualifies when the user is its quizmaster/content judge, or one of its (up to
+    // three) teams is one the user coaches or quizzes for.
+    let total: i64 = games::table
+        .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+        .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+        .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
+        .filter(divisions::tid.eq(tournament_id))
+        .filter(games::del_fl.eq(false))
+        .filter(
+            games::quizmasterid.eq(user_id)
+                .or(games::contentjudgeid.eq(user_id))
+                .or(games::leftteamid.eq_any(&user_team_ids))
+                .or(games::centerteamid.eq_any(&user_team_ids))
+                .or(games::rightteamid.eq_any(&user_team_ids))
+        )
+        .count()
+        .get_result(db)?;
+
+    let page: Vec<Game> = games::table
+        .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+        .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
+        .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
+        .filter(divisions::tid.eq(tournament_id))
+        .filter(games::del_fl.eq(false))
+        .filter(
+            games::quizmasterid.eq(user_id)
+                .or(games::contentjudgeid.eq(user_id))
+                .or(games::leftteamid.eq_any(&user_team_ids))
+                .or(games::centerteamid.eq_any(&user_team_ids))
+                .or(games::rightteamid.eq_any(&user_team_ids))
+        )
+        .select(games::all_columns)
+        .order(games::gid)
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Game>(db)?;
+
+    // Keep each game's role-relevant fields before build_game_rows consumes the page (index-aligned).
+    let meta: Vec<(Uuid, Option<Uuid>, Uuid, Option<Uuid>, Uuid)> = page.iter()
+        .map(|g| (g.quizmasterid, g.contentjudgeid, g.leftteamid, g.centerteamid, g.rightteamid))
+        .collect();
+    let rows = build_game_rows(db, page, tournament_id)?;
+
+    let mut person_rows: Vec<PersonGameRow> = meta.into_iter().zip(rows.into_iter()).map(
+        |((quizmasterid, contentjudgeid, leftteamid, centerteamid, rightteamid), row)| {
+            let game_team_ids: Vec<Uuid> = [Some(leftteamid), centerteamid, Some(rightteamid)].into_iter().flatten().collect();
+            let (person_role, person_role_team_id) = if quizmasterid == user_id {
+                ("Quizmaster".to_string(), None)
+            } else if contentjudgeid == Some(user_id) {
+                ("Content Judge".to_string(), None)
+            } else if let Some(&t) = game_team_ids.iter().find(|t| coach_set.contains(t)) {
+                ("Coach".to_string(), Some(t))
+            } else if let Some(&t) = game_team_ids.iter().find(|t| quizzer_set.contains(t)) {
+                ("Quizzer".to_string(), Some(t))
+            } else {
+                ("Participant".to_string(), None)
+            };
+            let person_role_team_name = person_role_team_id.and_then(|t| {
+                if t == row.leftteamid { Some(row.left_team_name.clone()) }
+                else if Some(t) == row.centerteamid { row.center_team_name.clone() }
+                else if t == row.rightteamid { Some(row.right_team_name.clone()) }
+                else { None }
+            });
+            PersonGameRow { row, person_role, person_role_team_id, person_role_team_name }
+        }
+    ).collect();
+
+    person_rows.sort_by_key(|pr| (pr.row.scheduled_start_time.is_none(), pr.row.scheduled_start_time));
+    Ok((person_rows, total))
 }
 
 pub fn read_all_games_where_user_is_quizmaster(db: &mut database::Connection, qm_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {

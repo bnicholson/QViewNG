@@ -109,6 +109,13 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     (session?.hasRole('tournament_manager') ?? false) ||
     (session?.hasRole('tournament_admin') ?? false);
 
+  // Only tournament managers, tournament admins, and superusers may edit the schedule; everyone
+  // else sees the read-only view (the Read/Edit toggle is hidden for them).
+  const canEditSchedule =
+    (session?.hasRole('super_user') ?? false) ||
+    (session?.hasRole('tournament_manager') ?? false) ||
+    (session?.hasRole('tournament_admin') ?? false);
+
   // "Created" / "Last Modified" audit columns are visible only to privileged users:
   // superusers, tournament managers, tournament admins (role), plus this tournament's
   // owner and its designated admins (via canViewAdmins). Visitors and regular members
@@ -197,7 +204,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'register/gear'     && (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="gear" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate('tournament:update')} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
-          {props.childRoute === 'schedule'          && <TournamentSchedule tid={String(tournament?.tid)} canEdit={isOwnerOrSuperUser || canViewAdmins === true} />}
+          {props.childRoute === 'schedule'          && <TournamentSchedule tid={String(tournament?.tid)} canEdit={canEditSchedule} />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showDeleteButton={canCreate('division:delete')} showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'division-sessions' && <SessionsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'pools'             && <PoolBracketsTable tid={String(tournament?.tid)} type="pool" entityLabel="Pool" title="Pools" showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
