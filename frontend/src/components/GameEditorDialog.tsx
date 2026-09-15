@@ -252,7 +252,8 @@ export const GameEditorDialog = (props: Props) => {
   // Until a Division is chosen, the Round/Team dropdowns stay disabled.
   const divisionChosen = !!form.divisionid;
   const sessionChosen = !!form.division_session_id;
-  const divisionRounds = divisionChosen ? rounds.filter(r => r.did === form.divisionid) : [];
+  // Rounds belong to a division session, so they're scoped to the chosen session (not the division).
+  const sessionRounds = sessionChosen ? rounds.filter(r => r.division_session_id === form.division_session_id) : [];
   const divisionTeams = divisionChosen ? teams.filter(t => t.did === form.divisionid) : [];
   // The Pool/Bracket dropdown lists only brackets in the chosen Division Session.
   const sessionPoolBrackets = sessionChosen
@@ -318,7 +319,7 @@ export const GameEditorDialog = (props: Props) => {
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Division Session (*required)</InputLabel>
-                <Select value={form.division_session_id} onChange={(e) => set({ division_session_id: e.target.value, poolbracket_id: '' })}
+                <Select value={form.division_session_id} onChange={(e) => set({ division_session_id: e.target.value, poolbracket_id: '', roundid: '' })}
                   displayEmpty fullWidth disabled={!divisionChosen}
                   renderValue={(v) => v ? (divisionSessions.find(s => s.division_session_id === v)?.name ?? v) : <em>Select a division session</em>}
                 >
@@ -337,10 +338,10 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
-                  displayEmpty fullWidth disabled={!divisionChosen}
+                  displayEmpty fullWidth disabled={!sessionChosen}
                   renderValue={(v) => v ? roundLabel(rounds.find(r => r.roundid === v)) : <em>Select a round</em>}
                 >
-                  {divisionRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
+                  {sessionRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
                 </Select>
               </Grid>
             </Grid>

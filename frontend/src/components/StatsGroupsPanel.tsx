@@ -65,7 +65,8 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      GameAPI.getByTournament(tid, 0, 500),
+      // Enriched rows carry each game's division (games no longer store it directly).
+      GameAPI.getRowsByTournament(tid, 0, 500),
       RoomAPI.getByTournament(tid, 0, 500),
       RoundAPI.getByTournament(tid, 0, 500),
       DivisionAPI.getByTournament(tid, 0, 500),

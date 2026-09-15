@@ -1,6 +1,7 @@
 export interface RoundTS {
   roundid: string;
-  did: string;
+  /** A round belongs to a (time-bound) division session. */
+  division_session_id: string;
   name: string;
   scheduled_start_time: string | null;
   created_at: string;
@@ -8,7 +9,7 @@ export interface RoundTS {
 }
 
 export interface NewRoundPayload {
-  did: string;
+  division_session_id: string;
   name: string;
   scheduled_start_time: string | null; // ISO 8601 datetime string; null when not scheduled
 }
@@ -19,11 +20,13 @@ export interface PagedRounds {
 }
 
 /**
- * One fully-formed row of the rounds data table: the round plus its division name, so the
- * whole table is populated from a single request per page.
+ * One fully-formed row of the rounds data table: the round plus its session name and its (derived)
+ * division id/name, so the whole table is populated from a single request per page.
  */
 export interface RoundRowTS {
   roundid: string;
+  division_session_id: string;
+  session_name: string;
   did: string;
   division_name: string;
   name: string;
@@ -46,6 +49,12 @@ export const RoundAPI = {
     (await fetch(`/api/tournaments/${tid}/rounds?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<RoundTS[]> =>
     (await fetch(`/api/divisions/${did}/rounds?page=${page}&page_size=${size}`)).json(),
+  /** A division session's rounds (the new, time-bound relationship). */
+  getByDivisionSession: async (sessionId: string, page: number, size: number): Promise<RoundTS[]> =>
+    (await fetch(`/api/divisionsessions/${sessionId}/rounds?page=${page}&page_size=${size}`)).json(),
+  /** One page of a division session's enriched round rows, plus total count. */
+  getRowsByDivisionSession: async (sessionId: string, page: number, size: number): Promise<PagedRoundRows> =>
+    (await fetch(`/api/divisionsessions/${sessionId}/round-rows?page=${page}&page_size=${size}`)).json(),
   /** One page of the tournament's enriched round rows (division name), plus total count. */
   getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoundRows> =>
     (await fetch(`/api/tournaments/${tid}/round-rows?page=${page}&page_size=${size}`)).json(),

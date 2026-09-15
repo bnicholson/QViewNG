@@ -26,19 +26,25 @@ fn seed(conn: &mut backend::database::Connection) -> (uuid::Uuid, uuid::Uuid) {
     let division = DivisionBuilder::new_default("Test Div", tournament.tid)
         .build_and_insert(conn)
         .unwrap();
+    // Rounds belong to a division session; put all three in one session under the division.
+    let session = backend::models::division_session::DivisionSessionBuilder::new(division.did)
+        .set_name("Test Session")
+        .set_creator_userid(owner.id)
+        .build_and_insert(conn)
+        .unwrap();
 
     // Insert out of chronological order to prove the endpoint sorts by start time.
-    RoundBuilder::new_default(division.did)
+    RoundBuilder::new_default(session.division_session_id)
         .set_name("Round A")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 1, 1, 0, 0, 0).unwrap())
         .build_and_insert(conn)
         .unwrap();
-    RoundBuilder::new_default(division.did)
+    RoundBuilder::new_default(session.division_session_id)
         .set_name("Round B")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2060, 1, 1, 0, 0, 0).unwrap())
         .build_and_insert(conn)
         .unwrap();
-    RoundBuilder::new_default(division.did)
+    RoundBuilder::new_default(session.division_session_id)
         .set_name("Round C")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2050, 1, 1, 0, 0, 0).unwrap())
         .build_and_insert(conn)
@@ -141,4 +147,44 @@ async fn division_round_rows_returns_enriched_sorted_paginated_rows() {
     assert_eq!(page_body.count, 3);
     let page_names: Vec<&str> = page_body.items.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(page_names, vec!["Round C", "Round A"]);
+}
+
+#[actix_web::test]
+async fn division_session_round_rows_returns_enriched_rows() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let owner = UserBuilder::new_default("Sess Owner").set_hash_password("OwnerPwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("Sess Rounds Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let division = DivisionBuilder::new_default("Test Div", tournament.tid).build_and_insert(&mut conn).unwrap();
+    let session = backend::models::division_session::DivisionSessionBuilder::new(division.did)
+        .set_name("Session 1").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    // Three rounds in this session, inserted out of chronological order.
+    for (name, y) in [("Round A", 2055), ("Round B", 2060), ("Round C", 2050)] {
+        RoundBuilder::new_default(session.division_session_id)
+            .set_name(name)
+            .set_scheduled_start_time(Utc.with_ymd_and_hms(y, 1, 1, 0, 0, 0).unwrap())
+            .build_and_insert(&mut conn).unwrap();
+    }
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/divisionsessions/{}/round-rows?page=0&page_size=100", session.division_session_id))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: PagedResponse<RoundRow> = test::read_body_json(resp).await;
+
+    assert_eq!(body.count, 3);
+    let names: Vec<&str> = body.items.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(names, vec!["Round C", "Round A", "Round B"], "sorted by scheduled start time");
+    for row in &body.items {
+        assert_eq!(row.division_session_id, session.division_session_id);
+        assert_eq!(row.session_name, "Session 1");
+        assert_eq!(row.did, division.did);
+        assert_eq!(row.division_name, "Test Div");
+    }
 }

@@ -109,14 +109,19 @@ async fn create(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    let division = match models::division::read(&mut conn, item.did) {
-        Ok(d) => d,
+    // A round belongs to a division session; validate it and derive its division for authorization.
+    let session = match models::division_session::read(&mut conn, item.division_session_id) {
+        Ok(s) => s,
         Err(_) => {
-            println!("Could not find Division by ID={}", &item.did);
+            println!("Could not find Division Session by ID={}", &item.division_session_id);
             return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": format!("Division with ID {} does not exist", item.did)
+                "error": format!("Division session with ID {} does not exist", item.division_session_id)
             })));
         }
+    };
+    let division = match models::division::read(&mut conn, session.did) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     let tournament = match models::tournament::read(&mut conn, division.tid) {
@@ -182,7 +187,11 @@ async fn update(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let division = match models::division::read(&mut conn, round.did) {
+    let session = match models::division_session::read(&mut conn, round.division_session_id) {
+        Ok(s) => s,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    let division = match models::division::read(&mut conn, session.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -239,7 +248,11 @@ async fn destroy(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let division = match models::division::read(&mut conn, round.did) {
+    let session = match models::division_session::read(&mut conn, round.division_session_id) {
+        Ok(s) => s,
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    };
+    let division = match models::division::read(&mut conn, session.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };

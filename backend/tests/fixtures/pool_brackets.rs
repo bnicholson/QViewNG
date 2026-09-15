@@ -68,23 +68,28 @@ pub fn seed_pool_bracket_profile(db: &mut database::Connection) -> Uuid {
         teams.push(team);
     }
 
-    // Two games bound to this pool bracket.
-    let room = RoomBuilder::new_default("Room 1", tournament.tid)
+    // Two games bound to this pool bracket, played in parallel rooms of the same round. They must
+    // differ on a column of the games (org, roomid, roundid, clientkey) unique key, so give each its
+    // own room rather than colliding on the same (room, round, empty clientkey).
+    let room_1 = RoomBuilder::new_default("Room 1", tournament.tid)
         .build_and_insert(db)
         .unwrap();
-    let round = RoundBuilder::new_default(division.did)
+    let room_2 = RoomBuilder::new_default("Room 2", tournament.tid)
+        .build_and_insert(db)
+        .unwrap();
+    let round = RoundBuilder::new_default(session.division_session_id)
         .set_name("1")
         .build_and_insert(db)
         .unwrap();
 
-    GameBuilder::new_default(room.roomid, round.roundid)
+    GameBuilder::new_default(room_1.roomid, round.roundid)
         .set_leftteamid(teams[0].teamid)
         .set_rightteamid(teams[1].teamid)
         .set_quizmasterid(qm.id)
         .set_poolbracket_id(bracket.pool_bracket_id)
         .build_and_insert(db)
         .unwrap();
-    GameBuilder::new_default(room.roomid, round.roundid)
+    GameBuilder::new_default(room_2.roomid, round.roundid)
         .set_leftteamid(teams[0].teamid)
         .set_rightteamid(teams[2].teamid)
         .set_quizmasterid(qm.id)

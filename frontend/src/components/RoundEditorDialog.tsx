@@ -24,6 +24,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { type Dayjs } from 'dayjs'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
+import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
 import { RoundAPI, type NewRoundPayload, type RoundTS } from '../features/RoundAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -36,12 +37,14 @@ const Transition = React.forwardRef(function Transition(
 
 interface RoundFormState {
   did: string;
+  division_session_id: string;
   name: string;
   scheduled_start_time: Dayjs | null;
 }
 
 const emptyState: RoundFormState = {
   did: "",
+  division_session_id: "",
   name: "",
   scheduled_start_time: null,
 };
@@ -51,21 +54,26 @@ interface Props {
   isOpen: boolean;
   /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
   lockedDivisionId?: string;
+  /** When set, the Division Session is fixed to this id and its dropdown is disabled (e.g. from a Session profile). */
+  lockedSessionId?: string;
   onCancel: VoidFunction;
   onSave: (round: RoundTS) => void;
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, lockedSessionId, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
+  const [sessions, setSessions] = useState<DivisionSessionTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
+    setForm(lockedDivisionId
+      ? { ...emptyState, did: lockedDivisionId, division_session_id: lockedSessionId ?? "" }
+      : emptyState);
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("");
     setAlertOpened(false);
@@ -77,10 +85,18 @@ export const RoundEditorDialog = (props: Props) => {
     DivisionAPI.getByTournament(tid, 0, 100)
       .then(items => setDivisions(items))
       .catch(() => console.error("Failed to load divisions for round form"));
-  }, [isOpen, tid, lockedDivisionId]);
+  }, [isOpen, tid, lockedDivisionId, lockedSessionId]);
+
+  // A round belongs to a division session; load the chosen division's sessions to pick from.
+  useEffect(() => {
+    if (!form.did) { setSessions([]); return }
+    DivisionSessionAPI.getByDivision(form.did)
+      .then(setSessions)
+      .catch(() => console.error("Failed to load division sessions for round form"));
+  }, [form.did]);
 
   const openCancelDialog = () => {
-    const isDirty = form.did !== "" || form.name !== "" || form.scheduled_start_time !== null;
+    const isDirty = form.did !== "" || form.division_session_id !== "" || form.name !== "" || form.scheduled_start_time !== null;
     if (!isDirty) {
       onCancel();
     } else {
@@ -100,6 +116,11 @@ export const RoundEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
+    if (!form.division_session_id) {
+      setErrorMsg("Division session is required.");
+      setAlertOpened(true);
+      return;
+    }
     if (!form.name.trim()) {
       setErrorMsg("Round name is required.");
       setAlertOpened(true);
@@ -112,7 +133,7 @@ export const RoundEditorDialog = (props: Props) => {
     }
 
     const payload: NewRoundPayload = {
-      did: form.did,
+      division_session_id: form.division_session_id,
       name: form.name.trim(),
       scheduled_start_time: form.scheduled_start_time.toISOString(),
     };
@@ -195,7 +216,7 @@ export const RoundEditorDialog = (props: Props) => {
                 <InputLabel>Division (*required)</InputLabel>
                 <Select
                   value={form.did}
-                  onChange={(e) => setForm(s => ({ ...s, did: e.target.value }))}
+                  onChange={(e) => setForm(s => ({ ...s, did: e.target.value, division_session_id: "" }))}
                   displayEmpty
                   fullWidth
                   disabled={!!lockedDivisionId}
@@ -206,6 +227,24 @@ export const RoundEditorDialog = (props: Props) => {
                 >
                   {divisions.map(d => (
                     <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>
+                  ))}
+                </Select>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <InputLabel>Division Session (*required)</InputLabel>
+                <Select
+                  value={form.division_session_id}
+                  onChange={(e) => setForm(s => ({ ...s, division_session_id: e.target.value }))}
+                  displayEmpty
+                  fullWidth
+                  disabled={!form.did || !!lockedSessionId}
+                  renderValue={(val) => {
+                    if (!val) return <em>Select a session</em>;
+                    return sessions.find(s => s.division_session_id === val)?.name ?? val;
+                  }}
+                >
+                  {sessions.map(s => (
+                    <MenuItem key={s.division_session_id} value={s.division_session_id}>{s.name}</MenuItem>
                   ))}
                 </Select>
               </Grid>

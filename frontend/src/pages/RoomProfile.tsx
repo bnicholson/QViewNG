@@ -58,7 +58,7 @@ export const RoomProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} roomid={roomid}
               showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
-              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Room']} />
           )}
         </Box>

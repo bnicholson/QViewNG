@@ -95,6 +95,44 @@ async fn read_game_rows(
     }
 }
 
+/// The session's rounds (a round belongs to a division session), ordered by scheduled start time.
+#[get("/{id}/rounds")]
+async fn read_rounds(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(url_params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::round::read_all_rounds_of_division_session(&mut conn, item_id.into_inner(), &url_params) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Enriched round-table rows for the session (round + session/division names), plus total count.
+#[get("/{id}/round-rows")]
+async fn read_round_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::round::read_round_rows_of_division_session(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -327,6 +365,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_pool_bracket_rows)
         .service(read_game_rows)
+        .service(read_rounds)
+        .service(read_round_rows)
         .service(create)
         .service(update)
         .service(purge)

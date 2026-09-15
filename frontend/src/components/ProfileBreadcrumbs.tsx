@@ -23,26 +23,24 @@ export function ProfileBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
     <Breadcrumbs aria-label="breadcrumb">
       {crumbs.map((c, i) => (
         <span key={i} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
-          <Link
-            to={c.to}
-            style={{ color: '#2563eb', textDecoration: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
-          >
-            {c.label && (
-              <Typography component="span" color="text.secondary">
-                {c.label}:
-              </Typography>
-            )}
-            &nbsp;
-            {c.to ? (
-              <>
-                {c.name}
-              </>
-            ) : (
-              <Typography component="span" color="text.primary">{c.name}</Typography>
-            )}
-          </Link>
+          {c.label && (
+            <Typography component="span" color="text.secondary">
+              {c.label}:
+            </Typography>
+          )}
+          &nbsp;
+          {c.to ? (
+            <Link
+              to={c.to}
+              style={{ color: '#2563eb', textDecoration: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+            >
+              {c.name}
+            </Link>
+          ) : (
+            <Typography component="span" color="text.primary">{c.name}</Typography>
+          )}
         </span>
       ))}
     </Breadcrumbs>

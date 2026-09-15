@@ -1093,28 +1093,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
-    // Session 1 rounds only (Experienced has a single session): a 6-team pool round-robin needs 5
-    // rounds, played 12:00-14:00. Both pools play concurrently across these same rounds.
-    let round_exp_s1_1 = RoundBuilder::new_default(division_experienced.did)
-        .set_last_modified_user(tour_owner.id).set_name("1")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_exp_s1_2 = RoundBuilder::new_default(division_experienced.did)
-        .set_last_modified_user(tour_owner.id).set_name("2")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_exp_s1_3 = RoundBuilder::new_default(division_experienced.did)
-        .set_last_modified_user(tour_owner.id).set_name("3")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_exp_s1_4 = RoundBuilder::new_default(division_experienced.did)
-        .set_last_modified_user(tour_owner.id).set_name("4")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_exp_s1_5 = RoundBuilder::new_default(division_experienced.did)
-        .set_last_modified_user(tour_owner.id).set_name("5")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
+    // Rounds are created inside the scheduling block below (they belong to division sessions).
 
     // Div: Novice
     let coach_nov_1 = UserBuilder::new("Samuel")
@@ -1257,31 +1236,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
-    // Session 1 rounds (12:00-13:00), then Session 2 rounds (13:30-14:30).
-    let round_nov_s1_1 = RoundBuilder::new_default(division_novice.did)
-        .set_last_modified_user(tour_owner.id).set_name("1")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_nov_s1_2 = RoundBuilder::new_default(division_novice.did)
-        .set_last_modified_user(tour_owner.id).set_name("2")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_nov_s1_3 = RoundBuilder::new_default(division_novice.did)
-        .set_last_modified_user(tour_owner.id).set_name("3")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_nov_s2_1 = RoundBuilder::new_default(division_novice.did)
-        .set_last_modified_user(tour_owner.id).set_name("4")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_nov_s2_2 = RoundBuilder::new_default(division_novice.did)
-        .set_last_modified_user(tour_owner.id).set_name("5")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_nov_s2_3 = RoundBuilder::new_default(division_novice.did)
-        .set_last_modified_user(tour_owner.id).set_name("6")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
+    // (Novice rounds are created inside the scheduling block below.)
 
     // Div: Decades
     let coach_dec_1 = UserBuilder::new("Pavel")
@@ -1424,31 +1379,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
-    // Session 1 rounds (12:00-13:00), then Session 2 rounds (13:30-14:30).
-    let round_dec_s1_1 = RoundBuilder::new_default(division_decades.did)
-        .set_last_modified_user(tour_owner.id).set_name("1")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_dec_s1_2 = RoundBuilder::new_default(division_decades.did)
-        .set_last_modified_user(tour_owner.id).set_name("2")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_dec_s1_3 = RoundBuilder::new_default(division_decades.did)
-        .set_last_modified_user(tour_owner.id).set_name("3")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_dec_s2_1 = RoundBuilder::new_default(division_decades.did)
-        .set_last_modified_user(tour_owner.id).set_name("4")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_dec_s2_2 = RoundBuilder::new_default(division_decades.did)
-        .set_last_modified_user(tour_owner.id).set_name("5")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
-        .build_and_insert(db).unwrap();
-    let round_dec_s2_3 = RoundBuilder::new_default(division_decades.did)
-        .set_last_modified_user(tour_owner.id).set_name("6")
-        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
-        .build_and_insert(db).unwrap();
+    // (Decades rounds are created inside the scheduling block below.)
 
     // Coaches get the member role regardless of whether a schedule has been defined yet.
     let member_role = crate::models::role::read_by_name(db, "member").unwrap();
@@ -1543,6 +1474,80 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+
+    // Rounds belong to (time-bound) division sessions. Experienced's single session runs 5 rounds
+    // (12:00-14:00); Novice and Decades each run 3 rounds per session (Session 1 12:00-13:00,
+    // Session 2 13:30-14:30). Both Experienced pools share these same 5 rounds.
+    let round_exp_s1_1 = RoundBuilder::new_default(session_exp_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("1")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_exp_s1_2 = RoundBuilder::new_default(session_exp_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("2")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_exp_s1_3 = RoundBuilder::new_default(session_exp_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("3")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_exp_s1_4 = RoundBuilder::new_default(session_exp_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("4")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_exp_s1_5 = RoundBuilder::new_default(session_exp_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("5")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+
+    let round_nov_s1_1 = RoundBuilder::new_default(session_nov_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("1")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s1_2 = RoundBuilder::new_default(session_nov_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("2")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s1_3 = RoundBuilder::new_default(session_nov_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("3")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_1 = RoundBuilder::new_default(session_nov_2.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("4")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_2 = RoundBuilder::new_default(session_nov_2.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("5")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_3 = RoundBuilder::new_default(session_nov_2.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("6")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+
+    let round_dec_s1_1 = RoundBuilder::new_default(session_dec_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("1")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_dec_s1_2 = RoundBuilder::new_default(session_dec_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("2")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_dec_s1_3 = RoundBuilder::new_default(session_dec_1.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("3")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_dec_s2_1 = RoundBuilder::new_default(session_dec_2.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("4")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_dec_s2_2 = RoundBuilder::new_default(session_dec_2.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("5")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_dec_s2_3 = RoundBuilder::new_default(session_dec_2.division_session_id)
+        .set_last_modified_user(tour_owner.id).set_name("6")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
 
     // Team groups: each pool/bracket owns exactly one team group holding its teams. Experienced's
     // 12 teams are split evenly across its two pools (1-6 in Pool A, 7-12 in Pool B); every other

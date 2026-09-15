@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack'
 import ProfileLayout from '../components/ProfileLayout'
 import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
+import { DivisionSessionAPI } from '../features/DivisionSessionAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
@@ -25,8 +26,10 @@ export const RoundProfile = (props: { childRoute?: string }) => {
     RoundAPI.getById(roundid)
       .then(r => {
         setRound(r)
-        return DivisionAPI.getById(r.did)
+        // A round belongs to a division session; its division is that session's division.
+        return DivisionSessionAPI.getById(r.division_session_id)
       })
+      .then(session => DivisionAPI.getById(session.did))
       .then(div => {
         setDivision(div)
         return TournamentAPI.getById(div.tid)

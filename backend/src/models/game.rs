@@ -313,7 +313,9 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
     // game's division (derived from its round) so a game always references a real bracket.
     if game.poolbracket_id.is_nil() {
         let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
-        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, round.did, game.creator_id)?;
+        // A round now belongs to a division session; its division is that session's division.
+        let session = crate::models::division_session::read(db, round.division_session_id)?;
+        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, session.did, game.creator_id)?;
     }
 
     if !models::room::exists(db, item.roomid) {
@@ -788,9 +790,14 @@ pub fn read_game_rows_of_round(
     round_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<(Vec<GameRow>, i64)> {
+    // A round belongs to a division session; derive its division (and tournament) via that session.
     let division_id: Uuid = {
-        use crate::schema::rounds::dsl::*;
-        rounds.filter(roundid.eq(round_id)).select(did).first::<Uuid>(db)?
+        use crate::schema::{rounds, division_sessions};
+        rounds::table
+            .inner_join(division_sessions::table.on(rounds::division_session_id.eq(division_sessions::division_session_id)))
+            .filter(rounds::roundid.eq(round_id))
+            .select(division_sessions::did)
+            .first::<Uuid>(db)?
     };
     let tournament_id: Uuid = {
         use crate::schema::divisions::dsl::*;

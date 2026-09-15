@@ -175,18 +175,20 @@ async fn index(
             // Resolve the round (via division) for the composite-key game lookup.
             let round_id: Option<Uuid> = {
                 use crate::schema::divisions::dsl as d;
-                use crate::schema::rounds::dsl as r;
+                use crate::schema::{rounds, division_sessions};
                 d::divisions
                     .filter(d::tid.eq(tid))
                     .filter(d::dname.eq(&dn))
                     .select(d::did)
                     .first::<Uuid>(&mut conn)
                     .ok()
-                    .and_then(|did| {
-                        r::rounds
-                            .filter(r::did.eq(did))
-                            .filter(r::name.eq(&rd))
-                            .select(r::roundid)
+                    .and_then(|div_id| {
+                        // A round belongs to a division session; match by name across the division's sessions.
+                        rounds::table
+                            .inner_join(division_sessions::table.on(rounds::division_session_id.eq(division_sessions::division_session_id)))
+                            .filter(division_sessions::did.eq(div_id))
+                            .filter(rounds::name.eq(&rd))
+                            .select(rounds::roundid)
                             .first::<Uuid>(&mut conn)
                             .ok()
                     })
