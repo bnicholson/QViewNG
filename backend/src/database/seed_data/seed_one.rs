@@ -3,12 +3,11 @@ use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
 
-pub fn insert_seed_data_one(db: &mut database::Connection, include_gameevents: bool) {
-    let include_gameevents_in_reseed: bool = false;
+pub fn insert_seed_data_one(db: &mut database::Connection, include_scheduling: bool, include_gameevents: bool) {
     let start_time_for_db_pop_seed_data = Utc::now();
     println!("Starting DB Data Population for Seed Data");
-    
-    add_tour_1_demo(db, include_gameevents);
+
+    add_tour_1_demo(db, include_scheduling, include_gameevents);
     create_tournament_applicants(db);
 
     let end_time_for_db_pop_seed_data = Utc::now();
@@ -16,7 +15,7 @@ pub fn insert_seed_data_one(db: &mut database::Connection, include_gameevents: b
     println!("Done. DB Seed Data Population Time Duration: {}\n", duration_for_db_pop_seed_data);
 }
 
-pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) {
+pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, include_gameevents: bool) {
 
     // Add Touranment Manager (*owner of Tour One):
 
@@ -196,71 +195,9 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) 
         .build_and_insert(db)
         .unwrap();
 
-    // Each division runs two sessions ("Session 1" then "Session 2"). Session 1 for every division
-    // happens concurrently, so those games use disjoint rooms (Experienced 1-2, Novice 4-5,
-    // Decades 6-7); Session 2 happens afterward and reuses the same rooms.
-    //
-    // Experienced's Session 1 is split into two pools (its teams divided evenly across them — see the
-    // team groups seeded below); every other session is a single pool holding all of that division's
-    // teams. Games must reference a real pool bracket — there is no auto-default.
-    let session_exp_1 = DivisionSessionBuilder::new(division_experienced.did)
-        .set_name("Session 1")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_exp_1_a = PoolBracketBuilder::new(session_exp_1.division_session_id)
-        .set_name("Pool A")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_exp_1_b = PoolBracketBuilder::new(session_exp_1.division_session_id)
-        .set_name("Pool B")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    // Experienced runs a single session with two pools (six teams each); no Session 2.
-
-    let session_nov_1 = DivisionSessionBuilder::new(division_novice.did)
-        .set_name("Session 1")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_nov_1 = PoolBracketBuilder::new(session_nov_1.division_session_id)
-        .set_name("Pool A")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let session_nov_2 = DivisionSessionBuilder::new(division_novice.did)
-        .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_nov_2 = PoolBracketBuilder::new(session_nov_2.division_session_id)
-        .set_name("Pool A")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-
-    let session_dec_1 = DivisionSessionBuilder::new(division_decades.did)
-        .set_name("Session 1")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_dec_1 = PoolBracketBuilder::new(session_dec_1.division_session_id)
-        .set_name("Pool A")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let session_dec_2 = DivisionSessionBuilder::new(division_decades.did)
-        .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_dec_2 = PoolBracketBuilder::new(session_dec_2.division_session_id)
-        .set_name("Pool A")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
+    // Division sessions and pools/brackets are created later, inside the `include_scheduling` block
+    // (below), together with the team placements and games that depend on them — so an unscheduled
+    // tournament stops at registered teams + gear.
 
     // Quizmasters — one per room, each unique across all rooms
     let qm_1 = UserBuilder::new("Jordan")
@@ -1513,6 +1450,100 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) 
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
 
+    // Coaches get the member role regardless of whether a schedule has been defined yet.
+    let member_role = crate::models::role::read_by_name(db, "member").unwrap();
+    let coaches = [
+        coach_exp_1.id, coach_exp_2.id, coach_exp_3.id,
+        coach_exp_4.id, coach_exp_5.id, coach_exp_6.id,
+        coach_exp_7.id, coach_exp_8.id, coach_exp_9.id,
+        coach_exp_10.id, coach_exp_11.id, coach_exp_12.id,
+        coach_nov_2.id, coach_nov_3.id, coach_nov_4.id,
+        coach_dec_1.id, coach_dec_2.id, coach_dec_3.id, coach_dec_4.id,
+    ];
+    for coach_id in coaches {
+        UsersRolesBuilder::new(coach_id)
+            .assign(member_role.id)
+            .build_and_insert(db)
+            .unwrap();
+    }
+
+    // ── Schedule ────────────────────────────────────────────────────────────────
+    // Everything below this point — division sessions, pools/brackets, team placements, games, and
+    // the game events nested under `include_gameevents` — is the tournament's schedule. When
+    // `include_scheduling` is false the seed stops here: a tournament with registered teams and gear
+    // but no schedule yet, ready for the manager/admins to define one. Because games are only created
+    // past this guard, no game events are ever added without a schedule even if `include_gameevents`
+    // is true (there would be no games to attach them to).
+    if !include_scheduling {
+        return;
+    }
+
+    // Each division runs two sessions ("Session 1" then "Session 2"). Session 1 for every division
+    // happens concurrently, so those games use disjoint rooms (Experienced 1-2, Novice 4-5,
+    // Decades 6-7); Session 2 happens afterward and reuses the same rooms.
+    //
+    // Experienced's Session 1 is split into two pools (its teams divided evenly across them — see the
+    // team groups seeded below); every other session is a single pool holding all of that division's
+    // teams. Games must reference a real pool bracket — there is no auto-default.
+    let session_exp_1 = DivisionSessionBuilder::new(division_experienced.did)
+        .set_name("Session 1")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_exp_1_a = PoolBracketBuilder::new(session_exp_1.division_session_id)
+        .set_name("Pool A")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_exp_1_b = PoolBracketBuilder::new(session_exp_1.division_session_id)
+        .set_name("Pool B")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    // Experienced runs a single session with two pools (six teams each); no Session 2.
+
+    let session_nov_1 = DivisionSessionBuilder::new(division_novice.did)
+        .set_name("Session 1")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_nov_1 = PoolBracketBuilder::new(session_nov_1.division_session_id)
+        .set_name("Pool A")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let session_nov_2 = DivisionSessionBuilder::new(division_novice.did)
+        .set_name("Session 2")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_nov_2 = PoolBracketBuilder::new(session_nov_2.division_session_id)
+        .set_name("Pool A")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let session_dec_1 = DivisionSessionBuilder::new(division_decades.did)
+        .set_name("Session 1")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_dec_1 = PoolBracketBuilder::new(session_dec_1.division_session_id)
+        .set_name("Pool A")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let session_dec_2 = DivisionSessionBuilder::new(division_decades.did)
+        .set_name("Session 2")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_dec_2 = PoolBracketBuilder::new(session_dec_2.division_session_id)
+        .set_name("Pool A")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
     // Team groups: each pool/bracket owns exactly one team group holding its teams. Experienced's
     // 12 teams are split evenly across its two pools (1-6 in Pool A, 7-12 in Pool B); every other
     // pool holds all of its division's teams.
@@ -1927,19 +1958,6 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) 
         .unwrap();
     game_event_specs.push((game.gid, &team_3_decades, &team_4_decades));
 
-    // Seed the game-event stream for every game in one place, and time just this portion — it is by
-    // far the most expensive part of the seed, so it is gated behind `include_gameevents` as a unit.
-    if include_gameevents {
-        let start_time_for_game_events = Utc::now();
-        println!("Starting DB Data Population for Game Events ({} games)", game_event_specs.len());
-        for &(gid, left_team, right_team) in &game_event_specs {
-            seed_game_events(db, gid, left_team, right_team);
-        }
-        let end_time_for_game_events = Utc::now();
-        let duration_for_game_events = end_time_for_game_events.naive_utc() - start_time_for_game_events.naive_utc();
-        println!("Done. DB Game Events Population Time Duration: {}\n", duration_for_game_events);
-    }
-
     // Add every game of each division to its division's statsgroup (games_statsgroups).
     // A game's division is derived via its pool bracket (game -> pool_bracket -> division_session
     // -> division), so read_all_games_of_division groups them correctly.
@@ -1960,22 +1978,20 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_gameevents: bool) 
         }
     }
 
-    // Assign member role to all coaches
-    let member_role = crate::models::role::read_by_name(db, "member").unwrap();
-    let coaches = [
-        coach_exp_1.id, coach_exp_2.id, coach_exp_3.id,
-        coach_exp_4.id, coach_exp_5.id, coach_exp_6.id,
-        coach_exp_7.id, coach_exp_8.id, coach_exp_9.id,
-        coach_exp_10.id, coach_exp_11.id, coach_exp_12.id,
-        coach_nov_2.id, coach_nov_3.id, coach_nov_4.id,
-        coach_dec_1.id, coach_dec_2.id, coach_dec_3.id, coach_dec_4.id,
-    ];
-    for coach_id in coaches {
-        UsersRolesBuilder::new(coach_id)
-            .assign(member_role.id)
-            .build_and_insert(db)
-            .unwrap();
+    // Seed the game-event stream for every game in one place, and time just this portion — it is by
+    // far the most expensive part of the seed, so it is gated behind `include_gameevents` as a unit.
+    if !include_gameevents {
+        return;
     }
+
+    let start_time_for_game_events = Utc::now();
+    println!("Starting DB Data Population for Game Events ({} games)", game_event_specs.len());
+    for &(gid, left_team, right_team) in &game_event_specs {
+        seed_game_events(db, gid, left_team, right_team);
+    }
+    let end_time_for_game_events = Utc::now();
+    let duration_for_game_events = end_time_for_game_events.naive_utc() - start_time_for_game_events.naive_utc();
+    println!("Done. DB Game Events Population Time Duration: {}\n", duration_for_game_events);
 }
 
 pub fn create_tournament_applicants(db: &mut database::Connection) {

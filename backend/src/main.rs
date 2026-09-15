@@ -49,6 +49,7 @@ async fn main() -> std::io::Result<()> {
     
     if false {
         let mut conn = db.get_connection().expect("Failed to get connection.");
+        println!("");
         if true {
             clean_database(&mut conn);  // Removes all data from DB
 
@@ -57,8 +58,9 @@ async fn main() -> std::io::Result<()> {
             }
         }
         if true {    
-            let include_gameevents_in_reseed: bool = false;
-            insert_seed_data_one(&mut conn, include_gameevents_in_reseed);  // Repopulates DB with seed data (*for manual UI testing)
+            let include_scheduling: bool = false;  // seed the full schedule (sessions/pools/games); set false to stop at registered teams + gear
+            let include_gameevents_in_reseed: bool = false;  // ***This applies only if include_scheduling = true;
+            insert_seed_data_one(&mut conn, include_scheduling, include_gameevents_in_reseed);  // Repopulates DB with seed data (*for manual UI testing)
         }
         let conn = conn;
         drop(conn);
