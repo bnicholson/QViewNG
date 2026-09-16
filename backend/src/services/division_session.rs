@@ -45,38 +45,8 @@ async fn read(
     }
 }
 
-/// Query params for the pool-bracket rows endpoint: pagination plus the `type` filter
-/// (e.g. "pool" or "bracket").
-#[derive(serde::Deserialize)]
-struct PoolBracketRowsParams {
-    page: i64,
-    page_size: i64,
-    #[serde(rename = "type")]
-    type_: String,
-}
-
-/// Returns fully-formed pool-bracket data-table rows scoped to this session, filtered by `type`,
-/// in a single paginated call.
-#[get("/{id}/pool-bracket-rows")]
-async fn read_pool_bracket_rows(
-    db: Data<Database>,
-    item_id: Path<Uuid>,
-    Query(params): Query<PoolBracketRowsParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut conn, &req);
-
-    let pagination = PaginationParams { page: params.page, page_size: params.page_size };
-    match models::pool_bracket::read_pool_bracket_rows_of_division_session(&mut conn, item_id.into_inner(), &params.type_, &pagination) {
-        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        Err(_) => HttpResponse::InternalServerError().finish(),
-    }
-}
-
-/// Enriched game rows for the session (games across its pool brackets), in one paginated call.
+/// Enriched game rows for the session (games whose round belongs to the session), in one paginated
+/// call.
 #[get("/{id}/game-rows")]
 async fn read_game_rows(
     db: Data<Database>,
@@ -363,7 +333,6 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
-        .service(read_pool_bracket_rows)
         .service(read_game_rows)
         .service(read_rounds)
         .service(read_round_rows)

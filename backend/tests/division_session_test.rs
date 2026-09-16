@@ -164,74 +164,6 @@ async fn read_and_index_work() {
 }
 
 #[actix_web::test]
-async fn get_pool_bracket_rows_of_session_works() {
-
-    // Arrange:
-
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-
-    let (_tournament, division, owner, _admin_user, _unrelated_user) =
-        fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
-
-    // Two sessions in the division; brackets are created in both, but the endpoint must only return
-    // the queried session's brackets.
-    let session = DivisionSessionBuilder::new(division.did)
-        .set_name("Pool Play")
-        .set_creator_userid(owner.id)
-        .build_and_insert(&mut conn)
-        .unwrap();
-    let other_session = DivisionSessionBuilder::new(division.did)
-        .set_name("Other Session")
-        .set_creator_userid(owner.id)
-        .build_and_insert(&mut conn)
-        .unwrap();
-
-    for name in ["Pool A", "Pool B"] {
-        PoolBracketBuilder::new(session.division_session_id)
-            .set_name(name).set_type("pool").set_creator_userid(owner.id)
-            .build_and_insert(&mut conn).unwrap();
-    }
-    PoolBracketBuilder::new(session.division_session_id)
-        .set_name("Bracket A").set_type("bracket").set_creator_userid(owner.id)
-        .build_and_insert(&mut conn).unwrap();
-    // A pool in the OTHER session that must be excluded from this session's results.
-    PoolBracketBuilder::new(other_session.division_session_id)
-        .set_name("Other Pool").set_type("pool").set_creator_userid(owner.id)
-        .build_and_insert(&mut conn).unwrap();
-
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-
-    // ── type=pool returns only this session's two pools ──────────────────────
-    let pool_uri = format!("/api/divisionsessions/{}/pool-bracket-rows?type=pool&page={}&page_size={}", session.division_session_id, PAGE_NUM, PAGE_SIZE);
-    let pool_resp = test::call_service(&app, test::TestRequest::get().uri(&pool_uri).to_request()).await;
-    assert_eq!(pool_resp.status(), StatusCode::OK);
-    let pool_body: PagedResponse<PoolBracketRow> = test::read_body_json(pool_resp).await;
-    assert_eq!(pool_body.count, 2);
-    let pool_names: Vec<&str> = pool_body.items.iter().map(|b| b.name.as_str()).collect();
-    assert!(pool_names.contains(&"Pool A"));
-    assert!(pool_names.contains(&"Pool B"));
-    assert!(!pool_names.contains(&"Other Pool"));
-    for row in &pool_body.items {
-        assert_eq!(row.session_name, "Pool Play");
-        assert_eq!(row.division_session_id, session.division_session_id);
-    }
-
-    // ── type=bracket returns only this session's one bracket ─────────────────
-    let bracket_uri = format!("/api/divisionsessions/{}/pool-bracket-rows?type=bracket&page={}&page_size={}", session.division_session_id, PAGE_NUM, PAGE_SIZE);
-    let bracket_resp = test::call_service(&app, test::TestRequest::get().uri(&bracket_uri).to_request()).await;
-    assert_eq!(bracket_resp.status(), StatusCode::OK);
-    let bracket_body: PagedResponse<PoolBracketRow> = test::read_body_json(bracket_resp).await;
-    assert_eq!(bracket_body.count, 1);
-    assert_eq!(bracket_body.items[0].name.as_str(), "Bracket A");
-}
-
-#[actix_web::test]
 async fn get_game_rows_of_session_works() {
 
     // Arrange:
@@ -240,9 +172,11 @@ async fn get_game_rows_of_session_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    // Seeds a session with one pool bracket holding two games (via poolbracket_id).
+    // Seeds a division with one session, one pool bracket, and two games in a round of that session.
     let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
-    let session_id = backend::models::pool_bracket::read(&mut conn, bracket_id).unwrap().division_session_id;
+    let did = backend::models::pool_bracket::read(&mut conn, bracket_id).unwrap().divisionid;
+    // Games belong to a session through their round, so query the division's (sole) session.
+    let session_id = backend::models::division_session::read_all_of_division(&mut conn, did).unwrap()[0].division_session_id;
 
     let app = test::init_service(
         App::new()

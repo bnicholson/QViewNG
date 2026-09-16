@@ -38,10 +38,6 @@ function bracketColumns(
       render: (b) => <EntityLink to={`/division/${b.did}/overview`}>{b.division_name || b.did}</EntityLink>,
     },
     {
-      header: "Session",
-      render: (b) => <EntityLink to={`/division-session/${b.division_session_id}/overview`}>{b.session_name}</EntityLink>,
-    },
-    {
       header: entityLabel,
       render: (b) => <EntityLink to={`/pool-bracket/${b.pool_bracket_id}/overview`}>{b.name}</EntityLink>,
     },
@@ -82,7 +78,6 @@ function bracketColumns(
 export default function PoolBracketsTable({
   tid,
   did,
-  sessionId,
   type,
   entityLabel,
   title,
@@ -93,12 +88,8 @@ export default function PoolBracketsTable({
   hiddenColumns = [],
 }: {
   tid: string;
-  /** When set, rows are scoped to this division; when omitted (and no `sessionId`), to the whole
-   *  tournament (`tid`). */
+  /** When set, rows are scoped to this division; when omitted, to the whole tournament (`tid`). */
   did?: string;
-  /** When set, rows are scoped to this single division session (not the whole division), and new
-   *  brackets are created under it. */
-  sessionId?: string;
   type: string;
   entityLabel: string;
   title: string;
@@ -120,11 +111,9 @@ export default function PoolBracketsTable({
 
   const loadBrackets = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = sessionId
-      ? PoolBracketAPI.getRowsByDivisionSession(sessionId, type, p, ps)
-      : did
-        ? PoolBracketAPI.getRowsByDivision(did, type, p, ps)
-        : PoolBracketAPI.getRowsByTournament(tid, type, p, ps);
+    const request = did
+      ? PoolBracketAPI.getRowsByDivision(did, type, p, ps)
+      : PoolBracketAPI.getRowsByTournament(tid, type, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -134,11 +123,11 @@ export default function PoolBracketsTable({
       })
       .catch(() => console.error("Failed to load pool brackets"))
       .finally(() => setLoading(false));
-  }, [tid, did, sessionId, type]);
+  }, [tid, did, type]);
 
   useEffect(() => {
     loadBrackets(0, pageSizeRef.current);
-  }, [tid, did, sessionId, type]);
+  }, [tid, did, type]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadBrackets(newPage, pageSize);
@@ -161,7 +150,7 @@ export default function PoolBracketsTable({
   const handleEdit = useCallback((row: PoolBracketRowTS) => {
     setEditingBracket({
       pool_bracket_id: row.pool_bracket_id,
-      division_session_id: row.division_session_id,
+      divisionid: row.did,
       type: row.type,
       created_date: row.created_date,
       creator_userid: "",
@@ -182,7 +171,7 @@ export default function PoolBracketsTable({
     <>
       <DataTableTemplate<PoolBracketRowTS>
         loading={loading}
-        key={`${sessionId ?? did ?? tid}-${type}`}
+        key={`${did ?? tid}-${type}`}
         entityLabel={entityLabel}
         title={title}
         createLabel={`Create ${entityLabel}`}
@@ -204,7 +193,6 @@ export default function PoolBracketsTable({
         did={did}
         type={type}
         entityLabel={entityLabel}
-        lockedSessionId={sessionId}
         bracket={editingBracket}
         isOpen={editorIsOpen}
         onCancel={() => { setEditorIsOpen(false); setEditingBracket(null); }}

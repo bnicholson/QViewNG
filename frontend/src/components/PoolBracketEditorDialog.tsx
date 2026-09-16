@@ -20,7 +20,7 @@ import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
-import { DivisionSessionAPI } from '../features/DivisionSessionAPI'
+import { DivisionAPI } from '../features/DivisionAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -32,34 +32,32 @@ const Transition = React.forwardRef(function Transition(
 });
 
 interface FormState {
-  division_session_id: string;
+  divisionid: string;
   name: string;
 }
 
 const emptyState: FormState = {
-  division_session_id: "",
+  divisionid: "",
   name: "",
 };
 
-/** One selectable session in the dropdown. */
-interface SessionOption {
+/** One selectable division in the dropdown. */
+interface DivisionOption {
   id: string;
   label: string;
 }
 
 interface Props {
-  /** Tournament the sessions belong to; used to list sessions across all divisions when `did` is
-   *  omitted (tournament-level table). */
+  /** Tournament the divisions belong to; used to list divisions when `did` is omitted
+   *  (tournament-level table). */
   tid: string;
-  /** When set, only this division's sessions are offered; when omitted, every session in the
-   *  tournament is offered (labelled with its division). */
+  /** When set, the division is fixed to this id and its dropdown is disabled (e.g. from a Division
+   *  profile); when omitted, every division in the tournament is offered. */
   did?: string;
   /** The pool_brackets `type` this dialog manages (e.g. "pool" or "bracket"). */
   type: string;
   /** Singular label for the entity ("Pool", "Bracket"). */
   entityLabel: string;
-  /** When set, the Session is fixed to this id and its dropdown is disabled (e.g. from a Session profile). */
-  lockedSessionId?: string;
   isOpen: boolean;
   /** When set, the dialog edits this existing bracket instead of creating a new one. */
   bracket?: PoolBracketTS | null;
@@ -68,20 +66,20 @@ interface Props {
 }
 
 export const PoolBracketEditorDialog = (props: Props) => {
-  const { tid, did, type, entityLabel, lockedSessionId, isOpen, bracket, onCancel, onSave } = props;
+  const { tid, did, type, entityLabel, isOpen, bracket, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const isEdit = !!bracket;
   const [form, setForm] = useState<FormState>(emptyState);
-  const [sessions, setSessions] = useState<SessionOption[]>([]);
+  const [divisions, setDivisions] = useState<DivisionOption[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
     if (bracket) {
-      setForm({ division_session_id: bracket.division_session_id, name: bracket.name });
+      setForm({ divisionid: bracket.divisionid, name: bracket.name });
     } else {
-      setForm(lockedSessionId ? { ...emptyState, division_session_id: lockedSessionId } : emptyState);
+      setForm(did ? { ...emptyState, divisionid: did } : emptyState);
     }
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("");
@@ -91,23 +89,17 @@ export const PoolBracketEditorDialog = (props: Props) => {
   useEffect(() => {
     if (!isOpen) return;
     resetState();
-    // Division-scoped: only that division's sessions. Tournament-scoped: every session, labelled
-    // with its division so identically-named sessions across divisions stay distinguishable.
-    const loader: Promise<SessionOption[]> = did
-      ? DivisionSessionAPI.getByDivision(did)
-          .then(items => items.map(s => ({ id: s.division_session_id, label: s.name })))
-      : DivisionSessionAPI.getRowsByTournament(tid, 0, 500)
-          .then(res => res.items.map(s => ({ id: s.division_session_id, label: `${s.name} (${s.division_name})` })));
-    loader
-      .then(setSessions)
-      .catch(() => console.error("Failed to load sessions for pool/bracket form"));
+    // Division-scoped: just the locked division. Tournament-scoped: every division in the tournament.
+    DivisionAPI.getByTournament(tid, 0, 500)
+      .then(items => setDivisions(items.map(d => ({ id: d.did, label: d.dname }))))
+      .catch(() => console.error("Failed to load divisions for pool/bracket form"));
   }, [isOpen, did, tid, bracket]);
 
   const openCancelDialog = () => {
     const initial = bracket
-      ? { division_session_id: bracket.division_session_id, name: bracket.name }
-      : { division_session_id: lockedSessionId ?? "", name: "" };
-    const isDirty = form.division_session_id !== initial.division_session_id || form.name !== initial.name;
+      ? { divisionid: bracket.divisionid, name: bracket.name }
+      : { divisionid: did ?? "", name: "" };
+    const isDirty = form.divisionid !== initial.divisionid || form.name !== initial.name;
     if (!isDirty) {
       onCancel();
     } else {
@@ -122,8 +114,8 @@ export const PoolBracketEditorDialog = (props: Props) => {
   };
 
   const handleSave = async () => {
-    if (!form.division_session_id) {
-      setErrorMsg("Session is required.");
+    if (!form.divisionid) {
+      setErrorMsg("Division is required.");
       setAlertOpened(true);
       return;
     }
@@ -138,7 +130,7 @@ export const PoolBracketEditorDialog = (props: Props) => {
       if (bracket) {
         result = await PoolBracketAPI.update(bracket.pool_bracket_id, { name: form.name.trim() }, accessToken);
       } else {
-        result = await PoolBracketAPI.create({ division_session_id: form.division_session_id, name: form.name.trim(), type }, accessToken);
+        result = await PoolBracketAPI.create({ divisionid: form.divisionid, name: form.name.trim(), type }, accessToken);
       }
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
@@ -212,20 +204,20 @@ export const PoolBracketEditorDialog = (props: Props) => {
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <InputLabel>Session (*required)</InputLabel>
+                <InputLabel>Division (*required)</InputLabel>
                 <Select
-                  value={form.division_session_id}
-                  onChange={(e) => setForm(s => ({ ...s, division_session_id: e.target.value }))}
+                  value={form.divisionid}
+                  onChange={(e) => setForm(s => ({ ...s, divisionid: e.target.value }))}
                   displayEmpty
                   fullWidth
-                  disabled={isEdit || !!lockedSessionId}
+                  disabled={isEdit || !!did}
                   renderValue={(val) => {
-                    if (!val) return <em>Select a session</em>;
-                    return sessions.find(s => s.id === val)?.label ?? val;
+                    if (!val) return <em>Select a division</em>;
+                    return divisions.find(d => d.id === val)?.label ?? val;
                   }}
                 >
-                  {sessions.map(s => (
-                    <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>
+                  {divisions.map(d => (
+                    <MenuItem key={d.id} value={d.id}>{d.label}</MenuItem>
                   ))}
                 </Select>
               </Grid>

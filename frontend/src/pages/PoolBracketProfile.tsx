@@ -5,7 +5,6 @@ import Stack from '@mui/material/Stack'
 import ProfileLayout from '../components/ProfileLayout'
 import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
-import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
@@ -24,7 +23,6 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
   if (!bracketid) return <></>
 
   const [bracket, setBracket] = useState<PoolBracketTS | null>(null)
-  const [session, setSession] = useState<DivisionSessionTS | null>(null)
   const [division, setDivision] = useState<DivisionTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -35,10 +33,7 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
       .then(async b => {
         if (cancelled) return
         setBracket(b)
-        const sess = await DivisionSessionAPI.getById(b.division_session_id)
-        if (cancelled) return
-        setSession(sess)
-        const div = await DivisionAPI.getById(sess.did)
+        const div = await DivisionAPI.getById(b.divisionid)
         if (cancelled) return
         setDivision(div)
         const tour = await TournamentAPI.getById(div.tid)
@@ -52,7 +47,7 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
   const access = useTournamentAccess(tournament?.tid, tournament?.owner_id)
 
   if (notFound) return <Navigate to="/404" replace />
-  if (!bracket || !session || !division || !tournament) return <div>Loading…</div>
+  if (!bracket || !division || !tournament) return <div>Loading…</div>
 
   const { isOwnerOrSuperUser, canViewAuditColumns, canCreate } = access
   const label = typeLabel(bracket.type)
@@ -71,14 +66,13 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
           { name: 'Home', to: '/' },
           { label: 'Tournament', name: tournament.tname, to: `/tournament/${tournament.tid}/overview` },
           { label: 'Division', name: division.dname, to: `/division/${division.did}/overview` },
-          { label: 'Session', name: session.name, to: `/division-session/${session.division_session_id}/overview` },
           { label: label, name: bracket.name },
         ]} />
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
             <PoolBracketProfileOverviewPage
-              bracket={bracket} session={session} division={division}
+              bracket={bracket} division={division}
               entityLabel={label} onUpdated={setBracket} canEdit={isOwnerOrSuperUser} />
           )}
           {props.childRoute === 'teams' && (

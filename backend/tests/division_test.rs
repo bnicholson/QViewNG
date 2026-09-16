@@ -687,7 +687,6 @@ async fn get_pool_bracket_rows_of_division_works() {
     for row in &pool_body.items {
         assert_eq!(row.type_, "pool");
         assert_eq!(row.division_name, "Pool Div");
-        assert_eq!(row.session_name, "Pool Play");
         assert!(row.last_modified_user_name.starts_with("Pool Owner"));
     }
 

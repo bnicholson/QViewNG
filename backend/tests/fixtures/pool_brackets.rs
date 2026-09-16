@@ -41,7 +41,7 @@ pub fn seed_pool_bracket_profile(db: &mut database::Connection) -> Uuid {
         .set_creator_userid(owner.id)
         .build_and_insert(db)
         .unwrap();
-    let bracket = PoolBracketBuilder::new(session.division_session_id)
+    let bracket = PoolBracketBuilder::new(session.did)
         .set_name("Pool A")
         .set_type("pool")
         .set_creator_userid(owner.id)

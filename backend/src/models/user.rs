@@ -343,14 +343,13 @@ pub fn read_eligible_quizzers_for_user(db: &mut database::Connection, user_id_va
                 }
             }
             // Game quizmasters and content judges. Games no longer store the tournament, so we
-            // scope them through the pool bracket chain: game -> pool_bracket -> division_session,
-            // keeping those whose session belongs to one of the tournaments' divisions.
+            // scope them through the pool bracket: game -> pool_bracket -> division, keeping those
+            // whose bracket belongs to one of the tournaments' divisions.
             if !div_ids.is_empty() {
-                use crate::schema::{games, pool_brackets, division_sessions};
+                use crate::schema::{games, pool_brackets};
                 let rows = games::table
                     .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
-                    .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
-                    .filter(division_sessions::did.eq_any(&div_ids))
+                    .filter(pool_brackets::divisionid.eq_any(&div_ids))
                     .filter(games::del_fl.eq(false))
                     .select((games::quizmasterid, games::contentjudgeid))
                     .load::<(Uuid, Option<Uuid>)>(db)?;
@@ -388,14 +387,12 @@ pub fn read_all_persons_of_tournament(
     // A given role is wanted when no specific role was requested, or it matches the request.
     let want = |r: &str| role.map_or(true, |sel| sel == r);
 
-    // Quizmasters and content judges of the tournament's games (game -> pool_bracket ->
-    // division_session -> division).
+    // Quizmasters and content judges of the tournament's games (game -> pool_bracket -> division).
     if want("quizmaster") || want("content_judge") {
-        use crate::schema::{games, pool_brackets, division_sessions, divisions};
+        use crate::schema::{games, pool_brackets, divisions};
         let rows: Vec<(Uuid, Option<Uuid>)> = games::table
             .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
-            .inner_join(division_sessions::table.on(pool_brackets::division_session_id.eq(division_sessions::division_session_id)))
-            .inner_join(divisions::table.on(division_sessions::did.eq(divisions::did)))
+            .inner_join(divisions::table.on(pool_brackets::divisionid.eq(divisions::did)))
             .filter(divisions::tid.eq(tournament_id))
             .filter(games::del_fl.eq(false))
             .select((games::quizmasterid, games::contentjudgeid))

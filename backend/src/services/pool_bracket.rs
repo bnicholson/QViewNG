@@ -5,19 +5,18 @@ use crate::database::Database;
 use diesel::QueryResult;
 use uuid::Uuid;
 
-// Pool brackets are grandchildren of divisions (division → division_session → pool_bracket) and are
-// authorized with the parent Division's permissions/policy (a tournament owner or admin may manage
-// them). The `type` field distinguishes "pool" from "bracket".
+// Pool brackets are children of divisions (division → pool_bracket) and are authorized with the
+// parent Division's permissions/policy (a tournament owner or admin may manage them). The `type`
+// field distinguishes "pool" from "bracket".
 
-/// Resolves the tournament that owns a division session (session → division → tournament) plus
-/// whether the user is that tournament's admin, for ABAC. Returns None if any link is missing.
+/// Resolves the tournament that owns a division (division → tournament) plus whether the user is
+/// that tournament's admin, for ABAC. Returns None if any link is missing.
 fn resolve_policy(
     conn: &mut crate::database::Connection,
-    session_id: Uuid,
+    division_id: Uuid,
     user_id: Uuid,
 ) -> Option<DivisionPolicyResource> {
-    let session = models::division_session::read(conn, session_id).ok()?;
-    let division = models::division::read(conn, session.did).ok()?;
+    let division = models::division::read(conn, division_id).ok()?;
     let tournament = models::tournament::read(conn, division.tid).ok()?;
     let user_is_tournament_admin = models::tournament_admin::is_admin(conn, tournament.tid, user_id);
     Some(DivisionPolicyResource { tournament, user_is_tournament_admin })
@@ -124,7 +123,7 @@ async fn add_team(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+    let resource = match resolve_policy(&mut conn, bracket.divisionid, user_ctx.user_id) {
         Some(r) => r,
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -189,7 +188,7 @@ async fn remove_team(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+    let resource = match resolve_policy(&mut conn, bracket.divisionid, user_ctx.user_id) {
         Some(r) => r,
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -229,10 +228,10 @@ async fn create(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    let resource = match resolve_policy(&mut conn, item.division_session_id, user_ctx.user_id) {
+    let resource = match resolve_policy(&mut conn, item.divisionid, user_ctx.user_id) {
         Some(r) => r,
         None => return Ok(HttpResponse::UnprocessableEntity().json(json!({
-            "error": format!("Division session with ID {} does not exist", item.division_session_id)
+            "error": format!("Division with ID {} does not exist", item.divisionid)
         }))),
     };
 
@@ -285,7 +284,7 @@ async fn update(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+    let resource = match resolve_policy(&mut conn, bracket.divisionid, user_ctx.user_id) {
         Some(r) => r,
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -333,7 +332,7 @@ async fn destroy(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+    let resource = match resolve_policy(&mut conn, bracket.divisionid, user_ctx.user_id) {
         Some(r) => r,
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -382,7 +381,7 @@ async fn purge(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let resource = match resolve_policy(&mut conn, bracket.division_session_id, user_ctx.user_id) {
+    let resource = match resolve_policy(&mut conn, bracket.divisionid, user_ctx.user_id) {
         Some(r) => r,
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };

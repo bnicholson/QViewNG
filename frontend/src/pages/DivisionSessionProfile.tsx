@@ -8,7 +8,6 @@ import { DivisionSessionAPI, type DivisionSessionTS } from '../features/Division
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
-import PoolBracketsTable from '../components/PoolBracketsTable'
 import GamesTable from '../components/GamesTable'
 import RoundsTable from '../components/RoundsTable'
 import { DivisionSessionProfileOverviewPage } from './DivisionSessionProfileOverviewPage'
@@ -48,8 +47,6 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/division-session/${sessionid}/overview` },
-    { kind: 'route' as const, label: 'Pools',    to: `/division-session/${sessionid}/pools`    },
-    { kind: 'route' as const, label: 'Brackets', to: `/division-session/${sessionid}/brackets` },
     { kind: 'route' as const, label: 'Rounds',   to: `/division-session/${sessionid}/rounds`   },
     { kind: 'route' as const, label: 'Games',    to: `/division-session/${sessionid}/games`    },
   ]
@@ -69,25 +66,6 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'overview' && (
             <DivisionSessionProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={isOwnerOrSuperUser} />
           )}
-          {props.childRoute === 'pools' && (
-            <PoolBracketsTable tid={tournament.tid} did={division.did} sessionId={sessionid}
-              type="pool" entityLabel="Pool" title="Pools"
-              showCreateButton={canCreate('division:create')}
-              showEditButton={canCreate('division:update')}
-              showDeleteButton={canCreate('division:delete')}
-              showAuditColumns={canViewAuditColumns}
-              // In the Session profile the Division and Session are fixed context, so those columns are redundant.
-              hiddenColumns={['Division', 'Session']} />
-          )}
-          {props.childRoute === 'brackets' && (
-            <PoolBracketsTable tid={tournament.tid} did={division.did} sessionId={sessionid}
-              type="bracket" entityLabel="Bracket" title="Brackets"
-              showCreateButton={canCreate('division:create')}
-              showEditButton={canCreate('division:update')}
-              showDeleteButton={canCreate('division:delete')}
-              showAuditColumns={canViewAuditColumns}
-              hiddenColumns={['Division', 'Session']} />
-          )}
           {props.childRoute === 'rounds' && (
             // Rounds belong to a division session; Division and Session are fixed context here.
             <RoundsTable tid={tournament.tid} did={division.did} sessionId={sessionid}
@@ -97,7 +75,7 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
               hiddenColumns={['Division', 'Session']} />
           )}
           {props.childRoute === 'games' && (
-            // Games across this session's pool brackets. Division is fixed context here.
+            // Games whose round belongs to this session. Division is fixed context here.
             <GamesTable tid={tournament.tid} divisionSessionId={sessionid}
               showCreateButton={false} showDeleteButton={canCreate('game:delete')}
               showAuditColumns={canViewAuditColumns}

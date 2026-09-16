@@ -59,7 +59,7 @@ async fn read(
 }
 
 /// The game's division and tournament, derived via its pool bracket
-/// (game -> pool_bracket -> division_session -> division -> tournament). Neither is stored on the
+/// (game -> pool_bracket -> division -> tournament). Neither is stored on the
 /// game any more, so the Game profile fetches them here in one call.
 #[get("/{id}/context")]
 async fn read_context(
@@ -150,18 +150,14 @@ async fn create(
     }
 
     // The game's tournament is derived from its pool bracket:
-    // pool_bracket -> division_session -> division -> tournament.
+    // pool_bracket -> division -> tournament.
     let bracket = match models::pool_bracket::read(&mut conn, item.poolbracket_id) {
         Ok(b) => b,
         Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": format!("Pool bracket with ID {} does not exist", item.poolbracket_id)
         }))),
     };
-    let session = match models::division_session::read(&mut conn, bracket.division_session_id) {
-        Ok(s) => s,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    };
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, bracket.divisionid) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };

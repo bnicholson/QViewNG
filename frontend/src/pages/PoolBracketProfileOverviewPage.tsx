@@ -9,7 +9,6 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
-import type { DivisionSessionTS } from '../features/DivisionSessionAPI'
 import type { DivisionTS } from '../features/DivisionAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -21,9 +20,7 @@ function formatDate(iso: string | null | undefined): string {
 interface Props {
   /** The pool bracket being viewed. */
   bracket: PoolBracketTS
-  /** Its parent session. */
-  session: DivisionSessionTS
-  /** Its grandparent division. */
+  /** Its parent division. */
   division: DivisionTS
   /** Singular label for this bracket's type ("Pool" or "Bracket"). */
   entityLabel: string
@@ -31,7 +28,7 @@ interface Props {
   canEdit?: boolean
 }
 
-export const PoolBracketProfileOverviewPage = ({ bracket, session, division, entityLabel, onUpdated, canEdit = false }: Props) => {
+export const PoolBracketProfileOverviewPage = ({ bracket, division, entityLabel, onUpdated, canEdit = false }: Props) => {
   const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -90,20 +87,6 @@ export const PoolBracketProfileOverviewPage = ({ bracket, session, division, ent
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Type</Typography>
             <Typography variant="body1">{bracket.type}</Typography>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Session</Typography>
-            <Typography variant="body1">
-              <Link
-                to={`/division-session/${session.division_session_id}/overview`}
-                style={{ color: '#2563eb', textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
-              >
-                {session.name}
-              </Link>
-            </Typography>
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>

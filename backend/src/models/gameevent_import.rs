@@ -218,7 +218,7 @@ fn games_in_room(db: &mut database::Connection, room_id: Uuid) -> Vec<Game> {
 fn game_ref(db: &mut database::Connection, game: &Game) -> GameRef {
     use crate::schema::rooms::dsl as rm;
     use crate::schema::rounds::dsl as rd;
-    // Division is derived via game -> pool_bracket -> division_session -> division.
+    // Division is derived via game -> pool_bracket -> division.
     let division = crate::models::game::read_division_of_game(db, game).map(|d| d.dname).unwrap_or_default();
     let room = rm::rooms.filter(rm::roomid.eq(game.roomid)).select(rm::name).first::<String>(db).unwrap_or_default();
     let round = rd::rounds.filter(rd::roundid.eq(game.roundid)).select(rd::name).first::<String>(db).unwrap_or_default();

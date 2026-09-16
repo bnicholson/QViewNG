@@ -10,7 +10,7 @@ use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 
 pub struct PoolBracketBuilder {
-    division_session_id: Uuid,
+    divisionid: Uuid,
     name: Option<String>,
     type_: String,
     creator_userid: Option<Uuid>,
@@ -18,20 +18,20 @@ pub struct PoolBracketBuilder {
 }
 
 impl PoolBracketBuilder {
-    pub fn new(division_session_id: Uuid) -> Self {
+    pub fn new(divisionid: Uuid) -> Self {
         Self {
-            division_session_id,
+            divisionid,
             name: None,
             type_: "pool".to_string(),
             creator_userid: None,
             last_modified_userid: None,
         }
     }
-    pub fn new_default(division_session_id: Uuid) -> Self {
-        Self::new(division_session_id)
+    pub fn new_default(divisionid: Uuid) -> Self {
+        Self::new(divisionid)
     }
-    pub fn set_division_session_id(mut self, id: Uuid) -> Self {
-        self.division_session_id = id;
+    pub fn set_division_id(mut self, id: Uuid) -> Self {
+        self.divisionid = id;
         self
     }
     pub fn set_name(mut self, name: &str) -> Self {
@@ -57,7 +57,7 @@ impl PoolBracketBuilder {
         if !errors.is_empty() { return Err(errors); }
         let creator = self.creator_userid.unwrap();
         Ok(NewPoolBracket {
-            division_session_id: self.division_session_id,
+            divisionid: self.divisionid,
             name: self.name.unwrap(),
             type_: self.type_,
             creator_userid: creator,
@@ -83,7 +83,6 @@ impl PoolBracketBuilder {
 #[diesel(primary_key(pool_bracket_id))]
 pub struct PoolBracket {
     pub pool_bracket_id: Uuid,                // identifies the pool bracket uniquely
-    pub division_session_id: Uuid,            // parent division session
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: String,                        // grouping type (e.g. "pool"); required, defaults to "pool"
@@ -91,14 +90,15 @@ pub struct PoolBracket {
     pub creator_userid: Uuid,
     pub last_modified_date: DateTime<Utc>,
     pub last_modified_userid: Uuid,
-    pub name: String,                         // unique within the parent division session
+    pub name: String,                         // unique within the parent division
     pub del_fl: bool,                         // soft-delete flag
+    pub divisionid: Uuid,                     // parent division
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::schema::pool_brackets)]
 pub struct NewPoolBracket {
-    pub division_session_id: Uuid,
+    pub divisionid: Uuid,
     pub name: String,
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
@@ -114,25 +114,24 @@ pub struct NewPoolBracket {
 #[diesel(table_name = crate::schema::pool_brackets)]
 #[diesel(primary_key(pool_bracket_id))]
 pub struct PoolBracketChangeset {
-    pub division_session_id: Option<Uuid>,
+    pub divisionid: Option<Uuid>,
     pub name: Option<String>,
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: Option<String>,
 }
 
-/// Whether a pool bracket named `name_val` already exists in division session `session_id`. When
-/// `exclude` is set (e.g. during an update), that bracket id is ignored so a row doesn't clash with
-/// itself.
-pub fn name_exists_in_division_session(
+/// Whether a pool bracket named `name_val` already exists in division `division_id`. When `exclude`
+/// is set (e.g. during an update), that bracket id is ignored so a row doesn't clash with itself.
+pub fn name_exists_in_division(
     db: &mut database::Connection,
-    session_id: Uuid,
+    division_id: Uuid,
     name_val: &str,
     exclude: Option<Uuid>,
 ) -> QueryResult<bool> {
     use crate::schema::pool_brackets::dsl::*;
     let mut query = pool_brackets
-        .filter(division_session_id.eq(session_id))
+        .filter(divisionid.eq(division_id))
         .filter(name.eq(name_val))
         .filter(del_fl.eq(false))
         .into_boxed();
@@ -144,10 +143,10 @@ pub fn name_exists_in_division_session(
 }
 
 pub fn create(db: &mut database::Connection, item: &NewPoolBracket) -> QueryResult<PoolBracket> {
-    // A bracket's name must be unique within its parent division session.
-    if name_exists_in_division_session(db, item.division_session_id, &item.name, None)? {
+    // A bracket's name must be unique within its parent division.
+    if name_exists_in_division(db, item.divisionid, &item.name, None)? {
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("A pool bracket named \"{}\" already exists in this division session.", item.name).into()
+            format!("A pool bracket named \"{}\" already exists in this division.", item.name).into()
         ));
     }
     use crate::schema::pool_brackets::dsl::*;
@@ -175,49 +174,32 @@ pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<PoolBracket>> 
     pool_brackets.filter(del_fl.eq(false)).order(created_date).load::<PoolBracket>(db)
 }
 
-/// All pool brackets belonging to the given division session.
-pub fn read_all_of_division_session(db: &mut database::Connection, session_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
-    use crate::schema::pool_brackets::dsl::*;
-    pool_brackets.filter(division_session_id.eq(session_id)).filter(del_fl.eq(false)).order(created_date).load::<PoolBracket>(db)
-}
-
-/// All pool brackets in the given division, across all of its division sessions.
+/// All pool brackets belonging to the given division.
 pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
-    let session_ids: Vec<Uuid> = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).select(division_session_id).load::<Uuid>(db)?
-    };
     use crate::schema::pool_brackets::dsl::*;
     pool_brackets
-        .filter(division_session_id.eq_any(&session_ids))
+        .filter(divisionid.eq(division_id))
         .filter(del_fl.eq(false))
         .order(created_date)
         .load::<PoolBracket>(db)
 }
 
-/// All pool brackets of the given division whose `type` matches `type_val`, across all of its
-/// division sessions.
+/// All pool brackets of the given division whose `type` matches `type_val`.
 pub fn read_all_of_division_by_type(db: &mut database::Connection, division_id: Uuid, type_val: &str) -> QueryResult<Vec<PoolBracket>> {
-    let session_ids: Vec<Uuid> = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).select(division_session_id).load::<Uuid>(db)?
-    };
     use crate::schema::pool_brackets::dsl::*;
     pool_brackets
-        .filter(division_session_id.eq_any(&session_ids))
+        .filter(divisionid.eq(division_id))
         .filter(type_.eq(type_val))
         .filter(del_fl.eq(false))
         .order(created_date)
         .load::<PoolBracket>(db)
 }
 
-/// One fully-formed row of the pool-brackets data table: the bracket plus its parent session name
-/// and division name and the display name of the user who last modified it.
+/// One fully-formed row of the pool-brackets data table: the bracket plus its parent division name
+/// and the display name of the user who last modified it.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct PoolBracketRow {
     pub pool_bracket_id: Uuid,
-    pub division_session_id: Uuid,
-    pub session_name: String,
     pub did: Uuid,
     pub division_name: String,
     pub name: String,
@@ -231,65 +213,22 @@ pub struct PoolBracketRow {
     pub last_modified_user_id: Uuid,
 }
 
-/// Returns one page of pool-bracket-table rows for the division (enriched), filtered to `type_val`,
-/// plus the total count for that type.
-pub fn read_pool_bracket_rows_of_division(
+/// Assembles enriched pool-bracket rows from a page of brackets, given each bracket's division name
+/// (looked up by the caller) and the id→(division id, division name) mapping.
+fn build_pool_bracket_rows(
     db: &mut database::Connection,
-    division_id: Uuid,
-    type_val: &str,
-    pagination: &PaginationParams,
-) -> QueryResult<(Vec<PoolBracketRow>, i64)> {
-    // Parent division name, and the id→name map for the division's sessions.
-    let dname_val: String = {
-        use crate::schema::divisions::dsl::*;
-        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
-    };
-    let session_pairs: Vec<(Uuid, String)> = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).select((division_session_id, name)).load::<(Uuid, String)>(db)?
-    };
-    let session_ids: Vec<Uuid> = session_pairs.iter().map(|(id, _)| *id).collect();
-    let session_name_by_id: HashMap<Uuid, String> = session_pairs.into_iter().collect();
-
-    if session_ids.is_empty() {
-        return Ok((Vec::new(), 0));
-    }
-
-    let total: i64 = {
-        use crate::schema::pool_brackets::dsl::*;
-        pool_brackets
-            .filter(division_session_id.eq_any(&session_ids))
-            .filter(type_.eq(type_val))
-        .filter(del_fl.eq(false))
-            .count()
-            .get_result(db)?
-    };
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-    let bracket_list: Vec<PoolBracket> = {
-        use crate::schema::pool_brackets::dsl::*;
-        pool_brackets
-            .filter(division_session_id.eq_any(&session_ids))
-            .filter(type_.eq(type_val))
-        .filter(del_fl.eq(false))
-            .order(created_date.asc())
-            .limit(page_size)
-            .offset(offset_val)
-            .load::<PoolBracket>(db)?
-    };
-
+    bracket_list: Vec<PoolBracket>,
+    division_name_by_id: &HashMap<Uuid, String>,
+) -> QueryResult<Vec<PoolBracketRow>> {
     let name_ids: Vec<Uuid> = bracket_list.iter().map(|b| b.last_modified_userid).collect();
     let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
 
-    let rows = bracket_list
+    Ok(bracket_list
         .into_iter()
         .map(|b| PoolBracketRow {
             pool_bracket_id: b.pool_bracket_id,
-            session_name: session_name_by_id.get(&b.division_session_id).cloned().unwrap_or_default(),
-            division_session_id: b.division_session_id,
-            did: division_id,
-            division_name: dname_val.clone(),
+            did: b.divisionid,
+            division_name: division_name_by_id.get(&b.divisionid).cloned().unwrap_or_default(),
             name: b.name,
             type_: b.type_,
             created_date: b.created_date,
@@ -300,13 +239,54 @@ pub fn read_pool_bracket_rows_of_division(
                 .unwrap_or_else(|| b.last_modified_userid.to_string()),
             last_modified_user_id: b.last_modified_userid,
         })
-        .collect();
+        .collect())
+}
 
+/// Returns one page of pool-bracket-table rows for the division (enriched), filtered to `type_val`,
+/// plus the total count for that type.
+pub fn read_pool_bracket_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    type_val: &str,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PoolBracketRow>, i64)> {
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
+    };
+
+    let total: i64 = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(divisionid.eq(division_id))
+            .filter(type_.eq(type_val))
+            .filter(del_fl.eq(false))
+            .count()
+            .get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let bracket_list: Vec<PoolBracket> = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(divisionid.eq(division_id))
+            .filter(type_.eq(type_val))
+            .filter(del_fl.eq(false))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<PoolBracket>(db)?
+    };
+
+    let mut division_name_by_id = HashMap::new();
+    division_name_by_id.insert(division_id, dname_val);
+    let rows = build_pool_bracket_rows(db, bracket_list, &division_name_by_id)?;
     Ok((rows, total))
 }
 
 /// Returns one page of pool-bracket-table rows for a whole tournament (enriched), across every
-/// division and session, filtered to `type_val`, plus the total count for that type.
+/// division, filtered to `type_val`, plus the total count for that type.
 pub fn read_pool_bracket_rows_of_tournament(
     db: &mut database::Connection,
     tournament_id: Uuid,
@@ -319,29 +299,17 @@ pub fn read_pool_bracket_rows_of_tournament(
         divisions.filter(tid.eq(tournament_id)).select((did, dname)).load::<(Uuid, String)>(db)?
     };
     let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
-    let div_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+    let division_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
     if div_ids.is_empty() {
         return Ok((Vec::new(), 0));
     }
 
-    // Sessions across those divisions: id -> (name, division id).
-    let session_tuples: Vec<(Uuid, String, Uuid)> = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).select((division_session_id, name, did)).load::<(Uuid, String, Uuid)>(db)?
-    };
-    let session_ids: Vec<Uuid> = session_tuples.iter().map(|(id, _, _)| *id).collect();
-    let session_name_by_id: HashMap<Uuid, String> = session_tuples.iter().map(|(id, n, _)| (*id, n.clone())).collect();
-    let session_did_by_id: HashMap<Uuid, Uuid> = session_tuples.iter().map(|(id, _, d)| (*id, *d)).collect();
-    if session_ids.is_empty() {
-        return Ok((Vec::new(), 0));
-    }
-
     let total: i64 = {
         use crate::schema::pool_brackets::dsl::*;
         pool_brackets
-            .filter(division_session_id.eq_any(&session_ids))
+            .filter(divisionid.eq_any(&div_ids))
             .filter(type_.eq(type_val))
-        .filter(del_fl.eq(false))
+            .filter(del_fl.eq(false))
             .count()
             .get_result(db)?
     };
@@ -351,129 +319,31 @@ pub fn read_pool_bracket_rows_of_tournament(
     let bracket_list: Vec<PoolBracket> = {
         use crate::schema::pool_brackets::dsl::*;
         pool_brackets
-            .filter(division_session_id.eq_any(&session_ids))
+            .filter(divisionid.eq_any(&div_ids))
             .filter(type_.eq(type_val))
-        .filter(del_fl.eq(false))
+            .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
             .load::<PoolBracket>(db)?
     };
 
-    let name_ids: Vec<Uuid> = bracket_list.iter().map(|b| b.last_modified_userid).collect();
-    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
-
-    let rows = bracket_list
-        .into_iter()
-        .map(|b| {
-            let did_of = session_did_by_id.get(&b.division_session_id).cloned().unwrap_or_default();
-            PoolBracketRow {
-                pool_bracket_id: b.pool_bracket_id,
-                session_name: session_name_by_id.get(&b.division_session_id).cloned().unwrap_or_default(),
-                division_session_id: b.division_session_id,
-                did: did_of,
-                division_name: div_name_by_id.get(&did_of).cloned().unwrap_or_default(),
-                name: b.name,
-                type_: b.type_,
-                created_date: b.created_date,
-                last_modified_date: b.last_modified_date,
-                last_modified_user_name: name_by_id
-                    .get(&b.last_modified_userid)
-                    .cloned()
-                    .unwrap_or_else(|| b.last_modified_userid.to_string()),
-                last_modified_user_id: b.last_modified_userid,
-            }
-        })
-        .collect();
-
+    let rows = build_pool_bracket_rows(db, bracket_list, &division_name_by_id)?;
     Ok((rows, total))
 }
 
-/// Returns one page of pool-bracket-table rows for a single division session (enriched), filtered
-/// to `type_val`, plus the total count for that type within the session.
-pub fn read_pool_bracket_rows_of_division_session(
-    db: &mut database::Connection,
-    session_id: Uuid,
-    type_val: &str,
-    pagination: &PaginationParams,
-) -> QueryResult<(Vec<PoolBracketRow>, i64)> {
-    let session = crate::models::division_session::read(db, session_id)?;
-    let dname_val: String = {
-        use crate::schema::divisions::dsl::*;
-        divisions.filter(did.eq(session.did)).select(dname).first::<String>(db)?
-    };
-
-    let total: i64 = {
-        use crate::schema::pool_brackets::dsl::*;
-        pool_brackets
-            .filter(division_session_id.eq(session_id))
-            .filter(type_.eq(type_val))
-        .filter(del_fl.eq(false))
-            .count()
-            .get_result(db)?
-    };
-
-    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
-    let offset_val = pagination.page * page_size;
-    let bracket_list: Vec<PoolBracket> = {
-        use crate::schema::pool_brackets::dsl::*;
-        pool_brackets
-            .filter(division_session_id.eq(session_id))
-            .filter(type_.eq(type_val))
-        .filter(del_fl.eq(false))
-            .order(created_date.asc())
-            .limit(page_size)
-            .offset(offset_val)
-            .load::<PoolBracket>(db)?
-    };
-
-    let name_ids: Vec<Uuid> = bracket_list.iter().map(|b| b.last_modified_userid).collect();
-    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
-
-    let rows = bracket_list
-        .into_iter()
-        .map(|b| PoolBracketRow {
-            pool_bracket_id: b.pool_bracket_id,
-            session_name: session.name.clone(),
-            division_session_id: b.division_session_id,
-            did: session.did,
-            division_name: dname_val.clone(),
-            name: b.name,
-            type_: b.type_,
-            created_date: b.created_date,
-            last_modified_date: b.last_modified_date,
-            last_modified_user_name: name_by_id
-                .get(&b.last_modified_userid)
-                .cloned()
-                .unwrap_or_else(|| b.last_modified_userid.to_string()),
-            last_modified_user_id: b.last_modified_userid,
-        })
-        .collect();
-
-    Ok((rows, total))
-}
-
-/// Returns a pool bracket id for the division, creating a default division session + bracket if the
-/// division has none yet. Used by programmatic game creation (e.g. seeds, tests) where no bracket
-/// was explicitly chosen. The API create path never reaches this — it rejects a nil poolbracket_id.
+/// Returns a pool bracket id for the division, creating a default bracket if the division has none
+/// yet. Used by programmatic game creation (e.g. seeds, tests) where no bracket was explicitly
+/// chosen. The API create path never reaches this — it rejects a nil poolbracket_id.
 pub fn resolve_default_for_division(db: &mut database::Connection, division_id: Uuid, user_id: Uuid) -> QueryResult<Uuid> {
     if let Some(existing) = read_all_of_division(db, division_id)?.into_iter().next() {
         return Ok(existing.pool_bracket_id);
     }
-    // No brackets yet — create a default session + bracket.
-    let session = crate::models::division_session::create(
-        db,
-        &crate::models::division_session::NewDivisionSession {
-            did: division_id,
-            name: "Default Session".to_string(),
-            creator_userid: user_id,
-            last_modified_userid: user_id,
-        },
-    )?;
+    // No brackets yet — create a default one for the division.
     let bracket = create(
         db,
         &NewPoolBracket {
-            division_session_id: session.division_session_id,
+            divisionid: division_id,
             name: "Default".to_string(),
             type_: "pool".to_string(),
             creator_userid: user_id,
@@ -484,13 +354,13 @@ pub fn resolve_default_for_division(db: &mut database::Connection, division_id: 
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &PoolBracketChangeset, modified_by: Uuid) -> QueryResult<PoolBracket> {
-    // Enforce name uniqueness within the (possibly changed) parent division session.
+    // Enforce name uniqueness within the (possibly changed) parent division.
     let existing = read(db, item_id)?;
-    let effective_session = item.division_session_id.unwrap_or(existing.division_session_id);
+    let effective_division = item.divisionid.unwrap_or(existing.divisionid);
     let effective_name = item.name.clone().unwrap_or(existing.name.clone());
-    if name_exists_in_division_session(db, effective_session, &effective_name, Some(item_id))? {
+    if name_exists_in_division(db, effective_division, &effective_name, Some(item_id))? {
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("A pool bracket named \"{}\" already exists in this division session.", effective_name).into()
+            format!("A pool bracket named \"{}\" already exists in this division.", effective_name).into()
         ));
     }
     use crate::schema::pool_brackets::dsl::*;

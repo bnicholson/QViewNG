@@ -1421,12 +1421,12 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_exp_1_a = PoolBracketBuilder::new(session_exp_1.division_session_id)
+    let pb_exp_1_a = PoolBracketBuilder::new(division_experienced.did)
         .set_name("Pool A")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_exp_1_b = PoolBracketBuilder::new(session_exp_1.division_session_id)
+    let pb_exp_1_b = PoolBracketBuilder::new(division_experienced.did)
         .set_name("Pool B")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
@@ -1438,7 +1438,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_nov_1 = PoolBracketBuilder::new(session_nov_1.division_session_id)
+    let pb_nov_1 = PoolBracketBuilder::new(division_novice.did)
         .set_name("Pool A")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
@@ -1448,8 +1448,9 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_nov_2 = PoolBracketBuilder::new(session_nov_2.division_session_id)
-        .set_name("Pool A")
+    // Pool brackets are division-scoped now, so the division's pools need distinct names.
+    let pb_nov_2 = PoolBracketBuilder::new(division_novice.did)
+        .set_name("Pool B")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1459,7 +1460,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_dec_1 = PoolBracketBuilder::new(session_dec_1.division_session_id)
+    let pb_dec_1 = PoolBracketBuilder::new(division_decades.did)
         .set_name("Pool A")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
@@ -1469,8 +1470,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_dec_2 = PoolBracketBuilder::new(session_dec_2.division_session_id)
-        .set_name("Pool A")
+    let pb_dec_2 = PoolBracketBuilder::new(division_decades.did)
+        .set_name("Pool B")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1964,8 +1965,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_3_decades, &team_4_decades));
 
     // Add every game of each division to its division's statsgroup (games_statsgroups).
-    // A game's division is derived via its pool bracket (game -> pool_bracket -> division_session
-    // -> division), so read_all_games_of_division groups them correctly.
+    // A game's division is derived via its pool bracket (game -> pool_bracket -> division), so
+    // read_all_games_of_division groups them correctly.
     let all_games_pagination = crate::models::common::PaginationParams {
         page: 0,
         page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,

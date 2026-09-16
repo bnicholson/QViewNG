@@ -237,17 +237,17 @@ pub fn seed_get_pool_brackets_by_division(db: &mut database::Connection) -> Divi
         .build_and_insert(db)
         .unwrap();
 
-    PoolBracketBuilder::new(session_1.division_session_id)
+    PoolBracketBuilder::new(session_1.did)
         .set_name("Pool 1")
         .set_creator_userid(owner.id)
         .build_and_insert(db)
         .unwrap();
-    PoolBracketBuilder::new(session_1.division_session_id)
+    PoolBracketBuilder::new(session_1.did)
         .set_name("Pool 2")
         .set_creator_userid(owner.id)
         .build_and_insert(db)
         .unwrap();
-    PoolBracketBuilder::new(session_2.division_session_id)
+    PoolBracketBuilder::new(session_2.did)
         .set_name("Bracket 1")
         .set_creator_userid(owner.id)
         .build_and_insert(db)
@@ -262,7 +262,7 @@ pub fn seed_get_pool_brackets_by_division(db: &mut database::Connection) -> Divi
         .set_creator_userid(owner.id)
         .build_and_insert(db)
         .unwrap();
-    PoolBracketBuilder::new(other_session.division_session_id)
+    PoolBracketBuilder::new(other_session.did)
         .set_name("Other Pool")
         .set_creator_userid(owner.id)
         .build_and_insert(db)
@@ -296,14 +296,14 @@ pub fn seed_get_pool_bracket_rows_by_division(db: &mut database::Connection) -> 
         .unwrap();
 
     for name in ["Pool A", "Pool B"] {
-        PoolBracketBuilder::new(session.division_session_id)
+        PoolBracketBuilder::new(session.did)
             .set_name(name)
             .set_type("pool")
             .set_creator_userid(owner.id)
             .build_and_insert(db)
             .unwrap();
     }
-    PoolBracketBuilder::new(session.division_session_id)
+    PoolBracketBuilder::new(session.did)
         .set_name("Bracket A")
         .set_type("bracket")
         .set_creator_userid(owner.id)
@@ -330,18 +330,18 @@ pub fn seed_get_pool_bracket_rows_by_tournament(db: &mut database::Connection) -
     let session_a = DivisionSessionBuilder::new(div_a.did)
         .set_name("A Play").set_creator_userid(owner.id).build_and_insert(db).unwrap();
     for name in ["Pool A1", "Pool A2"] {
-        PoolBracketBuilder::new(session_a.division_session_id)
+        PoolBracketBuilder::new(session_a.did)
             .set_name(name).set_type("pool").set_creator_userid(owner.id).build_and_insert(db).unwrap();
     }
-    PoolBracketBuilder::new(session_a.division_session_id)
+    PoolBracketBuilder::new(session_a.did)
         .set_name("Bracket A1").set_type("bracket").set_creator_userid(owner.id).build_and_insert(db).unwrap();
 
     let div_b = DivisionBuilder::new_default("Div B", tournament.tid).build_and_insert(db).unwrap();
     let session_b = DivisionSessionBuilder::new(div_b.did)
         .set_name("B Play").set_creator_userid(owner.id).build_and_insert(db).unwrap();
-    PoolBracketBuilder::new(session_b.division_session_id)
+    PoolBracketBuilder::new(session_b.did)
         .set_name("Pool B1").set_type("pool").set_creator_userid(owner.id).build_and_insert(db).unwrap();
-    PoolBracketBuilder::new(session_b.division_session_id)
+    PoolBracketBuilder::new(session_b.did)
         .set_name("Bracket B1").set_type("bracket").set_creator_userid(owner.id).build_and_insert(db).unwrap();
 
     tournament

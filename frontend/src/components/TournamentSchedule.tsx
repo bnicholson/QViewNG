@@ -112,10 +112,10 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     TeamAPI.getByDivision(did, PAGE, SIZE).then(setDivisionTeams).catch(() => setError('Failed to load teams.'))
   }, [])
 
-  const loadPlacement = useCallback((sessionId: string, brackets: PoolBracketTS[]) => {
-    const sessionBrackets = brackets.filter(b => b.division_session_id === sessionId)
+  // Pool brackets are division-scoped now, so placement/games load for all of the division's brackets.
+  const loadPlacement = useCallback((brackets: PoolBracketTS[]) => {
     Promise.all(
-      sessionBrackets.map(b =>
+      brackets.map(b =>
         TeamAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE).then(r => [b.pool_bracket_id, r.items] as const)
       )
     )
@@ -123,10 +123,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       .catch(() => setError('Failed to load team placements.'))
   }, [])
 
-  const loadGamesForSession = useCallback((sessionId: string, brackets: PoolBracketTS[]) => {
-    const sessionBrackets = brackets.filter(b => b.division_session_id === sessionId)
+  const loadGamesForSession = useCallback((brackets: PoolBracketTS[]) => {
     Promise.all(
-      sessionBrackets.map(b =>
+      brackets.map(b =>
         GameAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE).then(r => [b.pool_bracket_id, r.items] as const)
       )
     )
@@ -163,21 +162,20 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     setTeamsByBracket({})
     setGamesByBracket({})
     if (selectedSessionId) {
-      loadPlacement(selectedSessionId, divisionBrackets)
-      loadGamesForSession(selectedSessionId, divisionBrackets)
+      loadPlacement(divisionBrackets)
+      loadGamesForSession(divisionBrackets)
     }
   }, [selectedSessionId, divisionBrackets, loadPlacement, loadGamesForSession])
 
   // ── Derived values ───────────────────────────────────────────────────────
 
-  const sessionBrackets = useMemo(
-    () => divisionBrackets.filter(b => b.division_session_id === selectedSessionId),
-    [divisionBrackets, selectedSessionId]
-  )
+  // Pool brackets belong to the division, so the whole division's brackets are in play regardless of
+  // the selected session.
+  const sessionBrackets = divisionBrackets
   const pools = useMemo(() => sessionBrackets.filter(b => b.type === 'pool'), [sessionBrackets])
   const brackets = useMemo(() => sessionBrackets.filter(b => b.type === 'bracket'), [sessionBrackets])
 
-  // A session holds either pools (Round Robin) or brackets (Tournament Bracket(s)), never both;
+  // A division holds either pools (Round Robin) or brackets (Tournament Bracket(s)), never both;
   // until one is added it is Undecided and either kind may be started.
   const sessionType: SessionType =
     pools.length > 0 ? 'Round Robin'
@@ -212,8 +210,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   // ── Team placement handlers ──────────────────────────────────────────────
 
   const refresh = () => {
-    loadPlacement(selectedSessionId, divisionBrackets)
-    loadGamesForSession(selectedSessionId, divisionBrackets)
+    loadPlacement(divisionBrackets)
+    loadGamesForSession(divisionBrackets)
   }
 
   const handleAddTeam = async (teamid: string) => {
@@ -432,7 +430,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         did={selectedDid || undefined}
         type={bracketDialog.type}
         entityLabel={bracketDialog.type === 'bracket' ? 'Bracket' : 'Pool'}
-        lockedSessionId={selectedSessionId || undefined}
         bracket={bracketDialog.bracket}
         isOpen={bracketDialog.open}
         onCancel={() => setBracketDialog(d => ({ ...d, open: false, bracket: null }))}
@@ -820,9 +817,11 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
   // The Team dropdown's options, narrowed by the most specific cascade selection: a pool/bracket's
   // teams, else the session's teams (union across its pool/brackets), else the division's teams, else
   // all of the tournament's teams.
+  // Pool brackets are division-scoped, so a chosen session no longer narrows them — the division's
+  // brackets are offered once a division (and session, to keep the cascade order) is picked.
   const sessionBracketsForTeam = useMemo(
-    () => bracketsForDiv.filter(b => b.division_session_id === teamSession),
-    [bracketsForDiv, teamSession],
+    () => bracketsForDiv,
+    [bracketsForDiv],
   )
   useEffect(() => {
     if (filter.kind !== 'team') return
@@ -851,9 +850,10 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
     PoolBracketAPI.getByDivision(dvDivision).then(setDvBrackets).catch(() => setError('Failed to load pools/brackets.'))
   }, [dvDivision])
 
+  // Pool brackets are division-scoped, so the chosen session doesn't narrow them.
   const dvSessionBrackets = useMemo(
-    () => dvBrackets.filter(b => b.division_session_id === dvSession),
-    [dvBrackets, dvSession],
+    () => dvBrackets,
+    [dvBrackets],
   )
 
   // Division drill-down: once a specific pool/bracket is chosen, load its teams + games for the card.

@@ -160,8 +160,8 @@ export const GameEditorDialog = (props: Props) => {
       .catch(() => console.error('Failed to load form data for game editor'));
   }, [isOpen, tid, lockedDivisionId]);
 
-  // Division Sessions and Pool/Brackets are scoped to the chosen Division, so (re)load them whenever
-  // it changes. (The Pool/Bracket dropdown is then further filtered to the chosen Division Session.)
+  // Division Sessions and Pool/Brackets both belong to the chosen Division, so (re)load them whenever
+  // it changes. (The Round dropdown is then further filtered to the chosen Division Session.)
   useEffect(() => {
     if (!isOpen || !form.divisionid) {
       setDivisionSessions([]);
@@ -255,9 +255,9 @@ export const GameEditorDialog = (props: Props) => {
   // Rounds belong to a division session, so they're scoped to the chosen session (not the division).
   const sessionRounds = sessionChosen ? rounds.filter(r => r.division_session_id === form.division_session_id) : [];
   const divisionTeams = divisionChosen ? teams.filter(t => t.did === form.divisionid) : [];
-  // The Pool/Bracket dropdown lists only brackets in the chosen Division Session.
-  const sessionPoolBrackets = sessionChosen
-    ? poolBrackets.filter(b => b.division_session_id === form.division_session_id)
+  // Pool brackets belong to a division, so the Pool/Bracket dropdown is scoped to the chosen Division.
+  const divisionPoolBrackets = divisionChosen
+    ? poolBrackets.filter(b => b.divisionid === form.divisionid)
     : [];
 
   return (
@@ -319,7 +319,7 @@ export const GameEditorDialog = (props: Props) => {
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Division Session (*required)</InputLabel>
-                <Select value={form.division_session_id} onChange={(e) => set({ division_session_id: e.target.value, poolbracket_id: '', roundid: '' })}
+                <Select value={form.division_session_id} onChange={(e) => set({ division_session_id: e.target.value, roundid: '' })}
                   displayEmpty fullWidth disabled={!divisionChosen}
                   renderValue={(v) => v ? (divisionSessions.find(s => s.division_session_id === v)?.name ?? v) : <em>Select a division session</em>}
                 >
@@ -329,10 +329,10 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Pool/Bracket (*required)</InputLabel>
                 <Select value={form.poolbracket_id} onChange={(e) => set({ poolbracket_id: e.target.value })}
-                  displayEmpty fullWidth disabled={!sessionChosen}
+                  displayEmpty fullWidth disabled={!divisionChosen}
                   renderValue={(v) => v ? (poolBrackets.find(b => b.pool_bracket_id === v)?.name ?? v) : <em>Select a pool/bracket</em>}
                 >
-                  {sessionPoolBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
+                  {divisionPoolBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
                 </Select>
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>

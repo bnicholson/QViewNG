@@ -27,7 +27,7 @@ async fn delete_soft_deletes_and_purge_removes() {
     let division = DivisionBuilder::new_default("TG Div", tournament.tid).build_and_insert(&mut conn).unwrap();
     let session = DivisionSessionBuilder::new(division.did)
         .set_name("Pool Play").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
-    let bracket = PoolBracketBuilder::new(session.division_session_id)
+    let bracket = PoolBracketBuilder::new(session.did)
         .set_name("Pool A").set_type("pool").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
     let group = TeamGroupBuilder::new(bracket.pool_bracket_id)
         .set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
