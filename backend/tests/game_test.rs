@@ -21,7 +21,7 @@ async fn create_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, cj_id) =
+    let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, cj_id, poolbracket_id) =
         fixtures::games::arrange_game_create_works_integration_test(&mut conn);
 
     let app = test::init_service(
@@ -40,7 +40,11 @@ async fn create_works() {
         vec!["game:create".to_string()],
     );
 
-    let owner_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let mut owner_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    owner_payload.poolbracket_id = poolbracket_id;
+    // Owner and admin both create a game in the same room/round, so give each a distinct clientkey to
+    // stay clear of the games (org, roomid, roundid, clientkey) unique key.
+    owner_payload.clientkey = "owner-create".to_string();
     let owner_req = test::TestRequest::post()
         .uri(uri)
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
@@ -79,7 +83,8 @@ async fn create_works() {
         vec!["game:create".to_string()],
     );
 
-    let admin_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let mut admin_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    admin_payload.poolbracket_id = poolbracket_id;
     let admin_req = test::TestRequest::post()
         .uri(uri)
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
@@ -98,7 +103,8 @@ async fn create_works() {
         vec!["game:create".to_string()],
     );
 
-    let unrelated_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let mut unrelated_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    unrelated_payload.poolbracket_id = poolbracket_id;
     let unrelated_req = test::TestRequest::post()
         .uri(uri)
         .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
@@ -117,7 +123,8 @@ async fn create_works() {
         vec!["game:read".to_string()],
     );
 
-    let no_perm_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    let mut no_perm_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    no_perm_payload.poolbracket_id = poolbracket_id;
     let no_perm_req = test::TestRequest::post()
         .uri(uri)
         .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))

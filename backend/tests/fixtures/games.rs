@@ -151,19 +151,31 @@ pub fn seed_games(db: &mut database::Connection) -> Vec<Game> {
 pub fn duplicate_team_in_game_case_one_payload(db: &mut database::Connection) -> (NewGame, Uuid) {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 1");
     let tournament = backend::models::tournament::read(db, deps_1.0).unwrap();
-    (get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,None,deps_1.4,deps_1.7), tournament.owner_id)
+    // The create service requires a pool bracket before it reaches the duplicate-team validation.
+    let poolbracket_id = backend::models::pool_bracket::resolve_default_for_division(db, deps_1.1, tournament.owner_id).unwrap();
+    let mut payload = get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,None,deps_1.4,deps_1.7);
+    payload.poolbracket_id = poolbracket_id;
+    (payload, tournament.owner_id)
 }
 
 pub fn duplicate_team_in_game_case_two_payload(db: &mut database::Connection) -> (NewGame, Uuid) {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 2");
     let tournament = backend::models::tournament::read(db, deps_1.0).unwrap();
-    (get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.4),deps_1.6,deps_1.7), tournament.owner_id)
+    // The create service requires a pool bracket before it reaches the duplicate-team validation.
+    let poolbracket_id = backend::models::pool_bracket::resolve_default_for_division(db, deps_1.1, tournament.owner_id).unwrap();
+    let mut payload = get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.4),deps_1.6,deps_1.7);
+    payload.poolbracket_id = poolbracket_id;
+    (payload, tournament.owner_id)
 }
 
 pub fn duplicate_team_in_game_case_three_payload(db: &mut database::Connection) -> (NewGame, Uuid) {
     let deps_1 = seed_game_payload_dependencies(db, "Tour 3");
     let tournament = backend::models::tournament::read(db, deps_1.0).unwrap();
-    (get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.6),deps_1.6,deps_1.7), tournament.owner_id)
+    // The create service requires a pool bracket before it reaches the duplicate-team validation.
+    let poolbracket_id = backend::models::pool_bracket::resolve_default_for_division(db, deps_1.1, tournament.owner_id).unwrap();
+    let mut payload = get_game_payload(deps_1.0,deps_1.1,deps_1.2,deps_1.3,deps_1.4,Some(deps_1.6),deps_1.6,deps_1.7);
+    payload.poolbracket_id = poolbracket_id;
+    (payload, tournament.owner_id)
 }
 
 pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) {  // return Game because it contains gid and roundid (and roomid)
@@ -1227,7 +1239,7 @@ pub fn arrange_game_update_works_integration_test(
 /// The room has quizmaster_id and contentjudge_id set; a created game should inherit them.
 pub fn arrange_game_create_works_integration_test(
     db: &mut database::Connection,
-) -> (Tournament, User, User, User, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
+) -> (Tournament, User, User, User, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid, Uuid) {
     let owner = UserBuilder::new_default("Tour Owner")
         .set_hash_password("OwnerPwd123!")
         .build_and_insert(db)
@@ -1272,8 +1284,11 @@ pub fn arrange_game_create_works_integration_test(
         .build_and_insert(db)
         .unwrap();
     let teams = fixtures::teams::seed_teams_with_names(db, division.did, "Team A", "Team B", "Team C");
+    // The game-create service requires a pool bracket (it derives the game's division/tournament
+    // from it); resolve a default one for this division.
+    let poolbracket_id = backend::models::pool_bracket::resolve_default_for_division(db, division.did, owner.id).unwrap();
 
-    (tournament, owner, admin_user, unrelated_user, round.roundid, room.roomid, division.did, teams.0.teamid, teams.1.teamid, teams.2.teamid, quizmaster.id, content_judge.id)
+    (tournament, owner, admin_user, unrelated_user, round.roundid, room.roomid, division.did, teams.0.teamid, teams.1.teamid, teams.2.teamid, quizmaster.id, content_judge.id, poolbracket_id)
 }
 
 /// A scenario for exercising the person/team game-row endpoints: one tournament whose `game_1` ties
