@@ -1,11 +1,11 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, division_session::{NewDivisionSession, DivisionSession, DivisionSessionChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, roundgroup::{NewRoundGroup, RoundGroup, RoundGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
 use diesel::QueryResult;
 use uuid::Uuid;
 
-// Division sessions are children of divisions and are authorized with the parent Division's
+// Division roundgroups are children of divisions and are authorized with the parent Division's
 // permissions/policy (a tournament owner or admin may manage them).
 
 #[get("")]
@@ -19,7 +19,7 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match models::division_session::read_all(&mut db) {
+    match models::roundgroup::read_all(&mut db) {
         Ok(items) => {
             let count = items.len() as i64;
             HttpResponse::Ok().json(PagedResponse { count, items })
@@ -39,13 +39,13 @@ async fn read(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::division_session::read(&mut conn, item_id.into_inner()) {
-        Ok(session) => HttpResponse::Ok().json(session),
+    match models::roundgroup::read(&mut conn, item_id.into_inner()) {
+        Ok(roundgroup) => HttpResponse::Ok().json(roundgroup),
         Err(_) => HttpResponse::NotFound().finish(),
     }
 }
 
-/// Enriched game rows for the session (games whose round belongs to the session), in one paginated
+/// Enriched game rows for the roundgroup (games whose round belongs to the roundgroup), in one paginated
 /// call.
 #[get("/{id}/game-rows")]
 async fn read_game_rows(
@@ -59,13 +59,13 @@ async fn read_game_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::game::read_game_rows_of_division_session(&mut conn, item_id.into_inner(), &params) {
+    match models::game::read_game_rows_of_roundgroup(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
-/// The session's rounds (a round belongs to a division session), ordered by scheduled start time.
+/// The roundgroup's rounds (a round belongs to a division roundgroup), ordered by scheduled start time.
 #[get("/{id}/rounds")]
 async fn read_rounds(
     db: Data<Database>,
@@ -78,13 +78,13 @@ async fn read_rounds(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::round::read_all_rounds_of_division_session(&mut conn, item_id.into_inner(), &url_params) {
+    match models::round::read_all_rounds_of_roundgroup(&mut conn, item_id.into_inner(), &url_params) {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
-/// Enriched round-table rows for the session (round + session/division names), plus total count.
+/// Enriched round-table rows for the roundgroup (round + roundgroup/division names), plus total count.
 #[get("/{id}/round-rows")]
 async fn read_round_rows(
     db: Data<Database>,
@@ -97,7 +97,7 @@ async fn read_round_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::round::read_round_rows_of_division_session(&mut conn, item_id.into_inner(), &params) {
+    match models::round::read_round_rows_of_roundgroup(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
@@ -106,7 +106,7 @@ async fn read_round_rows(
 #[post("")]
 async fn create(
     db: Data<Database>,
-    Json(mut item): Json<NewDivisionSession>,
+    Json(mut item): Json<NewRoundGroup>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -145,13 +145,13 @@ async fn create(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    tracing::debug!("{} DivisionSession model create {:?}", line!(), item);
+    tracing::debug!("{} RoundGroup model create {:?}", line!(), item);
 
     item.creator_userid = user_ctx.user_id;
     item.last_modified_userid = user_ctx.user_id;
-    let result: QueryResult<DivisionSession> = models::division_session::create(&mut conn, &item);
+    let result: QueryResult<RoundGroup> = models::roundgroup::create(&mut conn, &item);
 
-    let response: EntityResponse<DivisionSession> = process_response(result, "post");
+    let response: EntityResponse<RoundGroup> = process_response(result, "post");
 
     match response.code {
         400 => Ok(HttpResponse::BadRequest().json(response)),
@@ -166,7 +166,7 @@ async fn create(
 async fn update(
     db: Data<Database>,
     item_id: Path<Uuid>,
-    Json(item): Json<DivisionSessionChangeset>,
+    Json(item): Json<RoundGroupChangeset>,
     req: HttpRequest
 ) -> Result<HttpResponse, Error> {
 
@@ -181,14 +181,14 @@ async fn update(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    let session_id = item_id.into_inner();
+    let roundgroup_id = item_id.into_inner();
 
-    let session = match models::division_session::read(&mut conn, session_id) {
+    let roundgroup = match models::roundgroup::read(&mut conn, roundgroup_id) {
         Ok(s) => s,
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, roundgroup.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -208,9 +208,9 @@ async fn update(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    tracing::debug!("{} DivisionSession model update {:?} {:?}", line!(), session_id, item);
+    tracing::debug!("{} RoundGroup model update {:?} {:?}", line!(), roundgroup_id, item);
 
-    let result = models::division_session::update(&mut conn, session_id, &item, user_ctx.user_id);
+    let result = models::roundgroup::update(&mut conn, roundgroup_id, &item, user_ctx.user_id);
 
     let response = process_response(result, "put");
 
@@ -238,14 +238,14 @@ async fn destroy(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    let session_id = item_id.into_inner();
+    let roundgroup_id = item_id.into_inner();
 
-    let session = match models::division_session::read(&mut conn, session_id) {
+    let roundgroup = match models::roundgroup::read(&mut conn, roundgroup_id) {
         Ok(s) => s,
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, roundgroup.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -265,9 +265,9 @@ async fn destroy(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    tracing::debug!("{} DivisionSession model delete {:?}", line!(), session_id);
+    tracing::debug!("{} RoundGroup model delete {:?}", line!(), roundgroup_id);
 
-    let result = models::division_session::delete(&mut conn, session_id);
+    let result = models::roundgroup::delete(&mut conn, roundgroup_id);
 
     if result.is_ok() {
         Ok(HttpResponse::Ok().finish())
@@ -276,7 +276,7 @@ async fn destroy(
     }
 }
 
-/// Purge: permanently remove a division session (including soft-deleted ones). Not used by the
+/// Purge: permanently remove a division roundgroup (including soft-deleted ones). Not used by the
 /// frontend — the app deletes via the soft-delete `destroy` endpoint.
 #[delete("/{id}/purge")]
 async fn purge(
@@ -295,15 +295,15 @@ async fn purge(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    let session_id = item_id.into_inner();
+    let roundgroup_id = item_id.into_inner();
 
-    // read_including_deleted so an already soft-deleted session can still be purged.
-    let session = match models::division_session::read_including_deleted(&mut conn, session_id) {
+    // read_including_deleted so an already soft-deleted roundgroup can still be purged.
+    let roundgroup = match models::roundgroup::read_including_deleted(&mut conn, roundgroup_id) {
         Ok(s) => s,
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, roundgroup.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -323,7 +323,7 @@ async fn purge(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    match models::division_session::purge(&mut conn, session_id) {
+    match models::roundgroup::purge(&mut conn, roundgroup_id) {
         Ok(_) => Ok(HttpResponse::Ok().finish()),
         Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }

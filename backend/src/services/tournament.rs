@@ -534,7 +534,7 @@ struct PoolBracketRowsParams {
     type_: String,
 }
 
-/// Returns fully-formed pool-bracket rows (bracket + session/division names + last-modified user)
+/// Returns fully-formed pool-bracket rows (bracket + roundgroup/division names + last-modified user)
 /// across every division in the tournament, filtered by `type`, in a single paginated call.
 #[get("/{id}/pool-bracket-rows")]
 async fn read_pool_bracket_rows(
@@ -555,10 +555,10 @@ async fn read_pool_bracket_rows(
     }
 }
 
-/// Returns fully-formed division-session rows (session + division name + last-modified user name)
+/// Returns fully-formed division-roundgroup rows (roundgroup + division name + last-modified user name)
 /// across every division in the tournament, in a single paginated call.
-#[get("/{id}/session-rows")]
-async fn read_session_rows(
+#[get("/{id}/roundgroup-rows")]
+async fn read_roundgroup_rows(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
@@ -569,7 +569,7 @@ async fn read_session_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::division_session::read_session_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
+    match models::roundgroup::read_roundgroup_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
@@ -1006,7 +1006,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_persons)
         .service(read_person_game_rows)
         .service(read_quizzer_rows)
-        .service(read_session_rows)
+        .service(read_roundgroup_rows)
         .service(read_pool_bracket_rows)
         .service(read_games)
         .service(read_game_rows)

@@ -5,7 +5,7 @@ mod fixtures;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::database::Database;
-use backend::models::division_session::{DivisionSession, DivisionSessionBuilder};
+use backend::models::roundgroup::{RoundGroup, RoundGroupBuilder};
 use backend::models::pool_bracket::{PoolBracketBuilder, PoolBracketRow};
 use backend::models::game::GameRow;
 use backend::routes::configure_routes;
@@ -40,7 +40,7 @@ async fn create_works() {
     );
 
     let owner_req = test::TestRequest::post()
-        .uri("/api/divisionsessions")
+        .uri("/api/roundgroups")
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
         .set_json(json!({ "did": division.did, "name": "Pool Play" }))
         .to_request();
@@ -48,13 +48,13 @@ async fn create_works() {
     let owner_resp = test::call_service(&app, owner_req).await;
     assert_eq!(owner_resp.status(), StatusCode::CREATED);
 
-    let body: EntityResponse<DivisionSession> = test::read_body_json(owner_resp).await;
+    let body: EntityResponse<RoundGroup> = test::read_body_json(owner_resp).await;
     assert_eq!(body.code, 201);
-    let session = body.data.unwrap();
-    assert_eq!(session.did, division.did);
-    assert_eq!(session.name.as_str(), "Pool Play");
-    assert_eq!(session.creator_userid, owner.id);
-    assert_eq!(session.last_modified_userid, owner.id);
+    let roundgroup = body.data.unwrap();
+    assert_eq!(roundgroup.did, division.did);
+    assert_eq!(roundgroup.name.as_str(), "Pool Play");
+    assert_eq!(roundgroup.creator_userid, owner.id);
+    assert_eq!(roundgroup.last_modified_userid, owner.id);
 
     // ── Success: tournament admin with division:create ───────────────────────
 
@@ -65,7 +65,7 @@ async fn create_works() {
     );
 
     let admin_req = test::TestRequest::post()
-        .uri("/api/divisionsessions")
+        .uri("/api/roundgroups")
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .set_json(json!({ "did": division.did, "name": "Bracket Play" }))
         .to_request();
@@ -76,7 +76,7 @@ async fn create_works() {
     // ── Fail: name must be unique within the division ────────────────────────
 
     let dup_req = test::TestRequest::post()
-        .uri("/api/divisionsessions")
+        .uri("/api/roundgroups")
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
         .set_json(json!({ "did": division.did, "name": "Pool Play" }))
         .to_request();
@@ -93,7 +93,7 @@ async fn create_works() {
     );
 
     let unrelated_req = test::TestRequest::post()
-        .uri("/api/divisionsessions")
+        .uri("/api/roundgroups")
         .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
         .set_json(json!({ "did": division.did, "name": "Finals" }))
         .to_request();
@@ -110,7 +110,7 @@ async fn create_works() {
     );
 
     let no_perm_req = test::TestRequest::post()
-        .uri("/api/divisionsessions")
+        .uri("/api/roundgroups")
         .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
         .set_json(json!({ "did": division.did, "name": "Finals" }))
         .to_request();
@@ -133,7 +133,7 @@ async fn read_and_index_work() {
     let (_tournament, division, owner, _admin_user, _unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let session = DivisionSessionBuilder::new(division.did)
+    let roundgroup = RoundGroupBuilder::new(division.did)
         .set_name("Pool Play")
         .set_creator_userid(owner.id)
         .build_and_insert(&mut conn)
@@ -147,24 +147,24 @@ async fn read_and_index_work() {
 
     // read by id
     let read_req = test::TestRequest::get()
-        .uri(&format!("/api/divisionsessions/{}", session.division_session_id))
+        .uri(&format!("/api/roundgroups/{}", roundgroup.roundgroup_id))
         .to_request();
     let read_resp = test::call_service(&app, read_req).await;
     assert_eq!(read_resp.status(), StatusCode::OK);
-    let read_body: DivisionSession = test::read_body_json(read_resp).await;
-    assert_eq!(read_body.division_session_id, session.division_session_id);
+    let read_body: RoundGroup = test::read_body_json(read_resp).await;
+    assert_eq!(read_body.roundgroup_id, roundgroup.roundgroup_id);
     assert_eq!(read_body.name.as_str(), "Pool Play");
 
     // read missing → 404
     let missing_req = test::TestRequest::get()
-        .uri(&format!("/api/divisionsessions/{}", uuid::Uuid::new_v4()))
+        .uri(&format!("/api/roundgroups/{}", uuid::Uuid::new_v4()))
         .to_request();
     let missing_resp = test::call_service(&app, missing_req).await;
     assert_eq!(missing_resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[actix_web::test]
-async fn get_game_rows_of_session_works() {
+async fn get_game_rows_of_roundgroup_works() {
 
     // Arrange:
 
@@ -172,11 +172,11 @@ async fn get_game_rows_of_session_works() {
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    // Seeds a division with one session, one pool bracket, and two games in a round of that session.
+    // Seeds a division with one roundgroup, one pool bracket, and two games in a round of that roundgroup.
     let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
     let did = backend::models::pool_bracket::read(&mut conn, bracket_id).unwrap().divisionid;
-    // Games belong to a session through their round, so query the division's (sole) session.
-    let session_id = backend::models::division_session::read_all_of_division(&mut conn, did).unwrap()[0].division_session_id;
+    // Games belong to a roundgroup through their round, so query the division's (sole) roundgroup.
+    let roundgroup_id = backend::models::roundgroup::read_all_of_division(&mut conn, did).unwrap()[0].roundgroup_id;
 
     let app = test::init_service(
         App::new()
@@ -184,11 +184,11 @@ async fn get_game_rows_of_session_works() {
             .configure(configure_routes)
     ).await;
 
-    let uri = format!("/api/divisionsessions/{}/game-rows?page={}&page_size={}", session_id, PAGE_NUM, PAGE_SIZE);
+    let uri = format!("/api/roundgroups/{}/game-rows?page={}&page_size={}", roundgroup_id, PAGE_NUM, PAGE_SIZE);
     let resp = test::call_service(&app, test::TestRequest::get().uri(&uri).to_request()).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
-    // The two games belonging to the session's pool bracket.
+    // The two games belonging to the roundgroup's pool bracket.
     let body: PagedResponse<GameRow> = test::read_body_json(resp).await;
     assert_eq!(body.count, 2);
     assert_eq!(body.items.len(), 2);
@@ -206,7 +206,7 @@ async fn update_works() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let session = DivisionSessionBuilder::new(division.did)
+    let roundgroup = RoundGroupBuilder::new(division.did)
         .set_name("Pool Play")
         .set_creator_userid(owner.id)
         .build_and_insert(&mut conn)
@@ -218,7 +218,7 @@ async fn update_works() {
             .configure(configure_routes)
     ).await;
 
-    let put_uri = format!("/api/divisionsessions/{}", session.division_session_id);
+    let put_uri = format!("/api/roundgroups/{}", roundgroup.roundgroup_id);
 
     // ── Success: owner with division:update ──────────────────────────────────
 
@@ -237,7 +237,7 @@ async fn update_works() {
     let owner_resp = test::call_service(&app, owner_req).await;
     assert_eq!(owner_resp.status(), StatusCode::OK);
 
-    let body: EntityResponse<DivisionSession> = test::read_body_json(owner_resp).await;
+    let body: EntityResponse<RoundGroup> = test::read_body_json(owner_resp).await;
     assert_eq!(body.code, 200);
     assert_eq!(body.data.unwrap().name.as_str(), "Bracket Play");
 
@@ -271,7 +271,7 @@ async fn delete_works() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let session = DivisionSessionBuilder::new(division.did)
+    let roundgroup = RoundGroupBuilder::new(division.did)
         .set_name("Pool Play")
         .set_creator_userid(owner.id)
         .build_and_insert(&mut conn)
@@ -283,7 +283,7 @@ async fn delete_works() {
             .configure(configure_routes)
     ).await;
 
-    let delete_uri = format!("/api/divisionsessions/{}", session.division_session_id);
+    let delete_uri = format!("/api/roundgroups/{}", roundgroup.roundgroup_id);
 
     // ── Fail: unrelated user with division:delete ────────────────────────────
 
@@ -317,8 +317,8 @@ async fn delete_works() {
     let owner_resp = test::call_service(&app, owner_req).await;
     assert_eq!(owner_resp.status(), StatusCode::OK);
 
-    // The session is gone.
-    assert!(backend::models::division_session::read(&mut conn, session.division_session_id).is_err());
+    // The roundgroup is gone.
+    assert!(backend::models::roundgroup::read(&mut conn, roundgroup.roundgroup_id).is_err());
 }
 
 #[actix_web::test]
@@ -333,7 +333,7 @@ async fn delete_soft_deletes_and_purge_removes() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let session = DivisionSessionBuilder::new(division.did)
+    let roundgroup = RoundGroupBuilder::new(division.did)
         .set_name("Pool Play")
         .set_creator_userid(owner.id)
         .build_and_insert(&mut conn)
@@ -348,36 +348,36 @@ async fn delete_soft_deletes_and_purge_removes() {
 
     // ── DELETE is a soft delete: the row is hidden from reads but still present. ──
     let del_resp = test::call_service(&app, test::TestRequest::delete()
-        .uri(&format!("/api/divisionsessions/{}", session.division_session_id))
+        .uri(&format!("/api/roundgroups/{}", roundgroup.roundgroup_id))
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
         .to_request()).await;
     assert_eq!(del_resp.status(), StatusCode::OK);
 
-    assert!(backend::models::division_session::read(&mut conn, session.division_session_id).is_err(),
-        "soft-deleted session should be hidden from read");
-    let raw = backend::models::division_session::read_including_deleted(&mut conn, session.division_session_id).unwrap();
+    assert!(backend::models::roundgroup::read(&mut conn, roundgroup.roundgroup_id).is_err(),
+        "soft-deleted roundgroup should be hidden from read");
+    let raw = backend::models::roundgroup::read_including_deleted(&mut conn, roundgroup.roundgroup_id).unwrap();
     assert!(raw.del_fl, "row should remain with del_fl = true");
 
-    // It no longer appears in the division's sessions list.
+    // It no longer appears in the division's roundgroups list.
     let list_resp = test::call_service(&app, test::TestRequest::get()
-        .uri(&format!("/api/divisions/{}/sessions", division.did))
+        .uri(&format!("/api/divisions/{}/roundgroups", division.did))
         .to_request()).await;
-    let list: Vec<DivisionSession> = test::read_body_json(list_resp).await;
-    assert!(list.is_empty(), "soft-deleted session should be excluded from the list");
+    let list: Vec<RoundGroup> = test::read_body_json(list_resp).await;
+    assert!(list.is_empty(), "soft-deleted roundgroup should be excluded from the list");
 
     // ── Purge: unrelated user is rejected. ──
     let unrelated_purge = test::call_service(&app, test::TestRequest::delete()
-        .uri(&format!("/api/divisionsessions/{}/purge", session.division_session_id))
+        .uri(&format!("/api/roundgroups/{}/purge", roundgroup.roundgroup_id))
         .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
         .to_request()).await;
     assert_eq!(unrelated_purge.status(), StatusCode::UNAUTHORIZED);
 
     // ── Purge permanently removes the (already soft-deleted) row. ──
     let purge_resp = test::call_service(&app, test::TestRequest::delete()
-        .uri(&format!("/api/divisionsessions/{}/purge", session.division_session_id))
+        .uri(&format!("/api/roundgroups/{}/purge", roundgroup.roundgroup_id))
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
         .to_request()).await;
     assert_eq!(purge_resp.status(), StatusCode::OK);
-    assert!(backend::models::division_session::read_including_deleted(&mut conn, session.division_session_id).is_err(),
-        "purged session row should be gone");
+    assert!(backend::models::roundgroup::read_including_deleted(&mut conn, roundgroup.roundgroup_id).is_err(),
+        "purged roundgroup row should be gone");
 }

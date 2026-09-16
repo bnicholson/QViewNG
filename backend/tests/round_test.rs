@@ -25,14 +25,14 @@ async fn create_works() {
     let (_, division, owner, admin_user, unrelated_user) =
         fixtures::rounds::arrange_round_create_works_integration_test(&mut conn);
 
-    // Rounds belong to a division session; create one to parent the rounds these payloads make.
-    let session = backend::models::division_session::DivisionSessionBuilder::new(division.did)
+    // Rounds belong to a division roundgroup; create one to parent the rounds these payloads make.
+    let roundgroup = backend::models::roundgroup::RoundGroupBuilder::new(division.did)
         .set_name("Test Session")
         .set_creator_userid(owner.id)
         .build_and_insert(&mut conn)
         .unwrap();
 
-    let mut payload = fixtures::rounds::get_round_payload(session.division_session_id);
+    let mut payload = fixtures::rounds::get_round_payload(roundgroup.roundgroup_id);
 
     let app = test::init_service(
         App::new()
@@ -64,7 +64,7 @@ async fn create_works() {
     assert_eq!(body.message, "");
 
     let round = body.data.unwrap();
-    assert_eq!(round.division_session_id, session.division_session_id);
+    assert_eq!(round.roundgroup_id, roundgroup.roundgroup_id);
     assert_eq!(round.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap());
 
     // Check that ApiCalllog is recording API calls for this endpoint:
@@ -83,7 +83,7 @@ async fn create_works() {
         vec!["round:create".to_string()],
     );
 
-    payload = RoundBuilder::new_default(session.division_session_id)
+    payload = RoundBuilder::new_default(roundgroup.roundgroup_id)
         .set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2056, 5, 23, 00, 00, 0).unwrap())
         .build()
@@ -106,7 +106,7 @@ async fn create_works() {
         vec!["round:create".to_string()],
     );
 
-    payload = RoundBuilder::new_default(session.division_session_id)
+    payload = RoundBuilder::new_default(roundgroup.roundgroup_id)
         .set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2057, 5, 23, 00, 00, 0).unwrap())
         .build()
@@ -129,7 +129,7 @@ async fn create_works() {
         vec!["round:read".to_string()],
     );
 
-    payload = RoundBuilder::new_default(session.division_session_id)
+    payload = RoundBuilder::new_default(roundgroup.roundgroup_id)
         .set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2058, 5, 23, 00, 00, 0).unwrap())
         .build()
@@ -236,8 +236,8 @@ async fn get_by_id_works() {
     // Assert:
     
     let round: Round = test::read_body_json(resp).await;
-    // A round belongs to a division session; verify that session is in the expected division.
-    assert_eq!(models::division_session::read(&mut conn, round.division_session_id).unwrap().did, division.did);
+    // A round belongs to a division roundgroup; verify that roundgroup is in the expected division.
+    assert_eq!(models::roundgroup::read(&mut conn, round.roundgroup_id).unwrap().did, division.did);
     assert_eq!(round.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap());
     
     // Check that ApiCalllog is recording API calls for this endpoint:
@@ -295,7 +295,7 @@ async fn update_works() {
     assert_eq!(owner_resp_body.message, "");
 
     let updated_round = owner_resp_body.data.unwrap();
-    assert_eq!(models::division_session::read(&mut conn, updated_round.division_session_id).unwrap().did, division.did);
+    assert_eq!(models::roundgroup::read(&mut conn, updated_round.roundgroup_id).unwrap().did, division.did);
     assert_eq!(updated_round.roundid, round.roundid);
     assert_eq!(updated_round.scheduled_start_time.unwrap(), Utc.with_ymd_and_hms(2055, 5, 23, 0, 0, 0).unwrap());
     assert_ne!(updated_round.created_at, updated_round.updated_at);

@@ -11,7 +11,7 @@ import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
-import SessionsTable from '../components/SessionsTable'
+import RoundGroupsTable from '../components/RoundGroupsTable'
 import PoolBracketsTable from '../components/PoolBracketsTable'
 import GamesTable from '../components/GamesTable'
 import QuizzersTable from '../components/QuizzersTable'
@@ -86,12 +86,12 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'sessions' && (
-            <SessionsTable tid={tournament.tid} did={did}
+            <RoundGroupsTable tid={tournament.tid} did={did}
               showCreateButton={canCreate('division:create')}
               showEditButton={canCreate('division:update')}
               showDeleteButton={canCreate('division:delete')}
               showAuditColumns={canViewAuditColumns}
-              // In the Division profile every session is in this division, so the Division column is redundant.
+              // In the Division profile every roundgroup is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'pools' && (

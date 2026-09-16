@@ -183,7 +183,7 @@ pub struct DivisionChangeset {
 
 /// Whether a division named `dname_val` already exists in tournament `tournament_id`. When
 /// `exclude` is set (e.g. during an update), that division id is ignored so a row doesn't clash
-/// with itself. Mirrors the name-uniqueness helpers on division sessions and pool brackets; the
+/// with itself. Mirrors the name-uniqueness helpers on division roundgroups and pool brackets; the
 /// DB's `divisions_tid_dname_key` unique constraint is the hard backstop.
 pub fn dname_exists_in_tournament(
     db: &mut database::Connection,

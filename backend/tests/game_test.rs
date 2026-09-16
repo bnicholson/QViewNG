@@ -61,7 +61,7 @@ async fn create_works() {
 
     let game = body.data.unwrap();
     let room = backend::models::room::read(&mut conn, room_id).expect("Room should exist");
-    // Division is derived via game -> pool_bracket -> division_session -> division.
+    // Division is derived via game -> pool_bracket -> roundgroup -> division.
     assert_eq!(backend::models::game::read_division_of_game(&mut conn, &game).unwrap().did, did);
     assert_eq!(game.quizmasterid, room.quizmaster_id.expect("Room should have a quizmaster"));
     assert_eq!(game.contentjudgeid, room.contentjudge_id);

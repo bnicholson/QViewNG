@@ -175,7 +175,7 @@ async fn index(
             // Resolve the round (via division) for the composite-key game lookup.
             let round_id: Option<Uuid> = {
                 use crate::schema::divisions::dsl as d;
-                use crate::schema::{rounds, division_sessions};
+                use crate::schema::{rounds, roundgroups};
                 d::divisions
                     .filter(d::tid.eq(tid))
                     .filter(d::dname.eq(&dn))
@@ -183,10 +183,10 @@ async fn index(
                     .first::<Uuid>(&mut conn)
                     .ok()
                     .and_then(|div_id| {
-                        // A round belongs to a division session; match by name across the division's sessions.
+                        // A round belongs to a division roundgroup; match by name across the division's roundgroups.
                         rounds::table
-                            .inner_join(division_sessions::table.on(rounds::division_session_id.eq(division_sessions::division_session_id)))
-                            .filter(division_sessions::did.eq(div_id))
+                            .inner_join(roundgroups::table.on(rounds::roundgroup_id.eq(roundgroups::roundgroup_id)))
+                            .filter(roundgroups::did.eq(div_id))
                             .filter(rounds::name.eq(&rd))
                             .select(rounds::roundid)
                             .first::<Uuid>(&mut conn)

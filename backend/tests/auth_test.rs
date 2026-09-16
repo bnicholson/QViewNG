@@ -182,7 +182,7 @@ async fn logout_works() {
             .configure(configure_routes)
     ).await;
 
-    // Login first to get a session cookie
+    // Login first to get a roundgroup cookie
     let login_req = test::TestRequest::post()
         .uri("/api/auth/login")
         .set_json(serde_json::json!({

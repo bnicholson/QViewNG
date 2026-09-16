@@ -1,18 +1,18 @@
-use backend::{database, models::{division::{Division, DivisionBuilder}, division_session::DivisionSessionBuilder, round::{NewRound, Round, RoundBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
+use backend::{database, models::{division::{Division, DivisionBuilder}, roundgroup::RoundGroupBuilder, round::{NewRound, Round, RoundBuilder}, tournament::{Tournament, TournamentBuilder}, tournament_admin::TournamentAdminBuilder, user::{User, UserBuilder}}};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
 
-/// Rounds now belong to a division session. Create one session for `did` (attributing it to the
+/// Rounds now belong to a division roundgroup. Create one roundgroup for `did` (attributing it to the
 /// division's tournament owner) and return its id, so round fixtures still take a division id.
-fn session_for(db: &mut database::Connection, did: Uuid) -> Uuid {
+fn roundgroup_for(db: &mut database::Connection, did: Uuid) -> Uuid {
     let division = backend::models::division::read(db, did).unwrap();
     let tournament = backend::models::tournament::read(db, division.tid).unwrap();
-    DivisionSessionBuilder::new(did)
+    RoundGroupBuilder::new(did)
         .set_name("Test Session")
         .set_creator_userid(tournament.owner_id)
         .build_and_insert(db)
         .unwrap()
-        .division_session_id
+        .roundgroup_id
 }
 
 /// Returns `(tournament, division, owner, admin_user, unrelated_user)` for testing
@@ -69,15 +69,15 @@ pub fn arrange_round_delete_works_integration_test(
     let division = DivisionBuilder::new_default("Test Div", tournament.tid)
         .build_and_insert(db)
         .unwrap();
-    let session_id = session_for(db, division.did);
+    let roundgroup_id = roundgroup_for(db, division.did);
 
-    let round_1 = RoundBuilder::new_default(session_id)
+    let round_1 = RoundBuilder::new_default(roundgroup_id)
         .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2060, 1, 1, 0, 0, 0).unwrap())
         .build_and_insert(db)
         .unwrap();
 
-    let round_2 = RoundBuilder::new_default(session_id)
+    let round_2 = RoundBuilder::new_default(roundgroup_id)
         .set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2061, 1, 1, 0, 0, 0).unwrap())
         .build_and_insert(db)
@@ -117,9 +117,9 @@ pub fn arrange_round_update_works_integration_test(
     let division = DivisionBuilder::new_default("Test Div", tournament.tid)
         .build_and_insert(db)
         .unwrap();
-    let session_id = session_for(db, division.did);
+    let roundgroup_id = roundgroup_for(db, division.did);
 
-    let round = RoundBuilder::new_default(session_id)
+    let round = RoundBuilder::new_default(roundgroup_id)
         .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2050, 1, 1, 0, 0, 0).unwrap())
         .build_and_insert(db)
@@ -141,9 +141,9 @@ pub fn arrange_round_update_works_integration_test(
     (tournament, division, round, owner, admin_user, unrelated_user)
 }
 
-/// Builds a round create payload for the given division session (rounds now belong to a session).
-pub fn get_round_payload(division_session_id: Uuid) -> NewRound {
-    RoundBuilder::new_default(division_session_id)
+/// Builds a round create payload for the given division roundgroup (rounds now belong to a roundgroup).
+pub fn get_round_payload(roundgroup_id: Uuid) -> NewRound {
+    RoundBuilder::new_default(roundgroup_id)
         .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap())
         .build()
@@ -151,8 +151,8 @@ pub fn get_round_payload(division_session_id: Uuid) -> NewRound {
 }
 
 pub fn seed_round(db: &mut database::Connection, did: Uuid) -> Round {
-    let session_id = session_for(db, did);
-    RoundBuilder::new_default(session_id)
+    let roundgroup_id = roundgroup_for(db, did);
+    RoundBuilder::new_default(roundgroup_id)
         .set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap())
         .build_and_insert(db)
@@ -163,19 +163,19 @@ pub fn seed_rounds(
     db: &mut database::Connection,
     did: Uuid
 ) -> Vec<Round> {
-    let session_id = session_for(db, did);
+    let roundgroup_id = roundgroup_for(db, did);
     vec![
-        RoundBuilder::new_default(session_id)
+        RoundBuilder::new_default(roundgroup_id)
             .set_name("1")
             .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap())
             .build_and_insert(db)
             .unwrap(),
-        RoundBuilder::new_default(session_id)
+        RoundBuilder::new_default(roundgroup_id)
             .set_name("2")
             .set_scheduled_start_time(Utc.with_ymd_and_hms(2045, 5, 23, 00, 00, 0).unwrap())
             .build_and_insert(db)
             .unwrap(),
-        RoundBuilder::new_default(session_id)
+        RoundBuilder::new_default(roundgroup_id)
             .set_name("3")
             .set_scheduled_start_time(Utc.with_ymd_and_hms(2065, 5, 23, 00, 00, 0).unwrap())
             .build_and_insert(db)
@@ -190,19 +190,19 @@ pub fn seed_rounds_with_sched_start_times(
     start_time_2: DateTime<Utc>,
     start_time_3: DateTime<Utc>,
 ) -> Vec<Round> {
-    let session_id = session_for(db, did);
+    let roundgroup_id = roundgroup_for(db, did);
     vec![
-        RoundBuilder::new_default(session_id)
+        RoundBuilder::new_default(roundgroup_id)
             .set_name("1")
             .set_scheduled_start_time(start_time_1)
             .build_and_insert(db)
             .unwrap(),
-        RoundBuilder::new_default(session_id)
+        RoundBuilder::new_default(roundgroup_id)
             .set_name("2")
             .set_scheduled_start_time(start_time_2)
             .build_and_insert(db)
             .unwrap(),
-        RoundBuilder::new_default(session_id)
+        RoundBuilder::new_default(roundgroup_id)
             .set_name("3")
             .set_scheduled_start_time(start_time_3)
             .build_and_insert(db)

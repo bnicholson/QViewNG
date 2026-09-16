@@ -109,17 +109,17 @@ async fn create(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    // A round belongs to a division session; validate it and derive its division for authorization.
-    let session = match models::division_session::read(&mut conn, item.division_session_id) {
+    // A round belongs to a division roundgroup; validate it and derive its division for authorization.
+    let roundgroup = match models::roundgroup::read(&mut conn, item.roundgroup_id) {
         Ok(s) => s,
         Err(_) => {
-            println!("Could not find Division Session by ID={}", &item.division_session_id);
+            println!("Could not find Division RoundGroup by ID={}", &item.roundgroup_id);
             return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": format!("Division session with ID {} does not exist", item.division_session_id)
+                "error": format!("Division roundgroup with ID {} does not exist", item.roundgroup_id)
             })));
         }
     };
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, roundgroup.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -187,11 +187,11 @@ async fn update(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let session = match models::division_session::read(&mut conn, round.division_session_id) {
+    let roundgroup = match models::roundgroup::read(&mut conn, round.roundgroup_id) {
         Ok(s) => s,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, roundgroup.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -248,11 +248,11 @@ async fn destroy(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let session = match models::division_session::read(&mut conn, round.division_session_id) {
+    let roundgroup = match models::roundgroup::read(&mut conn, round.roundgroup_id) {
         Ok(s) => s,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
-    let division = match models::division::read(&mut conn, session.did) {
+    let division = match models::division::read(&mut conn, roundgroup.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };

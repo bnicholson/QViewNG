@@ -40,7 +40,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::auth::endpoints(web::scope("/auth")))
             .service(services::tournament::endpoints(web::scope("/tournaments")))
             .service(services::division::endpoints(web::scope("/divisions")))
-            .service(services::division_session::endpoints(web::scope("/divisionsessions")))
+            .service(services::roundgroup::endpoints(web::scope("/roundgroups")))
             .service(services::pool_bracket::endpoints(web::scope("/poolbrackets")))
             .service(services::user::endpoints(web::scope("/users")))
             .service(services::room::endpoints(web::scope("/rooms")))

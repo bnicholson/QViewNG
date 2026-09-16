@@ -2,7 +2,7 @@ pub mod tournament;
 pub mod tournament_admin;
 pub mod common;
 pub mod division;
-pub mod division_session;
+pub mod roundgroup;
 pub mod pool_bracket;
 pub mod teamgroup;
 pub mod team_teamgroup;

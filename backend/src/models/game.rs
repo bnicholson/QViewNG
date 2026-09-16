@@ -313,9 +313,9 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
     // game's division (derived from its round) so a game always references a real bracket.
     if game.poolbracket_id.is_nil() {
         let round = crate::models::round::read(db,item.roundid).expect("round not found in database by ID");
-        // A round now belongs to a division session; its division is that session's division.
-        let session = crate::models::division_session::read(db, round.division_session_id)?;
-        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, session.did, game.creator_id)?;
+        // A round now belongs to a division roundgroup; its division is that roundgroup's division.
+        let roundgroup = crate::models::roundgroup::read(db, round.roundgroup_id)?;
+        game.poolbracket_id = crate::models::pool_bracket::resolve_default_for_division(db, roundgroup.did, game.creator_id)?;
     }
 
     if !models::room::exists(db, item.roomid) {
@@ -557,12 +557,12 @@ pub fn read_all_games_of_pool_bracket(db: &mut database::Connection, bracket_id:
     read_games_ordered!(db, pagination, poolbracket_id, bracket_id)
 }
 
-/// One page of games belonging to a division session — i.e. games whose `roundid` is one of the
-/// session's rounds (a round is the time-bound entity tying a game to a session).
-pub fn read_all_games_of_division_session(db: &mut database::Connection, session_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+/// One page of games belonging to a division roundgroup — i.e. games whose `roundid` is one of the
+/// roundgroup's rounds (a round is the time-bound entity tying a game to a roundgroup).
+pub fn read_all_games_of_roundgroup(db: &mut database::Connection, roundgroup_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     let round_ids: Vec<Uuid> = {
         use crate::schema::rounds::dsl::*;
-        rounds.filter(division_session_id.eq(session_id)).filter(del_fl.eq(false)).select(roundid).load::<Uuid>(db)?
+        rounds.filter(roundgroup_id.eq(roundgroup_id)).filter(del_fl.eq(false)).select(roundid).load::<Uuid>(db)?
     };
     if round_ids.is_empty() {
         return Ok(Vec::new());
@@ -778,13 +778,13 @@ pub fn read_game_rows_of_round(
     round_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<(Vec<GameRow>, i64)> {
-    // A round belongs to a division session; derive its division (and tournament) via that session.
+    // A round belongs to a division roundgroup; derive its division (and tournament) via that roundgroup.
     let division_id: Uuid = {
-        use crate::schema::{rounds, division_sessions};
+        use crate::schema::{rounds, roundgroups};
         rounds::table
-            .inner_join(division_sessions::table.on(rounds::division_session_id.eq(division_sessions::division_session_id)))
+            .inner_join(roundgroups::table.on(rounds::roundgroup_id.eq(roundgroups::roundgroup_id)))
             .filter(rounds::roundid.eq(round_id))
-            .select(division_sessions::did)
+            .select(roundgroups::did)
             .first::<Uuid>(db)?
     };
     let tournament_id: Uuid = {
@@ -843,16 +843,16 @@ pub fn read_game_rows_of_pool_bracket(
     Ok((build_game_rows(db, page, tournament_id)?, total))
 }
 
-/// Returns one page of enriched game rows for a division session (games whose round belongs to the
-/// session), plus the total game count.
-pub fn read_game_rows_of_division_session(
+/// Returns one page of enriched game rows for a division roundgroup (games whose round belongs to the
+/// roundgroup), plus the total game count.
+pub fn read_game_rows_of_roundgroup(
     db: &mut database::Connection,
-    session_id: Uuid,
+    roundgroup_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<(Vec<GameRow>, i64)> {
     let division_id: Uuid = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(division_session_id.eq(session_id)).select(did).first::<Uuid>(db)?
+        use crate::schema::roundgroups::dsl::*;
+        roundgroups.filter(roundgroup_id.eq(roundgroup_id)).select(did).first::<Uuid>(db)?
     };
     let tournament_id: Uuid = {
         use crate::schema::divisions::dsl::*;
@@ -860,13 +860,13 @@ pub fn read_game_rows_of_division_session(
     };
     let round_ids: Vec<Uuid> = {
         use crate::schema::rounds::dsl::*;
-        rounds.filter(division_session_id.eq(session_id)).filter(del_fl.eq(false)).select(roundid).load::<Uuid>(db)?
+        rounds.filter(roundgroup_id.eq(roundgroup_id)).filter(del_fl.eq(false)).select(roundid).load::<Uuid>(db)?
     };
     let total: i64 = {
         use crate::schema::games::dsl::*;
         games.filter(roundid.eq_any(&round_ids)).filter(del_fl.eq(false)).count().get_result(db)?
     };
-    let page = read_all_games_of_division_session(db, session_id, pagination)?;
+    let page = read_all_games_of_roundgroup(db, roundgroup_id, pagination)?;
     Ok((build_game_rows(db, page, tournament_id)?, total))
 }
 

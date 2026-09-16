@@ -58,7 +58,7 @@ async fn main() -> std::io::Result<()> {
             }
         }
         if true {    
-            let include_scheduling: bool = false;  // seed the full schedule (sessions/pools/games); set false to stop at registered teams + gear
+            let include_scheduling: bool = false;  // seed the full schedule (roundgroups/pools/games); set false to stop at registered teams + gear
             let include_gameevents_in_reseed: bool = false;  // ***This applies only if include_scheduling = true;
             insert_seed_data_one(&mut conn, include_scheduling, include_gameevents_in_reseed);  // Repopulates DB with seed data (*for manual UI testing)
         }

@@ -92,11 +92,11 @@ function gameColumns(showAuditColumns: boolean): ColumnDef<GameRowTS>[] {
   ];
 }
 
-export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, divisionSessionId, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string;
+export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, roundgroupId, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundid?: string; roomid?: string;
   /** When set, rows are the games whose poolbracket_id matches this pool bracket. */
   poolbracketid?: string;
-  /** When set, rows are the games across this division session's pool brackets. */
-  divisionSessionId?: string;
+  /** When set, rows are the games whose round belongs to this roundgroup. */
+  roundgroupId?: string;
   showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit — lets a consumer hide a column that's redundant in its context
    *  (e.g. the Round profile hides "Round", the Room profile hides "Room"). */
@@ -113,8 +113,8 @@ export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, d
 
   const loadGames = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = divisionSessionId
-      ? GameAPI.getRowsByDivisionSession(divisionSessionId, p, ps)
+    const request = roundgroupId
+      ? GameAPI.getRowsByRoundGroup(roundgroupId, p, ps)
       : poolbracketid
         ? GameAPI.getRowsByPoolBracket(poolbracketid, p, ps)
         : roundid
@@ -133,11 +133,11 @@ export default function GamesTable({ tid, did, roundid, roomid, poolbracketid, d
       })
       .catch(() => console.error('Failed to load games'))
       .finally(() => setLoading(false));
-  }, [tid, did, roundid, roomid, poolbracketid, divisionSessionId]);
+  }, [tid, did, roundid, roomid, poolbracketid, roundgroupId]);
 
   useEffect(() => {
     loadGames(0, pageSizeRef.current);
-  }, [tid, did, roundid, roomid, poolbracketid, divisionSessionId]);
+  }, [tid, did, roundid, roomid, poolbracketid, roundgroupId]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadGames(newPage, pageSize);

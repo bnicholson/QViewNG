@@ -1,6 +1,6 @@
 use crate::database;
 use crate::schema::{
-    activation_tokens, apicalllog, computers, create_tournament_applicants, division_sessions, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameeventlogs, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, pool_brackets, projectors, roles, roles_permissions, rooms, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, team_teamgroups, teamgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
+    activation_tokens, apicalllog, computers, create_tournament_applicants, roundgroups, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameeventlogs, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, pool_brackets, projectors, roles, roles_permissions, rooms, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, team_teamgroups, teamgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
 };
 use chrono::Utc;
 use diesel::prelude::*;
@@ -165,9 +165,9 @@ pub fn clean_database(conn: &mut database::Connection) {
         .execute(conn)
         .expect("Failed to clean pool_brackets");
     
-    diesel::delete(division_sessions::table)
+    diesel::delete(roundgroups::table)
         .execute(conn)
-        .expect("Failed to clean division_sessions");
+        .expect("Failed to clean roundgroups");
 
     diesel::delete(rooms::table)
         .execute(conn)

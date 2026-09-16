@@ -1,6 +1,6 @@
 use backend::database;
 use backend::models::division::DivisionBuilder;
-use backend::models::division_session::DivisionSessionBuilder;
+use backend::models::roundgroup::RoundGroupBuilder;
 use backend::models::game::GameBuilder;
 use backend::models::pool_bracket::PoolBracketBuilder;
 use backend::models::room::RoomBuilder;
@@ -36,12 +36,12 @@ pub fn seed_pool_bracket_profile(db: &mut database::Connection) -> Uuid {
     let division = DivisionBuilder::new_default("PB Div", tournament.tid)
         .build_and_insert(db)
         .unwrap();
-    let session = DivisionSessionBuilder::new(division.did)
+    let roundgroup = RoundGroupBuilder::new(division.did)
         .set_name("Pool Play")
         .set_creator_userid(owner.id)
         .build_and_insert(db)
         .unwrap();
-    let bracket = PoolBracketBuilder::new(session.did)
+    let bracket = PoolBracketBuilder::new(roundgroup.did)
         .set_name("Pool A")
         .set_type("pool")
         .set_creator_userid(owner.id)
@@ -77,7 +77,7 @@ pub fn seed_pool_bracket_profile(db: &mut database::Connection) -> Uuid {
     let room_2 = RoomBuilder::new_default("Room 2", tournament.tid)
         .build_and_insert(db)
         .unwrap();
-    let round = RoundBuilder::new_default(session.division_session_id)
+    let round = RoundBuilder::new_default(roundgroup.roundgroup_id)
         .set_name("1")
         .build_and_insert(db)
         .unwrap();

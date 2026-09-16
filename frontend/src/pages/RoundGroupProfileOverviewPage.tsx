@@ -8,7 +8,7 @@ import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
+import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import type { DivisionTS } from '../features/DivisionAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -18,13 +18,13 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 interface Props {
-  session: DivisionSessionTS
+  session: RoundGroupTS
   division: DivisionTS
-  onUpdated: (session: DivisionSessionTS) => void
+  onUpdated: (session: RoundGroupTS) => void
   canEdit?: boolean
 }
 
-export const DivisionSessionProfileOverviewPage = ({ session, division, onUpdated, canEdit = false }: Props) => {
+export const RoundGroupProfileOverviewPage = ({ session, division, onUpdated, canEdit = false }: Props) => {
   const { accessToken } = useAuth()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -47,7 +47,7 @@ export const DivisionSessionProfileOverviewPage = ({ session, division, onUpdate
     setSaving(true)
     setError(null)
     try {
-      const updated = await DivisionSessionAPI.update(session.division_session_id, { name: name.trim() }, accessToken)
+      const updated = await RoundGroupAPI.update(session.roundgroup_id, { name: name.trim() }, accessToken)
       onUpdated(updated)
       setEditing(false)
     } catch (e: any) {

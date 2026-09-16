@@ -103,7 +103,7 @@ struct PoolBracketRowsParams {
     type_: String,
 }
 
-/// Returns fully-formed pool-bracket data-table rows (bracket + session/division names +
+/// Returns fully-formed pool-bracket data-table rows (bracket + roundgroup/division names +
 /// last-modified user name) for the division, filtered by `type`, in a single paginated call.
 #[get("/{id}/pool-bracket-rows")]
 async fn read_pool_bracket_rows(
@@ -124,8 +124,8 @@ async fn read_pool_bracket_rows(
     }
 }
 
-#[get("/{id}/sessions")]
-async fn read_sessions(
+#[get("/{id}/roundgroups")]
+async fn read_roundgroups(
     db: Data<Database>,
     item_id: Path<Uuid>,
     req: HttpRequest
@@ -135,16 +135,16 @@ async fn read_sessions(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::division_session::read_all_of_division(&mut conn, item_id.into_inner()) {
-        Ok(sessions) => HttpResponse::Ok().json(sessions),
+    match models::roundgroup::read_all_of_division(&mut conn, item_id.into_inner()) {
+        Ok(roundgroups) => HttpResponse::Ok().json(roundgroups),
         Err(_) => HttpResponse::NotFound().finish(),
     }
 }
 
-/// Returns fully-formed session data-table rows (session + division name + last-modified user name)
+/// Returns fully-formed roundgroup data-table rows (roundgroup + division name + last-modified user name)
 /// for the division in a single paginated call.
-#[get("/{id}/session-rows")]
-async fn read_session_rows(
+#[get("/{id}/roundgroup-rows")]
+async fn read_roundgroup_rows(
     db: Data<Database>,
     item_id: Path<Uuid>,
     Query(params): Query<PaginationParams>,
@@ -155,7 +155,7 @@ async fn read_session_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::division_session::read_session_rows_of_division(&mut conn, item_id.into_inner(), &params) {
+    match models::roundgroup::read_roundgroup_rows_of_division(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
@@ -477,8 +477,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_rounds)
         .service(read_pool_brackets)
         .service(read_pool_bracket_rows)
-        .service(read_sessions)
-        .service(read_session_rows)
+        .service(read_roundgroups)
+        .service(read_roundgroup_rows)
         .service(read_teams)
         .service(read_team_rows)
         .service(read_quizzer_rows)

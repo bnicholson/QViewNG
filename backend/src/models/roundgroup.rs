@@ -9,14 +9,14 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 
-pub struct DivisionSessionBuilder {
+pub struct RoundGroupBuilder {
     did: Uuid,
     name: Option<String>,
     creator_userid: Option<Uuid>,
     last_modified_userid: Option<Uuid>,
 }
 
-impl DivisionSessionBuilder {
+impl RoundGroupBuilder {
     pub fn new(did: Uuid) -> Self {
         Self { did, name: None, creator_userid: None, last_modified_userid: None }
     }
@@ -39,20 +39,20 @@ impl DivisionSessionBuilder {
         self.last_modified_userid = Some(user_id);
         self
     }
-    pub fn build(self) -> Result<NewDivisionSession, Vec<String>> {
+    pub fn build(self) -> Result<NewRoundGroup, Vec<String>> {
         let mut errors = Vec::new();
         if self.name.is_none() { errors.push("name is required".to_string()); }
         if self.creator_userid.is_none() { errors.push("creator_userid is required".to_string()); }
         if !errors.is_empty() { return Err(errors); }
         let creator = self.creator_userid.unwrap();
-        Ok(NewDivisionSession {
+        Ok(NewRoundGroup {
             did: self.did,
             name: self.name.unwrap(),
             creator_userid: creator,
             last_modified_userid: self.last_modified_userid.unwrap_or(creator),
         })
     }
-    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<DivisionSession> {
+    pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<RoundGroup> {
         create(db, &self.build().unwrap())
     }
 }
@@ -67,10 +67,10 @@ impl DivisionSessionBuilder {
     Identifiable,
     ToSchema
 )]
-#[diesel(table_name = crate::schema::division_sessions)]
-#[diesel(primary_key(division_session_id))]
-pub struct DivisionSession {
-    pub division_session_id: Uuid,            // identifies the division session uniquely
+#[diesel(table_name = crate::schema::roundgroups)]
+#[diesel(primary_key(roundgroup_id))]
+pub struct RoundGroup {
+    pub roundgroup_id: Uuid,            // identifies the division roundgroup uniquely
     pub did: Uuid,                            // parent division
     pub created_date: DateTime<Utc>,
     pub creator_userid: Uuid,
@@ -81,8 +81,8 @@ pub struct DivisionSession {
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
-#[diesel(table_name = crate::schema::division_sessions)]
-pub struct NewDivisionSession {
+#[diesel(table_name = crate::schema::roundgroups)]
+pub struct NewRoundGroup {
     pub did: Uuid,
     pub name: String,
     // Set from the authenticated user in the service layer; API payloads omit these.
@@ -93,77 +93,77 @@ pub struct NewDivisionSession {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, AsChangeset)]
-#[diesel(table_name = crate::schema::division_sessions)]
-#[diesel(primary_key(division_session_id))]
-pub struct DivisionSessionChangeset {
+#[diesel(table_name = crate::schema::roundgroups)]
+#[diesel(primary_key(roundgroup_id))]
+pub struct RoundGroupChangeset {
     pub did: Option<Uuid>,
     pub name: Option<String>,
 }
 
-/// Whether a session named `name_val` already exists in division `division_id`. When `exclude` is
-/// set (e.g. during an update), that session id is ignored so a row doesn't clash with itself.
+/// Whether a roundgroup named `name_val` already exists in division `division_id`. When `exclude` is
+/// set (e.g. during an update), that roundgroup id is ignored so a row doesn't clash with itself.
 pub fn name_exists_in_division(
     db: &mut database::Connection,
     division_id: Uuid,
     name_val: &str,
     exclude: Option<Uuid>,
 ) -> QueryResult<bool> {
-    use crate::schema::division_sessions::dsl::*;
-    let mut query = division_sessions
+    use crate::schema::roundgroups::dsl::*;
+    let mut query = roundgroups
         .filter(did.eq(division_id))
         .filter(name.eq(name_val))
         .filter(del_fl.eq(false))
         .into_boxed();
     if let Some(ex) = exclude {
-        query = query.filter(division_session_id.ne(ex));
+        query = query.filter(roundgroup_id.ne(ex));
     }
     let count: i64 = query.count().get_result(db)?;
     Ok(count > 0)
 }
 
-pub fn create(db: &mut database::Connection, item: &NewDivisionSession) -> QueryResult<DivisionSession> {
-    // A session's name must be unique within its parent division.
+pub fn create(db: &mut database::Connection, item: &NewRoundGroup) -> QueryResult<RoundGroup> {
+    // A roundgroup's name must be unique within its parent division.
     if name_exists_in_division(db, item.did, &item.name, None)? {
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("A division session named \"{}\" already exists in this division.", item.name).into()
+            format!("A division roundgroup named \"{}\" already exists in this division.", item.name).into()
         ));
     }
-    use crate::schema::division_sessions::dsl::*;
-    insert_into(division_sessions).values(item).get_result::<DivisionSession>(db)
+    use crate::schema::roundgroups::dsl::*;
+    insert_into(roundgroups).values(item).get_result::<RoundGroup>(db)
 }
 
 pub fn exists(db: &mut database::Connection, item_id: Uuid) -> bool {
-    use crate::schema::division_sessions::dsl::*;
-    division_sessions.find(item_id).filter(del_fl.eq(false)).get_result::<DivisionSession>(db).is_ok()
+    use crate::schema::roundgroups::dsl::*;
+    roundgroups.find(item_id).filter(del_fl.eq(false)).get_result::<RoundGroup>(db).is_ok()
 }
 
-pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<DivisionSession> {
-    use crate::schema::division_sessions::dsl::*;
-    division_sessions.filter(division_session_id.eq(item_id)).filter(del_fl.eq(false)).first::<DivisionSession>(db)
+pub fn read(db: &mut database::Connection, item_id: Uuid) -> QueryResult<RoundGroup> {
+    use crate::schema::roundgroups::dsl::*;
+    roundgroups.filter(roundgroup_id.eq(item_id)).filter(del_fl.eq(false)).first::<RoundGroup>(db)
 }
 
 /// Read ignoring the soft-delete flag — used by purge, which must resolve even a soft-deleted row.
-pub fn read_including_deleted(db: &mut database::Connection, item_id: Uuid) -> QueryResult<DivisionSession> {
-    use crate::schema::division_sessions::dsl::*;
-    division_sessions.filter(division_session_id.eq(item_id)).first::<DivisionSession>(db)
+pub fn read_including_deleted(db: &mut database::Connection, item_id: Uuid) -> QueryResult<RoundGroup> {
+    use crate::schema::roundgroups::dsl::*;
+    roundgroups.filter(roundgroup_id.eq(item_id)).first::<RoundGroup>(db)
 }
 
-pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<DivisionSession>> {
-    use crate::schema::division_sessions::dsl::*;
-    division_sessions.filter(del_fl.eq(false)).order(created_date).load::<DivisionSession>(db)
+pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<RoundGroup>> {
+    use crate::schema::roundgroups::dsl::*;
+    roundgroups.filter(del_fl.eq(false)).order(created_date).load::<RoundGroup>(db)
 }
 
-/// All sessions belonging to the given division.
-pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<DivisionSession>> {
-    use crate::schema::division_sessions::dsl::*;
-    division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).order(created_date).load::<DivisionSession>(db)
+/// All roundgroups belonging to the given division.
+pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<RoundGroup>> {
+    use crate::schema::roundgroups::dsl::*;
+    roundgroups.filter(did.eq(division_id)).filter(del_fl.eq(false)).order(created_date).load::<RoundGroup>(db)
 }
 
-/// One fully-formed row of the sessions data table: the session plus its division name and the
+/// One fully-formed row of the roundgroups data table: the roundgroup plus its division name and the
 /// display name of the user who last modified it, so the whole table is populated in a single call.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct DivisionSessionRow {
-    pub division_session_id: Uuid,
+pub struct RoundGroupRow {
+    pub roundgroup_id: Uuid,
     pub did: Uuid,
     pub division_name: String,
     pub name: String,
@@ -175,42 +175,42 @@ pub struct DivisionSessionRow {
     pub last_modified_user_id: Uuid,
 }
 
-/// Returns one page of session-table rows for the division (enriched) and the total session count.
-pub fn read_session_rows_of_division(
+/// Returns one page of roundgroup-table rows for the division (enriched) and the total roundgroup count.
+pub fn read_roundgroup_rows_of_division(
     db: &mut database::Connection,
     division_id: Uuid,
     pagination: &PaginationParams,
-) -> QueryResult<(Vec<DivisionSessionRow>, i64)> {
+) -> QueryResult<(Vec<RoundGroupRow>, i64)> {
     let dname_val: String = {
         use crate::schema::divisions::dsl::*;
         divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
     };
 
     let total: i64 = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
+        use crate::schema::roundgroups::dsl::*;
+        roundgroups.filter(did.eq(division_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
-    let session_list: Vec<DivisionSession> = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions
+    let roundgroup_list: Vec<RoundGroup> = {
+        use crate::schema::roundgroups::dsl::*;
+        roundgroups
             .filter(did.eq(division_id))
             .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
-            .load::<DivisionSession>(db)?
+            .load::<RoundGroup>(db)?
     };
 
-    let name_ids: Vec<Uuid> = session_list.iter().map(|s| s.last_modified_userid).collect();
+    let name_ids: Vec<Uuid> = roundgroup_list.iter().map(|s| s.last_modified_userid).collect();
     let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
 
-    let rows = session_list
+    let rows = roundgroup_list
         .into_iter()
-        .map(|s| DivisionSessionRow {
-            division_session_id: s.division_session_id,
+        .map(|s| RoundGroupRow {
+            roundgroup_id: s.roundgroup_id,
             did: s.did,
             division_name: dname_val.clone(),
             name: s.name,
@@ -227,13 +227,13 @@ pub fn read_session_rows_of_division(
     Ok((rows, total))
 }
 
-/// Returns one page of session-table rows for the whole tournament (enriched), across every
-/// division, plus the total session count.
-pub fn read_session_rows_of_tournament(
+/// Returns one page of roundgroup-table rows for the whole tournament (enriched), across every
+/// division, plus the total roundgroup count.
+pub fn read_roundgroup_rows_of_tournament(
     db: &mut database::Connection,
     tournament_id: Uuid,
     pagination: &PaginationParams,
-) -> QueryResult<(Vec<DivisionSessionRow>, i64)> {
+) -> QueryResult<(Vec<RoundGroupRow>, i64)> {
     // Division id -> name for the tournament's divisions.
     let div_pairs: Vec<(Uuid, String)> = {
         use crate::schema::divisions::dsl::*;
@@ -247,30 +247,30 @@ pub fn read_session_rows_of_tournament(
     }
 
     let total: i64 = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).count().get_result(db)?
+        use crate::schema::roundgroups::dsl::*;
+        roundgroups.filter(did.eq_any(&div_ids)).filter(del_fl.eq(false)).count().get_result(db)?
     };
 
     let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
     let offset_val = pagination.page * page_size;
-    let session_list: Vec<DivisionSession> = {
-        use crate::schema::division_sessions::dsl::*;
-        division_sessions
+    let roundgroup_list: Vec<RoundGroup> = {
+        use crate::schema::roundgroups::dsl::*;
+        roundgroups
             .filter(did.eq_any(&div_ids))
             .filter(del_fl.eq(false))
             .order(created_date.asc())
             .limit(page_size)
             .offset(offset_val)
-            .load::<DivisionSession>(db)?
+            .load::<RoundGroup>(db)?
     };
 
-    let name_ids: Vec<Uuid> = session_list.iter().map(|s| s.last_modified_userid).collect();
+    let name_ids: Vec<Uuid> = roundgroup_list.iter().map(|s| s.last_modified_userid).collect();
     let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
 
-    let rows = session_list
+    let rows = roundgroup_list
         .into_iter()
-        .map(|s| DivisionSessionRow {
-            division_session_id: s.division_session_id,
+        .map(|s| RoundGroupRow {
+            roundgroup_id: s.roundgroup_id,
             division_name: div_name_by_id.get(&s.did).cloned().unwrap_or_default(),
             did: s.did,
             name: s.name,
@@ -287,18 +287,18 @@ pub fn read_session_rows_of_tournament(
     Ok((rows, total))
 }
 
-pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionSessionChangeset, modified_by: Uuid) -> QueryResult<DivisionSession> {
+pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundGroupChangeset, modified_by: Uuid) -> QueryResult<RoundGroup> {
     // Enforce name uniqueness within the (possibly changed) parent division.
     let existing = read(db, item_id)?;
     let effective_did = item.did.unwrap_or(existing.did);
     let effective_name = item.name.clone().unwrap_or(existing.name.clone());
     if name_exists_in_division(db, effective_did, &effective_name, Some(item_id))? {
         return Err(diesel::result::Error::QueryBuilderError(
-            format!("A division session named \"{}\" already exists in this division.", effective_name).into()
+            format!("A division roundgroup named \"{}\" already exists in this division.", effective_name).into()
         ));
     }
-    use crate::schema::division_sessions::dsl::*;
-    diesel::update(division_sessions.filter(division_session_id.eq(item_id)))
+    use crate::schema::roundgroups::dsl::*;
+    diesel::update(roundgroups.filter(roundgroup_id.eq(item_id)))
         .set((
             item,
             last_modified_date.eq(diesel::dsl::now),
@@ -307,16 +307,16 @@ pub fn update(db: &mut database::Connection, item_id: Uuid, item: &DivisionSessi
         .get_result(db)
 }
 
-/// Soft delete: hide the session by setting its `del_fl`.
+/// Soft delete: hide the roundgroup by setting its `del_fl`.
 pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
-    use crate::schema::division_sessions::dsl::*;
-    diesel::update(division_sessions.filter(division_session_id.eq(item_id)))
+    use crate::schema::roundgroups::dsl::*;
+    diesel::update(roundgroups.filter(roundgroup_id.eq(item_id)))
         .set(del_fl.eq(true))
         .execute(db)
 }
 
-/// Purge: permanently remove the session row from the database.
+/// Purge: permanently remove the roundgroup row from the database.
 pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
-    use crate::schema::division_sessions::dsl::*;
-    diesel::delete(division_sessions.filter(division_session_id.eq(item_id))).execute(db)
+    use crate::schema::roundgroups::dsl::*;
+    diesel::delete(roundgroups.filter(roundgroup_id.eq(item_id))).execute(db)
 }

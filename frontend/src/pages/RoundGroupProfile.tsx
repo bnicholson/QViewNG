@@ -4,26 +4,26 @@ import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import ProfileLayout from '../components/ProfileLayout'
 import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
-import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
+import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import GamesTable from '../components/GamesTable'
 import RoundsTable from '../components/RoundsTable'
-import { DivisionSessionProfileOverviewPage } from './DivisionSessionProfileOverviewPage'
+import { RoundGroupProfileOverviewPage } from './RoundGroupProfileOverviewPage'
 
-export const DivisionSessionProfile = (props: { childRoute?: string }) => {
+export const RoundGroupProfile = (props: { childRoute?: string }) => {
   const { sessionid } = useParams()
   if (!sessionid) return <></>
 
-  const [session, setSession] = useState<DivisionSessionTS | null>(null)
+  const [session, setSession] = useState<RoundGroupTS | null>(null)
   const [division, setDivision] = useState<DivisionTS | null>(null)
   const [tournament, setTournament] = useState<TournamentTS | null>(null)
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    DivisionSessionAPI.getById(sessionid)
+    RoundGroupAPI.getById(sessionid)
       .then(async sess => {
         if (cancelled) return
         setSession(sess)
@@ -64,11 +64,11 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <DivisionSessionProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={isOwnerOrSuperUser} />
+            <RoundGroupProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={isOwnerOrSuperUser} />
           )}
           {props.childRoute === 'rounds' && (
             // Rounds belong to a division session; Division and Session are fixed context here.
-            <RoundsTable tid={tournament.tid} did={division.did} sessionId={sessionid}
+            <RoundsTable tid={tournament.tid} did={division.did} roundgroupId={sessionid}
               showCreateButton={canCreate('division:create')}
               showDeleteButton={canCreate('division:delete')}
               showAuditColumns={canViewAuditColumns}
@@ -76,7 +76,7 @@ export const DivisionSessionProfile = (props: { childRoute?: string }) => {
           )}
           {props.childRoute === 'games' && (
             // Games whose round belongs to this session. Division is fixed context here.
-            <GamesTable tid={tournament.tid} divisionSessionId={sessionid}
+            <GamesTable tid={tournament.tid} roundgroupId={sessionid}
               showCreateButton={false} showDeleteButton={canCreate('game:delete')}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />

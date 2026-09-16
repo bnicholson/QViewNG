@@ -88,20 +88,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    division_sessions (division_session_id) {
-        division_session_id -> Uuid,
-        did -> Uuid,
-        created_date -> Timestamptz,
-        creator_userid -> Uuid,
-        last_modified_date -> Timestamptz,
-        last_modified_userid -> Uuid,
-        #[max_length = 64]
-        name -> Varchar,
-        del_fl -> Bool,
-    }
-}
-
-diesel::table! {
     divisions (did) {
         did -> Uuid,
         tid -> Uuid,
@@ -514,6 +500,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    roundgroups (roundgroup_id) {
+        roundgroup_id -> Uuid,
+        did -> Uuid,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+        #[max_length = 64]
+        name -> Varchar,
+        del_fl -> Bool,
+    }
+}
+
+diesel::table! {
     rounds (roundid) {
         roundid -> Uuid,
         scheduled_start_time -> Nullable<Timestamptz>,
@@ -543,7 +543,7 @@ diesel::table! {
         name -> Varchar,
         last_modified_user -> Uuid,
         del_fl -> Bool,
-        division_session_id -> Uuid,
+        roundgroup_id -> Uuid,
     }
 }
 
@@ -768,7 +768,6 @@ diesel::table! {
 
 diesel::joinable!(activation_tokens -> users (user_id));
 diesel::joinable!(attachments -> attachment_blobs (blob_id));
-diesel::joinable!(division_sessions -> divisions (did));
 diesel::joinable!(divisions -> users (last_modified_user));
 diesel::joinable!(equipment -> computers (computerid));
 diesel::joinable!(equipment -> equipmentsets (equipmentsetid));
@@ -797,7 +796,8 @@ diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
-diesel::joinable!(rounds -> division_sessions (division_session_id));
+diesel::joinable!(roundgroups -> divisions (did));
+diesel::joinable!(rounds -> roundgroups (roundgroup_id));
 diesel::joinable!(rounds -> users (last_modified_user));
 diesel::joinable!(statsgroups -> divisions (division_id));
 diesel::joinable!(statsgroups -> tournaments (tournament_id));
@@ -820,7 +820,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     attachments,
     computers,
     create_tournament_applicants,
-    division_sessions,
     divisions,
     equipment,
     equipmentregistrations,
@@ -846,6 +845,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     rosters,
     rosters_coaches,
     rosters_quizzers,
+    roundgroups,
     rounds,
     schedules,
     statsgroups,

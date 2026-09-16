@@ -21,7 +21,7 @@ import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
-import { DivisionSessionAPI, type DivisionSessionTS } from '../features/DivisionSessionAPI'
+import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
@@ -31,12 +31,12 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-interface SessionFormState {
+interface RoundGroupFormState {
   did: string;
   name: string;
 }
 
-const emptyState: SessionFormState = {
+const emptyState: RoundGroupFormState = {
   did: "",
   name: "",
 };
@@ -46,25 +46,25 @@ interface Props {
   isOpen: boolean;
   /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
   lockedDivisionId?: string;
-  /** When set, the dialog edits this existing session instead of creating a new one. */
-  session?: DivisionSessionTS | null;
+  /** When set, the dialog edits this existing roundgroup instead of creating a new one. */
+  roundgroup?: RoundGroupTS | null;
   onCancel: VoidFunction;
-  onSave: (session: DivisionSessionTS) => void;
+  onSave: (roundgroup: RoundGroupTS) => void;
 }
 
-export const DivisionSessionEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, session, onCancel, onSave } = props;
+export const RoundGroupEditorDialog = (props: Props) => {
+  const { tid, isOpen, lockedDivisionId, roundgroup, onCancel, onSave } = props;
   const { accessToken } = useAuth();
-  const isEdit = !!session;
-  const [form, setForm] = useState<SessionFormState>(emptyState);
+  const isEdit = !!roundgroup;
+  const [form, setForm] = useState<RoundGroupFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    if (session) {
-      setForm({ did: session.did, name: session.name });
+    if (roundgroup) {
+      setForm({ did: roundgroup.did, name: roundgroup.name });
     } else {
       setForm(lockedDivisionId ? { ...emptyState, did: lockedDivisionId } : emptyState);
     }
@@ -78,12 +78,12 @@ export const DivisionSessionEditorDialog = (props: Props) => {
     resetState();
     DivisionAPI.getByTournament(tid, 0, 100)
       .then(items => setDivisions(items))
-      .catch(() => console.error("Failed to load divisions for session form"));
-  }, [isOpen, tid, lockedDivisionId, session]);
+      .catch(() => console.error("Failed to load divisions for roundgroup form"));
+  }, [isOpen, tid, lockedDivisionId, roundgroup]);
 
   const openCancelDialog = () => {
-    const initial = session
-      ? { did: session.did, name: session.name }
+    const initial = roundgroup
+      ? { did: roundgroup.did, name: roundgroup.name }
       : { did: lockedDivisionId ?? "", name: "" };
     const isDirty = form.did !== initial.did || form.name !== initial.name;
     if (!isDirty) {
@@ -111,12 +111,12 @@ export const DivisionSessionEditorDialog = (props: Props) => {
       return;
     }
 
-    let result: DivisionSessionTS;
+    let result: RoundGroupTS;
     try {
-      if (session) {
-        result = await DivisionSessionAPI.update(session.division_session_id, { name: form.name.trim() }, accessToken);
+      if (roundgroup) {
+        result = await RoundGroupAPI.update(roundgroup.roundgroup_id, { name: form.name.trim() }, accessToken);
       } else {
-        result = await DivisionSessionAPI.create({ did: form.did, name: form.name.trim() }, accessToken);
+        result = await RoundGroupAPI.create({ did: form.did, name: form.name.trim() }, accessToken);
       }
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
