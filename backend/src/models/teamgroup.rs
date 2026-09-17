@@ -8,27 +8,21 @@ use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 
 pub struct TeamGroupBuilder {
-    pool_bracket_id: Uuid,
     type_: String,
     creator_userid: Option<Uuid>,
     last_modified_userid: Option<Uuid>,
 }
 
 impl TeamGroupBuilder {
-    pub fn new(pool_bracket_id: Uuid) -> Self {
+    pub fn new() -> Self {
         Self {
-            pool_bracket_id,
             type_: "pool".to_string(),
             creator_userid: None,
             last_modified_userid: None,
         }
     }
-    pub fn new_default(pool_bracket_id: Uuid) -> Self {
-        Self::new(pool_bracket_id)
-    }
-    pub fn set_pool_bracket_id(mut self, id: Uuid) -> Self {
-        self.pool_bracket_id = id;
-        self
+    pub fn new_default() -> Self {
+        Self::new()
     }
     pub fn set_type(mut self, type_: &str) -> Self {
         self.type_ = type_.to_string();
@@ -48,7 +42,6 @@ impl TeamGroupBuilder {
             None => return Err(vec!["creator_userid is required".to_string()]),
         };
         Ok(NewTeamGroup {
-            pool_bracket_id: self.pool_bracket_id,
             type_: self.type_,
             creator_userid: creator,
             last_modified_userid: self.last_modified_userid.unwrap_or(creator),
@@ -56,6 +49,12 @@ impl TeamGroupBuilder {
     }
     pub fn build_and_insert(self, db: &mut database::Connection) -> QueryResult<TeamGroup> {
         create(db, &self.build().unwrap())
+    }
+}
+
+impl Default for TeamGroupBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -73,7 +72,6 @@ impl TeamGroupBuilder {
 #[diesel(primary_key(team_group_id))]
 pub struct TeamGroup {
     pub team_group_id: Uuid,                  // identifies the team group uniquely
-    pub pool_bracket_id: Uuid,                // parent pool bracket (one-to-one)
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: String,                        // grouping type (e.g. "pool"); required, defaults to "pool"
@@ -87,7 +85,6 @@ pub struct TeamGroup {
 #[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::schema::teamgroups)]
 pub struct NewTeamGroup {
-    pub pool_bracket_id: Uuid,
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: String,
@@ -99,7 +96,6 @@ pub struct NewTeamGroup {
 #[diesel(table_name = crate::schema::teamgroups)]
 #[diesel(primary_key(team_group_id))]
 pub struct TeamGroupChangeset {
-    pub pool_bracket_id: Option<Uuid>,
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: Option<String>,
@@ -131,29 +127,38 @@ pub fn read_all(db: &mut database::Connection) -> QueryResult<Vec<TeamGroup>> {
     teamgroups.filter(del_fl.eq(false)).order(created_date).load::<TeamGroup>(db)
 }
 
-/// The single team group belonging to the given pool bracket (they are one-to-one).
+/// The single team group belonging to the given pool bracket (they are one-to-one). The bracket now
+/// owns the FK (`pool_brackets.team_group_id`), so resolve the group through it. Returns NotFound
+/// when the bracket has no team group yet, or when its team group is soft-deleted.
 pub fn read_of_pool_bracket(db: &mut database::Connection, bracket_id: Uuid) -> QueryResult<TeamGroup> {
-    use crate::schema::teamgroups::dsl::*;
-    teamgroups.filter(pool_bracket_id.eq(bracket_id)).filter(del_fl.eq(false)).first::<TeamGroup>(db)
+    let bracket = crate::models::pool_bracket::read(db, bracket_id)?;
+    match bracket.team_group_id {
+        Some(tgid) => read(db, tgid),
+        None => Err(diesel::result::Error::NotFound),
+    }
 }
 
-/// Returns the pool bracket's 1-to-1 team group, creating it (inheriting the bracket's `type`) if
-/// it doesn't exist yet. Used when associating the first team with a bracket.
+/// Returns the pool bracket's 1-to-1 team group, creating it (inheriting the bracket's `type`) and
+/// attaching it to the bracket if it doesn't exist yet. Used when associating the first team with a
+/// bracket.
 pub fn resolve_or_create_for_pool_bracket(
     db: &mut database::Connection,
     bracket_id: Uuid,
     user_id: Uuid,
 ) -> QueryResult<TeamGroup> {
-    if let Ok(existing) = read_of_pool_bracket(db, bracket_id) {
-        return Ok(existing);
-    }
     let bracket = crate::models::pool_bracket::read(db, bracket_id)?;
-    create(db, &NewTeamGroup {
-        pool_bracket_id: bracket_id,
+    if let Some(tgid) = bracket.team_group_id {
+        if let Ok(existing) = read(db, tgid) {
+            return Ok(existing);
+        }
+    }
+    let group = create(db, &NewTeamGroup {
         type_: bracket.type_,
         creator_userid: user_id,
         last_modified_userid: user_id,
-    })
+    })?;
+    crate::models::pool_bracket::set_team_group_id(db, bracket_id, group.team_group_id)?;
+    Ok(group)
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &TeamGroupChangeset, modified_by: Uuid) -> QueryResult<TeamGroup> {

@@ -41,10 +41,6 @@ pub fn clean_database(conn: &mut database::Connection) {
         .execute(conn)
         .expect("Failed to clean team_teamgroups");
 
-    diesel::delete(teamgroups::table)
-        .execute(conn)
-        .expect("Failed to clean teamgroups");
-
     diesel::delete(roles_permissions::table)
         .execute(conn)
         .expect("Failed to clean roles_permissions");
@@ -161,10 +157,15 @@ pub fn clean_database(conn: &mut database::Connection) {
         .execute(conn)
         .expect("Failed to clean activation tokens");
 
+    // pool_brackets now holds the FK to teamgroups (reversed 1:1), so brackets must go first.
     diesel::delete(pool_brackets::table)
         .execute(conn)
         .expect("Failed to clean pool_brackets");
-    
+
+    diesel::delete(teamgroups::table)
+        .execute(conn)
+        .expect("Failed to clean teamgroups");
+
     diesel::delete(roundgroups::table)
         .execute(conn)
         .expect("Failed to clean roundgroups");

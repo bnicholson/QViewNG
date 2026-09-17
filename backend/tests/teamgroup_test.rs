@@ -6,7 +6,7 @@ use backend::database::Database;
 use backend::models::division::DivisionBuilder;
 use backend::models::roundgroup::RoundGroupBuilder;
 use backend::models::pool_bracket::PoolBracketBuilder;
-use backend::models::teamgroup::{self, TeamGroupBuilder};
+use backend::models::teamgroup;
 use backend::models::tournament::TournamentBuilder;
 use backend::models::user::UserBuilder;
 use crate::common::{TEST_DB_URL, clean_database};
@@ -29,8 +29,8 @@ async fn delete_soft_deletes_and_purge_removes() {
         .set_name("Pool Play").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
     let bracket = PoolBracketBuilder::new(roundgroup.did)
         .set_name("Pool A").set_type("pool").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
-    let group = TeamGroupBuilder::new(bracket.pool_bracket_id)
-        .set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    // The bracket owns the 1-to-1 FK now; resolve_or_create makes the group and attaches it.
+    let group = teamgroup::resolve_or_create_for_pool_bracket(&mut conn, bracket.pool_bracket_id, owner.id).unwrap();
 
     // ── delete() is a soft delete: hidden from reads, still present with del_fl = true. ──
     let affected = teamgroup::delete(&mut conn, group.team_group_id).unwrap();

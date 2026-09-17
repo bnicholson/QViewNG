@@ -360,6 +360,7 @@ diesel::table! {
         name -> Varchar,
         del_fl -> Bool,
         divisionid -> Uuid,
+        team_group_id -> Nullable<Uuid>,
     }
 }
 
@@ -606,7 +607,6 @@ diesel::table! {
 diesel::table! {
     teamgroups (team_group_id) {
         team_group_id -> Uuid,
-        pool_bracket_id -> Uuid,
         #[sql_name = "type"]
         #[max_length = 64]
         type_ -> Varchar,
@@ -789,6 +789,7 @@ diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
 diesel::joinable!(password_reset_tokens -> users (user_id));
 diesel::joinable!(pool_brackets -> divisions (divisionid));
+diesel::joinable!(pool_brackets -> teamgroups (team_group_id));
 diesel::joinable!(roles_permissions -> permissions (permission_id));
 diesel::joinable!(roles_permissions -> roles (role_id));
 diesel::joinable!(rooms -> tournaments (tid));
@@ -803,7 +804,6 @@ diesel::joinable!(statsgroups -> divisions (division_id));
 diesel::joinable!(statsgroups -> tournaments (tournament_id));
 diesel::joinable!(team_teamgroups -> teamgroups (team_group_id));
 diesel::joinable!(team_teamgroups -> teams (teamid));
-diesel::joinable!(teamgroups -> pool_brackets (pool_bracket_id));
 diesel::joinable!(teams -> divisions (did));
 diesel::joinable!(tournamentgroups_tournaments -> tournamentgroups (tournamentgroupid));
 diesel::joinable!(tournamentgroups_tournaments -> tournaments (tournamentid));

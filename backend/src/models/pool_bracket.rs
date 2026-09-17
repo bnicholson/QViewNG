@@ -93,6 +93,7 @@ pub struct PoolBracket {
     pub name: String,                         // unique within the parent division
     pub del_fl: bool,                         // soft-delete flag
     pub divisionid: Uuid,                     // parent division
+    pub team_group_id: Option<Uuid>,          // 1-to-1 team group (UNIQUE); created lazily, so nullable
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -351,6 +352,15 @@ pub fn resolve_default_for_division(db: &mut database::Connection, division_id: 
         },
     )?;
     Ok(bracket.pool_bracket_id)
+}
+
+/// Attaches the bracket's 1-to-1 team group (the FK + UNIQUE now live on pool_brackets). Called when
+/// a team group is first created for the bracket.
+pub fn set_team_group_id(db: &mut database::Connection, bracket_id: Uuid, tgid: Uuid) -> QueryResult<usize> {
+    use crate::schema::pool_brackets::dsl::*;
+    diesel::update(pool_brackets.filter(pool_bracket_id.eq(bracket_id)))
+        .set(team_group_id.eq(tgid))
+        .execute(db)
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &PoolBracketChangeset, modified_by: Uuid) -> QueryResult<PoolBracket> {

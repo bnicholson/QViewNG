@@ -7,7 +7,6 @@ use backend::models::room::RoomBuilder;
 use backend::models::round::RoundBuilder;
 use backend::models::team::TeamBuilder;
 use backend::models::team_teamgroup::TeamTeamgroupBuilder;
-use backend::models::teamgroup::TeamGroupBuilder;
 use backend::models::tournament::TournamentBuilder;
 use backend::models::user::UserBuilder;
 use uuid::Uuid;
@@ -48,10 +47,9 @@ pub fn seed_pool_bracket_profile(db: &mut database::Connection) -> Uuid {
         .build_and_insert(db)
         .unwrap();
 
-    // 1-to-1 teamgroup for the bracket, with three teams associated via team_teamgroups.
-    let group = TeamGroupBuilder::new(bracket.pool_bracket_id)
-        .set_creator_userid(owner.id)
-        .build_and_insert(db)
+    // 1-to-1 teamgroup for the bracket, with three teams associated via team_teamgroups. The bracket
+    // owns the FK now, so resolve_or_create makes the group and attaches it.
+    let group = backend::models::teamgroup::resolve_or_create_for_pool_bracket(db, bracket.pool_bracket_id, owner.id)
         .unwrap();
 
     let mut teams = Vec::new();
