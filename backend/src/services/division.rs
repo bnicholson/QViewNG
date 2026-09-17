@@ -304,6 +304,9 @@ async fn create(
             })));
         }
     };
+    // Captured before `tournament` is moved into the policy context below; used to schedule the
+    // default Round 1 at 8am on the tournament's start date.
+    let tournament_start_date = tournament.fromdate;
 
     let user_is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
     let policy_ctx = PolicyContext {
@@ -323,7 +326,8 @@ async fn create(
     }
 
     // Record who created/last-modified this row (server-derived, never client-supplied).
-    item.last_modified_user = user_ctx.user_id;
+    let creator_id = user_ctx.user_id;
+    item.last_modified_user = creator_id;
 
     tracing::debug!("{} Division model create {:?}", line!(), item);
 
@@ -353,6 +357,37 @@ async fn create(
                 }
             }
             Err(e) => tracing::error!("{} Failed to create parallel statsgroup for division {}: {:?}", line!(), division.did, e),
+        }
+
+        // Seed the division with a starting structure: a "Session 1" roundgroup containing a
+        // "Round 1" scheduled for 8am on the tournament's start date, plus a "Pool A" pool bracket.
+        match models::roundgroup::RoundGroupBuilder::new(division.did)
+            .set_name("Session 1")
+            .set_creator_userid(creator_id)
+            .build_and_insert(&mut conn)
+        {
+            Ok(roundgroup) => {
+                use chrono::{TimeZone, Utc};
+                let round_start = Utc.from_utc_datetime(&tournament_start_date.and_hms_opt(8, 0, 0).unwrap());
+                if let Err(e) = models::round::RoundBuilder::new_default(roundgroup.roundgroup_id)
+                    .set_name("Round 1")
+                    .set_scheduled_start_time(round_start)
+                    .set_last_modified_user(creator_id)
+                    .build_and_insert(&mut conn)
+                {
+                    tracing::error!("{} Failed to create default Round 1 for division {}: {:?}", line!(), division.did, e);
+                }
+            }
+            Err(e) => tracing::error!("{} Failed to create default Session 1 for division {}: {:?}", line!(), division.did, e),
+        }
+
+        if let Err(e) = models::pool_bracket::PoolBracketBuilder::new(division.did)
+            .set_name("Pool A")
+            .set_type("pool")
+            .set_creator_userid(creator_id)
+            .build_and_insert(&mut conn)
+        {
+            tracing::error!("{} Failed to create default Pool A for division {}: {:?}", line!(), division.did, e);
         }
     }
 
