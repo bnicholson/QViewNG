@@ -274,9 +274,11 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
             <Button startIcon={<EditIcon />} onClick={() => setDivDialog({ open: true, division: selectedDivision })} disabled={!canEdit || !selectedDivision}>
               Edit
             </Button>
-            <Button startIcon={<AddIcon />} onClick={() => setDivDialog({ open: true, division: null })} disabled={!canEdit}>
+            {/* Divisions shouldn't be created after registration, and scheduling comes after
+                registration closes — so no "Create Division" here. */}
+            {/* <Button startIcon={<AddIcon />} onClick={() => setDivDialog({ open: true, division: null })} disabled={!canEdit}>
               Create Division
-            </Button>
+            </Button> */}
           </Box>
 
           {/* Row 2a — RoundGroup + type + create */}
@@ -408,8 +410,10 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         onCancel={() => setDivDialog({ open: false, division: null })}
         onSave={(division) => {
           setDivDialog({ open: false, division: null })
-          loadDivisions()
-          setSelectedDid(division.did)
+          // Reload the list, then select the just-created (or edited) division in the dropdown.
+          DivisionAPI.getByTournament(tid, PAGE, SIZE)
+            .then(ds => { setDivisions(ds); setSelectedDid(division.did) })
+            .catch(() => setError('Failed to load divisions.'))
         }}
       />
 
@@ -421,8 +425,12 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         onCancel={() => setRoundGroupDialog({ open: false, roundgroup: null })}
         onSave={(roundgroupRow) => {
           setRoundGroupDialog({ open: false, roundgroup: null })
-          if (selectedDid) loadDivisionData(selectedDid)
-          setSelectedRoundGroupId(roundgroupRow.roundgroup_id)
+          if (selectedDid) {
+            // Reload the division's roundgroups, then select the just-created (or edited) one.
+            RoundGroupAPI.getByDivision(selectedDid)
+              .then(rgs => { setRoundGroups(rgs); setSelectedRoundGroupId(roundgroupRow.roundgroup_id) })
+              .catch(() => setError('Failed to load sessions.'))
+          }
         }}
       />
 

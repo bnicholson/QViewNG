@@ -60,7 +60,9 @@ export const DivisionAPI = {
       const text = await response.text();
       throw new Error(`Failed to create division (${response.status}): ${text}`);
     }
-    return response.json();
+    // The backend wraps the division in an EntityResponse envelope ({ code, message, data }).
+    const envelope = await response.json();
+    return envelope.data ?? envelope;
   },
   delete: async (id: string) =>
     await fetch(`/api/divisions/${id}`, { method: 'DELETE' }),
