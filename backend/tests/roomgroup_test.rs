@@ -3,7 +3,8 @@ mod common;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::database::Database;
-use backend::models::roomgroup::{self, RoomGroup, RoomGroupBuilder};
+use backend::models::roomgroup::{self, RoomGroup, RoomGroupBuilder, RoomGroupRow};
+use backend::models::room::{RoomBuilder, RoomRow};
 use backend::models::tournament::TournamentBuilder;
 use backend::models::user::UserBuilder;
 use backend::routes::configure_routes;
@@ -184,4 +185,64 @@ async fn tournament_roomgroups_lookup_works() {
     let names: Vec<&str> = items.iter().map(|rg| rg.name.as_str()).collect();
     assert_eq!(names, vec!["Building A", "Building B"]);
     assert!(items.iter().all(|rg| rg.tournamentid == tournament.tid));
+}
+
+/// GET /api/tournaments/{tid}/roomgroup-rows returns the tournament's enriched Buildings rows
+/// (with the last-modifier's display name), paginated.
+#[actix_web::test]
+async fn tournament_roomgroup_rows_works() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let owner = UserBuilder::new_default("RG Rows Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Rows Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    RoomGroupBuilder::new(tournament.tid).set_name("Building A").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    RoomGroupBuilder::new(tournament.tid).set_name("Building B").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/tournaments/{}/roomgroup-rows?page=0&page_size=100", tournament.tid))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: PagedResponse<RoomGroupRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 2);
+    let names: Vec<&str> = body.items.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(names, vec!["Building A", "Building B"]);
+    for row in &body.items {
+        assert_eq!(row.last_modified_user_id, owner.id);
+        assert!(!row.last_modified_user_name.is_empty(), "row is enriched with the modifier's name");
+    }
+}
+
+/// GET /api/roomgroups/{id}/room-rows returns the enriched rooms in that building, and only those.
+#[actix_web::test]
+async fn roomgroup_room_rows_works() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let owner = UserBuilder::new_default("RG Room Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Room Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let building = RoomGroupBuilder::new(tournament.tid).set_name("Building A").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    // Two rooms in the building, one room with no building (must be excluded).
+    RoomBuilder::new_default("Room 1", tournament.tid).set_clientkey(Some("rr-k1".to_string()))
+        .set_roomgroupid(Some(building.roomgroupid)).build_and_insert(&mut conn).unwrap();
+    RoomBuilder::new_default("Room 2", tournament.tid).set_clientkey(Some("rr-k2".to_string()))
+        .set_roomgroupid(Some(building.roomgroupid)).build_and_insert(&mut conn).unwrap();
+    RoomBuilder::new_default("Room 3", tournament.tid).set_clientkey(Some("rr-k3".to_string()))
+        .build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/roomgroups/{}/room-rows?page=0&page_size=100", building.roomgroupid))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: PagedResponse<RoomRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 2, "only the building's two rooms");
+    let names: Vec<&str> = body.items.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(names, vec!["Room 1", "Room 2"]);
 }

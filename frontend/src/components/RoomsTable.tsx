@@ -55,7 +55,14 @@ function roomColumns(showAuditColumns: boolean): ColumnDef<RoomRowTS>[] {
   ];
 }
 
-export default function RoomsTable({ tid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: { tid: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean }) {
+export default function RoomsTable({ tid, roomgroupid, showCreateButton = true, showDeleteButton = true, showAuditColumns = true }: {
+  tid: string;
+  /** When set, rows are scoped to this roomgroup (building) instead of the whole tournament. */
+  roomgroupid?: string;
+  showCreateButton?: boolean;
+  showDeleteButton?: boolean;
+  showAuditColumns?: boolean;
+}) {
   const [rooms, setRooms] = useState<RoomRowTS[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -67,7 +74,10 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
 
   const loadRooms = useCallback((p: number, ps: number) => {
     setLoading(true);
-    RoomAPI.getRowsByTournament(tid, p, ps)
+    const request = roomgroupid
+      ? RoomAPI.getRowsByRoomGroup(roomgroupid, p, ps)
+      : RoomAPI.getRowsByTournament(tid, p, ps);
+    request
       .then(({ count, items }) => {
         setPage(p);
         setPageSize(ps);
@@ -76,11 +86,11 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
       })
       .catch(() => console.error("Failed to load rooms"))
       .finally(() => setLoading(false));
-  }, [tid]);
+  }, [tid, roomgroupid]);
 
   useEffect(() => {
     loadRooms(0, pageSizeRef.current);
-  }, [tid]);
+  }, [tid, roomgroupid]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadRooms(newPage, pageSize);
@@ -103,7 +113,7 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
   return (
     <>
       <DataTableTemplate<RoomRowTS>
-        key={tid}
+        key={roomgroupid ?? tid}
         entityLabel="Room"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
@@ -121,6 +131,7 @@ export default function RoomsTable({ tid, showCreateButton = true, showDeleteBut
       />
       <RoomEditorDialog
         tid={tid}
+        lockedRoomGroupId={roomgroupid}
         isOpen={editorIsOpen}
         onCancel={() => setEditorIsOpen(false)}
         onSave={handleSave}

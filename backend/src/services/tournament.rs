@@ -267,8 +267,8 @@ async fn read_rooms(
     }
 }
 
-/// The roomgroups (e.g. buildings) this tournament uses — every roomgroup referenced by one of its
-/// rooms. Powers "look up rooms by roomgroup" (e.g. the schedule's Building filter).
+/// The roomgroups (e.g. buildings) belonging to this tournament. Powers "look up rooms by roomgroup"
+/// (e.g. the schedule's Building filter).
 #[get("/{id}/roomgroups")]
 async fn read_roomgroups(
     db: Data<Database>,
@@ -282,6 +282,25 @@ async fn read_roomgroups(
 
     match models::roomgroup::read_all_of_tournament(&mut conn, item_id.into_inner()) {
         Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Enriched roomgroup (Buildings) data-table rows for the tournament, in one paginated call.
+#[get("/{id}/roomgroup-rows")]
+async fn read_roomgroup_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::roomgroup::read_roomgroup_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
@@ -1013,6 +1032,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_division_rows)
         .service(read_rooms)
         .service(read_roomgroups)
+        .service(read_roomgroup_rows)
         .service(read_room_rows)
         .service(read_rounds)
         .service(read_round_rows)

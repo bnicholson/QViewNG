@@ -45,6 +45,23 @@ async fn read(
     }
 }
 
+/// Enriched room data-table rows for the rooms in this roomgroup (building), in one paginated call.
+#[get("/{id}/room-rows")]
+async fn read_room_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::room::read_room_rows_of_roomgroup(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[post("")]
 async fn create(
     db: Data<Database>,
@@ -180,6 +197,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     scope
         .service(index)
         .service(read)
+        .service(read_room_rows)
         .service(create)
         .service(update)
         .service(purge)

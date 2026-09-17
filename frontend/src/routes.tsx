@@ -15,6 +15,7 @@ import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
 import { RoundProfile } from "./pages/RoundProfile"
 import { DivisionProfile } from "./pages/DivisionProfile"
 import { RoundGroupProfile } from "./pages/RoundGroupProfile"
+import { BuildingProfile } from "./pages/BuildingProfile"
 import { PoolBracketProfile } from "./pages/PoolBracketProfile"
 import { RoomProfile } from "./pages/RoomProfile";
 import { GameProfile } from "./pages/GameProfile";
@@ -70,6 +71,7 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/division-sessions" element={<TournamentProfile childRoute="division-sessions" />} />
             <Route path="/tournament/:tid/pools" element={<TournamentProfile childRoute="pools" />} />
             <Route path="/tournament/:tid/brackets" element={<TournamentProfile childRoute="brackets" />} />
+            <Route path="/tournament/:tid/buildings" element={<TournamentProfile childRoute="buildings" />} />
             <Route path="/tournament/:tid/rooms" element={<TournamentProfile childRoute="rooms" />} />
             <Route path="/tournament/:tid/teams" element={<TournamentProfile childRoute="teams" />} />
             <Route path="/team/:teamid" element={<TeamProfile />} />
@@ -87,6 +89,9 @@ export default function QViewRoutes() {
             <Route path="/tournament-group/:tgid/overview" element={<TournamentGroupProfile childRoute="overview" />} />
             <Route path="/tournament-group/:tgid/tournaments" element={<TournamentGroupProfile childRoute="tournaments" />} />
             <Route path="/tournament-group/:tgid/stats-groups" element={<TournamentGroupProfile childRoute="stats-groups" />} />
+            <Route path="/building/:buildingid" element={<BuildingProfile childRoute="overview" />} />
+            <Route path="/building/:buildingid/overview" element={<BuildingProfile childRoute="overview" />} />
+            <Route path="/building/:buildingid/rooms" element={<BuildingProfile childRoute="rooms" />} />
             <Route path="/round/:roundid" element={<RoundProfile />} />
             <Route path="/round/:roundid/overview" element={<RoundProfile childRoute="overview" />} />
             <Route path="/round/:roundid/games" element={<RoundProfile childRoute="games" />} />

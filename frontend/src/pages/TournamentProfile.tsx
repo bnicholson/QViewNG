@@ -12,6 +12,7 @@ import { AdminAPI } from '../features/AdminAPI'
 import { makeCancellable } from '../features/makeCancellable'
 import DivisionsTable from '../components/DivisionsTable'
 import RoomsTable from '../components/RoomsTable'
+import BuildingsTable from '../components/BuildingsTable'
 import RoundsTable from '../components/RoundsTable'
 import RoundGroupsTable from '../components/RoundGroupsTable'
 import PoolBracketsTable from '../components/PoolBracketsTable'
@@ -165,6 +166,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Division Sessions', to: `/tournament/${tid}/division-sessions` },
     { kind: 'route', label: 'Pools',        to: `/tournament/${tid}/pools`        },
     { kind: 'route', label: 'Brackets',     to: `/tournament/${tid}/brackets`     },
+    { kind: 'route', label: 'Buildings',    to: `/tournament/${tid}/buildings`    },
     { kind: 'route', label: 'Rooms',        to: `/tournament/${tid}/rooms`        },
     { kind: 'route', label: 'Teams',        to: `/tournament/${tid}/teams`        },
     { kind: 'route', label: 'Quizzers',     to: `/tournament/${tid}/quizzers`     },
@@ -209,6 +211,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'division-sessions' && <RoundGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'pools'             && <PoolBracketsTable tid={String(tournament?.tid)} type="pool" entityLabel="Pool" title="Pools" showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'brackets'          && <PoolBracketsTable tid={String(tournament?.tid)} type="bracket" entityLabel="Bracket" title="Brackets" showCreateButton={canCreate('division:create')} showEditButton={canCreate('division:update')} showDeleteButton={canCreate('division:delete')} showAuditColumns={canViewAuditColumns}/>}
+          {props.childRoute === 'buildings'         && <BuildingsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showEditButton={canCreate('room:update')} showDeleteButton={canCreate('room:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'rooms'             && <RoomsTable tid={String(tournament?.tid)} showCreateButton={canCreate('room:create')} showDeleteButton={canCreate('room:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'rounds'            && <RoundsTable tid={String(tournament?.tid)} showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'teams'             && <TeamsTable tid={String(tournament?.tid)} showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')} showAuditColumns={canViewAuditColumns}/>}

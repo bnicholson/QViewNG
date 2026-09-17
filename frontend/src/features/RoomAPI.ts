@@ -21,6 +21,7 @@ export interface NewRoomPayload {
   clientkey: string;
   quizmaster_id?: string | null;
   contentjudge_id?: string | null;
+  roomgroupid?: string | null;
 }
 
 export interface PagedRooms {
@@ -66,6 +67,9 @@ export const RoomAPI = {
   /** One page of the tournament's enriched room rows (+ last-modified user name), plus total count. */
   getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoomRows> =>
     (await fetch(`/api/tournaments/${tid}/room-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of a roomgroup's (building's) enriched room rows, plus total count. */
+  getRowsByRoomGroup: async (roomgroupid: string, page: number, size: number): Promise<PagedRoomRows> =>
+    (await fetch(`/api/roomgroups/${roomgroupid}/room-rows?page=${page}&page_size=${size}`)).json(),
   // Live Room Monitor rows (latest ping + referenced game's resend status) for a tournament.
   // Access is restricted server-side to super users, the tournament owner, and admins.
   getMonitorByTournament: async (tid: string, accessToken?: string): Promise<RoomMonitorRowTS[]> => {

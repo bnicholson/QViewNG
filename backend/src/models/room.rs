@@ -321,9 +321,46 @@ pub fn read_room_rows_of_tournament(
         rooms.filter(tid.eq(tournament_id)).filter(del_fl.eq(false)).count().get_result(db)?
     };
     let list = read_all_rooms_of_tournament(db, tournament_id, pagination)?;
+    Ok((enrich_room_rows(db, list)?, total))
+}
+
+/// One page of rooms belonging to a roomgroup (e.g. building), ordered by name.
+pub fn read_all_rooms_of_roomgroup(
+    db: &mut database::Connection,
+    roomgroup_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<Vec<Room>> {
+    use crate::schema::rooms::dsl::*;
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    rooms
+        .filter(roomgroupid.eq(roomgroup_id))
+        .filter(del_fl.eq(false))
+        .order(name.asc())
+        .limit(page_size)
+        .offset(offset_val)
+        .load::<Room>(db)
+}
+
+/// Returns one page of enriched room-table rows for a roomgroup (building) plus the total count.
+pub fn read_room_rows_of_roomgroup(
+    db: &mut database::Connection,
+    roomgroup_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<RoomRow>, i64)> {
+    let total: i64 = {
+        use crate::schema::rooms::dsl::*;
+        rooms.filter(roomgroupid.eq(roomgroup_id)).filter(del_fl.eq(false)).count().get_result(db)?
+    };
+    let list = read_all_rooms_of_roomgroup(db, roomgroup_id, pagination)?;
+    Ok((enrich_room_rows(db, list)?, total))
+}
+
+/// Attaches the last-modifier's display name to a page of rooms.
+fn enrich_room_rows(db: &mut database::Connection, list: Vec<Room>) -> QueryResult<Vec<RoomRow>> {
     let name_ids: Vec<Uuid> = list.iter().map(|r| r.last_modified_user).collect();
     let name_by_id = crate::models::user::read_display_names(db, &name_ids)?;
-    let rows = list
+    Ok(list
         .into_iter()
         .map(|r| RoomRow {
             last_modified_user_name: name_by_id
@@ -338,8 +375,7 @@ pub fn read_room_rows_of_tournament(
             created_at: r.created_at,
             updated_at: r.updated_at,
         })
-        .collect();
-    Ok((rows, total))
+        .collect())
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoomChangeset, modified_by: Uuid) -> QueryResult<Room> {

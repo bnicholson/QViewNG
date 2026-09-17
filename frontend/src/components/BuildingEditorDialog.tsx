@@ -14,12 +14,11 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import Slide from '@mui/material/Slide'
 import TextField from '@mui/material/TextField'
-import TextareaAutosize from '@mui/material/TextareaAutosize'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
-import { RoomAPI, type NewRoomPayload, type RoomTS } from '../features/RoomAPI'
+import { RoomGroupAPI, type RoomGroupTS } from '../features/RoomGroupAPI'
 import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
@@ -29,39 +28,34 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-interface RoomFormState {
+interface FormState {
   name: string;
-  building: string;
-  comments: string;
-  clientkey: string;
+  notes: string;
 }
 
-const emptyState: RoomFormState = {
-  name: "",
-  building: "",
-  comments: "",
-  clientkey: "",
-};
+const emptyState: FormState = { name: "", notes: "" };
 
 interface Props {
+  /** Tournament the building belongs to; required when creating a new building. */
   tid: string;
   isOpen: boolean;
-  /** When set, a newly created room is placed in this roomgroup (building). */
-  lockedRoomGroupId?: string;
+  /** When set, the dialog edits this existing building instead of creating a new one. */
+  building?: RoomGroupTS | null;
   onCancel: VoidFunction;
-  onSave: (room: RoomTS) => void;
+  onSave: (building: RoomGroupTS) => void;
 }
 
-export const RoomEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedRoomGroupId, onCancel, onSave } = props;
+export const BuildingEditorDialog = (props: Props) => {
+  const { tid, isOpen, building, onCancel, onSave } = props;
   const { accessToken } = useAuth();
-  const [form, setForm] = useState<RoomFormState>(emptyState);
+  const isEdit = !!building;
+  const [form, setForm] = useState<FormState>(emptyState);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(emptyState);
+    setForm(building ? { name: building.name, notes: building.notes } : emptyState);
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("");
     setAlertOpened(false);
@@ -70,10 +64,12 @@ export const RoomEditorDialog = (props: Props) => {
   useEffect(() => {
     if (!isOpen) return;
     resetState();
-  }, [isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, building]);
 
   const openCancelDialog = () => {
-    const isDirty = form.name !== "" || form.building !== "" || form.comments !== "" || form.clientkey !== "";
+    const initial = building ? { name: building.name, notes: building.notes } : emptyState;
+    const isDirty = form.name !== initial.name || form.notes !== initial.notes;
     if (!isDirty) {
       onCancel();
     } else {
@@ -89,24 +85,18 @@ export const RoomEditorDialog = (props: Props) => {
 
   const handleSave = async () => {
     if (!form.name.trim()) {
-      setErrorMsg("Room name is required.");
+      setErrorMsg("Building name is required.");
       setAlertOpened(true);
       return;
     }
 
-    const payload: NewRoomPayload = {
-      tid,
-      name: form.name,
-      // Building and Client Key are no longer collected in the form; send blank strings.
-      building: "",
-      comments: form.comments,
-      clientkey: "",
-      roomgroupid: lockedRoomGroupId ?? null,
-    };
-
-    let result: RoomTS;
+    let result: RoomGroupTS;
     try {
-      result = await RoomAPI.create(payload, accessToken);
+      if (building) {
+        result = await RoomGroupAPI.update(building.roomgroupid, { name: form.name.trim(), notes: form.notes }, accessToken);
+      } else {
+        result = await RoomGroupAPI.create({ tournamentid: tid, name: form.name.trim(), notes: form.notes }, accessToken);
+      }
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
       setAlertOpened(true);
@@ -122,23 +112,18 @@ export const RoomEditorDialog = (props: Props) => {
     message: "Cancel if you want to make more changes.",
     onCancel: () => setConfirmDialog(confirmDialogDefaultState),
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleSave(); },
-    title: "Save new room?",
+    title: isEdit ? "Save changes to this building?" : "Save new building?",
   });
 
   return (
-    <Dialog
-      fullScreen
-      open={isOpen}
-      onClose={openCancelDialog}
-      slots={{ transition: Transition }}
-    >
+    <Dialog fullScreen open={isOpen} onClose={openCancelDialog} slots={{ transition: Transition }}>
       <AppBar sx={{ position: 'sticky' }}>
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={openCancelDialog} aria-label="close">
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Create Room
+            {isEdit ? "Edit Building" : "Create Building"}
           </Typography>
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>
@@ -149,12 +134,7 @@ export const RoomEditorDialog = (props: Props) => {
           <Alert
             severity="error"
             action={
-              <IconButton
-                aria-label="close"
-                color="inherit"
-                size="small"
-                onClick={() => setAlertOpened(false)}
-              >
+              <IconButton aria-label="close" color="inherit" size="small" onClick={() => setAlertOpened(false)}>
                 <CloseIcon fontSize="inherit" />
               </IconButton>
             }
@@ -168,29 +148,26 @@ export const RoomEditorDialog = (props: Props) => {
         <List>
           <ListItem>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12 }}>
-                <InputLabel>Room Name (*required)</InputLabel>
+              <Grid size={{ xs: 6 }}>
+                <InputLabel>Building Name (*required)</InputLabel>
                 <TextField
-                  variant="outlined"
-                  placeholder="Room Name"
                   value={form.name}
-                  sx={{ width: 600, maxWidth: '100%' }}
                   onChange={(e) => setForm(s => ({ ...s, name: e.target.value }))}
+                  placeholder="e.g. Fellowship Hall"
+                  fullWidth
+                  size="small"
                 />
               </Grid>
-            </Grid>
-          </ListItem>
-
-          <ListItem>
-            <Grid container>
               <Grid size={{ xs: 12 }}>
-                <InputLabel>Comments</InputLabel>
-                <TextareaAutosize
-                  minRows={4}
-                  placeholder="Any comments about this room"
-                  style={{ width: 600 }}
-                  value={form.comments}
-                  onChange={(e) => setForm(s => ({ ...s, comments: e.target.value }))}
+                <InputLabel>Notes</InputLabel>
+                <TextField
+                  value={form.notes}
+                  onChange={(e) => setForm(s => ({ ...s, notes: e.target.value }))}
+                  placeholder="Anything worth noting about this building"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  size="small"
                 />
               </Grid>
             </Grid>

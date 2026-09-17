@@ -23,10 +23,31 @@ export interface RoomGroupChangeset {
   notes?: string;
 }
 
+/** One fully-formed row of the Buildings data table: the roomgroup plus its last-modifier's name. */
+export interface RoomGroupRowTS {
+  roomgroupid: string;
+  tournamentid: string;
+  type: string;
+  name: string;
+  notes: string;
+  created_date: string;
+  last_modified_date: string;
+  last_modified_user_name: string;
+  last_modified_user_id: string;
+}
+
+export interface PagedRoomGroupRows {
+  count: number;
+  items: RoomGroupRowTS[];
+}
+
 export const RoomGroupAPI = {
-  /** The roomgroups (e.g. buildings) a tournament uses — every roomgroup referenced by its rooms. */
+  /** The roomgroups (buildings) belonging to a tournament. */
   getByTournament: async (tid: string): Promise<RoomGroupTS[]> =>
     (await fetch(`/api/tournaments/${tid}/roomgroups`)).json(),
+  /** One page of the tournament's enriched Buildings rows, plus total count. */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoomGroupRows> =>
+    (await fetch(`/api/tournaments/${tid}/roomgroup-rows?page=${page}&page_size=${size}`)).json(),
   getById: async (id: string): Promise<RoomGroupTS> => {
     const response = await fetch(`/api/roomgroups/${id}`);
     if (!response.ok) throw new Error(`Roomgroup not found (${response.status})`);
