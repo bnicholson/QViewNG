@@ -42,11 +42,6 @@ export const BuildingProfileOverviewPage = ({ building, tid, onUpdated, showAudi
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Typography variant="body2" color="text.secondary">Type</Typography>
-            <Typography variant="body1">{building.type}</Typography>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="body2" color="text.secondary">Notes</Typography>
             <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{building.notes || '—'}</Typography>
           </Grid>
