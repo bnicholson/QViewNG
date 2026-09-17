@@ -41,6 +41,7 @@ import { UserAPI, type UserTS } from '../features/UserAPI'
 import { DivisionEditorDialog } from './DivisionEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
+import SessionRoundsManager from './SessionRoundsManager'
 
 const PAGE = 0
 const SIZE = 500
@@ -88,6 +89,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   // The "active" pool/bracket — the target the unplaced-team chips add to. With the dropdown gone,
   // every pool is shown as a card and the active one is chosen by clicking its card.
   const [selectedBracketId, setSelectedBracketId] = useState('')
+
+  // The card's top-level tab: Sessions (rounds management), Pools, or Brackets.
+  const [cardTab, setCardTab] = useState<'sessions' | 'pools' | 'brackets'>('sessions')
 
   // Teams and games per pool/bracket in the selected roundgroup (drive each card's team list + matrix).
   const [teamsByBracket, setTeamsByBracket] = useState<Record<string, TeamRowTS[]>>({})
@@ -162,11 +166,11 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   useEffect(() => {
     setTeamsByBracket({})
     setGamesByBracket({})
-    if (selectedRoundGroupId) {
+    if (selectedDid) {
       loadPlacement(divisionBrackets)
       loadGamesForRoundGroup(divisionBrackets)
     }
-  }, [selectedRoundGroupId, divisionBrackets, loadPlacement, loadGamesForRoundGroup])
+  }, [selectedDid, divisionBrackets, loadPlacement, loadGamesForRoundGroup])
 
   // ── Derived values ───────────────────────────────────────────────────────
 
@@ -176,15 +180,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const pools = useMemo(() => roundgroupBrackets.filter(b => b.type === 'pool'), [roundgroupBrackets])
   const brackets = useMemo(() => roundgroupBrackets.filter(b => b.type === 'bracket'), [roundgroupBrackets])
 
-  // A division holds either pools (Round Robin) or brackets (Tournament Bracket(s)), never both;
-  // until one is added it is Undecided and either kind may be started.
-  const roundgroupType: RoundGroupType =
-    pools.length > 0 ? 'Round Robin'
-    : brackets.length > 0 ? 'Tournament Bracket(s)'
-    : 'Undecided'
-
-  // The pools/brackets shown as cards, and whether we're in bracket mode.
-  const isBracketMode = roundgroupType === 'Tournament Bracket(s)'
+  // The Pools and Brackets tabs each show their own kind; `row3Options` follows the active tab.
+  const isBracketMode = cardTab === 'brackets'
   const row3Options = isBracketMode ? brackets : pools
 
   // Keep the active pool/bracket (the unplaced-team target) valid: default to the first one and
@@ -281,7 +278,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
             </Button> */}
           </Box>
 
-          {/* Row 2a — RoundGroup + type + create */}
+          {/* Row 2a (the Session dropdown) is removed — sessions are managed on the "Sessions" tab
+              of the card below.
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 240 }} disabled={!selectedDid}>
               <InputLabel>Session</InputLabel>
@@ -303,96 +301,115 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
               Create Session
             </Button>
           </Box>
+          */}
 
           {/* The schedule card: teams awaiting placement on top, then the pool/bracket tabs (with a
               "+" to create another at the end of the row), then the selected pool/bracket's detail. */}
-          {selectedRoundGroupId && (
+          {selectedDid && (
             <Card variant="outlined">
               <CardContent>
-                {/* Teams awaiting placement — left aligned, above the tabs */}
-                <Box sx={{ textAlign: 'left' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Teams needing placement{selectedBracket ? ` — click to add to the selected tab, "${selectedBracket.name}"` : ' — create a pool/bracket first'}:
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                    {unplacedTeams.length === 0
-                      ? <Typography variant="body2" color="text.secondary">All teams placed.</Typography>
-                      : unplacedTeams.map(t => (
-                          <Chip
-                            key={t.teamid}
-                            label={t.name}
-                            size="small"
-                            onClick={canEdit && selectedBracketId ? () => handleAddTeam(t.teamid) : undefined}
-                            disabled={!canEdit || !selectedBracketId}
-                          />
-                        ))
-                    }
-                  </Box>
-                </Box>
+                {/* Top-level tabs: Sessions (rounds management), Pools, Brackets. */}
+                <Tabs value={cardTab} onChange={(_e, v) => setCardTab(v)} sx={{ minHeight: 0 }}>
+                  <Tab value="sessions" label="Sessions" />
+                  <Tab value="pools" label="Pools" />
+                  <Tab value="brackets" label="Brackets" />
+                </Tabs>
+                <Divider sx={{ mt: 1, mb: 1.5 }} />
 
-                <Divider sx={{ my: 1.5 }} />
-
-                {roundgroupType === 'Undecided' ? (
-                  // No pools/brackets yet — offer to create the first of either kind.
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="body2" color="text.secondary">This session has no pools or brackets yet:</Typography>
-                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'pool', bracket: null })} disabled={!canEdit}>
-                      Create Pool
-                    </Button>
-                    <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: 'bracket', bracket: null })} disabled={!canEdit}>
-                      Create Bracket
-                    </Button>
-                  </Box>
+                {cardTab === 'sessions' ? (
+                  <SessionRoundsManager
+                    tid={tid}
+                    did={selectedDid}
+                    roundgroups={roundgroups}
+                    canEdit={canEdit}
+                    onRoundGroupsChanged={() => loadDivisionData(selectedDid)}
+                  />
                 ) : (
                   <>
-                    {/* Tabs row: a "Pools:"/"Brackets:" label, one tab per pool/bracket, then a "+" to create another. */}
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body1" sx={{ mr: 1, flexShrink: 0 }}>
-                        {isBracketMode ? 'Brackets:' : 'Pools:'}
+                    {/* Teams awaiting placement — left aligned, above the pool/bracket tabs */}
+                    <Box sx={{ textAlign: 'left' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Teams needing placement{selectedBracket ? ` — click to add to the selected tab, "${selectedBracket.name}"` : ` — create a ${isBracketMode ? 'bracket' : 'pool'} first`}:
                       </Typography>
-                      <Tabs
-                        value={row3Options.some(b => b.pool_bracket_id === selectedBracketId) ? selectedBracketId : false}
-                        onChange={(_e, value: string) => setSelectedBracketId(value)}
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        sx={{ minHeight: 0 }}
-                      >
-                        {row3Options.map(b => <Tab key={b.pool_bracket_id} value={b.pool_bracket_id} label={b.name} />)}
-                      </Tabs>
-                      <Tooltip title={`Edit ${isBracketMode ? 'Bracket' : 'Pool'}`}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: selectedBracket })}
-                            disabled={!canEdit || !selectedBracket}
-                            aria-label={`Edit ${isBracketMode ? 'Bracket' : 'Pool'}`}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })}
-                            disabled={!canEdit}
-                            aria-label={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}
-                          >
-                            <AddIcon />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                        {unplacedTeams.length === 0
+                          ? <Typography variant="body2" color="text.secondary">All teams placed.</Typography>
+                          : unplacedTeams.map(t => (
+                              <Chip
+                                key={t.teamid}
+                                label={t.name}
+                                size="small"
+                                onClick={canEdit && selectedBracketId ? () => handleAddTeam(t.teamid) : undefined}
+                                disabled={!canEdit || !selectedBracketId}
+                              />
+                            ))
+                        }
+                      </Box>
                     </Box>
 
-                    {selectedBracket && (
-                      <PoolDetail
-                        teams={teamsByBracket[selectedBracket.pool_bracket_id] ?? []}
-                        games={gamesByBracket[selectedBracket.pool_bracket_id] ?? []}
-                        canEdit={canEdit}
-                        onRemoveTeam={(teamid) => handleRemoveTeam(selectedBracket.pool_bracket_id, teamid)}
-                        onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
-                      />
+                    <Divider sx={{ my: 1.5 }} />
+
+                    {row3Options.length === 0 ? (
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          This division has no {isBracketMode ? 'brackets' : 'pools'} yet:
+                        </Typography>
+                        <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })} disabled={!canEdit}>
+                          Create {isBracketMode ? 'Bracket' : 'Pool'}
+                        </Button>
+                      </Box>
+                    ) : (
+                      <>
+                        {/* Tabs row: one tab per pool/bracket, plus edit/create actions. */}
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Typography variant="body1" sx={{ mr: 1, flexShrink: 0 }}>
+                            {isBracketMode ? 'Brackets:' : 'Pools:'}
+                          </Typography>
+                          <Tabs
+                            value={row3Options.some(b => b.pool_bracket_id === selectedBracketId) ? selectedBracketId : false}
+                            onChange={(_e, value: string) => setSelectedBracketId(value)}
+                            variant="scrollable"
+                            scrollButtons="auto"
+                            sx={{ minHeight: 0 }}
+                          >
+                            {row3Options.map(b => <Tab key={b.pool_bracket_id} value={b.pool_bracket_id} label={b.name} />)}
+                          </Tabs>
+                          <Tooltip title={`Edit ${isBracketMode ? 'Bracket' : 'Pool'}`}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: selectedBracket })}
+                                disabled={!canEdit || !selectedBracket}
+                                aria-label={`Edit ${isBracketMode ? 'Bracket' : 'Pool'}`}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })}
+                                disabled={!canEdit}
+                                aria-label={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}
+                              >
+                                <AddIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Box>
+
+                        {selectedBracket && (
+                          <PoolDetail
+                            teams={teamsByBracket[selectedBracket.pool_bracket_id] ?? []}
+                            games={gamesByBracket[selectedBracket.pool_bracket_id] ?? []}
+                            canEdit={canEdit}
+                            onRemoveTeam={(teamid) => handleRemoveTeam(selectedBracket.pool_bracket_id, teamid)}
+                            onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
+                          />
+                        )}
+                      </>
                     )}
                   </>
                 )}

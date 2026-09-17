@@ -21,7 +21,7 @@ import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import { type Dayjs } from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
@@ -56,12 +56,15 @@ interface Props {
   lockedDivisionId?: string;
   /** When set, the Division RoundGroup is fixed to this id and its dropdown is disabled (e.g. from a RoundGroup profile). */
   lockedRoundGroupId?: string;
+  /** When set, the dialog edits this existing round (name/time) instead of creating a new one. */
+  round?: RoundTS | null;
   onCancel: VoidFunction;
   onSave: (round: RoundTS) => void;
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, round, onCancel, onSave } = props;
+  const isEdit = !!round;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
@@ -71,9 +74,18 @@ export const RoundEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(lockedDivisionId
-      ? { ...emptyState, did: lockedDivisionId, roundgroup_id: lockedRoundGroupId ?? "" }
-      : emptyState);
+    if (round) {
+      setForm({
+        did: lockedDivisionId ?? "",
+        roundgroup_id: round.roundgroup_id,
+        name: round.name,
+        scheduled_start_time: round.scheduled_start_time ? dayjs(round.scheduled_start_time) : null,
+      });
+    } else {
+      setForm(lockedDivisionId
+        ? { ...emptyState, did: lockedDivisionId, roundgroup_id: lockedRoundGroupId ?? "" }
+        : emptyState);
+    }
     setConfirmDialog(confirmDialogDefaultState);
     setErrorMsg("");
     setAlertOpened(false);
@@ -85,7 +97,8 @@ export const RoundEditorDialog = (props: Props) => {
     DivisionAPI.getByTournament(tid, 0, 100)
       .then(items => setDivisions(items))
       .catch(() => console.error("Failed to load divisions for round form"));
-  }, [isOpen, tid, lockedDivisionId, lockedRoundGroupId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, tid, lockedDivisionId, lockedRoundGroupId, round]);
 
   // A round belongs to a division roundgroup; load the chosen division's roundgroups to pick from.
   useEffect(() => {
@@ -132,15 +145,21 @@ export const RoundEditorDialog = (props: Props) => {
       return;
     }
 
-    const payload: NewRoundPayload = {
-      roundgroup_id: form.roundgroup_id,
-      name: form.name.trim(),
-      scheduled_start_time: form.scheduled_start_time.toISOString(),
-    };
-
     let result: RoundTS;
     try {
-      result = await RoundAPI.create(payload, accessToken);
+      if (round) {
+        result = await RoundAPI.update(round.roundid, {
+          name: form.name.trim(),
+          scheduled_start_time: form.scheduled_start_time.toISOString(),
+        }, accessToken);
+      } else {
+        const payload: NewRoundPayload = {
+          roundgroup_id: form.roundgroup_id,
+          name: form.name.trim(),
+          scheduled_start_time: form.scheduled_start_time.toISOString(),
+        };
+        result = await RoundAPI.create(payload, accessToken);
+      }
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);
       setAlertOpened(true);
@@ -156,7 +175,7 @@ export const RoundEditorDialog = (props: Props) => {
     message: "Cancel if you want to make more changes.",
     onCancel: () => setConfirmDialog(confirmDialogDefaultState),
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleSave(); },
-    title: "Save new round?",
+    title: isEdit ? "Save changes to this round?" : "Save new round?",
   });
 
   return (
@@ -172,7 +191,7 @@ export const RoundEditorDialog = (props: Props) => {
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Create Round
+            {isEdit ? "Edit Round" : "Create Round"}
           </Typography>
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>

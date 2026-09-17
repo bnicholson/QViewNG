@@ -74,14 +74,16 @@ export const RoundAPI = {
       const text = await response.text();
       throw new Error(`Failed to create round (${response.status}): ${text}`);
     }
-    return response.json();
+    const envelope = await response.json();
+    return envelope.data ?? envelope;
   },
   getById: async (id: string): Promise<RoundTS> => {
     const response = await fetch(`/api/rounds/${id}`);
     if (!response.ok) throw new Error(`Round not found (${response.status})`);
     return response.json();
   },
-  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null }, accessToken?: string): Promise<RoundTS> => {
+  /** Update a round's name/time, or move it to another session by setting `roundgroup_id`. */
+  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null; roundgroup_id?: string }, accessToken?: string): Promise<RoundTS> => {
     const response = await fetch(`/api/rounds/${id}`, {
       method: 'PUT',
       headers: {
@@ -97,11 +99,19 @@ export const RoundAPI = {
     const envelope = await response.json();
     return envelope.data ?? envelope;
   },
-  delete: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/rounds/${id}`, { method: 'DELETE' });
+  delete: async (id: string, accessToken?: string): Promise<void> => {
+    const response = await fetch(`/api/rounds/${id}`, {
+      method: 'DELETE',
+      headers: { ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) },
+    });
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to delete round (${response.status}): ${text}`);
+      // Surface the server's message (e.g. the "a game is associated" guard) when present.
+      let message = `Failed to delete round (${response.status})`;
+      try {
+        const body = await response.json();
+        if (body?.error) message = body.error;
+      } catch { /* non-JSON body */ }
+      throw new Error(message);
     }
   },
 }

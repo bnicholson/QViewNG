@@ -574,3 +574,55 @@ async fn get_all_games_of_round_works() {
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
+
+/// PUT /api/rounds/{id} with `roundgroup_id` moves the round to another session in the same
+/// division (this is what the schedule's drag-and-drop persists).
+#[actix_web::test]
+async fn move_round_to_another_session_works() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_, division, round, owner, _admin_user, _unrelated_user) =
+        fixtures::rounds::arrange_round_update_works_integration_test(&mut conn);
+    let target = backend::models::roundgroup::RoundGroupBuilder::new(division.did)
+        .set_name("Session 2").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["round:update".to_string()]);
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/rounds/{}", round.roundid))
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(json!({ "roundgroup_id": target.roundgroup_id }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let moved = models::round::read(&mut conn, round.roundid).unwrap();
+    assert_eq!(moved.roundgroup_id, target.roundgroup_id, "the round now belongs to the target session");
+}
+
+/// DELETE /api/rounds/{id} is blocked (409) when a game is assigned to the round.
+#[actix_web::test]
+async fn delete_round_with_game_is_blocked() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_game, tour, _division, round, _room, _t1, _t2, _c1, _c2, _qm) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    // The tournament owner (with round:delete) attempts to delete a round that has a game.
+    let token = make_token(tour.owner_id, vec!["tournament_manager".to_string()], vec!["round:delete".to_string()]);
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/rounds/{}", round.roundid))
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CONFLICT);
+
+    assert!(models::round::read(&mut conn, round.roundid).is_ok(), "the round is not deleted");
+}

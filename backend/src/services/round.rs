@@ -211,6 +211,19 @@ async fn update(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
+    // Moving the round to another session (roundgroup) is allowed only within the same division.
+    if let Some(target_rg_id) = item.roundgroup_id {
+        match models::roundgroup::read(&mut conn, target_rg_id) {
+            Ok(target_rg) if target_rg.did == division.did => {}
+            Ok(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": "A round can only be moved to a session in the same division."
+            }))),
+            Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Session with ID {} does not exist", target_rg_id)
+            }))),
+        }
+    }
+
     tracing::debug!("{} Round model update {:?} {:?}", line!(), round_id, item);
 
     let result = models::round::update(&mut conn, round_id, &item, user_ctx.user_id);
@@ -270,6 +283,15 @@ async fn destroy(
     let round_delete_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Delete.as_str());
     if is_rbac_and_abac_authorized(&policy_ctx, &round_delete_permission, AppResource::Round.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    // A round with games attached can't be deleted — the game(s) would be orphaned.
+    match models::game::count_of_round(&mut conn, round_id) {
+        Ok(n) if n > 0 => return Ok(HttpResponse::Conflict().json(json!({
+            "error": "This round cannot be deleted because there is a game associated with it. To delete the round, the game would need to be deleted or moved to a different round."
+        }))),
+        Ok(_) => {}
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     }
 
     tracing::debug!("{} Round model delete {:?}", line!(), round_id);

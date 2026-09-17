@@ -390,6 +390,13 @@ pub fn count(db_conn: &mut database::Connection) -> QueryResult<i64> {
     games.filter(del_fl.eq(false)).count().get_result(db_conn)
 }
 
+/// How many (non-deleted) games are assigned to a round. Used to block deleting a round that still
+/// has games.
+pub fn count_of_round(db_conn: &mut database::Connection, round_id: Uuid) -> QueryResult<i64> {
+    use crate::schema::games::dsl::*;
+    games.filter(roundid.eq(round_id)).filter(del_fl.eq(false)).count().get_result(db_conn)
+}
+
 pub fn count_by_tournament(db_conn: &mut database::Connection, tournament_id: Uuid) -> QueryResult<i64> {
     use crate::schema::{games, pool_brackets, divisions};
     games::table

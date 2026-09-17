@@ -164,6 +164,8 @@ pub struct NewRound {
 #[diesel(table_name = crate::schema::rounds)]
 #[diesel(primary_key(roundid))]
 pub struct RoundChangeset {
+    // Setting this moves the round to a different roundgroup (session).
+    pub roundgroup_id: Option<Uuid>,
     pub name: Option<String>,
     pub scheduled_start_time: Option<DateTime<Utc>>
 }
