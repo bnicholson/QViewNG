@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, game_statsgroup::GameStatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, game_statsgroup::GameStatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
@@ -315,7 +315,29 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
+    // Three roomgroups (buildings). Each division quizzes in its own building: Experienced in
+    // Building A (rooms 1-6), Novice in Building B (rooms 7-8), Decades in Building C (rooms 9-10).
+    let building_a = RoomGroupBuilder::new(tour.tid)
+        .set_name("Building A")
+        .set_notes("Experienced division")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let building_b = RoomGroupBuilder::new(tour.tid)
+        .set_name("Building B")
+        .set_notes("Novice division")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let building_c = RoomGroupBuilder::new(tour.tid)
+        .set_name("Building C")
+        .set_notes("Decades division")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
     let room_1 = RoomBuilder::new_default("Room 1", tour.tid)
+        .set_roomgroupid(Some(building_a.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("bankdiu".to_string()))
@@ -324,6 +346,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let room_2 = RoomBuilder::new_default("Room 2", tour.tid)
+        .set_roomgroupid(Some(building_a.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("bbhsth4".to_string()))
@@ -332,6 +355,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let room_3 = RoomBuilder::new_default("Room 3", tour.tid)
+        .set_roomgroupid(Some(building_a.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("16587397".to_string()))
@@ -340,6 +364,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let room_4 = RoomBuilder::new_default("Room 4", tour.tid)
+        .set_roomgroupid(Some(building_a.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("aplyhen".to_string()))
@@ -348,6 +373,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let room_5 = RoomBuilder::new_default("Room 5", tour.tid)
+        .set_roomgroupid(Some(building_a.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("llpjhin".to_string()))
@@ -356,6 +382,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let room_6 = RoomBuilder::new_default("Room 6", tour.tid)
+        .set_roomgroupid(Some(building_a.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("qwx7bfyh".to_string()))
@@ -364,6 +391,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let room_7 = RoomBuilder::new_default("Room 7", tour.tid)
+        .set_roomgroupid(Some(building_b.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("jjkalndi".to_string()))
@@ -374,18 +402,21 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Rooms 8-10 added so the Experienced division's two 6-team pools (3 rooms each) can run
     // concurrently with Novice and Decades in Session 1 without any room being double-booked.
     let room_8 = RoomBuilder::new_default("Room 8", tour.tid)
+        .set_roomgroupid(Some(building_b.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("rm8xk2po".to_string()))
         .build_and_insert(db)
         .unwrap();
     let room_9 = RoomBuilder::new_default("Room 9", tour.tid)
+        .set_roomgroupid(Some(building_c.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("rm9zt5qa".to_string()))
         .build_and_insert(db)
         .unwrap();
     let room_10 = RoomBuilder::new_default("Room 10", tour.tid)
+        .set_roomgroupid(Some(building_c.roomgroupid))
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("rm10wv3b".to_string()))

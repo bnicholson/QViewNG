@@ -437,6 +437,24 @@ diesel::table! {
 }
 
 diesel::table! {
+    roomgroups (roomgroupid) {
+        roomgroupid -> Uuid,
+        tournamentid -> Uuid,
+        #[sql_name = "type"]
+        #[max_length = 64]
+        type_ -> Varchar,
+        #[max_length = 128]
+        name -> Varchar,
+        notes -> Text,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+        del_fl -> Bool,
+    }
+}
+
+diesel::table! {
     rooms (roomid) {
         roomid -> Uuid,
         #[max_length = 32]
@@ -466,6 +484,7 @@ diesel::table! {
         ping_last_checkin_ts -> Nullable<Timestamptz>,
         last_modified_user -> Uuid,
         del_fl -> Bool,
+        roomgroupid -> Nullable<Uuid>,
     }
 }
 
@@ -792,6 +811,8 @@ diesel::joinable!(pool_brackets -> divisions (divisionid));
 diesel::joinable!(pool_brackets -> teamgroups (team_group_id));
 diesel::joinable!(roles_permissions -> permissions (permission_id));
 diesel::joinable!(roles_permissions -> roles (role_id));
+diesel::joinable!(roomgroups -> tournaments (tournamentid));
+diesel::joinable!(rooms -> roomgroups (roomgroupid));
 diesel::joinable!(rooms -> tournaments (tid));
 diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
@@ -841,6 +862,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     questionsandanswers,
     roles,
     roles_permissions,
+    roomgroups,
     rooms,
     rosters,
     rosters_coaches,

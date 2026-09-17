@@ -18,6 +18,7 @@ pub struct RoomBuilder {
     quizmaster_id: Option<Uuid>,
     contentjudge_id: Option<Uuid>,
     last_modified_user: Option<Uuid>,
+    roomgroupid: Option<Uuid>,
 }
 
 impl RoomBuilder {
@@ -31,6 +32,7 @@ impl RoomBuilder {
             quizmaster_id: None,
             contentjudge_id: None,
             last_modified_user: None,
+            roomgroupid: None,
         }
     }
     pub fn new_default(room_name: &str, tid: Uuid) -> Self {
@@ -43,6 +45,7 @@ impl RoomBuilder {
             quizmaster_id: None,
             contentjudge_id: None,
             last_modified_user: None,
+            roomgroupid: None,
         }
     }
     pub fn set_name(mut self, room_name: String) -> Self {
@@ -75,6 +78,10 @@ impl RoomBuilder {
     }
     pub fn set_last_modified_user(mut self, user_id: Uuid) -> Self {
         self.last_modified_user = Some(user_id);
+        self
+    }
+    pub fn set_roomgroupid(mut self, roomgroupid: Option<Uuid>) -> Self {
+        self.roomgroupid = roomgroupid;
         self
     }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
@@ -112,6 +119,7 @@ impl RoomBuilder {
                         quizmaster_id: self.quizmaster_id,
                         contentjudge_id: self.contentjudge_id,
                         last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil),
+                        roomgroupid: self.roomgroupid,
                     }
                 )
             }
@@ -165,6 +173,8 @@ pub struct Room {
     pub last_modified_user: Uuid,
     /// Soft-delete flag. When true the room is treated as deleted and excluded from reads.
     pub del_fl: bool,
+    /// Optional roomgroup (e.g. building) this room belongs to.
+    pub roomgroupid: Option<Uuid>,
 }
 
 #[derive(
@@ -184,6 +194,8 @@ pub struct NewRoom {
     pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
     #[serde(default)]
     pub last_modified_user: Uuid,
+    #[serde(default)]
+    pub roomgroupid: Option<Uuid>,
 }
 
 // #[tsync::tsync]

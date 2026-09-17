@@ -36,6 +36,7 @@ import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { TeamAPI, type TeamTS, type TeamRowTS } from '../features/TeamAPI'
 import { GameAPI, type GameRowTS, type PersonGameRowTS } from '../features/GameAPI'
 import { RoomAPI, type RoomTS } from '../features/RoomAPI'
+import { RoomGroupAPI, type RoomGroupTS } from '../features/RoomGroupAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { DivisionEditorDialog } from './DivisionEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
@@ -703,6 +704,9 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
   const [persons, setPersons] = useState<UserTS[]>([])
   const [personRole, setPersonRole] = useState('All')   // narrows the Person dropdown by capacity
   const [divisions, setDivisions] = useState<DivisionTS[]>([])
+  // Buildings (roomgroups) for the "Building" dropdown that narrows the Room filter; "All" = no narrowing.
+  const [roomgroups, setRoomGroups] = useState<RoomGroupTS[]>([])
+  const [buildingFilter, setBuildingFilter] = useState('All')
 
   // Team-filter cascade (Division → RoundGroup → Pool/Bracket), each defaulting to "All". These narrow
   // which teams the Team dropdown offers; they aren't themselves the filter.
@@ -739,6 +743,7 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
 
   useEffect(() => {
     RoomAPI.getByTournament(tid, PAGE, SIZE).then(rs => setRooms([...rs].sort((a, b) => naturalCompare(a.name, b.name)))).catch(() => setError('Failed to load rooms.'))
+    RoomGroupAPI.getByTournament(tid).then(rgs => setRoomGroups([...rgs].sort((a, b) => naturalCompare(a.name, b.name)))).catch(() => setError('Failed to load buildings.'))
     DivisionAPI.getByTournament(tid, PAGE, SIZE).then(setDivisions).catch(() => setError('Failed to load divisions.'))
   }, [tid])
 
@@ -863,11 +868,16 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
     GameAPI.getRowsByPoolBracket(dvBracket, PAGE, SIZE).then(r => setDvGames(r.items)).catch(() => setError('Failed to load games.'))
   }, [dvBracket])
 
+  // The "Building" dropdown narrows the Room dropdown's options; "All" shows every room. Changing it
+  // blanks the current Room selection.
+  const roomsForBuilding = buildingFilter === 'All' ? rooms : rooms.filter(r => r.roomgroupid === buildingFilter)
+  const onBuildingChange = (v: string) => { setBuildingFilter(v); setFilter({ kind: 'room', id: '' }) }
+
   // Auto-select a fetched dropdown's lone option so its downstream fetch starts without an extra
   // click. Each is gated to the active Filter By kind and only fires while that dropdown is unset.
   useEffect(() => {
-    if (filter.kind === 'room' && !filter.id && rooms.length === 1) setFilter({ kind: 'room', id: rooms[0].roomid })
-  }, [filter.kind, filter.id, rooms])
+    if (filter.kind === 'room' && !filter.id && roomsForBuilding.length === 1) setFilter({ kind: 'room', id: roomsForBuilding[0].roomid })
+  }, [filter.kind, filter.id, roomsForBuilding])
   useEffect(() => {
     if (filter.kind === 'person' && !filter.id && persons.length === 1) setFilter({ kind: 'person', id: persons[0].id })
   }, [filter.kind, filter.id, persons])
@@ -949,12 +959,22 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
         )}
 
         {filter.kind === 'room' && (
-          <FormControl size="small" sx={{ minWidth: 240 }}>
-            <InputLabel>Room</InputLabel>
-            <Select label="Room" value={valueFor('room')} onChange={(e: SelectChangeEvent) => setFilter({ kind: 'room', id: e.target.value })}>
-              {rooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+          <>
+            {/* Building narrows which rooms the Room dropdown offers; defaults to "All". */}
+            <FormControl size="small" sx={{ minWidth: 240 }}>
+              <InputLabel>Building</InputLabel>
+              <Select label="Building" value={buildingFilter} onChange={(e: SelectChangeEvent) => onBuildingChange(e.target.value)}>
+                <MenuItem value="All">All</MenuItem>
+                {roomgroups.map(rg => <MenuItem key={rg.roomgroupid} value={rg.roomgroupid}>{rg.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 240 }}>
+              <InputLabel>Room</InputLabel>
+              <Select label="Room" value={valueFor('room')} onChange={(e: SelectChangeEvent) => setFilter({ kind: 'room', id: e.target.value })}>
+                {roomsForBuilding.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </>
         )}
         {filter.kind === 'person' && (
           <>

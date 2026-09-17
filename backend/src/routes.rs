@@ -44,6 +44,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::pool_bracket::endpoints(web::scope("/poolbrackets")))
             .service(services::user::endpoints(web::scope("/users")))
             .service(services::room::endpoints(web::scope("/rooms")))
+            .service(services::roomgroup::endpoints(web::scope("/roomgroups")))
             .service(services::round::endpoints(web::scope("/rounds")))
             .service(services::team::endpoints(web::scope("/teams")))
             .service(services::game::endpoints(web::scope("/games")))

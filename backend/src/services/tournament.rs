@@ -267,6 +267,25 @@ async fn read_rooms(
     }
 }
 
+/// The roomgroups (e.g. buildings) this tournament uses — every roomgroup referenced by one of its
+/// rooms. Powers "look up rooms by roomgroup" (e.g. the schedule's Building filter).
+#[get("/{id}/roomgroups")]
+async fn read_roomgroups(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::roomgroup::read_all_of_tournament(&mut conn, item_id.into_inner()) {
+        Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/rounds")]
 async fn read_rounds(
     db: Data<Database>,
@@ -993,6 +1012,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_divisions)
         .service(read_division_rows)
         .service(read_rooms)
+        .service(read_roomgroups)
         .service(read_room_rows)
         .service(read_rounds)
         .service(read_round_rows)

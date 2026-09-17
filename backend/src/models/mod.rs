@@ -13,6 +13,7 @@ pub mod game;
 pub mod gameevent;
 pub mod gameevent_import;
 pub mod room;
+pub mod roomgroup;
 pub mod round;
 pub mod user;
 pub mod user_session;

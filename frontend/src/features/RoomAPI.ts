@@ -9,6 +9,8 @@ export interface RoomTS {
   updated_at: string;
   quizmaster_id: string | null;
   contentjudge_id: string | null;
+  /** Optional roomgroup (e.g. building) this room belongs to. */
+  roomgroupid: string | null;
 }
 
 export interface NewRoomPayload {

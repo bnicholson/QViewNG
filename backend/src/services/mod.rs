@@ -6,6 +6,7 @@ pub mod pool_bracket;
 pub mod user;
 pub mod common;
 pub mod room;
+pub mod roomgroup;
 pub mod round;
 pub mod team;
 pub mod game;
