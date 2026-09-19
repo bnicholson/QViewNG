@@ -1474,14 +1474,9 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    // Novice's teams all play in the single pool; its Session 2 games are assigned to that same pool.
     let roundgroup_nov_2 = RoundGroupBuilder::new(division_novice.did)
         .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    // Pool brackets are division-scoped now, so the division's pools need distinct names.
-    let pb_nov_2 = PoolBracketBuilder::new(division_novice.did)
-        .set_name("A2")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1496,13 +1491,9 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    // Decades' teams all play in the single pool; its Session 2 games are assigned to that same pool.
     let roundgroup_dec_2 = RoundGroupBuilder::new(division_decades.did)
         .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_dec_2 = PoolBracketBuilder::new(division_decades.did)
-        .set_name("A2")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1592,16 +1583,12 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         team_7_experienced.teamid, team_8_experienced.teamid, team_9_experienced.teamid,
         team_10_experienced.teamid, team_11_experienced.teamid, team_12_experienced.teamid,
     ]);
-    for pb in [pb_nov_1.pool_bracket_id, pb_nov_2.pool_bracket_id] {
-        place_teams_in_pool(db, pb, tour_owner.id, &[
-            team_1_novice.teamid, team_2_novice.teamid, team_3_novice.teamid, team_4_novice.teamid,
-        ]);
-    }
-    for pb in [pb_dec_1.pool_bracket_id, pb_dec_2.pool_bracket_id] {
-        place_teams_in_pool(db, pb, tour_owner.id, &[
-            team_1_decades.teamid, team_2_decades.teamid, team_3_decades.teamid, team_4_decades.teamid,
-        ]);
-    }
+    place_teams_in_pool(db, pb_nov_1.pool_bracket_id, tour_owner.id, &[
+        team_1_novice.teamid, team_2_novice.teamid, team_3_novice.teamid, team_4_novice.teamid,
+    ]);
+    place_teams_in_pool(db, pb_dec_1.pool_bracket_id, tour_owner.id, &[
+        team_1_decades.teamid, team_2_decades.teamid, team_3_decades.teamid, team_4_decades.teamid,
+    ]);
 
     // Games — round-robin schedule. Session 1 games use disjoint rooms across divisions (they run
     // concurrently); Session 2 reuses those rooms afterward. Each game records a (gid, left team,
@@ -1832,7 +1819,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Div: Novice — Session 2: full 4-team round-robin again, 6 games / 3 rounds. Rooms 7-8.
     // Round 1: (t1n,t4n)→rm7, (t2n,t3n)→rm8
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_1.roundid)
-        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid)
         .set_rightteamid(team_4_novice.teamid)
         .set_quizmasterid(qm_4.id)
@@ -1840,7 +1827,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_4_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_1.roundid)
-        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
         .set_leftteamid(team_2_novice.teamid)
         .set_rightteamid(team_3_novice.teamid)
         .set_quizmasterid(qm_5.id)
@@ -1849,7 +1836,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
     // Round 2: (t1n,t3n)→rm8, (t4n,t2n)→rm7
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_2.roundid)
-        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid)
         .set_rightteamid(team_3_novice.teamid)
         .set_quizmasterid(qm_5.id)
@@ -1857,7 +1844,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_3_novice));
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_2.roundid)
-        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
         .set_leftteamid(team_4_novice.teamid)
         .set_rightteamid(team_2_novice.teamid)
         .set_quizmasterid(qm_4.id)
@@ -1866,7 +1853,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_4_novice, &team_2_novice));
     // Round 3: (t1n,t2n)→rm7, (t3n,t4n)→rm8
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_3.roundid)
-        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid)
         .set_rightteamid(team_2_novice.teamid)
         .set_quizmasterid(qm_4.id)
@@ -1874,7 +1861,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_2_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_3.roundid)
-        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
         .set_leftteamid(team_3_novice.teamid)
         .set_rightteamid(team_4_novice.teamid)
         .set_quizmasterid(qm_5.id)
@@ -1942,7 +1929,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Div: Decades — Session 2: full 4-team round-robin again, 6 games / 3 rounds. Rooms 9-10.
     // Round 1: (t1d,t4d)→rm9, (t2d,t3d)→rm10
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_1.roundid)
-        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
         .set_quizmasterid(tour_owner.id)
@@ -1950,7 +1937,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_decades, &team_4_decades));
     let game = GameBuilder::new_default(room_10.roomid, round_dec_s2_1.roundid)
-        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
         .set_leftteamid(team_2_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
         .set_quizmasterid(qm_7.id)
@@ -1960,7 +1947,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_2_decades, &team_3_decades));
     // Round 2: (t1d,t3d)→rm10, (t4d,t2d)→rm9
     let game = GameBuilder::new_default(room_10.roomid, round_dec_s2_2.roundid)
-        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
         .set_quizmasterid(qm_7.id)
@@ -1969,7 +1956,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_decades, &team_3_decades));
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_2.roundid)
-        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
         .set_leftteamid(team_4_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
         .set_quizmasterid(tour_owner.id)
@@ -1978,7 +1965,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_4_decades, &team_2_decades));
     // Round 3: (t1d,t2d)→rm9, (t3d,t4d)→rm10
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_3.roundid)
-        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
         .set_quizmasterid(tour_owner.id)
@@ -1986,7 +1973,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_decades, &team_2_decades));
     let game = GameBuilder::new_default(room_10.roomid, round_dec_s2_3.roundid)
-        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
         .set_leftteamid(team_3_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
         .set_quizmasterid(qm_7.id)
