@@ -42,6 +42,7 @@ import { DivisionEditorDialog } from './DivisionEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
 import SessionRoundsManager from './SessionRoundsManager'
+import { AutoSchedulePoolsDialog } from './AutoSchedulePoolsDialog'
 
 const PAGE = 0
 const SIZE = 500
@@ -102,6 +103,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const [divDialog, setDivDialog] = useState<{ open: boolean; division: DivisionTS | null }>({ open: false, division: null })
   const [roundgroupDialog, setRoundGroupDialog] = useState<{ open: boolean; roundgroup: RoundGroupTS | null }>({ open: false, roundgroup: null })
   const [bracketDialog, setBracketDialog] = useState<{ open: boolean; type: 'pool' | 'bracket'; bracket: PoolBracketTS | null }>({ open: false, type: 'pool', bracket: null })
+  const [autoScheduleOpen, setAutoScheduleOpen] = useState(false)
 
   // ── Loaders ──────────────────────────────────────────────────────────────
 
@@ -310,7 +312,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
               <CardContent>
                 {/* Top-level tabs: Sessions (rounds management), Pools, Brackets. */}
                 <Tabs value={cardTab} onChange={(_e, v) => setCardTab(v)} sx={{ minHeight: 0 }}>
-                  <Tab value="sessions" label="Sessions" />
+                  <Tab value="sessions" label="Timing" />
                   <Tab value="pools" label="Pools" />
                   <Tab value="brackets" label="Brackets" />
                 </Tabs>
@@ -326,6 +328,16 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                   />
                 ) : (
                   <>
+                    {cardTab === 'pools' && (
+                      <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
+                        Pools organize a Divisions Teams into groups for use in Round Robin-style scheduling. If you have many Teams in a Division and you want to schedule via Round Robin, use multiple Pools to reduce the number of Rounds overall that you require.
+                      </Alert>
+                    )}
+                    {cardTab === 'brackets' && (
+                      <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
+                        Brackets organize a Divisions Teams into single-elimination-style tournament play, where the winner of each game advances to the next round until a champion remains. Use a Bracket when you want a knockout format rather than Round Robin scheduling.
+                      </Alert>
+                    )}
                     {/* Teams awaiting placement — left aligned, above the pool/bracket tabs */}
                     <Box sx={{ textAlign: 'left' }}>
                       <Typography variant="caption" color="text.secondary">
@@ -348,6 +360,18 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                     </Box>
 
                     <Divider sx={{ my: 1.5 }} />
+
+                    {/* Auto-schedule action, sandwiched between two rules above the Pools tab bar. */}
+                    {cardTab === 'pools' && (
+                      <>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1.5 }}>
+                          <Button variant="outlined" onClick={() => setAutoScheduleOpen(true)} disabled={!canEdit}>
+                            Auto-Schedule Pools
+                          </Button>
+                        </Box>
+                        <Divider sx={{ mb: 1.5 }} />
+                      </>
+                    )}
 
                     {row3Options.length === 0 ? (
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -420,6 +444,13 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       )}
 
       {/* ── Create dialogs ── */}
+      <AutoSchedulePoolsDialog
+        tid={tid}
+        totalTeams={divisionTeams.length}
+        isOpen={autoScheduleOpen}
+        onCancel={() => setAutoScheduleOpen(false)}
+      />
+
       <DivisionEditorDialog
         tid={tid}
         division={divDialog.division}

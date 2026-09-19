@@ -265,6 +265,15 @@ async fn destroy(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
+    // A session with rounds attached can't be deleted — the rounds (and their games) would be orphaned.
+    match models::round::count_of_roundgroup(&mut conn, roundgroup_id) {
+        Ok(n) if n > 0 => return Ok(HttpResponse::Conflict().json(serde_json::json!({
+            "error": "This session cannot be deleted because it still has rounds. Move or delete its rounds first."
+        }))),
+        Ok(_) => {}
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    }
+
     tracing::debug!("{} RoundGroup model delete {:?}", line!(), roundgroup_id);
 
     let result = models::roundgroup::delete(&mut conn, roundgroup_id);

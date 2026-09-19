@@ -85,11 +85,19 @@ export const RoundGroupAPI = {
     const envelope = await response.json();
     return envelope.data ?? envelope;
   },
-  delete: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/roundgroups/${id}`, { method: 'DELETE' });
+  delete: async (id: string, accessToken?: string): Promise<void> => {
+    const response = await fetch(`/api/roundgroups/${id}`, {
+      method: 'DELETE',
+      headers: { ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) },
+    });
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to delete session (${response.status}): ${text}`);
+      // Surface the server's message (e.g. the "still has rounds" guard) when present.
+      let message = `Failed to delete session (${response.status})`;
+      try {
+        const body = await response.json();
+        if (body?.error) message = body.error;
+      } catch { /* non-JSON body */ }
+      throw new Error(message);
     }
   },
 }

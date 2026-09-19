@@ -381,3 +381,29 @@ async fn delete_soft_deletes_and_purge_removes() {
     assert!(backend::models::roundgroup::read_including_deleted(&mut conn, roundgroup.roundgroup_id).is_err(),
         "purged roundgroup row should be gone");
 }
+
+/// DELETE /api/roundgroups/{id} is blocked (409) when the session still has rounds.
+#[actix_web::test]
+async fn delete_roundgroup_with_rounds_is_blocked() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_tournament, division, owner, _admin_user, _unrelated_user) =
+        fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
+    let roundgroup = RoundGroupBuilder::new(division.did)
+        .set_name("Session 1").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    backend::models::round::RoundBuilder::new_default(roundgroup.roundgroup_id)
+        .set_name("Round 1").set_last_modified_user(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/roundgroups/{}", roundgroup.roundgroup_id))
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CONFLICT);
+    assert!(backend::models::roundgroup::read(&mut conn, roundgroup.roundgroup_id).is_ok(), "the session is not deleted");
+}

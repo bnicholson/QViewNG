@@ -223,6 +223,13 @@ pub fn read_all_rounds_of_roundgroup(
         .load::<Round>(db)
 }
 
+/// How many (non-deleted) rounds belong to a roundgroup. Used to block deleting a session that
+/// still has rounds.
+pub fn count_of_roundgroup(db: &mut database::Connection, rg_id: Uuid) -> QueryResult<i64> {
+    use crate::schema::rounds::dsl::*;
+    rounds.filter(roundgroup_id.eq(rg_id)).filter(del_fl.eq(false)).count().get_result(db)
+}
+
 /// Rounds across all of a division's roundgroups (a round now belongs to a roundgroup, not a division).
 pub fn read_all_rounds_of_division(
     db: &mut database::Connection,

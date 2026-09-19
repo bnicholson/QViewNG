@@ -12,7 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import dayjs from 'dayjs'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
-import { type RoundGroupTS } from '../features/RoundGroupAPI'
+import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { RoundEditorDialog } from './RoundEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { useAuth } from '../hooks/useAuth'
@@ -85,6 +85,17 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     }
   }
 
+  const handleDeleteSession = async (session: RoundGroupTS) => {
+    try {
+      await RoundGroupAPI.delete(session.roundgroup_id, accessToken)
+      onRoundGroupsChanged()
+      loadRounds()
+    } catch (e) {
+      // Surfaces the backend's "still has rounds" guard message.
+      setNotice(e instanceof Error ? e.message : 'Failed to delete session.')
+    }
+  }
+
   // Drop a round onto a session → move it there (persists immediately).
   const handleDropOnSession = async (targetSessionId: string, roundId: string) => {
     setDragOverSession(null)
@@ -119,11 +130,9 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
 
   return (
     <Box sx={{ textAlign: 'left' }}>
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          This tab lets you manage time by modifying your Rounds and Sessions. Use Sessions to organize your Rounds into sequential groups. (There are usually longer-than-normal breaks of no quizzing in between each Session.)
-        </Typography>
-      </Box>
+      <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
+        This tab lets you manage time by modifying your Rounds and Sessions. Use Sessions to organize your Rounds into sequential groups. (There are usually longer-than-normal breaks of no quizzing in between each Session.)
+      </Alert>
       <Box sx={{ mb: 1 }}>
         <Typography variant="body2" color="text.secondary">
           Drag a round from one session onto another to move it. Rounds with a game can't be deleted.
@@ -162,6 +171,9 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                       </Button>
                       <Button size="small" startIcon={<AddIcon />} onClick={() => setRoundDialog({ open: true, sessionId: session.roundgroup_id, round: null })}>
                         Add Round
+                      </Button>
+                      <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => handleDeleteSession(session)}>
+                        Delete Session
                       </Button>
                     </>
                   )}
