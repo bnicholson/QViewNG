@@ -125,7 +125,8 @@ const tournamentEmptyState: TournamentChangesetTS = {
   registration_close_date: null,
   use_team_registration: true,
   use_gear_registration: true,
-  use_volunteer_registration: true
+  use_volunteer_registration: true,
+  default_round_duration: 30
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -222,6 +223,7 @@ export const TournamentEditorDialog = (props: Props) => {
       use_team_registration: tournament.use_team_registration,
       use_gear_registration: tournament.use_gear_registration,
       use_volunteer_registration: tournament.use_volunteer_registration,
+      default_round_duration: tournament.default_round_duration,
     };
     if (canViewPairingCode) {
       tournamentCS.pairing_code = tournament.pairing_code;
@@ -378,6 +380,28 @@ export const TournamentEditorDialog = (props: Props) => {
                     />
                   </LocalizationProvider>
                 </Item>
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Default Round Duration is used in the Auto-Schedule features in Tournament &gt; Schedule &gt; Edit.
+                </Typography>
+                <InputLabel>Default Round Duration (minutes)</InputLabel>
+                <TextField
+                  variant="outlined"
+                  type="number"
+                  sx={{ width: 240, maxWidth: '100%' }}
+                  placeholder="30"
+                  value={tournament.default_round_duration ?? 30}
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  onChange={(event) => {
+                    const n = parseInt(event.target.value, 10);
+                    setTournament(state => ({ ...state, default_round_duration: Number.isNaN(n) ? 30 : Math.max(1, n) }));
+                  }}
+                />
               </Grid>
             </Grid>
           </ListItem>

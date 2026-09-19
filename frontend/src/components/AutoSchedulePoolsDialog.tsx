@@ -14,7 +14,7 @@ import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import dayjs, { type Dayjs } from 'dayjs'
+import { type Dayjs } from 'dayjs'
 import { TournamentAPI } from '../features/TournamentAPI'
 
 interface Props {
@@ -66,16 +66,22 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
   const [timesEachPlays, setTimesEachPlays] = useState(1)
   const [numPools, setNumPools] = useState(1)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
+  const [roundDurationMin, setRoundDurationMin] = useState(30)
 
-  // Default the start time to 8am on the tournament's start date whenever the dialog opens.
+  // Default the start time to 8am on the tournament's start date, and pull the tournament's default
+  // round duration, whenever the dialog opens.
   useEffect(() => {
     if (!isOpen) return
     setTimesEachPlays(1)
     setNumPools(1)
     setStartTime(null)
+    setRoundDurationMin(30)
     TournamentAPI.getById(tid)
-      .then(t => { if (t.fromdate) setStartTime(t.fromdate.hour(8).minute(0).second(0).millisecond(0)) })
-      .catch(() => { /* leave start time blank if the tournament can't be loaded */ })
+      .then(t => {
+        if (t.fromdate) setStartTime(t.fromdate.hour(8).minute(0).second(0).millisecond(0))
+        if (t.default_round_duration) setRoundDurationMin(t.default_round_duration)
+      })
+      .catch(() => { /* leave defaults if the tournament can't be loaded */ })
   }, [isOpen, tid])
 
   // Rounds needed = single round-robin rounds for the largest pool, times how many times each pairing plays.
@@ -89,9 +95,15 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
     [teamsPerLargestPool, timesEachPlays],
   )
 
-  // Total time duration and end time depend on a per-round duration that isn't wired up yet — left blank for now.
-  const totalDuration = ''
-  const endTime: Dayjs | null = null
+  // Total time duration = rounds × the tournament's default round duration; end time = start + duration.
+  const durationMinutes = totalRounds * roundDurationMin
+  const totalDuration = useMemo(() => {
+    if (durationMinutes <= 0) return ''
+    const h = Math.floor(durationMinutes / 60)
+    const m = durationMinutes % 60
+    return h > 0 ? `${h}h ${m}m (${durationMinutes} min)` : `${m}m`
+  }, [durationMinutes])
+  const endTime: Dayjs | null = startTime && durationMinutes > 0 ? startTime.add(durationMinutes, 'minute') : null
 
   return (
     <Dialog open={isOpen} onClose={onCancel} fullWidth maxWidth="sm">

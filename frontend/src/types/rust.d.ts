@@ -229,6 +229,7 @@ interface Tournament {
   use_team_registration: boolean;
   use_gear_registration: boolean;
   use_volunteer_registration: boolean;
+  default_round_duration: number;
 }
 
 interface TournamentChangeset {
@@ -255,6 +256,7 @@ interface TournamentChangeset {
   use_team_registration?: boolean;
   use_gear_registration?: boolean;
   use_volunteer_registration?: boolean;
+  default_round_duration?: number;
 }
 
 interface FileInfo {

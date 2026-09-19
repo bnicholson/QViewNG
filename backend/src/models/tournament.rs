@@ -37,6 +37,7 @@ pub struct TournamentBuilder {
     use_team_registration: bool,
     use_gear_registration: bool,
     use_volunteer_registration: bool,
+    default_round_duration: i32,
 }
 
 impl TournamentBuilder {
@@ -67,6 +68,7 @@ impl TournamentBuilder {
             use_team_registration: true,
             use_gear_registration: true,
             use_volunteer_registration: true,
+            default_round_duration: 30,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -97,7 +99,13 @@ impl TournamentBuilder {
             use_team_registration: true,
             use_gear_registration: true,
             use_volunteer_registration: true,
+            default_round_duration: 30,
         }
+    }
+
+    pub fn set_default_round_duration(mut self, minutes: i32) -> Self {
+        self.default_round_duration = minutes;
+        self
     }
 
     pub fn set_use_team_registration(mut self, v: bool) -> Self {
@@ -284,6 +292,7 @@ impl TournamentBuilder {
                     use_team_registration: self.use_team_registration,
                     use_gear_registration: self.use_gear_registration,
                     use_volunteer_registration: self.use_volunteer_registration,
+                    default_round_duration: self.default_round_duration,
                 })
             }
         }
@@ -351,6 +360,8 @@ pub struct Tournament {
     pub use_team_registration: bool,
     pub use_gear_registration: bool,
     pub use_volunteer_registration: bool,
+    /// Default length of a round, in minutes; used by the schedule Auto-Schedule features.
+    pub default_round_duration: i32,
 }
 
 #[derive(
@@ -389,6 +400,7 @@ pub struct NewTournament {
     pub use_team_registration: bool,
     pub use_gear_registration: bool,
     pub use_volunteer_registration: bool,
+    pub default_round_duration: i32,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -427,9 +439,13 @@ pub struct NewTournamentPayload {
     pub use_gear_registration: bool,
     #[serde(default = "default_true")]
     pub use_volunteer_registration: bool,
+    // Default round length in minutes; defaults to 30 when omitted.
+    #[serde(default = "default_round_duration_value")]
+    pub default_round_duration: i32,
 }
 
 fn default_true() -> bool { true }
+fn default_round_duration_value() -> i32 { 30 }
 
 // #[tsync::tsync]
 #[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
@@ -459,6 +475,7 @@ pub struct TournamentChangeset {
     pub use_team_registration: Option<bool>,
     pub use_gear_registration: Option<bool>,
     pub use_volunteer_registration: Option<bool>,
+    pub default_round_duration: Option<i32>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {
