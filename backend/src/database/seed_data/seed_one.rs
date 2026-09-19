@@ -1470,7 +1470,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let pb_nov_1 = PoolBracketBuilder::new(division_novice.did)
-        .set_name("Pool A")
+        .set_name("A1")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1481,7 +1481,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     // Pool brackets are division-scoped now, so the division's pools need distinct names.
     let pb_nov_2 = PoolBracketBuilder::new(division_novice.did)
-        .set_name("Pool B")
+        .set_name("A2")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1492,7 +1492,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let pb_dec_1 = PoolBracketBuilder::new(division_decades.did)
-        .set_name("Pool A")
+        .set_name("A1")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1502,7 +1502,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let pb_dec_2 = PoolBracketBuilder::new(division_decades.did)
-        .set_name("Pool B")
+        .set_name("A2")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
