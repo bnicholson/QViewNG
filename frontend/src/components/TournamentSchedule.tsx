@@ -53,7 +53,7 @@ const RESULTS_PAGE_SIZE = 25
 const naturalCompare = (a: string, b: string) =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
 
-type Mode = 'read' | 'conflicts' | 'edit'
+type Mode = 'read' | 'conflicts' | 'edit' | 'edit2'
 type RoundGroupType = 'Round Robin' | 'Tournament Bracket(s)' | 'Undecided'
 
 interface Props {
@@ -91,8 +91,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   // every pool is shown as a card and the active one is chosen by clicking its card.
   const [selectedBracketId, setSelectedBracketId] = useState('')
 
-  // The card's top-level tab: Sessions (rounds management), Pools, or Brackets.
-  const [cardTab, setCardTab] = useState<'sessions' | 'pools' | 'brackets'>('sessions')
+  // The card's top-level tab: Timing (rounds management), Pools, Brackets, or TimePool (time + games).
+  const [cardTab, setCardTab] = useState<'sessions' | 'pools' | 'brackets' | 'timepool'>('sessions')
 
   // Teams and games per pool/bracket in the selected roundgroup (drive each card's team list + matrix).
   const [teamsByBracket, setTeamsByBracket] = useState<Record<string, TeamRowTS[]>>({})
@@ -203,6 +203,22 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     [divisionTeams, placedTeamIds]
   )
 
+  // TimePool tab: the division's games grouped by round id (with each game's pool name), so the
+  // Sessions/Rounds view can show the Pools matrix's games under the round they belong to.
+  const gamesByRound = useMemo(() => {
+    const poolNameById = new Map(divisionBrackets.map(b => [b.pool_bracket_id, b.name]))
+    const m = new Map<string, { g: GameRowTS; poolName: string; poolBracketId: string }[]>()
+    Object.entries(gamesByBracket).forEach(([pbId, games]) => {
+      const poolName = poolNameById.get(pbId) ?? ''
+      games.forEach(g => {
+        const entry = { g, poolName, poolBracketId: pbId }
+        const list = m.get(g.roundid)
+        if (list) list.push(entry); else m.set(g.roundid, [entry])
+      })
+    })
+    return m
+  }, [gamesByBracket, divisionBrackets])
+
   const selectedBracket = roundgroupBrackets.find(b => b.pool_bracket_id === selectedBracketId) ?? null
   const selectedDivision = divisions.find(d => d.did === selectedDid) ?? null
   const selectedRoundGroup = roundgroups.find(s => s.roundgroup_id === selectedRoundGroupId) ?? null
@@ -246,6 +262,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
           <Button variant={activeMode === 'read' ? 'contained' : 'outlined'} onClick={() => setMode('read')}>Read</Button>
           <Button variant={activeMode === 'conflicts' ? 'contained' : 'outlined'} onClick={() => setMode('conflicts')}>Conflicts</Button>
           <Button variant={activeMode === 'edit' ? 'contained' : 'outlined'} onClick={() => setMode('edit')}>Create / Edit</Button>
+          <Button variant={activeMode === 'edit2' ? 'contained' : 'outlined'} onClick={() => setMode('edit2')}>Create / Edit (Compare)</Button>
         </ButtonGroup>
       )}
 
@@ -255,6 +272,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         <ScheduleReadView tid={tid} />
       ) : activeMode === 'conflicts' ? (
         <Alert severity="info">Scheduling conflict resolution is coming soon.</Alert>
+      ) : activeMode === 'edit2' ? (
+        <DivisionTimePoolCompare tid={tid} divisions={divisions} canEdit={canEdit} />
       ) : (
         <Stack spacing={2}>
 
@@ -310,21 +329,28 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
           {selectedDid && (
             <Card variant="outlined">
               <CardContent>
-                {/* Top-level tabs: Sessions (rounds management), Pools, Brackets. */}
+                {/* Top-level tabs: Timing (rounds management), Pools, Brackets, TimePool (time + games). */}
                 <Tabs value={cardTab} onChange={(_e, v) => setCardTab(v)} sx={{ minHeight: 0 }}>
                   <Tab value="sessions" label="Timing" />
                   <Tab value="pools" label="Pools" />
                   <Tab value="brackets" label="Brackets" />
+                  <Tab value="timepool" label="TimePool" />
                 </Tabs>
                 <Divider sx={{ mt: 1, mb: 1.5 }} />
 
-                {cardTab === 'sessions' ? (
+                {cardTab === 'sessions' || cardTab === 'timepool' ? (
                   <SessionRoundsManager
                     tid={tid}
                     did={selectedDid}
                     roundgroups={roundgroups}
                     canEdit={canEdit}
                     onRoundGroupsChanged={() => loadDivisionData(selectedDid)}
+                    variant={cardTab === 'timepool' ? 'timepool' : 'timing'}
+                    gamesByRound={cardTab === 'timepool' ? gamesByRound : undefined}
+                    onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
+                    onGamesChanged={refresh}
+                    poolBrackets={cardTab === 'timepool' ? divisionBrackets : undefined}
+                    onPoolsChanged={() => loadDivisionData(selectedDid)}
                   />
                 ) : (
                   <>
@@ -500,6 +526,101 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         }}
       />
     </Stack>
+  )
+}
+
+// ── Division comparison (TimePool per division) ───────────────────────────────
+
+/** One division's cached TimePool data: its sessions, pools/brackets, and games grouped by round. */
+interface DivisionCompareData {
+  roundgroups: RoundGroupTS[]
+  poolBrackets: PoolBracketTS[]
+  gamesByRound: Map<string, { g: GameRowTS; poolName: string; poolBracketId: string }[]>
+}
+
+/**
+ * The second "Create / Edit" view: a tab per division, each showing that division's TimePool
+ * (the SessionRoundsManager `timepool` variant). Every division's data is loaded once and kept in
+ * state, and every division's manager stays mounted (hidden when inactive), so switching tabs is
+ * instant and the data stays cached for quick side-by-side comparison.
+ */
+const DivisionTimePoolCompare = ({ tid, divisions, canEdit }: { tid: string; divisions: DivisionTS[]; canEdit: boolean }) => {
+  const navigate = useNavigate()
+  const [active, setActive] = useState('')
+  const [dataByDid, setDataByDid] = useState<Record<string, DivisionCompareData>>({})
+  const [error, setError] = useState<string | null>(null)
+
+  // Load (or reload) one division's sessions + games-by-round and cache it.
+  const loadDivision = useCallback((did: string) => {
+    Promise.all([
+      RoundGroupAPI.getByDivision(did),
+      PoolBracketAPI.getByDivision(did),
+    ])
+      .then(([roundgroups, brackets]) =>
+        Promise.all(
+          brackets.map(b => GameAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE).then(r => [b, r.items] as const))
+        ).then(entries => {
+          const gamesByRound = new Map<string, { g: GameRowTS; poolName: string; poolBracketId: string }[]>()
+          entries.forEach(([b, games]) => games.forEach(g => {
+            const entry = { g, poolName: b.name, poolBracketId: b.pool_bracket_id }
+            const list = gamesByRound.get(g.roundid)
+            if (list) list.push(entry); else gamesByRound.set(g.roundid, [entry])
+          }))
+          setDataByDid(prev => ({ ...prev, [did]: { roundgroups, poolBrackets: brackets, gamesByRound } }))
+        })
+      )
+      .catch(() => setError('Failed to load division schedule data.'))
+  }, [])
+
+  // Default the active tab to the first division, keeping a still-valid choice.
+  useEffect(() => {
+    setActive(prev => divisions.some(d => d.did === prev) ? prev : (divisions[0]?.did ?? ''))
+  }, [divisions])
+
+  // Eagerly load every division once so all tabs are instant and stay cached for comparison.
+  useEffect(() => { divisions.forEach(d => loadDivision(d.did)) }, [divisions, loadDivision])
+
+  if (divisions.length === 0) {
+    return <Alert severity="info">This tournament has no divisions yet.</Alert>
+  }
+
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
+        {/* One tab per division so schedules can be compared side by side. */}
+        <Tabs value={active || false} onChange={(_e, v: string) => setActive(v)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 0 }}>
+          {divisions.map(d => <Tab key={d.did} value={d.did} label={d.dname} />)}
+        </Tabs>
+        <Divider sx={{ mt: 1, mb: 1.5 }} />
+
+        {/* Every loaded division stays mounted (hidden unless active) so its data stays cached. */}
+        {divisions.map(d => {
+          const data = dataByDid[d.did]
+          return (
+            <Box key={d.did} hidden={d.did !== active}>
+              {data ? (
+                <SessionRoundsManager
+                  tid={tid}
+                  did={d.did}
+                  roundgroups={data.roundgroups}
+                  canEdit={canEdit}
+                  variant="timepool"
+                  gamesByRound={data.gamesByRound}
+                  onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
+                  onRoundGroupsChanged={() => loadDivision(d.did)}
+                  onGamesChanged={() => loadDivision(d.did)}
+                  poolBrackets={data.poolBrackets}
+                  onPoolsChanged={() => loadDivision(d.did)}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary">Loading…</Typography>
+              )}
+            </Box>
+          )
+        })}
+      </CardContent>
+    </Card>
   )
 }
 

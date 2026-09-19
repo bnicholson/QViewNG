@@ -24,7 +24,7 @@ import { RoomAPI, type RoomTS } from '../features/RoomAPI'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
-import { GameAPI, type NewGamePayload, type GameTS } from '../features/GameAPI'
+import { GameAPI, type NewGamePayload, type GameChangeset, type GameTS, type GameRowTS } from '../features/GameAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { useAuth } from '../hooks/useAuth'
@@ -89,12 +89,21 @@ interface Props {
   isOpen: boolean;
   /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
   lockedDivisionId?: string;
+  /** When set, the Division Session is fixed to this id and its dropdown is disabled (e.g. adding a game to a round). */
+  lockedRoundGroupId?: string;
+  /** When set, the Round is fixed to this id and its dropdown is disabled (e.g. adding a game to a round). */
+  lockedRoundId?: string;
+  /** When set, the dialog edits this existing game instead of creating a new one. */
+  game?: GameRowTS | null;
+  /** The editing game's pool bracket (GameRowTS doesn't carry it) — used to prefill the Pool/Bracket. */
+  gamePoolBracketId?: string;
   onCancel: VoidFunction;
   onSave: (game: GameTS) => void;
 }
 
 export const GameEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, lockedRoundId, game, gamePoolBracketId, onCancel, onSave } = props;
+  const isEdit = !!game;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<GameFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
@@ -111,7 +120,12 @@ export const GameEditorDialog = (props: Props) => {
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
 
   const resetState = () => {
-    setForm(lockedDivisionId ? { ...emptyState, divisionid: lockedDivisionId } : emptyState);
+    setForm({
+      ...emptyState,
+      divisionid: lockedDivisionId ?? '',
+      roundgroup_id: lockedRoundGroupId ?? '',
+      roundid: lockedRoundId ?? '',
+    });
     setQmFromRoom(false);
     setCjFromRoom(false);
     setConfirmDialog(confirmDialogDefaultState);
@@ -156,9 +170,29 @@ export const GameEditorDialog = (props: Props) => {
         setUsers([...usrs.items].sort((a, b) =>
           displayName(a).localeCompare(displayName(b), undefined, { sensitivity: 'base' })
         ));
+        // Edit mode: fetch the full game (GameRowTS lacks quizmaster/content-judge/pool) and prefill.
+        if (game) {
+          GameAPI.getById(game.gid)
+            .then(full => setForm({
+              org: full.org ?? '',
+              divisionid: game.divisionid,
+              roundgroup_id: rnds.find(r => r.roundid === full.roundid)?.roundgroup_id ?? '',
+              poolbracket_id: gamePoolBracketId ?? '',
+              roomid: full.roomid,
+              roundid: full.roundid,
+              ruleset: full.ruleset ?? 'Nazarene',
+              ignore: full.ignore,
+              leftteamid: full.leftteamid,
+              centerteamid: full.centerteamid ?? '',
+              rightteamid: full.rightteamid,
+              quizmasterid: full.quizmasterid,
+              contentjudgeid: full.contentjudgeid ?? '',
+            }))
+            .catch(() => console.error('Failed to load game for edit'));
+        }
       })
       .catch(() => console.error('Failed to load form data for game editor'));
-  }, [isOpen, tid, lockedDivisionId]);
+  }, [isOpen, tid, lockedDivisionId, lockedRoundGroupId, lockedRoundId, game, gamePoolBracketId]);
 
   // Roundgroups and Pool/Brackets both belong to the chosen Division, so (re)load them whenever
   // it changes. (The Round dropdown is then further filtered to the chosen roundgroup.)
@@ -205,26 +239,39 @@ export const GameEditorDialog = (props: Props) => {
     if (!form.rightteamid) { setErrorMsg('Right team is required.'); setAlertOpened(true); return; }
     if (!form.quizmasterid) { setErrorMsg('Quizmaster is required.'); setAlertOpened(true); return; }
 
-    const payload: NewGamePayload = {
-      // Org, Ruleset and Ignore are no longer collected in the form; send backend-safe defaults.
-      // Neither Division nor Tournament is sent — both are derived server-side from the chosen pool
-      // bracket. The Division/Roundgroup selectors here only scope the pool bracket / round / team choices.
-      org: '',
-      poolbracket_id: form.poolbracket_id,
-      roomid: form.roomid,
-      roundid: form.roundid,
-      ruleset: '',
-      ignore: false,
-      leftteamid: form.leftteamid,
-      centerteamid: form.centerteamid || null,
-      rightteamid: form.rightteamid,
-      quizmasterid: form.quizmasterid,
-      contentjudgeid: form.contentjudgeid || null,
-    };
-
+    // Neither Division nor Tournament is sent — both are derived server-side from the chosen pool
+    // bracket. The Division/Roundgroup selectors here only scope the pool bracket / round / team choices.
     let result: GameTS;
     try {
-      result = await GameAPI.create(payload, accessToken);
+      if (game) {
+        const changeset: GameChangeset = {
+          poolbracket_id: form.poolbracket_id,
+          roomid: form.roomid,
+          roundid: form.roundid,
+          leftteamid: form.leftteamid,
+          centerteamid: form.centerteamid || null,
+          rightteamid: form.rightteamid,
+          quizmasterid: form.quizmasterid,
+          contentjudgeid: form.contentjudgeid || null,
+        };
+        result = await GameAPI.update(game.gid, changeset, accessToken);
+      } else {
+        const payload: NewGamePayload = {
+          // Org, Ruleset and Ignore are no longer collected in the form; send backend-safe defaults.
+          org: '',
+          poolbracket_id: form.poolbracket_id,
+          roomid: form.roomid,
+          roundid: form.roundid,
+          ruleset: '',
+          ignore: false,
+          leftteamid: form.leftteamid,
+          centerteamid: form.centerteamid || null,
+          rightteamid: form.rightteamid,
+          quizmasterid: form.quizmasterid,
+          contentjudgeid: form.contentjudgeid || null,
+        };
+        result = await GameAPI.create(payload, accessToken);
+      }
     } catch (err: any) {
       setErrorMsg('Failed to save: ' + err.message);
       setAlertOpened(true);
@@ -240,7 +287,7 @@ export const GameEditorDialog = (props: Props) => {
     message: 'Cancel if you want to make more changes.',
     onCancel: () => setConfirmDialog(confirmDialogDefaultState),
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleSave(); },
-    title: 'Create game?',
+    title: isEdit ? 'Save changes to this game?' : 'Create game?',
   });
 
   const userLabel = (u: UserTS) =>
@@ -273,7 +320,7 @@ export const GameEditorDialog = (props: Props) => {
             <CloseIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Create Game
+            {isEdit ? 'Edit Game' : 'Create Game'}
           </Typography>
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>
@@ -320,7 +367,7 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Division Session (*required)</InputLabel>
                 <Select value={form.roundgroup_id} onChange={(e) => set({ roundgroup_id: e.target.value, roundid: '' })}
-                  displayEmpty fullWidth disabled={!divisionChosen}
+                  displayEmpty fullWidth disabled={!divisionChosen || !!lockedRoundGroupId}
                   renderValue={(v) => v ? (roundgroups.find(s => s.roundgroup_id === v)?.name ?? v) : <em>Select a division session</em>}
                 >
                   {roundgroups.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
@@ -338,7 +385,7 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
-                  displayEmpty fullWidth disabled={!roundgroupChosen}
+                  displayEmpty fullWidth disabled={!roundgroupChosen || !!lockedRoundId}
                   renderValue={(v) => v ? roundLabel(rounds.find(r => r.roundid === v)) : <em>Select a round</em>}
                 >
                   {roundgroupRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}

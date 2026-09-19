@@ -215,8 +215,11 @@ export const GameAPI = {
    *  (quizmaster, content judge, coach, or quizzer), each tagged with that role, plus total count. */
   getRowsByPersonInTournament: async (tid: string, personId: string, page: number, size: number): Promise<PagedPersonGameRows> =>
     (await fetch(`/api/tournaments/${tid}/persons/${personId}/game-rows?page=${page}&page_size=${size}`)).json(),
-  delete: async (id: string): Promise<void> => {
-    const response = await fetch(`/api/games/${id}`, { method: 'DELETE' });
+  delete: async (id: string, accessToken?: string): Promise<void> => {
+    const response = await fetch(`/api/games/${id}`, {
+      method: 'DELETE',
+      headers: { ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}) },
+    });
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`Failed to delete game (${response.status}): ${text}`);
