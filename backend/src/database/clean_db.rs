@@ -1,6 +1,6 @@
 use crate::database;
 use crate::schema::{
-    activation_tokens, apicalllog, computers, create_tournament_applicants, roundgroups, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameeventlogs, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, pool_brackets, projectors, roles, roles_permissions, rooms, roomgroups, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, team_teamgroups, teamgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
+    activation_tokens, apicalllog, computers, create_tournament_applicants, roundgroups, divisions, equipment, equipmentregistrations, equipmentsets, extensioncords, gameeventlogs, gameevents, games, interfaceboxes, jumppads, microphonerecorders, password_reset_tokens, permissions, pool_brackets, poolbracketgroups, projectors, roles, roles_permissions, rooms, roomgroups, rosters, rosters_coaches, rosters_quizzers, rounds, statsgroups, team_teamgroups, teamgroups, teams, tournamentgroups, tournamentgroups_tournaments, tournaments, tournaments_admins, user_sessions, users, users_roles
 };
 use chrono::Utc;
 use diesel::prelude::*;
@@ -161,6 +161,12 @@ pub fn clean_database(conn: &mut database::Connection) {
     diesel::delete(pool_brackets::table)
         .execute(conn)
         .expect("Failed to clean pool_brackets");
+
+    // poolbracketgroups is referenced by pool_brackets (cleaned above) and references divisions
+    // (cleaned below), so it goes after pool_brackets and before divisions.
+    diesel::delete(poolbracketgroups::table)
+        .execute(conn)
+        .expect("Failed to clean poolbracketgroups");
 
     diesel::delete(teamgroups::table)
         .execute(conn)

@@ -4,6 +4,7 @@ pub mod common;
 pub mod division;
 pub mod roundgroup;
 pub mod pool_bracket;
+pub mod poolbracketgroup;
 pub mod teamgroup;
 pub mod team_teamgroup;
 pub mod apicalllog;

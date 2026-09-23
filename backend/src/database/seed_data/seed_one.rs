@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, game_statsgroup::GameStatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, poolbracketgroup::PoolBracketGroupBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, game_statsgroup::GameStatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
@@ -1452,13 +1452,22 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    // Experienced's two pools run concurrently, so they share one poolbracketgroup (each team is in
+    // exactly one of them).
+    let pbg_exp_1 = PoolBracketGroupBuilder::new(division_experienced.did)
+        .set_name("Group 1")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
     let pb_exp_1_a = PoolBracketBuilder::new(division_experienced.did)
         .set_name("Pool A")
+        .set_poolbracketgroupid(pbg_exp_1.poolbracketgroupid)
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
     let pb_exp_1_b = PoolBracketBuilder::new(division_experienced.did)
         .set_name("Pool B")
+        .set_poolbracketgroupid(pbg_exp_1.poolbracketgroupid)
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1469,8 +1478,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    let pbg_nov_1 = PoolBracketGroupBuilder::new(division_novice.did)
+        .set_name("Group 1")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
     let pb_nov_1 = PoolBracketBuilder::new(division_novice.did)
         .set_name("A1")
+        .set_poolbracketgroupid(pbg_nov_1.poolbracketgroupid)
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
@@ -1486,8 +1501,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    let pbg_dec_1 = PoolBracketGroupBuilder::new(division_decades.did)
+        .set_name("Group 1")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
     let pb_dec_1 = PoolBracketBuilder::new(division_decades.did)
         .set_name("A1")
+        .set_poolbracketgroupid(pbg_dec_1.poolbracketgroupid)
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();

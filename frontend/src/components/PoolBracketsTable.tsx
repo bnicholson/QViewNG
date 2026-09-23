@@ -157,6 +157,7 @@ export default function PoolBracketsTable({
       last_modified_date: row.last_modified_date,
       last_modified_userid: row.last_modified_user_id,
       name: row.name,
+      poolbracketgroupid: null,
     });
     setEditorIsOpen(true);
   }, []);

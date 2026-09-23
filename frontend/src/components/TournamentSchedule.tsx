@@ -33,6 +33,7 @@ import { useAuth } from '../hooks/useAuth'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
+import { PoolBracketGroupAPI, type PoolBracketGroupTS } from '../features/PoolBracketGroupAPI'
 import { TeamAPI, type TeamTS, type TeamRowTS } from '../features/TeamAPI'
 import { GameAPI, type GameRowTS, type PersonGameRowTS } from '../features/GameAPI'
 import { RoomAPI, type RoomTS } from '../features/RoomAPI'
@@ -86,6 +87,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const [selectedRoundGroupId, setSelectedRoundGroupId] = useState('')
   const [divisionBrackets, setDivisionBrackets] = useState<PoolBracketTS[]>([])
   const [divisionTeams, setDivisionTeams] = useState<TeamTS[]>([])
+  // Poolbracketgroups scope team placement: a team is in exactly one pool per group (Pools tab).
+  const [poolBracketGroups, setPoolBracketGroups] = useState<PoolBracketGroupTS[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState('')
 
   // The "active" pool/bracket — the target the unplaced-team chips add to. With the dropdown gone,
   // every pool is shown as a card and the active one is chosen by clicking its card.
@@ -116,7 +120,13 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const loadDivisionData = useCallback((did: string) => {
     RoundGroupAPI.getByDivision(did).then(setRoundGroups).catch(() => setError('Failed to load roundgroups.'))
     PoolBracketAPI.getByDivision(did).then(setDivisionBrackets).catch(() => setError('Failed to load pools/brackets.'))
+    PoolBracketGroupAPI.getByDivision(did).then(setPoolBracketGroups).catch(() => setError('Failed to load pool groups.'))
     TeamAPI.getByDivision(did, PAGE, SIZE).then(setDivisionTeams).catch(() => setError('Failed to load teams.'))
+  }, [])
+
+  // Reload just the division's poolbracketgroups (after create/delete).
+  const loadPoolBracketGroups = useCallback((did: string) => {
+    PoolBracketGroupAPI.getByDivision(did).then(setPoolBracketGroups).catch(() => setError('Failed to load pool groups.'))
   }, [])
 
   // Pool brackets are division-scoped now, so placement/games load for all of the division's brackets.
@@ -156,8 +166,15 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     setRoundGroups([])
     setDivisionBrackets([])
     setDivisionTeams([])
+    setPoolBracketGroups([])
+    setSelectedGroupId('')
     if (selectedDid) loadDivisionData(selectedDid)
   }, [selectedDid, loadDivisionData])
+
+  // Auto-select the first poolbracketgroup once the division's groups load (keeping a valid choice).
+  useEffect(() => {
+    setSelectedGroupId(prev => poolBracketGroups.some(g => g.poolbracketgroupid === prev) ? prev : (poolBracketGroups[0]?.poolbracketgroupid ?? ''))
+  }, [poolBracketGroups])
 
   // Auto-select the first roundgroup once the chosen division's roundgroups load (which in turn auto-selects
   // its first pool/bracket via the row3Options effect below).
@@ -182,22 +199,30 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const pools = useMemo(() => roundgroupBrackets.filter(b => b.type === 'pool'), [roundgroupBrackets])
   const brackets = useMemo(() => roundgroupBrackets.filter(b => b.type === 'bracket'), [roundgroupBrackets])
 
-  // The Pools and Brackets tabs each show their own kind; `row3Options` follows the active tab.
+  // The Pools tab is scoped to the selected poolbracketgroup: each team must be in exactly one pool
+  // per group, so placement (and the pool tabs) only consider that group's pools. The Brackets tab
+  // stays division-wide.
   const isBracketMode = cardTab === 'brackets'
-  const row3Options = isBracketMode ? brackets : pools
+  const groupPools = useMemo(
+    () => pools.filter(p => p.poolbracketgroupid === selectedGroupId),
+    [pools, selectedGroupId]
+  )
+  const row3Options = isBracketMode ? brackets : groupPools
 
   // Keep the active pool/bracket (the unplaced-team target) valid: default to the first one and
-  // fall back to the first whenever the current one disappears (roundgroup/division change, deletion).
+  // fall back to the first whenever the current one disappears (group/roundgroup/division change, deletion).
   useEffect(() => {
     setSelectedBracketId(prev =>
       row3Options.some(b => b.pool_bracket_id === prev) ? prev : (row3Options[0]?.pool_bracket_id ?? '')
     )
   }, [row3Options])
 
-  const placedTeamIds = useMemo(
-    () => new Set(Object.values(teamsByBracket).flat().map(t => t.teamid)),
-    [teamsByBracket]
-  )
+  // "Placed" teams are those in a pool/bracket relevant to the active tab: for Pools, only the
+  // selected group's pools (one-per-group); for Brackets, all of the division's brackets.
+  const placedTeamIds = useMemo(() => {
+    const relevant = isBracketMode ? brackets : groupPools
+    return new Set(relevant.flatMap(b => (teamsByBracket[b.pool_bracket_id] ?? []).map(t => t.teamid)))
+  }, [isBracketMode, brackets, groupPools, teamsByBracket])
   const unplacedTeams = useMemo(
     () => divisionTeams.filter(t => !placedTeamIds.has(t.teamid)),
     [divisionTeams, placedTeamIds]
@@ -228,6 +253,20 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const refresh = () => {
     loadPlacement(divisionBrackets)
     loadGamesForRoundGroup(divisionBrackets)
+  }
+
+  // Create a new poolbracketgroup ("Group N") for the division and select it.
+  const handleAddGroup = async () => {
+    if (!selectedDid) return
+    const n = poolBracketGroups.length + 1
+    try {
+      const group = await PoolBracketGroupAPI.create({ divisionid: selectedDid, name: `Group ${n}` }, accessToken)
+      PoolBracketGroupAPI.getByDivision(selectedDid)
+        .then(gs => { setPoolBracketGroups(gs); setSelectedGroupId(group.poolbracketgroupid) })
+        .catch(() => setError('Failed to load pool groups.'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create pool group.')
+    }
   }
 
   const handleAddTeam = async (teamid: string) => {
@@ -364,6 +403,31 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                         Brackets organize a Divisions Teams into single-elimination-style tournament play, where the winner of each game advances to the next round until a champion remains. Use a Bracket when you want a knockout format rather than Round Robin scheduling.
                       </Alert>
                     )}
+                    {/* Pool group selector — team placement (below) is scoped to the chosen group. */}
+                    {cardTab === 'pools' && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" sx={{ flexShrink: 0 }}>Pool Group:</Typography>
+                        {poolBracketGroups.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary">No pool groups yet — add one to place teams.</Typography>
+                        ) : (
+                          <FormControl size="small" sx={{ minWidth: 160 }}>
+                            <Select
+                              value={poolBracketGroups.some(g => g.poolbracketgroupid === selectedGroupId) ? selectedGroupId : ''}
+                              onChange={(e: SelectChangeEvent) => setSelectedGroupId(e.target.value)}
+                              displayEmpty
+                            >
+                              {poolBracketGroups.map(g => (
+                                <MenuItem key={g.poolbracketgroupid} value={g.poolbracketgroupid}>{g.name}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        )}
+                        <Button size="small" startIcon={<AddIcon />} onClick={handleAddGroup} disabled={!canEdit}>Add Group</Button>
+                        <Typography variant="caption" color="text.secondary" sx={{ flexBasis: '100%' }}>
+                          Each team is placed in exactly one pool per group. A later group can re-pool the same teams differently.
+                        </Typography>
+                      </Box>
+                    )}
                     {/* Teams awaiting placement — left aligned, above the pool/bracket tabs */}
                     <Box sx={{ textAlign: 'left' }}>
                       <Typography variant="caption" color="text.secondary">
@@ -404,7 +468,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                         <Typography variant="body2" color="text.secondary">
                           This division has no {isBracketMode ? 'brackets' : 'pools'} yet:
                         </Typography>
-                        <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })} disabled={!canEdit}>
+                        <Button startIcon={<AddIcon />} onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })} disabled={!canEdit || (!isBracketMode && !selectedGroupId)}>
                           Create {isBracketMode ? 'Bracket' : 'Pool'}
                         </Button>
                       </Box>
@@ -441,7 +505,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                               <IconButton
                                 size="small"
                                 onClick={() => setBracketDialog({ open: true, type: isBracketMode ? 'bracket' : 'pool', bracket: null })}
-                                disabled={!canEdit}
+                                disabled={!canEdit || (!isBracketMode && !selectedGroupId)}
                                 aria-label={`Create ${isBracketMode ? 'Bracket' : 'Pool'}`}
                               >
                                 <AddIcon />
@@ -514,6 +578,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         type={bracketDialog.type}
         entityLabel={bracketDialog.type === 'bracket' ? 'Bracket' : 'Pool'}
         bracket={bracketDialog.bracket}
+        poolBracketGroupId={bracketDialog.type === 'pool' ? (selectedGroupId || undefined) : undefined}
         isOpen={bracketDialog.open}
         onCancel={() => setBracketDialog(d => ({ ...d, open: false, bracket: null }))}
         onSave={(bracket) => {

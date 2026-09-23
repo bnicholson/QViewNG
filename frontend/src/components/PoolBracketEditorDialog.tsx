@@ -61,12 +61,14 @@ interface Props {
   isOpen: boolean;
   /** When set, the dialog edits this existing bracket instead of creating a new one. */
   bracket?: PoolBracketTS | null;
+  /** When creating a pool, the poolbracketgroup it belongs to (team placement is per-group). */
+  poolBracketGroupId?: string;
   onCancel: VoidFunction;
   onSave: (bracket: PoolBracketTS) => void;
 }
 
 export const PoolBracketEditorDialog = (props: Props) => {
-  const { tid, did, type, entityLabel, isOpen, bracket, onCancel, onSave } = props;
+  const { tid, did, type, entityLabel, isOpen, bracket, poolBracketGroupId, onCancel, onSave } = props;
   const { accessToken } = useAuth();
   const isEdit = !!bracket;
   const [form, setForm] = useState<FormState>(emptyState);
@@ -130,7 +132,7 @@ export const PoolBracketEditorDialog = (props: Props) => {
       if (bracket) {
         result = await PoolBracketAPI.update(bracket.pool_bracket_id, { name: form.name.trim() }, accessToken);
       } else {
-        result = await PoolBracketAPI.create({ divisionid: form.divisionid, name: form.name.trim(), type }, accessToken);
+        result = await PoolBracketAPI.create({ divisionid: form.divisionid, name: form.name.trim(), type, poolbracketgroupid: poolBracketGroupId ?? null }, accessToken);
       }
     } catch (err: any) {
       setErrorMsg("Failed to save: " + err.message);

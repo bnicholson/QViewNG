@@ -141,6 +141,24 @@ async fn read_roundgroups(
     }
 }
 
+/// The division's poolbracketgroups (each groups the pools that run concurrently for team placement).
+#[get("/{id}/poolbracketgroups")]
+async fn read_poolbracketgroups(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::poolbracketgroup::read_all_of_division(&mut conn, item_id.into_inner()) {
+        Ok(groups) => HttpResponse::Ok().json(groups),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
 /// Returns fully-formed roundgroup data-table rows (roundgroup + division name + last-modified user name)
 /// for the division in a single paginated call.
 #[get("/{id}/roundgroup-rows")]
@@ -381,13 +399,24 @@ async fn create(
             Err(e) => tracing::error!("{} Failed to create default Session 1 for division {}: {:?}", line!(), division.did, e),
         }
 
-        if let Err(e) = models::pool_bracket::PoolBracketBuilder::new(division.did)
-            .set_name("Pool A")
-            .set_type("pool")
+        // A "Group 1" poolbracketgroup holds the starting "Pool A" (team placement is per-group).
+        match models::poolbracketgroup::PoolBracketGroupBuilder::new(division.did)
+            .set_name("Group 1")
             .set_creator_userid(creator_id)
             .build_and_insert(&mut conn)
         {
-            tracing::error!("{} Failed to create default Pool A for division {}: {:?}", line!(), division.did, e);
+            Ok(group) => {
+                if let Err(e) = models::pool_bracket::PoolBracketBuilder::new(division.did)
+                    .set_name("Pool A")
+                    .set_type("pool")
+                    .set_poolbracketgroupid(group.poolbracketgroupid)
+                    .set_creator_userid(creator_id)
+                    .build_and_insert(&mut conn)
+                {
+                    tracing::error!("{} Failed to create default Pool A for division {}: {:?}", line!(), division.did, e);
+                }
+            }
+            Err(e) => tracing::error!("{} Failed to create default Group 1 for division {}: {:?}", line!(), division.did, e),
         }
     }
 
@@ -513,6 +542,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_pool_brackets)
         .service(read_pool_bracket_rows)
         .service(read_roundgroups)
+        .service(read_poolbracketgroups)
         .service(read_roundgroup_rows)
         .service(read_teams)
         .service(read_team_rows)

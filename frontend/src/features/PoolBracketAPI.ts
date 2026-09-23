@@ -7,18 +7,22 @@ export interface PoolBracketTS {
   last_modified_date: string;
   last_modified_userid: string;
   name: string;
+  /** The poolbracketgroup this pool belongs to (teams are placed one-per-pool within a group). */
+  poolbracketgroupid: string | null;
 }
 
 export interface NewPoolBracketPayload {
   divisionid: string;
   name: string;
   type: string;
+  poolbracketgroupid?: string | null;
 }
 
 export interface PoolBracketChangeset {
   divisionid?: string;
   name?: string;
   type?: string;
+  poolbracketgroupid?: string | null;
 }
 
 /**

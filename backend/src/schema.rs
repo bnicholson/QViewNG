@@ -361,6 +361,21 @@ diesel::table! {
         del_fl -> Bool,
         divisionid -> Uuid,
         team_group_id -> Nullable<Uuid>,
+        poolbracketgroupid -> Nullable<Uuid>,
+    }
+}
+
+diesel::table! {
+    poolbracketgroups (poolbracketgroupid) {
+        poolbracketgroupid -> Uuid,
+        divisionid -> Uuid,
+        #[max_length = 64]
+        name -> Varchar,
+        created_date -> Timestamptz,
+        creator_userid -> Uuid,
+        last_modified_date -> Timestamptz,
+        last_modified_userid -> Uuid,
+        del_fl -> Bool,
     }
 }
 
@@ -809,7 +824,9 @@ diesel::joinable!(games_statsgroups -> games (gameid));
 diesel::joinable!(games_statsgroups -> statsgroups (statsgroupid));
 diesel::joinable!(password_reset_tokens -> users (user_id));
 diesel::joinable!(pool_brackets -> divisions (divisionid));
+diesel::joinable!(pool_brackets -> poolbracketgroups (poolbracketgroupid));
 diesel::joinable!(pool_brackets -> teamgroups (team_group_id));
+diesel::joinable!(poolbracketgroups -> divisions (divisionid));
 diesel::joinable!(roles_permissions -> permissions (permission_id));
 diesel::joinable!(roles_permissions -> roles (role_id));
 diesel::joinable!(roomgroups -> tournaments (tournamentid));
@@ -858,6 +875,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     password_reset_tokens,
     permissions,
     pool_brackets,
+    poolbracketgroups,
     powerstrips,
     projectors,
     questionsandanswers,

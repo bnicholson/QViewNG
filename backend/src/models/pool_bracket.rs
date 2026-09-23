@@ -13,6 +13,7 @@ pub struct PoolBracketBuilder {
     divisionid: Uuid,
     name: Option<String>,
     type_: String,
+    poolbracketgroupid: Option<Uuid>,
     creator_userid: Option<Uuid>,
     last_modified_userid: Option<Uuid>,
 }
@@ -23,9 +24,14 @@ impl PoolBracketBuilder {
             divisionid,
             name: None,
             type_: "pool".to_string(),
+            poolbracketgroupid: None,
             creator_userid: None,
             last_modified_userid: None,
         }
+    }
+    pub fn set_poolbracketgroupid(mut self, id: Uuid) -> Self {
+        self.poolbracketgroupid = Some(id);
+        self
     }
     pub fn new_default(divisionid: Uuid) -> Self {
         Self::new(divisionid)
@@ -60,6 +66,7 @@ impl PoolBracketBuilder {
             divisionid: self.divisionid,
             name: self.name.unwrap(),
             type_: self.type_,
+            poolbracketgroupid: self.poolbracketgroupid,
             creator_userid: creator,
             last_modified_userid: self.last_modified_userid.unwrap_or(creator),
         })
@@ -94,6 +101,7 @@ pub struct PoolBracket {
     pub del_fl: bool,                         // soft-delete flag
     pub divisionid: Uuid,                     // parent division
     pub team_group_id: Option<Uuid>,          // 1-to-1 team group (UNIQUE); created lazily, so nullable
+    pub poolbracketgroupid: Option<Uuid>,     // parent poolbracketgroup (nullable during migration)
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -104,6 +112,9 @@ pub struct NewPoolBracket {
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: String,
+    // The poolbracketgroup this pool belongs to (nullable during migration); omitted → NULL.
+    #[serde(default)]
+    pub poolbracketgroupid: Option<Uuid>,
     // Set from the authenticated user in the service layer; API payloads omit these.
     #[serde(default)]
     pub creator_userid: Uuid,
@@ -120,6 +131,7 @@ pub struct PoolBracketChangeset {
     #[diesel(column_name = type_)]
     #[serde(rename = "type")]
     pub type_: Option<String>,
+    pub poolbracketgroupid: Option<Uuid>,
 }
 
 /// Whether a pool bracket named `name_val` already exists in division `division_id`. When `exclude`
@@ -180,6 +192,16 @@ pub fn read_all_of_division(db: &mut database::Connection, division_id: Uuid) ->
     use crate::schema::pool_brackets::dsl::*;
     pool_brackets
         .filter(divisionid.eq(division_id))
+        .filter(del_fl.eq(false))
+        .order(created_date)
+        .load::<PoolBracket>(db)
+}
+
+/// All pool brackets belonging to the given poolbracketgroup.
+pub fn read_all_of_poolbracketgroup(db: &mut database::Connection, group_id: Uuid) -> QueryResult<Vec<PoolBracket>> {
+    use crate::schema::pool_brackets::dsl::*;
+    pool_brackets
+        .filter(poolbracketgroupid.eq(group_id))
         .filter(del_fl.eq(false))
         .order(created_date)
         .load::<PoolBracket>(db)
@@ -347,6 +369,7 @@ pub fn resolve_default_for_division(db: &mut database::Connection, division_id: 
             divisionid: division_id,
             name: "Default".to_string(),
             type_: "pool".to_string(),
+            poolbracketgroupid: None,
             creator_userid: user_id,
             last_modified_userid: user_id,
         },
