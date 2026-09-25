@@ -300,8 +300,8 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         <ButtonGroup variant="outlined" size="small">
           <Button variant={activeMode === 'read' ? 'contained' : 'outlined'} onClick={() => setMode('read')}>Read</Button>
           <Button variant={activeMode === 'conflicts' ? 'contained' : 'outlined'} onClick={() => setMode('conflicts')}>Conflicts</Button>
-          <Button variant={activeMode === 'edit' ? 'contained' : 'outlined'} onClick={() => setMode('edit')}>Create / Edit</Button>
-          <Button variant={activeMode === 'edit2' ? 'contained' : 'outlined'} onClick={() => setMode('edit2')}>Create / Edit (Compare)</Button>
+          <Button variant={activeMode === 'edit' ? 'contained' : 'outlined'} onClick={() => setMode('edit')}>Create / Edit (V1)</Button>
+          <Button variant={activeMode === 'edit2' ? 'contained' : 'outlined'} onClick={() => setMode('edit2')}>Create / Edit (V2)</Button>
         </ButtonGroup>
       )}
 
@@ -803,14 +803,14 @@ const PoolDetail = ({ teams, games, canEdit, onRemoveTeam, onNavigateGame }: Poo
                 <TableRow>
                   <TableCell sx={{ fontWeight: 600 }}>Round \ Room</TableCell>
                   {rooms.map(([roomid, roomName]) => (
-                    <TableCell key={roomid} align="center" sx={{ fontWeight: 600 }}>{roomName}</TableCell>
+                    <TableCell key={roomid} align="center" sx={{ fontWeight: 600 }}>Room: {roomName}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rounds.map(([roundid, roundNumber]) => (
                   <TableRow key={roundid}>
-                    <TableCell sx={{ fontWeight: 600 }}>{roundNumber != null ? `Round ${roundNumber}` : 'Round'}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{roundNumber != null ? `Round: ${roundNumber}` : 'Round'}</TableCell>
                     {rooms.map(([roomid]) => {
                       const cellGames = gamesByCell.get(`${roundid}|${roomid}`) ?? []
                       return (

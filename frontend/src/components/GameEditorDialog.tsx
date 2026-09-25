@@ -3,8 +3,11 @@ import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
+import DeleteIcon from '@mui/icons-material/Delete'
+import LaunchIcon from '@mui/icons-material/Launch'
 import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
 import Grid from '@mui/material/Grid'
@@ -97,12 +100,16 @@ interface Props {
   game?: GameRowTS | null;
   /** The editing game's pool bracket (GameRowTS doesn't carry it) — used to prefill the Pool/Bracket. */
   gamePoolBracketId?: string;
+  /** When editing, called to navigate to the game's profile (adds a "View Game" header button). */
+  onView?: () => void;
+  /** When editing, called to delete the game (adds a "Delete" header button, with confirmation). */
+  onDelete?: () => void;
   onCancel: VoidFunction;
   onSave: (game: GameTS) => void;
 }
 
 export const GameEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, lockedRoundId, game, gamePoolBracketId, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, lockedRoundId, game, gamePoolBracketId, onView, onDelete, onCancel, onSave } = props;
   const isEdit = !!game;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<GameFormState>(emptyState);
@@ -290,6 +297,14 @@ export const GameEditorDialog = (props: Props) => {
     title: isEdit ? 'Save changes to this game?' : 'Create game?',
   });
 
+  const openDeleteDialog = () => setConfirmDialog({
+    isOpen: true,
+    message: 'This permanently removes the game. This cannot be undone.',
+    onCancel: () => setConfirmDialog(confirmDialogDefaultState),
+    onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); onDelete?.(); },
+    title: 'Delete this game?',
+  });
+
   const userLabel = (u: UserTS) =>
     [u.fname, u.mname, u.lname].filter(Boolean).join(' ');  // + ` (@${u.username})`;
 
@@ -322,6 +337,16 @@ export const GameEditorDialog = (props: Props) => {
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
             {isEdit ? 'Edit Game' : 'Create Game'}
           </Typography>
+          {isEdit && onDelete && (
+            <Button color="inherit" startIcon={<DeleteIcon />} onClick={openDeleteDialog} sx={{ mr: 1 }}>
+              Delete
+            </Button>
+          )}
+          {isEdit && onView && (
+            <Button color="inherit" startIcon={<LaunchIcon />} onClick={onView} sx={{ mr: 1 }}>
+              View Game
+            </Button>
+          )}
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>
       </AppBar>

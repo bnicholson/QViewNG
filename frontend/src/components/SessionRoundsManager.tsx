@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react'
 import Box from '@mui/material/Box'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
@@ -13,6 +15,8 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import dayjs from 'dayjs'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
@@ -101,8 +105,22 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
   // Game add/edit dialog (TimePool): `game` = the game being edited (null = add to `roundId`).
   const [gameDialog, setGameDialog] = useState<{ open: boolean; roundGroupId: string; roundId: string; game: GameRowTS | null; poolBracketId?: string }>({ open: false, roundGroupId: '', roundId: '', game: null })
   const closeGameDialog = () => setGameDialog({ open: false, roundGroupId: '', roundId: '', game: null })
-  // Pool/bracket edit dialog (TimePool): opened from the chips above the sessions.
+  // Pool/bracket edit dialog (TimePool): opened from the pencil on the chips above the sessions.
   const [poolDialog, setPoolDialog] = useState<{ open: boolean; bracket: PoolBracketTS | null }>({ open: false, bracket: null })
+  // Pools whose games are hidden below (client-side visual filter toggled by clicking a pool chip).
+  const [hiddenPoolIds, setHiddenPoolIds] = useState<Set<string>>(new Set())
+  const [hiddenRoomIds, setHiddenRoomIds] = useState<Set<string>>(new Set())
+  const [hiddenTeamIds, setHiddenTeamIds] = useState<Set<string>>(new Set())
+  // Toggle an id in one of the visual-filter sets (clicking a Pool/Room/Team chip hides it).
+  const makeToggle = (setter: Dispatch<SetStateAction<Set<string>>>) => (id: string) =>
+    setter(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  const togglePoolFilter = makeToggle(setHiddenPoolIds)
+  const toggleRoomFilter = makeToggle(setHiddenRoomIds)
+  const toggleTeamFilter = makeToggle(setHiddenTeamIds)
 
   const loadRounds = useCallback(() => {
     RoundAPI.getByDivision(did, PAGE, SIZE)
@@ -187,9 +205,55 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     })
   }, [roundgroups, roundsBySession])
 
-  // Games for a round, sorted by room name so the list reads in the same room order as the Pools matrix.
+  // Distinct rooms and teams that appear in the division's games — drive the Rooms/Teams filter chips.
+  const roomsInGames = useMemo(() => {
+    const m = new Map<string, string>()
+    gamesByRound?.forEach(list => list.forEach(({ g }) => m.set(g.roomid, g.room_name)))
+    return [...m.entries()].map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  }, [gamesByRound])
+  const teamsInGames = useMemo(() => {
+    const m = new Map<string, string>()
+    gamesByRound?.forEach(list => list.forEach(({ g }) => {
+      m.set(g.leftteamid, g.left_team_name)
+      if (g.centerteamid) m.set(g.centerteamid, g.center_team_name ?? '')
+      m.set(g.rightteamid, g.right_team_name)
+    }))
+    return [...m.entries()].map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  }, [gamesByRound])
+
+  // A game is hidden if its pool or its room is toggled off, or — for teams — if EVERY team in the
+  // game is toggled off. (A matchup stays visible as long as at least one of its teams is visible, so
+  // showing a single team surfaces all of that team's games.)
+  const gameHiddenByFilter = (e: RoundGameEntry): boolean => {
+    if (hiddenPoolIds.has(e.poolBracketId) || hiddenRoomIds.has(e.g.roomid)) return true
+    const teamIds = [e.g.leftteamid, e.g.rightteamid, ...(e.g.centerteamid != null ? [e.g.centerteamid] : [])]
+    return teamIds.length > 0 && teamIds.every(id => hiddenTeamIds.has(id))
+  }
+
+  // Games for a round (visual filters applied), sorted by room name so the list reads in the same
+  // room order as the Pools matrix.
   const gamesForRound = (roundId: string): RoundGameEntry[] =>
-    [...(gamesByRound?.get(roundId) ?? [])].sort((a, b) => a.g.room_name.localeCompare(b.g.room_name, undefined, { numeric: true }))
+    [...(gamesByRound?.get(roundId) ?? [])]
+      .filter(e => !gameHiddenByFilter(e))
+      .sort((a, b) => a.g.room_name.localeCompare(b.g.room_name, undefined, { numeric: true }))
+
+  // A leading "show/hide all" eye chip for a filter row. Open eye when anything is hidden (click reveals
+  // all); closed eye when everything is visible (click hides all).
+  const allToggleChip = (noun: string, allIds: string[], hiddenIds: Set<string>, setHidden: Dispatch<SetStateAction<Set<string>>>) => {
+    const anyHidden = allIds.some(id => hiddenIds.has(id))
+    return (
+      <Tooltip title={anyHidden ? `Show all ${noun}` : `Hide all ${noun}`}>
+        <Chip
+          variant="outlined"
+          onClick={() => setHidden(anyHidden ? new Set() : new Set(allIds))}
+          sx={{ height: 'auto', borderRadius: '8px', cursor: 'pointer', '& .MuiChip-label': { display: 'flex', alignItems: 'center', px: 0.75, py: 0.5 } }}
+          label={anyHidden ? <VisibilityIcon sx={{ fontSize: 16 }} /> : <VisibilityOffIcon sx={{ fontSize: 16 }} />}
+        />
+      </Tooltip>
+    )
+  }
 
   return (
     <Box sx={{ textAlign: 'left' }}>
@@ -210,31 +274,112 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         </>
       )}
 
+      {/* Filters card — client-side show/hide of the games below by Pool, Room, or Team. */}
+      {isTimePool && ((poolBrackets?.length ?? 0) > 0 || roomsInGames.length > 0 || teamsInGames.length > 0) && (
+        <Card variant="outlined" sx={{ mb: 1.5 }}>
+          <CardContent sx={{ pb: '12px !important' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Filters</Typography>
+
       {/* Pools/brackets for the division — editable chips above the first session. */}
       {isTimePool && poolBrackets && poolBrackets.length > 0 && (
-        <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {poolBrackets.map(pb => (
-            <Chip
-              key={pb.pool_bracket_id}
-              variant="outlined"
-              sx={{ height: 'auto', borderRadius: '8px', '& .MuiChip-label': { display: 'block', px: 1, py: 0.5 } }}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography component="span" variant="caption" sx={{ fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1 }}>
-                    {pb.name}
-                  </Typography>
-                  {canEdit && (
-                    <Tooltip title={`Edit ${pb.type === 'bracket' ? 'bracket' : 'pool'}`}>
-                      <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setPoolDialog({ open: true, bracket: pb })}>
-                        <EditIcon sx={{ fontSize: 15 }} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              }
-            />
-          ))}
+        <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>Pools:</Typography>
+          {allToggleChip('pools', poolBrackets.map(pb => pb.pool_bracket_id), hiddenPoolIds, setHiddenPoolIds)}
+          {poolBrackets.map(pb => {
+            // Clicking the chip body toggles whether this pool's games show below; the pencil edits it.
+            const hidden = hiddenPoolIds.has(pb.pool_bracket_id)
+            return (
+              <Chip
+                key={pb.pool_bracket_id}
+                variant="outlined"
+                onClick={() => togglePoolFilter(pb.pool_bracket_id)}
+                sx={{
+                  height: 'auto',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  opacity: hidden ? 0.45 : 1,
+                  bgcolor: hidden ? 'transparent' : 'rgba(0, 128, 128, 0.08)',
+                  '& .MuiChip-label': { display: 'block', px: 1, py: 0.5 },
+                }}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography component="span" variant="caption" sx={{ fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1, textDecoration: hidden ? 'line-through' : 'none' }}>
+                      {pb.name}
+                    </Typography>
+                    {canEdit && (
+                      <Tooltip title={`Edit ${pb.type === 'bracket' ? 'bracket' : 'pool'}`}>
+                        <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => { e.stopPropagation(); setPoolDialog({ open: true, bracket: pb }) }}>
+                          <EditIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                }
+              />
+            )
+          })}
         </Box>
+      )}
+
+      {/* Rooms filter — click a room chip to show/hide its games below. */}
+      {isTimePool && roomsInGames.length > 0 && (
+        <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>Rooms:</Typography>
+          {allToggleChip('rooms', roomsInGames.map(r => r.id), hiddenRoomIds, setHiddenRoomIds)}
+          {roomsInGames.map(room => {
+            const hidden = hiddenRoomIds.has(room.id)
+            return (
+              <Chip
+                key={room.id}
+                variant="outlined"
+                onClick={() => toggleRoomFilter(room.id)}
+                sx={{
+                  height: 'auto', borderRadius: '8px', cursor: 'pointer',
+                  opacity: hidden ? 0.45 : 1,
+                  bgcolor: hidden ? 'transparent' : 'rgba(0, 128, 128, 0.08)',
+                  '& .MuiChip-label': { display: 'block', px: 1, py: 0.5 },
+                }}
+                label={
+                  <Typography component="span" variant="caption" sx={{ fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1, textDecoration: hidden ? 'line-through' : 'none' }}>
+                    {room.name}
+                  </Typography>
+                }
+              />
+            )
+          })}
+        </Box>
+      )}
+
+      {/* Teams filter — click a team chip to show/hide the games that team plays in. */}
+      {isTimePool && teamsInGames.length > 0 && (
+        <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>Teams:</Typography>
+          {allToggleChip('teams', teamsInGames.map(t => t.id), hiddenTeamIds, setHiddenTeamIds)}
+          {teamsInGames.map(team => {
+            const hidden = hiddenTeamIds.has(team.id)
+            return (
+              <Chip
+                key={team.id}
+                variant="outlined"
+                onClick={() => toggleTeamFilter(team.id)}
+                sx={{
+                  height: 'auto', borderRadius: '8px', cursor: 'pointer',
+                  opacity: hidden ? 0.45 : 1,
+                  bgcolor: hidden ? 'transparent' : 'rgba(0, 128, 128, 0.08)',
+                  '& .MuiChip-label': { display: 'block', px: 1, py: 0.5 },
+                }}
+                label={
+                  <Typography component="span" variant="caption" sx={{ fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1, textDecoration: hidden ? 'line-through' : 'none' }}>
+                    {team.name}
+                  </Typography>
+                }
+              />
+            )
+          })}
+        </Box>
+      )}
+          </CardContent>
+        </Card>
       )}
 
       {sortedSessions.length === 0 ? (
@@ -275,9 +420,13 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                       <Button size="small" startIcon={<EditIcon />} onClick={() => setSessionDialog({ open: true, roundgroup: session })}>
                         Edit Session
                       </Button>
-                      <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => handleDeleteSession(session)}>
-                        Delete Session
-                      </Button>
+                      <Tooltip title={sessionRounds.length > 0 ? "This session can't be deleted while it has a round. Delete or move its rounds first." : ''}>
+                        <span>
+                          <Button size="small" color="error" startIcon={<DeleteIcon />} disabled={sessionRounds.length > 0} onClick={() => handleDeleteSession(session)}>
+                            Delete Session
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </>
                   )}
                 </Box>
@@ -300,6 +449,11 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {sessionRounds.map(round => {
                       const roundGames = isTimePool ? gamesForRound(round.roundid) : []
+                      // Whether the round has any games at all (ignoring the pool-visibility filter). A
+                      // round with a game can't be deleted, so the Delete button is disabled; it also
+                      // gates the "No games in this round." message (only shown when truly empty).
+                      const roundHasGames = (gamesByRound?.get(round.roundid)?.length ?? 0) > 0
+                      const roundHasAnyGames = isTimePool && roundHasGames
                       return (
                         <Box
                           key={round.roundid}
@@ -331,56 +485,48 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                                 <Button size="small" startIcon={<EditIcon />} onClick={() => setRoundDialog({ open: true, sessionId: session.roundgroup_id, round })}>
                                   Edit Round
                                 </Button>
-                                <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => handleDelete(round)}>
-                                  Delete Round
-                                </Button>
+                                <Tooltip title={roundHasGames ? "This round can't be deleted while it has a game. Delete or move its games first." : ''}>
+                                  <span>
+                                    <Button size="small" color="error" startIcon={<DeleteIcon />} disabled={roundHasGames} onClick={() => handleDelete(round)}>
+                                      Delete Round
+                                    </Button>
+                                  </span>
+                                </Tooltip>
                               </>
                             )}
                           </Box>
 
-                          {/* TimePool: the round's games, keeping the Pools matrix's matchups visible. */}
+                          {/* TimePool: the round's games, keeping the Pools matrix's matchups visible.
+                              A round with games that are all hidden by the pool filter renders nothing
+                              here; "No games in this round." only shows when the round is truly empty. */}
                           {isTimePool && (
-                            roundGames.length === 0 ? (
+                            !roundHasAnyGames ? (
                               <Typography variant="caption" color="text.secondary" sx={{ pl: 0.5 }}>No games in this round.</Typography>
-                            ) : (
+                            ) : roundGames.length === 0 ? null : (
                               // Games as wrapping chips so they fill the row's whitespace and cut down on vertical scrolling.
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, pl: 0.5 }}>
                                 {roundGames.map(({ g, poolName, poolBracketId }) => (
+                                  // No icons on the chip: clicking it opens the game editor, where the
+                                  // user can edit, delete, or view the game's profile.
                                   <Chip
                                     key={g.gid}
                                     variant="outlined"
-                                    onClick={onNavigateGame ? () => onNavigateGame(g.gid) : undefined}
+                                    onClick={() => setGameDialog({ open: true, roundGroupId: session.roundgroup_id, roundId: round.roundid, game: g, poolBracketId })}
                                     sx={{
                                       height: 'auto',
                                       borderRadius: '8px',
                                       bgcolor: 'rgba(0, 128, 128, 0.08)',
                                       borderColor: 'primary.main',
                                       color: 'primary.main',
-                                      cursor: onNavigateGame ? 'pointer' : 'default',
+                                      cursor: 'pointer',
                                       '& .MuiChip-label': { display: 'block', px: 1, py: 0.5 },
                                     }}
                                     label={
                                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                                        {/* Row 1: room name + edit/delete */}
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                          <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'primary.main', whiteSpace: 'nowrap', lineHeight: 1 }}>
-                                            Room: {g.room_name}
-                                          </Typography>
-                                          {canEdit && (
-                                            <>
-                                              <Tooltip title="Edit game">
-                                                <IconButton size="small" sx={{ p: 0.25, color: 'primary.main' }} onClick={(e) => { e.stopPropagation(); setGameDialog({ open: true, roundGroupId: session.roundgroup_id, roundId: round.roundid, game: g, poolBracketId }) }}>
-                                                  <EditIcon sx={{ fontSize: 15 }} />
-                                                </IconButton>
-                                              </Tooltip>
-                                              <Tooltip title="Delete game">
-                                                <IconButton size="small" color="error" sx={{ p: 0.25 }} onClick={(e) => { e.stopPropagation(); handleDeleteGame(g.gid) }}>
-                                                  <DeleteIcon sx={{ fontSize: 15 }} />
-                                                </IconButton>
-                                              </Tooltip>
-                                            </>
-                                          )}
-                                        </Box>
+                                        {/* Row 1: room */}
+                                        <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'primary.main', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                                          Room: {g.room_name}
+                                        </Typography>
                                         {/* Row 2: teams */}
                                         <Typography component="span" variant="caption" sx={{ color: 'primary.main', lineHeight: 1.2 }}>
                                           {matchupText(g)}
@@ -463,6 +609,9 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
           isOpen={gameDialog.open}
           onCancel={closeGameDialog}
           onSave={() => { closeGameDialog(); onGamesChanged?.() }}
+          // Editing an existing game: allow viewing its profile and deleting it from the dialog.
+          onView={gameDialog.game && onNavigateGame ? () => onNavigateGame(gameDialog.game!.gid) : undefined}
+          onDelete={gameDialog.game ? () => { const gid = gameDialog.game!.gid; closeGameDialog(); handleDeleteGame(gid) } : undefined}
         />
       )}
 
