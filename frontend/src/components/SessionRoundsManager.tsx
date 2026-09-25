@@ -139,6 +139,12 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     ids.forEach(id => { if (hidden) next.add(id); else next.delete(id) })
     return next
   })
+  // A game/round/session filter is active whenever any pool/room/team is hidden (i.e. "Reset / Show All"
+  // is enabled). Creating while filtered is blocked so the user can't unknowingly duplicate a hidden game.
+  const filtersActive = hiddenPoolIds.size > 0 || hiddenRoomIds.size > 0 || hiddenTeamIds.size > 0
+  const createBlockedTooltip = filtersActive
+    ? 'Filters are hiding some games. Click "Reset / Show All" first so you can see every game before creating.'
+    : ''
 
   // TimePool: the division's pool groups (loaded locally) drive the "Pool Groups" filter row and the
   // "Edit Pool Groups" dialog. Each group maps to its member pools (from `poolBrackets`).
@@ -335,8 +341,8 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                 variant="contained"
                 color="primary"
                 disableElevation
-                disabled={hiddenPoolIds.size === 0 && hiddenRoomIds.size === 0 && hiddenTeamIds.size === 0}
-                onClick={() => { setHiddenPoolIds(new Set()); setHiddenRoomIds(new Set()); setHiddenTeamIds(new Set()) }}
+                disabled={hiddenPoolIds.size === 0 && hiddenRoomIds.size === 0 && hiddenTeamIds.size === 0 && showEmpty}
+                onClick={() => { setHiddenPoolIds(new Set()); setHiddenRoomIds(new Set()); setHiddenTeamIds(new Set()); setShowEmpty(true) }}
               >
                 Reset / Show All
               </Button>
@@ -552,9 +558,13 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                           </span>
                         </Tooltip>
                       )}
-                      <Button size="small" startIcon={<AddIcon />} onClick={() => setRoundDialog({ open: true, sessionId: session.roundgroup_id, round: null })}>
-                        Add Round
-                      </Button>
+                      <Tooltip title={createBlockedTooltip}>
+                        <span>
+                          <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={() => setRoundDialog({ open: true, sessionId: session.roundgroup_id, round: null })}>
+                            Add Round
+                          </Button>
+                        </span>
+                      </Tooltip>
                       <Button size="small" startIcon={<EditIcon />} onClick={() => setSessionDialog({ open: true, roundgroup: session })}>
                         Edit Session
                       </Button>
@@ -616,9 +626,13 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                             {canEdit && (
                               <>
                                 {isTimePool && (
-                                  <Button size="small" startIcon={<AddIcon />} onClick={() => setGameDialog({ open: true, roundGroupId: session.roundgroup_id, roundId: round.roundid, game: null })}>
-                                    Add Game
-                                  </Button>
+                                  <Tooltip title={createBlockedTooltip}>
+                                    <span>
+                                      <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={() => setGameDialog({ open: true, roundGroupId: session.roundgroup_id, roundId: round.roundid, game: null })}>
+                                        Add Game
+                                      </Button>
+                                    </span>
+                                  </Tooltip>
                                 )}
                                 <Button size="small" startIcon={<EditIcon />} onClick={() => setRoundDialog({ open: true, sessionId: session.roundgroup_id, round })}>
                                   Edit Round
@@ -707,11 +721,14 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
       {/* Add a new session — a "+" button directly below the last session, left-aligned. */}
       {canEdit && (
         <Box sx={{ mt: 1.5 }}>
-          <Tooltip title="Add session">
-            <Button size="small" variant="outlined" sx={{ minWidth: 40, px: 1 }}
-              onClick={() => setSessionDialog({ open: true, roundgroup: null })}>
-              + Add a Session
-            </Button>
+          <Tooltip title={filtersActive ? createBlockedTooltip : 'Add session'}>
+            <span>
+              <Button size="small" variant="outlined" sx={{ minWidth: 40, px: 1 }}
+                disabled={filtersActive}
+                onClick={() => setSessionDialog({ open: true, roundgroup: null })}>
+                + Add a Session
+              </Button>
+            </span>
           </Tooltip>
         </Box>
       )}

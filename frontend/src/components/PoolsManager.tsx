@@ -129,7 +129,7 @@ export const PoolsManager = ({ tid, did, canEdit, onChanged }: Props) => {
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
 
       <Alert severity="info" sx={{ mb: 1.5 }}>
-        Pools organize a Divisions Teams into groups for use in Round Robin-style scheduling. If you have many Teams in a Division and you want to schedule via Round Robin, use multiple Pools to reduce the number of Rounds overall that you require.
+        Pools organize a Division's Teams into groups for use in Round Robin-style scheduling. If you have many Teams in a Division and you want to schedule via Round Robin, use multiple Pools to reduce the number of Rounds overall that you require. 
       </Alert>
 
       {/* Pool group selector — team placement is scoped to the chosen group. */}
