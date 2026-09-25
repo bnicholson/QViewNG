@@ -20,7 +20,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Add Touranment Manager (*owner of Tour One):
 
     let user = UserBuilder::new("Tournament")
-        .set_lname("Manager")
+        .set_lname("Manager (Demo)")
         .set_username("tournamentmanager")
         .set_hash_password(&default_password())
         .set_email("tmanager@fakeemail.com")
@@ -40,7 +40,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Add member user:
 
     let member_user = UserBuilder::new("Justa")
-        .set_lname("Member")
+        .set_lname("Member (Demo)")
         .set_username("member")
         .set_hash_password(&default_password())
         .set_email("justamember@fakeemail.com")
@@ -59,7 +59,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     
     let tour_owner = crate::models::user::UserBuilder::new("Tour")
         .set_mname("One")
-        .set_lname("Owner")
+        .set_lname("Owner (Demo)")
         .set_username("touroneowner")
         .set_hash_password(&default_password())
         .set_email("touroneowner@fakeemail.com")
@@ -112,7 +112,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Tournament admins
     let admin_1 = UserBuilder::new("Tour")
         .set_mname("One")
-        .set_lname("Admin")
+        .set_lname("Admin (Demo)")
         .set_username("touroneadmin")
         .set_hash_password(&default_password())
         .set_email("touroneadmin@fakeemail.com")
@@ -129,7 +129,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let admin_2 = UserBuilder::new("Ben")
-        .set_lname("Castillo")
+        .set_lname("Castillo (Demo)")
         .set_username("bcastillo")
         .set_hash_password(&default_password())
         .set_email("bcastillo@fakeemail.com")
@@ -146,7 +146,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let admin_3 = UserBuilder::new("Clara")
-        .set_lname("Voss")
+        .set_lname("Voss (Demo)")
         .set_username("cvoss")
         .set_hash_password(&default_password())
         .set_email("cvoss@fakeemail.com")
@@ -201,7 +201,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // Quizmasters — one per room, each unique across all rooms
     let qm_1 = UserBuilder::new("Jordan")
-        .set_lname("Avery")
+        .set_lname("Avery (Demo)")
         .set_username("javery_qm")
         .set_email("javery@fakeemail.com")
         .set_hash_password(&default_password())
@@ -209,7 +209,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let qm_2 = UserBuilder::new("Riley")
-        .set_lname("Blake")
+        .set_lname("Blake (Demo)")
         .set_username("rblake_qm")
         .set_email("rblake@fakeemail.com")
         .set_hash_password(&default_password())
@@ -217,7 +217,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let qm_3 = UserBuilder::new("Morgan")
-        .set_lname("Casey")
+        .set_lname("Casey (Demo)")
         .set_username("mcasey_qm")
         .set_email("mcasey@fakeemail.com")
         .set_hash_password(&default_password())
@@ -225,7 +225,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let qm_4 = UserBuilder::new("Quinn")
-        .set_lname("Drew")
+        .set_lname("Drew (Demo)")
         .set_username("qdrew_qm")
         .set_email("qdrew@fakeemail.com")
         .set_hash_password(&default_password())
@@ -233,7 +233,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let qm_5 = UserBuilder::new("Sage")
-        .set_lname("Ellis")
+        .set_lname("Ellis (Demo)")
         .set_username("sellis_qm")
         .set_email("sellis@fakeemail.com")
         .set_hash_password(&default_password())
@@ -241,7 +241,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let qm_6 = UserBuilder::new("Avery")
-        .set_lname("Flynn")
+        .set_lname("Flynn (Demo)")
         .set_username("aflynn_qm")
         .set_email("aflynn@fakeemail.com")
         .set_hash_password(&default_password())
@@ -249,7 +249,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let qm_7 = UserBuilder::new("Blake")
-        .set_lname("Grant")
+        .set_lname("Grant (Demo)")
         .set_username("bgrant_qm")
         .set_email("bgrant@fakeemail.com")
         .set_hash_password(&default_password())
@@ -259,7 +259,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // Content Judges — one per room, each unique across all rooms
     let cj_1 = UserBuilder::new("Dana")
-        .set_lname("Harper")
+        .set_lname("Harper (Demo)")
         .set_username("dharper_cj")
         .set_email("dharper@fakeemail.com")
         .set_hash_password(&default_password())
@@ -267,7 +267,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let cj_2 = UserBuilder::new("Emery")
-        .set_lname("Ingram")
+        .set_lname("Ingram (Demo)")
         .set_username("eingram_cj")
         .set_email("eingram@fakeemail.com")
         .set_hash_password(&default_password())
@@ -275,7 +275,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let cj_3 = UserBuilder::new("Finley")
-        .set_lname("Jensen")
+        .set_lname("Jensen (Demo)")
         .set_username("fjensen_cj")
         .set_email("fjensen@fakeemail.com")
         .set_hash_password(&default_password())
@@ -283,7 +283,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let cj_4 = UserBuilder::new("Gray")
-        .set_lname("Knox")
+        .set_lname("Knox (Demo)")
         .set_username("gknox_cj")
         .set_email("gknox@fakeemail.com")
         .set_hash_password(&default_password())
@@ -291,7 +291,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let cj_5 = UserBuilder::new("Hayden")
-        .set_lname("Lane")
+        .set_lname("Lane (Demo)")
         .set_username("hlane_cj")
         .set_email("hlane@fakeemail.com")
         .set_hash_password(&default_password())
@@ -299,7 +299,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let cj_6 = UserBuilder::new("Indigo")
-        .set_lname("Marsh")
+        .set_lname("Marsh (Demo)")
         .set_username("imarsh_cj")
         .set_email("imarsh@fakeemail.com")
         .set_hash_password(&default_password())
@@ -307,7 +307,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let cj_7 = UserBuilder::new("Jamie")
-        .set_lname("Nash")
+        .set_lname("Nash (Demo)")
         .set_username("jnash_cj")
         .set_email("jnash@fakeemail.com")
         .set_hash_password(&default_password())
@@ -425,7 +425,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // Div: Experienced
     let coach_exp_1 = UserBuilder::new("Coachish")
-        .set_lname("Coach")
+        .set_lname("Coach (Demo)")
         .set_email("coach@fakeemail.com")
         .set_username("coach")
         .set_hash_password(&default_password())
@@ -654,19 +654,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db).unwrap();
 
     let q_exp_1_1 = UserBuilder::new("Aiden")
-        .set_lname("Park")
+        .set_lname("Park (Demo)")
         .set_email("apark@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_1_2 = UserBuilder::new("Zoe")
-        .set_lname("Nakamura")
+        .set_lname("Nakamura (Demo)")
         .set_email("znakamura@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_1_3 = UserBuilder::new("Felix")
-        .set_lname("Brennan")
+        .set_lname("Brennan (Demo)")
         .set_email("fbrennan@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -696,19 +696,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // Create Roster 2 for coach_exp_1 with 3 new quizzers
     let q_r2_1 = UserBuilder::new("Harper")
-        .set_lname("Ellison")
+        .set_lname("Ellison (Demo)")
         .set_email("hellison@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_r2_2 = UserBuilder::new("Rowan")
-        .set_lname("Caldwell")
+        .set_lname("Caldwell (Demo)")
         .set_email("rcaldwell@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_r2_3 = UserBuilder::new("Nadia")
-        .set_lname("Ostrowski")
+        .set_lname("Ostrowski (Demo)")
         .set_email("nostrowski@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -740,7 +740,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_2 = UserBuilder::new("Marcus")
-        .set_lname("Osei")
+        .set_lname("Osei (Demo)")
         .set_email("mosei@fakeemail.com")
         .set_username("mosei")
         .set_hash_password("Marc0s!Ose")
@@ -748,19 +748,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_2_1 = UserBuilder::new("Simone")
-        .set_lname("Tremblay")
+        .set_lname("Tremblay (Demo)")
         .set_email("stremblay@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_2_2 = UserBuilder::new("Kwame")
-        .set_lname("Asante")
+        .set_lname("Asante (Demo)")
         .set_email("kasante@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_2_3 = UserBuilder::new("Nora")
-        .set_lname("Lindqvist")
+        .set_lname("Lindqvist (Demo)")
         .set_email("nlindqvist@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -775,7 +775,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_3 = UserBuilder::new("Priya")
-        .set_lname("Nair")
+        .set_lname("Nair (Demo)")
         .set_email("pnair@fakeemail.com")
         .set_username("pnair")
         .set_hash_password("Priy@N4ir")
@@ -783,19 +783,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_3_1 = UserBuilder::new("Dante")
-        .set_lname("Moretti")
+        .set_lname("Moretti (Demo)")
         .set_email("dmoretti@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_3_2 = UserBuilder::new("Clara")
-        .set_lname("Hoffmann")
+        .set_lname("Hoffmann (Demo)")
         .set_email("choffmann@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_3_3 = UserBuilder::new("Ravi")
-        .set_lname("Sharma")
+        .set_lname("Sharma (Demo)")
         .set_email("rsharma@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -810,7 +810,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_4 = UserBuilder::new("Derek")
-        .set_lname("Calloway")
+        .set_lname("Calloway (Demo)")
         .set_email("dcalloway@fakeemail.com")
         .set_username("dcalloway")
         .set_hash_password("Derek#C4ll")
@@ -818,19 +818,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_4_1 = UserBuilder::new("Yara")
-        .set_lname("Hassan")
+        .set_lname("Hassan (Demo)")
         .set_email("yhassan@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_4_2 = UserBuilder::new("Owen")
-        .set_lname("Fitzgerald")
+        .set_lname("Fitzgerald (Demo)")
         .set_email("ofitzgerald@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_4_3 = UserBuilder::new("Mei")
-        .set_lname("Lin")
+        .set_lname("Lin (Demo)")
         .set_email("mlin@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -845,7 +845,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_5 = UserBuilder::new("Yuki")
-        .set_lname("Tanaka")
+        .set_lname("Tanaka (Demo)")
         .set_email("ytanaka@fakeemail.com")
         .set_username("ytanaka")
         .set_hash_password("Yuk1!Tank")
@@ -853,19 +853,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_5_1 = UserBuilder::new("Ezra")
-        .set_lname("Goldberg")
+        .set_lname("Goldberg (Demo)")
         .set_email("egoldberg@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_5_2 = UserBuilder::new("Amira")
-        .set_lname("Seif")
+        .set_lname("Seif (Demo)")
         .set_email("aseif@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_5_3 = UserBuilder::new("Luke")
-        .set_lname("Petrov")
+        .set_lname("Petrov (Demo)")
         .set_email("lpetrov@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -880,7 +880,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_6 = UserBuilder::new("Brianna")
-        .set_lname("Flores")
+        .set_lname("Flores (Demo)")
         .set_email("bflores@fakeemail.com")
         .set_username("bflores")
         .set_hash_password("Bri@Fl0re")
@@ -888,19 +888,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_6_1 = UserBuilder::new("Isla")
-        .set_lname("Mackenzie")
+        .set_lname("Mackenzie (Demo)")
         .set_email("imackenzie@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_6_2 = UserBuilder::new("Tomas")
-        .set_lname("Vega")
+        .set_lname("Vega (Demo)")
         .set_email("tvega@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_6_3 = UserBuilder::new("Hana")
-        .set_lname("Iwata")
+        .set_lname("Iwata (Demo)")
         .set_email("hiwata@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -915,7 +915,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_7 = UserBuilder::new("Nadia")
-        .set_lname("Volkov")
+        .set_lname("Volkov (Demo)")
         .set_email("nvolkov@fakeemail.com")
         .set_username("nvolkov")
         .set_hash_password("Nad!aV0lk")
@@ -923,19 +923,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_7_1 = UserBuilder::new("Priya")
-        .set_lname("Menon")
+        .set_lname("Menon (Demo)")
         .set_email("pmenon@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_7_2 = UserBuilder::new("Diego")
-        .set_lname("Ramos")
+        .set_lname("Ramos (Demo)")
         .set_email("dramos@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_7_3 = UserBuilder::new("Anya")
-        .set_lname("Sokolova")
+        .set_lname("Sokolova (Demo)")
         .set_email("asokolova@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -950,7 +950,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_8 = UserBuilder::new("Rashid")
-        .set_lname("Karimi")
+        .set_lname("Karimi (Demo)")
         .set_email("rkarimi@fakeemail.com")
         .set_username("rkarimi")
         .set_hash_password("Rash!dK4r")
@@ -958,19 +958,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_8_1 = UserBuilder::new("Omar")
-        .set_lname("Farouk")
+        .set_lname("Farouk (Demo)")
         .set_email("ofarouk@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_8_2 = UserBuilder::new("Lucia")
-        .set_lname("Mendez")
+        .set_lname("Mendez (Demo)")
         .set_email("lmendez@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_8_3 = UserBuilder::new("Tariq")
-        .set_lname("Aziz")
+        .set_lname("Aziz (Demo)")
         .set_email("taziz@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -985,7 +985,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_9 = UserBuilder::new("Elena")
-        .set_lname("Costa")
+        .set_lname("Costa (Demo)")
         .set_email("ecosta@fakeemail.com")
         .set_username("ecosta")
         .set_hash_password("Elen@C0st")
@@ -993,19 +993,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_9_1 = UserBuilder::new("Freya")
-        .set_lname("Nilsson")
+        .set_lname("Nilsson (Demo)")
         .set_email("fnilsson@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_9_2 = UserBuilder::new("Hugo")
-        .set_lname("Bernard")
+        .set_lname("Bernard (Demo)")
         .set_email("hbernard@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_9_3 = UserBuilder::new("Meera")
-        .set_lname("Iyer")
+        .set_lname("Iyer (Demo)")
         .set_email("miyer@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1020,7 +1020,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_10 = UserBuilder::new("Malik")
-        .set_lname("Johnson")
+        .set_lname("Johnson (Demo)")
         .set_email("mjohnson@fakeemail.com")
         .set_username("mjohnson")
         .set_hash_password("Mal!kJ0hn")
@@ -1028,19 +1028,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_10_1 = UserBuilder::new("Sven")
-        .set_lname("Larsen")
+        .set_lname("Larsen (Demo)")
         .set_email("slarsen@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_10_2 = UserBuilder::new("Rania")
-        .set_lname("Haddad")
+        .set_lname("Haddad (Demo)")
         .set_email("rhaddad@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_10_3 = UserBuilder::new("Felix")
-        .set_lname("Braun")
+        .set_lname("Braun (Demo)")
         .set_email("fbraun@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1055,7 +1055,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_11 = UserBuilder::new("Sofia")
-        .set_lname("Rossi")
+        .set_lname("Rossi (Demo)")
         .set_email("srossi@fakeemail.com")
         .set_username("srossi")
         .set_hash_password("Sof!aR0ss")
@@ -1063,19 +1063,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_11_1 = UserBuilder::new("Ingrid")
-        .set_lname("Holm")
+        .set_lname("Holm (Demo)")
         .set_email("iholm@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_11_2 = UserBuilder::new("Carlos")
-        .set_lname("Vargas")
+        .set_lname("Vargas (Demo)")
         .set_email("cvargas@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_11_3 = UserBuilder::new("Yasmin")
-        .set_lname("Ali")
+        .set_lname("Ali (Demo)")
         .set_email("yali@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1090,7 +1090,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_exp_12 = UserBuilder::new("Kenji")
-        .set_lname("Watanabe")
+        .set_lname("Watanabe (Demo)")
         .set_email("kwatanabe@fakeemail.com")
         .set_username("kwatanabe")
         .set_hash_password("Kenj!W4ta")
@@ -1098,19 +1098,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_exp_12_1 = UserBuilder::new("Bjorn")
-        .set_lname("Eriksson")
+        .set_lname("Eriksson (Demo)")
         .set_email("beriksson@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_12_2 = UserBuilder::new("Leila")
-        .set_lname("Nasser")
+        .set_lname("Nasser (Demo)")
         .set_email("lnasser@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_exp_12_3 = UserBuilder::new("Andre")
-        .set_lname("Silva")
+        .set_lname("Silva (Demo)")
         .set_email("asilva@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1128,7 +1128,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // Div: Novice
     let coach_nov_1 = UserBuilder::new("Samuel")
-        .set_lname("Ebert")
+        .set_lname("Ebert (Demo)")
         .set_email("sebert@fakeemail.com")
         .set_username("sebert")
         .set_hash_password("Sam#Eb3rt")
@@ -1136,19 +1136,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_nov_1_1 = UserBuilder::new("Elijah")
-        .set_lname("Brooks")
+        .set_lname("Brooks (Demo)")
         .set_email("ebrooks@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_1_2 = UserBuilder::new("Sofia")
-        .set_lname("Reyes")
+        .set_lname("Reyes (Demo)")
         .set_email("sreyes@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_1_3 = UserBuilder::new("Liam")
-        .set_lname("Okafor")
+        .set_lname("Okafor (Demo)")
         .set_email("lokafor@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1163,7 +1163,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_nov_2 = UserBuilder::new("Fatima")
-        .set_lname("Rashid")
+        .set_lname("Rashid (Demo)")
         .set_email("frashid@fakeemail.com")
         .set_username("frashid")
         .set_hash_password("Fat!Ra5hid")
@@ -1171,19 +1171,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_nov_2_1 = UserBuilder::new("Mia")
-        .set_lname("Johansson")
+        .set_lname("Johansson (Demo)")
         .set_email("mjohansson@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_2_2 = UserBuilder::new("Caleb")
-        .set_lname("Patel")
+        .set_lname("Patel (Demo)")
         .set_email("cpatel@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_2_3 = UserBuilder::new("Aria")
-        .set_lname("Novak")
+        .set_lname("Novak (Demo)")
         .set_email("anovak@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1198,7 +1198,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_nov_3 = UserBuilder::new("Connor")
-        .set_lname("Walsh")
+        .set_lname("Walsh (Demo)")
         .set_email("cwalsh@fakeemail.com")
         .set_username("cwalsh")
         .set_hash_password("Con@W4lsh")
@@ -1206,19 +1206,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_nov_3_1 = UserBuilder::new("Noah")
-        .set_lname("Ferreira")
+        .set_lname("Ferreira (Demo)")
         .set_email("nferreira@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_3_2 = UserBuilder::new("Stella")
-        .set_lname("Kim")
+        .set_lname("Kim (Demo)")
         .set_email("skim@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_3_3 = UserBuilder::new("James")
-        .set_lname("Mbeki")
+        .set_lname("Mbeki (Demo)")
         .set_email("jmbeki@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1233,7 +1233,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_nov_4 = UserBuilder::new("Ngozi")
-        .set_lname("Eze")
+        .set_lname("Eze (Demo)")
         .set_email("neze@fakeemail.com")
         .set_username("neze")
         .set_hash_password("Ngoz!3Eze")
@@ -1241,19 +1241,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_nov_4_1 = UserBuilder::new("Leah")
-        .set_lname("Christensen")
+        .set_lname("Christensen (Demo)")
         .set_email("lchristensen@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_4_2 = UserBuilder::new("Omar")
-        .set_lname("Saleh")
+        .set_lname("Saleh (Demo)")
         .set_email("osaleh@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_4_3 = UserBuilder::new("Ruby")
-        .set_lname("Nguyen")
+        .set_lname("Nguyen (Demo)")
         .set_email("rnguyen@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1268,7 +1268,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_nov_5 = UserBuilder::new("Priya")
-        .set_lname("Kapoor")
+        .set_lname("Kapoor (Demo)")
         .set_email("pkapoor@fakeemail.com")
         .set_username("pkapoor")
         .set_hash_password("Pr!yaKap5")
@@ -1276,19 +1276,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_nov_5_1 = UserBuilder::new("Mateo")
-        .set_lname("Rossi")
+        .set_lname("Rossi (Demo)")
         .set_email("mrossi@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_5_2 = UserBuilder::new("Aisha")
-        .set_lname("Bello")
+        .set_lname("Bello (Demo)")
         .set_email("abello@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_nov_5_3 = UserBuilder::new("Nadia")
-        .set_lname("Haddad")
+        .set_lname("Haddad (Demo)")
         .set_email("nhaddad@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1306,7 +1306,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // Div: Decades
     let coach_dec_1 = UserBuilder::new("Pavel")
-        .set_lname("Sorokin")
+        .set_lname("Sorokin (Demo)")
         .set_email("psorokin@fakeemail.com")
         .set_username("psorokin")
         .set_hash_password("Pav@S0rok")
@@ -1314,19 +1314,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_dec_1_1 = UserBuilder::new("Finn")
-        .set_lname("Gallagher")
+        .set_lname("Gallagher (Demo)")
         .set_email("fgallagher@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_1_2 = UserBuilder::new("Zara")
-        .set_lname("Ahmed")
+        .set_lname("Ahmed (Demo)")
         .set_email("zahmed@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_1_3 = UserBuilder::new("Cole")
-        .set_lname("Marchetti")
+        .set_lname("Marchetti (Demo)")
         .set_email("cmarchetti@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1341,7 +1341,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_dec_2 = UserBuilder::new("Amara")
-        .set_lname("Diallo")
+        .set_lname("Diallo (Demo)")
         .set_email("adiallo@fakeemail.com")
         .set_username("adiallo")
         .set_hash_password("Amar#Di4l")
@@ -1349,19 +1349,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_dec_2_1 = UserBuilder::new("Ivy")
-        .set_lname("Chen")
+        .set_lname("Chen (Demo)")
         .set_email("ichen@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_2_2 = UserBuilder::new("Declan")
-        .set_lname("Murphy")
+        .set_lname("Murphy (Demo)")
         .set_email("dmurphy@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_2_3 = UserBuilder::new("Layla")
-        .set_lname("Espinoza")
+        .set_lname("Espinoza (Demo)")
         .set_email("lespinoza@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1376,7 +1376,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_dec_3 = UserBuilder::new("Tobias")
-        .set_lname("Reinhardt")
+        .set_lname("Reinhardt (Demo)")
         .set_email("treinhardt@fakeemail.com")
         .set_username("treinhardt")
         .set_hash_password("Tobi!R3in")
@@ -1384,19 +1384,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_dec_3_1 = UserBuilder::new("Asher")
-        .set_lname("Friedman")
+        .set_lname("Friedman (Demo)")
         .set_email("afriedman@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_3_2 = UserBuilder::new("Cleo")
-        .set_lname("Papadopoulos")
+        .set_lname("Papadopoulos (Demo)")
         .set_email("cpapadopoulos@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_3_3 = UserBuilder::new("Theo")
-        .set_lname("Nkosi")
+        .set_lname("Nkosi (Demo)")
         .set_email("tnkosi@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1411,7 +1411,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
 
     let coach_dec_4 = UserBuilder::new("Miriam")
-        .set_lname("Hollis")
+        .set_lname("Hollis (Demo)")
         .set_email("mhollis@fakeemail.com")
         .set_username("mhollis")
         .set_hash_password("Mir@H0lli")
@@ -1419,19 +1419,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     let q_dec_4_1 = UserBuilder::new("Vera")
-        .set_lname("Kuznetsova")
+        .set_lname("Kuznetsova (Demo)")
         .set_email("vkuznetsova@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_4_2 = UserBuilder::new("Miles")
-        .set_lname("Oduya")
+        .set_lname("Oduya (Demo)")
         .set_email("moduya@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
         .unwrap();
     let q_dec_4_3 = UserBuilder::new("Sasha")
-        .set_lname("Petersen")
+        .set_lname("Petersen (Demo)")
         .set_email("spetersen@fakeemail.com")
         .set_activated(false)
         .build_and_insert(db)
@@ -1518,13 +1518,25 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    // Novice's two round-robins live in separate pools, each in its own pool group (so every team is
+    // placed once per group): Session 1 → pool A1 (Group 1), Session 2 → pool A2 (Group 2).
     let pb_nov_1 = PoolBracketBuilder::new(division_novice.did)
         .set_name("A1")
         .set_poolbracketgroupid(pbg_nov_1.poolbracketgroupid)
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    // Novice's teams all play in the single pool; its Session 2 games are assigned to that same pool.
+    let pbg_nov_2 = PoolBracketGroupBuilder::new(division_novice.did)
+        .set_name("Group 2")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
+    let pb_nov_2 = PoolBracketBuilder::new(division_novice.did)
+        .set_name("A2")
+        .set_poolbracketgroupid(pbg_nov_2.poolbracketgroupid)
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
     let roundgroup_nov_2 = RoundGroupBuilder::new(division_novice.did)
         .set_name("Session 2")
         .set_creator_userid(tour_owner.id)
@@ -1541,13 +1553,20 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
+    // Decades' two round-robins live in separate pools that share a single pool group: Session 1 →
+    // pool A1, Session 2 → pool A2 (both in Group 1, so every team appears in both pools of the group).
     let pb_dec_1 = PoolBracketBuilder::new(division_decades.did)
         .set_name("A1")
         .set_poolbracketgroupid(pbg_dec_1.poolbracketgroupid)
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    // Decades' teams all play in the single pool; its Session 2 games are assigned to that same pool.
+    let pb_dec_2 = PoolBracketBuilder::new(division_decades.did)
+        .set_name("A2")
+        .set_poolbracketgroupid(pbg_dec_1.poolbracketgroupid)
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
     let roundgroup_dec_2 = RoundGroupBuilder::new(division_decades.did)
         .set_name("Session 2")
         .set_creator_userid(tour_owner.id)
@@ -1657,13 +1676,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         team_7_experienced.teamid, team_8_experienced.teamid, team_9_experienced.teamid,
         team_10_experienced.teamid, team_11_experienced.teamid, team_12_experienced.teamid,
     ]);
-    place_teams_in_pool(db, pb_nov_1.pool_bracket_id, tour_owner.id, &[
-        team_1_novice.teamid, team_2_novice.teamid, team_3_novice.teamid, team_4_novice.teamid,
-        team_5_novice.teamid,
-    ]);
-    place_teams_in_pool(db, pb_dec_1.pool_bracket_id, tour_owner.id, &[
-        team_1_decades.teamid, team_2_decades.teamid, team_3_decades.teamid, team_4_decades.teamid,
-    ]);
+    // Novice: all five teams play in each pool (one pool per group), so place them in A1 and A2.
+    for pb in [pb_nov_1.pool_bracket_id, pb_nov_2.pool_bracket_id] {
+        place_teams_in_pool(db, pb, tour_owner.id, &[
+            team_1_novice.teamid, team_2_novice.teamid, team_3_novice.teamid, team_4_novice.teamid,
+            team_5_novice.teamid,
+        ]);
+    }
+    // Decades: all four teams play in both pools of the single group, so place them in A1 and A2.
+    for pb in [pb_dec_1.pool_bracket_id, pb_dec_2.pool_bracket_id] {
+        place_teams_in_pool(db, pb, tour_owner.id, &[
+            team_1_decades.teamid, team_2_decades.teamid, team_3_decades.teamid, team_4_decades.teamid,
+        ]);
+    }
 
     // Games — round-robin schedule. Session 1 games use disjoint rooms across divisions (they run
     // concurrently); Session 2 reuses those rooms afterward. Each game records a (gid, left team,
@@ -1899,56 +1924,56 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // 10 games / 5 rounds in rooms 7-8. rm7 → qm4, rm8 → qm5.
     // Round 1: (t2n,t5n)→rm7, (t3n,t4n)→rm8   [t1 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_1.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_5_novice.teamid)
         .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_2_novice, &team_5_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_1.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_3_novice.teamid).set_rightteamid(team_4_novice.teamid)
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_3_novice, &team_4_novice));
     // Round 2: (t1n,t3n)→rm7, (t4n,t5n)→rm8   [t2 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_2.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_3_novice.teamid)
         .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_3_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_2.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_4_novice.teamid).set_rightteamid(team_5_novice.teamid)
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_4_novice, &team_5_novice));
     // Round 3: (t2n,t4n)→rm7, (t1n,t5n)→rm8   [t3 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_3.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_4_novice.teamid)
         .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_2_novice, &team_4_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_3.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_5_novice.teamid)
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_5_novice));
     // Round 4: (t3n,t5n)→rm7, (t1n,t2n)→rm8   [t4 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_4.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_3_novice.teamid).set_rightteamid(team_5_novice.teamid)
         .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_3_novice, &team_5_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_4.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_2_novice.teamid)
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_2_novice));
     // Round 5: (t1n,t4n)→rm7, (t2n,t3n)→rm8   [t5 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_5.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_4_novice.teamid)
         .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_1_novice, &team_4_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_5.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_poolbracket_id(pb_nov_2.pool_bracket_id)
         .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_3_novice.teamid)
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
@@ -2013,7 +2038,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Div: Decades — Session 2: full 4-team round-robin again, 6 games / 3 rounds. Rooms 9-10.
     // Round 1: (t1d,t4d)→rm9, (t2d,t3d)→rm10
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_1.roundid)
-        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
         .set_quizmasterid(tour_owner.id)
@@ -2021,7 +2046,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_decades, &team_4_decades));
     let game = GameBuilder::new_default(room_10.roomid, round_dec_s2_1.roundid)
-        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
         .set_leftteamid(team_2_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
         .set_quizmasterid(qm_7.id)
@@ -2031,7 +2056,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_2_decades, &team_3_decades));
     // Round 2: (t1d,t3d)→rm10, (t4d,t2d)→rm9
     let game = GameBuilder::new_default(room_10.roomid, round_dec_s2_2.roundid)
-        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_3_decades.teamid)
         .set_quizmasterid(qm_7.id)
@@ -2040,7 +2065,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_decades, &team_3_decades));
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_2.roundid)
-        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
         .set_leftteamid(team_4_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
         .set_quizmasterid(tour_owner.id)
@@ -2049,7 +2074,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     game_event_specs.push((game.gid, &team_4_decades, &team_2_decades));
     // Round 3: (t1d,t2d)→rm9, (t3d,t4d)→rm10
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_3.roundid)
-        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
         .set_leftteamid(team_1_decades.teamid)
         .set_rightteamid(team_2_decades.teamid)
         .set_quizmasterid(tour_owner.id)
@@ -2057,7 +2082,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_1_decades, &team_2_decades));
     let game = GameBuilder::new_default(room_10.roomid, round_dec_s2_3.roundid)
-        .set_poolbracket_id(pb_dec_1.pool_bracket_id)
+        .set_poolbracket_id(pb_dec_2.pool_bracket_id)
         .set_leftteamid(team_3_decades.teamid)
         .set_rightteamid(team_4_decades.teamid)
         .set_quizmasterid(qm_7.id)
@@ -2109,7 +2134,7 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
 
     // Applicant 1 — status: pending ("Applied")
     let applicant_1 = UserBuilder::new("Alex")
-        .set_lname("Torres")
+        .set_lname("Torres (Demo)")
         .set_username("alex.torres")
         .set_hash_password(&default_password())
         .set_email("alex.torres@fakeemail.com")
@@ -2129,7 +2154,7 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
 
     // Applicant 2 — status: declined
     let applicant_2 = UserBuilder::new("Jordan")
-        .set_lname("Blake")
+        .set_lname("Blake (Demo)")
         .set_username("jordan.blake")
         .set_hash_password(&default_password())
         .set_email("jordan.blake@fakeemail.com")
@@ -2149,7 +2174,7 @@ pub fn create_tournament_applicants(db: &mut database::Connection) {
 
     // Applicant 3 — status: approved; user gets tournament_owner + tournament_manager roles
     let applicant_3 = UserBuilder::new("Casey")
-        .set_lname("Morgan")
+        .set_lname("Morgan (Demo)")
         .set_username("casey.morgan")
         .set_hash_password(&default_password())
         .set_email("casey.morgan@fakeemail.com")
