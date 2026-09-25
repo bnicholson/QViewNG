@@ -1267,6 +1267,41 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
+    let coach_nov_5 = UserBuilder::new("Priya")
+        .set_lname("Kapoor")
+        .set_email("pkapoor@fakeemail.com")
+        .set_username("pkapoor")
+        .set_hash_password("Pr!yaKap5")
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    let q_nov_5_1 = UserBuilder::new("Mateo")
+        .set_lname("Rossi")
+        .set_email("mrossi@fakeemail.com")
+        .set_activated(false)
+        .build_and_insert(db)
+        .unwrap();
+    let q_nov_5_2 = UserBuilder::new("Aisha")
+        .set_lname("Bello")
+        .set_email("abello@fakeemail.com")
+        .set_activated(false)
+        .build_and_insert(db)
+        .unwrap();
+    let q_nov_5_3 = UserBuilder::new("Nadia")
+        .set_lname("Haddad")
+        .set_email("nhaddad@fakeemail.com")
+        .set_activated(false)
+        .build_and_insert(db)
+        .unwrap();
+    let team_5_novice = TeamBuilder::new_default(division_novice.did)
+        .set_name("Amber Vanguard")
+        .set_coachid(coach_nov_5.id)
+        .set_quizzer_one_id(q_nov_5_1.id)
+        .set_quizzer_two_id(q_nov_5_2.id)
+        .set_quizzer_three_id(q_nov_5_3.id)
+        .build_and_insert(db)
+        .unwrap();
+
     // (Novice rounds are created inside the scheduling block below.)
 
     // Div: Decades
@@ -1543,6 +1578,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
 
+    // Novice has 5 teams, so each session is a full 5-team single round-robin: 5 rounds, 2 games per
+    // round with one team on a bye. Both sessions run the same round-robin (teams face each other twice).
     let round_nov_s1_1 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
@@ -1555,17 +1592,33 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_last_modified_user(tour_owner.id).set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_1 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s1_4 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_2 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s1_5 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("5")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_3 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s2_1 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("6")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_2 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+        .set_last_modified_user(tour_owner.id).set_name("7")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 15,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_3 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+        .set_last_modified_user(tour_owner.id).set_name("8")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 15, 30, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_4 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+        .set_last_modified_user(tour_owner.id).set_name("9")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 16,  0, 0).unwrap())
+        .build_and_insert(db).unwrap();
+    let round_nov_s2_5 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+        .set_last_modified_user(tour_owner.id).set_name("10")
+        .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 16, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
 
     let round_dec_s1_1 = RoundBuilder::new_default(roundgroup_dec_1.roundgroup_id)
@@ -1606,6 +1659,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     ]);
     place_teams_in_pool(db, pb_nov_1.pool_bracket_id, tour_owner.id, &[
         team_1_novice.teamid, team_2_novice.teamid, team_3_novice.teamid, team_4_novice.teamid,
+        team_5_novice.teamid,
     ]);
     place_teams_in_pool(db, pb_dec_1.pool_bracket_id, tour_owner.id, &[
         team_1_decades.teamid, team_2_decades.teamid, team_3_decades.teamid, team_4_decades.teamid,
@@ -1783,112 +1837,121 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_quizmasterid(qm_6.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_10_experienced, &team_11_experienced));
 
-    // Div: Novice — Session 1: full 4-team round-robin, 6 games / 3 rounds (2 games/round).
-    // Fixed team alternates between rm7 and rm8 each round.
-    // Round 1: (t1n,t4n)→rm7, (t2n,t3n)→rm8
+    // Div: Novice — Session 1: full 5-team round-robin, 10 games / 5 rounds (2 games/round, one bye
+    // each round). rm7 → qm4, rm8 → qm5. Byes: R1→t1, R2→t2, R3→t3, R4→t4, R5→t5.
+    // Round 1: (t2n,t5n)→rm7, (t3n,t4n)→rm8   [t1 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s1_1.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_1_novice.teamid)
-        .set_rightteamid(team_4_novice.teamid)
-        .set_quizmasterid(qm_4.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_1_novice, &team_4_novice));
+        .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_2_novice, &team_5_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s1_1.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_2_novice.teamid)
-        .set_rightteamid(team_3_novice.teamid)
-        .set_quizmasterid(qm_5.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
-    // Round 2: (t1n,t3n)→rm8, (t4n,t2n)→rm7
-    let game = GameBuilder::new_default(room_8.roomid, round_nov_s1_2.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_1_novice.teamid)
-        .set_rightteamid(team_3_novice.teamid)
-        .set_quizmasterid(qm_5.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_1_novice, &team_3_novice));
+        .set_leftteamid(team_3_novice.teamid).set_rightteamid(team_4_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_3_novice, &team_4_novice));
+    // Round 2: (t1n,t3n)→rm7, (t4n,t5n)→rm8   [t2 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s1_2.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_4_novice.teamid)
-        .set_rightteamid(team_2_novice.teamid)
-        .set_quizmasterid(qm_4.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_4_novice, &team_2_novice));
-    // Round 3: (t1n,t2n)→rm7, (t3n,t4n)→rm8
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_3_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_3_novice));
+    let game = GameBuilder::new_default(room_8.roomid, round_nov_s1_2.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_4_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_4_novice, &team_5_novice));
+    // Round 3: (t2n,t4n)→rm7, (t1n,t5n)→rm8   [t3 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s1_3.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_1_novice.teamid)
-        .set_rightteamid(team_2_novice.teamid)
-        .set_quizmasterid(qm_4.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_1_novice, &team_2_novice));
+        .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_4_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_2_novice, &team_4_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s1_3.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_3_novice.teamid)
-        .set_rightteamid(team_4_novice.teamid)
-        .set_quizmasterid(qm_5.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_3_novice, &team_4_novice));
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_5_novice));
+    // Round 4: (t3n,t5n)→rm7, (t1n,t2n)→rm8   [t4 bye]
+    let game = GameBuilder::new_default(room_7.roomid, round_nov_s1_4.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_3_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_3_novice, &team_5_novice));
+    let game = GameBuilder::new_default(room_8.roomid, round_nov_s1_4.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_2_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_2_novice));
+    // Round 5: (t1n,t4n)→rm7, (t2n,t3n)→rm8   [t5 bye]
+    let game = GameBuilder::new_default(room_7.roomid, round_nov_s1_5.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_4_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_4_novice));
+    let game = GameBuilder::new_default(room_8.roomid, round_nov_s1_5.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_3_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
 
-    // Div: Novice — Session 2: full 4-team round-robin again, 6 games / 3 rounds. Rooms 7-8.
-    // Round 1: (t1n,t4n)→rm7, (t2n,t3n)→rm8
+    // Div: Novice — Session 2: the same full 5-team round-robin again (teams face each other twice),
+    // 10 games / 5 rounds in rooms 7-8. rm7 → qm4, rm8 → qm5.
+    // Round 1: (t2n,t5n)→rm7, (t3n,t4n)→rm8   [t1 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_1.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_1_novice.teamid)
-        .set_rightteamid(team_4_novice.teamid)
-        .set_quizmasterid(qm_4.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_1_novice, &team_4_novice));
+        .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_2_novice, &team_5_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_1.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_2_novice.teamid)
-        .set_rightteamid(team_3_novice.teamid)
-        .set_quizmasterid(qm_5.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
-    // Round 2: (t1n,t3n)→rm8, (t4n,t2n)→rm7
-    let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_2.roundid)
-        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_1_novice.teamid)
-        .set_rightteamid(team_3_novice.teamid)
-        .set_quizmasterid(qm_5.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_1_novice, &team_3_novice));
+        .set_leftteamid(team_3_novice.teamid).set_rightteamid(team_4_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_3_novice, &team_4_novice));
+    // Round 2: (t1n,t3n)→rm7, (t4n,t5n)→rm8   [t2 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_2.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_4_novice.teamid)
-        .set_rightteamid(team_2_novice.teamid)
-        .set_quizmasterid(qm_4.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_4_novice, &team_2_novice));
-    // Round 3: (t1n,t2n)→rm7, (t3n,t4n)→rm8
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_3_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_3_novice));
+    let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_2.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_4_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_4_novice, &team_5_novice));
+    // Round 3: (t2n,t4n)→rm7, (t1n,t5n)→rm8   [t3 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_3.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_1_novice.teamid)
-        .set_rightteamid(team_2_novice.teamid)
-        .set_quizmasterid(qm_4.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_1_novice, &team_2_novice));
+        .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_4_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_2_novice, &team_4_novice));
     let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_3.roundid)
         .set_poolbracket_id(pb_nov_1.pool_bracket_id)
-        .set_leftteamid(team_3_novice.teamid)
-        .set_rightteamid(team_4_novice.teamid)
-        .set_quizmasterid(qm_5.id)
-        .build_and_insert(db)
-        .unwrap();
-    game_event_specs.push((game.gid, &team_3_novice, &team_4_novice));
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_5_novice));
+    // Round 4: (t3n,t5n)→rm7, (t1n,t2n)→rm8   [t4 bye]
+    let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_4.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_3_novice.teamid).set_rightteamid(team_5_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_3_novice, &team_5_novice));
+    let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_4.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_2_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_2_novice));
+    // Round 5: (t1n,t4n)→rm7, (t2n,t3n)→rm8   [t5 bye]
+    let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_5.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_1_novice.teamid).set_rightteamid(team_4_novice.teamid)
+        .set_quizmasterid(qm_4.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_1_novice, &team_4_novice));
+    let game = GameBuilder::new_default(room_8.roomid, round_nov_s2_5.roundid)
+        .set_poolbracket_id(pb_nov_1.pool_bracket_id)
+        .set_leftteamid(team_2_novice.teamid).set_rightteamid(team_3_novice.teamid)
+        .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
+    game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
 
     // Div: Decades — Session 1: full 4-team round-robin, 6 games / 3 rounds (2 games/round).
     // Fixed team alternates between rm9 and rm10 each round.
