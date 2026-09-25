@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod email;
 pub mod tournament;
 pub mod division;
 pub mod roundgroup;

@@ -131,10 +131,21 @@ async fn register(db: Data<Database>, Json(body): Json<RegisterRequest>, req: Ht
         return HttpResponse::InternalServerError().json(serde_json::json!({"error": "Failed to create activation token"}));
     }
 
-    let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-    let activation_link = format!("{}/activate?token={}", frontend_url, token);
-    let _ = send_activation_email(&new_user.email, &activation_link).await;
-    tracing::info!("Activation link for {}: {}", new_user.email, activation_link);
+    // Send the activation email via SES. If email isn't configured (e.g. local dev), fall back to
+    // logging the link so the flow is still testable.
+    match crate::services::email::EmailService::from_env() {
+        Ok(mailer) => {
+            if let Err(e) = mailer.send_activation_email(&new_user.email, &token) {
+                tracing::error!("Failed to send activation email to {}: {}", new_user.email, e);
+                tracing::info!("Activation link for {}: {}", new_user.email, mailer.activation_link(&token));
+            }
+        }
+        Err(e) => {
+            let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+            tracing::warn!("Email service not configured ({}); skipping activation email.", e);
+            tracing::info!("Activation link for {}: {}/activate?token={}", new_user.email, frontend_url, token);
+        }
+    }
 
     HttpResponse::Created().json(serde_json::json!({"id": new_user.id, "email": new_user.email}))
 }
@@ -198,60 +209,22 @@ async fn forgot_password(db: Data<Database>, Json(body): Json<ForgotRequest>, re
         return HttpResponse::InternalServerError().finish();
     }
 
-    let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-    let reset_link = format!("{}/reset?token={}", frontend_url, token);
-
-    // Try to send email; if SMTP is not configured, log the link
-    let _ = send_reset_email(&user.email, &reset_link).await;
-    tracing::info!("Password reset link for {}: {}", user.email, reset_link);
+    // Send the reset email via SES. If email isn't configured (e.g. local dev), fall back to logging.
+    match crate::services::email::EmailService::from_env() {
+        Ok(mailer) => {
+            if let Err(e) = mailer.send_password_reset_email(&user.email, &token) {
+                tracing::error!("Failed to send password reset email to {}: {}", user.email, e);
+                tracing::info!("Password reset link for {}: {}", user.email, mailer.reset_link(&token));
+            }
+        }
+        Err(e) => {
+            let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+            tracing::warn!("Email service not configured ({}); skipping password reset email.", e);
+            tracing::info!("Password reset link for {}: {}/reset?token={}", user.email, frontend_url, token);
+        }
+    }
 
     HttpResponse::Ok().json(serde_json::json!({"message": "If that username and email match an account, a recovery link has been sent."}))
-}
-
-async fn send_reset_email(to_email: &str, reset_link: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use lettre::{Message, SmtpTransport, Transport};
-    use lettre::transport::smtp::authentication::Credentials;
-    use lettre::message::header::ContentType;
-
-    let smtp_host = std::env::var("SMTP_HOST")?;
-    let smtp_user = std::env::var("SMTP_USER")?;
-    let smtp_pass = std::env::var("SMTP_PASS")?;
-    let smtp_from = std::env::var("SMTP_FROM").unwrap_or_else(|_| smtp_user.clone());
-
-    let email = Message::builder()
-        .from(smtp_from.parse()?)
-        .to(to_email.parse()?)
-        .subject("QView Password Reset")
-        .header(ContentType::TEXT_PLAIN)
-        .body(format!("Click this link to reset your password (expires in 24 hours):\n\n{}", reset_link))?;
-
-    let creds = Credentials::new(smtp_user, smtp_pass);
-    let mailer = SmtpTransport::relay(&smtp_host)?.credentials(creds).build();
-    mailer.send(&email)?;
-    Ok(())
-}
-
-async fn send_activation_email(to_email: &str, activation_link: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use lettre::{Message, SmtpTransport, Transport};
-    use lettre::transport::smtp::authentication::Credentials;
-    use lettre::message::header::ContentType;
-
-    let smtp_host = std::env::var("SMTP_HOST")?;
-    let smtp_user = std::env::var("SMTP_USER")?;
-    let smtp_pass = std::env::var("SMTP_PASS")?;
-    let smtp_from = std::env::var("SMTP_FROM").unwrap_or_else(|_| smtp_user.clone());
-
-    let email = Message::builder()
-        .from(smtp_from.parse()?)
-        .to(to_email.parse()?)
-        .subject("Activate your QView account")
-        .header(ContentType::TEXT_PLAIN)
-        .body(format!("Click this link to activate your account (expires in 24 hours):\n\n{}", activation_link))?;
-
-    let creds = Credentials::new(smtp_user, smtp_pass);
-    let mailer = SmtpTransport::relay(&smtp_host)?.credentials(creds).build();
-    mailer.send(&email)?;
-    Ok(())
 }
 
 #[derive(Deserialize)]
