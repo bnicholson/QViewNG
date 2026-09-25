@@ -43,16 +43,13 @@ import { DivisionEditorDialog } from './DivisionEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
 import SessionRoundsManager from './SessionRoundsManager'
-import { AutoSchedulePoolsDialog } from './AutoSchedulePoolsDialog'
+import { PoolDetail, naturalCompare } from './PoolDetail'
+import { PoolsManager } from './PoolsManager'
 
 const PAGE = 0
 const SIZE = 500
 // Read-view results are paged (infinite scroll) rather than fetched all at once.
 const RESULTS_PAGE_SIZE = 25
-
-// Numeric-aware string compare so "Room 10" sorts after "Room 9", not right after "Room 1".
-const naturalCompare = (a: string, b: string) =>
-  a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
 
 type Mode = 'read' | 'conflicts' | 'edit' | 'edit2'
 type RoundGroupType = 'Round Robin' | 'Tournament Bracket(s)' | 'Undecided'
@@ -107,7 +104,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const [divDialog, setDivDialog] = useState<{ open: boolean; division: DivisionTS | null }>({ open: false, division: null })
   const [roundgroupDialog, setRoundGroupDialog] = useState<{ open: boolean; roundgroup: RoundGroupTS | null }>({ open: false, roundgroup: null })
   const [bracketDialog, setBracketDialog] = useState<{ open: boolean; type: 'pool' | 'bracket'; bracket: PoolBracketTS | null }>({ open: false, type: 'pool', bracket: null })
-  const [autoScheduleOpen, setAutoScheduleOpen] = useState(false)
 
   // ── Loaders ──────────────────────────────────────────────────────────────
 
@@ -124,10 +120,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     TeamAPI.getByDivision(did, PAGE, SIZE).then(setDivisionTeams).catch(() => setError('Failed to load teams.'))
   }, [])
 
-  // Reload just the division's poolbracketgroups (after create/delete).
-  const loadPoolBracketGroups = useCallback((did: string) => {
-    PoolBracketGroupAPI.getByDivision(did).then(setPoolBracketGroups).catch(() => setError('Failed to load pool groups.'))
-  }, [])
 
   // Pool brackets are division-scoped now, so placement/games load for all of the division's brackets.
   const loadPlacement = useCallback((brackets: PoolBracketTS[]) => {
@@ -255,19 +247,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     loadGamesForRoundGroup(divisionBrackets)
   }
 
-  // Create a new poolbracketgroup ("Group N") for the division and select it.
-  const handleAddGroup = async () => {
-    if (!selectedDid) return
-    const n = poolBracketGroups.length + 1
-    try {
-      const group = await PoolBracketGroupAPI.create({ divisionid: selectedDid, name: `Group ${n}` }, accessToken)
-      PoolBracketGroupAPI.getByDivision(selectedDid)
-        .then(gs => { setPoolBracketGroups(gs); setSelectedGroupId(group.poolbracketgroupid) })
-        .catch(() => setError('Failed to load pool groups.'))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create pool group.')
-    }
-  }
 
   const handleAddTeam = async (teamid: string) => {
     if (!selectedBracketId) return
@@ -391,44 +370,19 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                     poolBrackets={cardTab === 'timepool' ? divisionBrackets : undefined}
                     onPoolsChanged={() => loadDivisionData(selectedDid)}
                   />
+                ) : cardTab === 'pools' ? (
+                  <PoolsManager
+                    tid={tid}
+                    did={selectedDid}
+                    canEdit={canEdit}
+                    onChanged={() => loadDivisionData(selectedDid)}
+                  />
                 ) : (
                   <>
-                    {cardTab === 'pools' && (
-                      <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
-                        Pools organize a Divisions Teams into groups for use in Round Robin-style scheduling. If you have many Teams in a Division and you want to schedule via Round Robin, use multiple Pools to reduce the number of Rounds overall that you require.
-                      </Alert>
-                    )}
-                    {cardTab === 'brackets' && (
-                      <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
-                        Brackets organize a Divisions Teams into single-elimination-style tournament play, where the winner of each game advances to the next round until a champion remains. Use a Bracket when you want a knockout format rather than Round Robin scheduling.
-                      </Alert>
-                    )}
-                    {/* Pool group selector — team placement (below) is scoped to the chosen group. */}
-                    {cardTab === 'pools' && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-                        <Typography variant="body2" sx={{ flexShrink: 0 }}>Pool Group:</Typography>
-                        {poolBracketGroups.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary">No pool groups yet — add one to place teams.</Typography>
-                        ) : (
-                          <FormControl size="small" sx={{ minWidth: 160 }}>
-                            <Select
-                              value={poolBracketGroups.some(g => g.poolbracketgroupid === selectedGroupId) ? selectedGroupId : ''}
-                              onChange={(e: SelectChangeEvent) => setSelectedGroupId(e.target.value)}
-                              displayEmpty
-                            >
-                              {poolBracketGroups.map(g => (
-                                <MenuItem key={g.poolbracketgroupid} value={g.poolbracketgroupid}>{g.name}</MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        )}
-                        <Button size="small" startIcon={<AddIcon />} onClick={handleAddGroup} disabled={!canEdit}>Add Group</Button>
-                        <Typography variant="caption" color="text.secondary" sx={{ flexBasis: '100%' }}>
-                          Each team is placed in exactly one pool per group. A later group can re-pool the same teams differently.
-                        </Typography>
-                      </Box>
-                    )}
-                    {/* Teams awaiting placement — left aligned, above the pool/bracket tabs */}
+                    <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
+                      Brackets organize a Divisions Teams into single-elimination-style tournament play, where the winner of each game advances to the next round until a champion remains. Use a Bracket when you want a knockout format rather than Round Robin scheduling.
+                    </Alert>
+                    {/* Teams awaiting placement — left aligned, above the bracket tabs */}
                     <Box sx={{ textAlign: 'left' }}>
                       <Typography variant="caption" color="text.secondary">
                         Teams needing placement{selectedBracket ? ` — click to add to the selected tab, "${selectedBracket.name}"` : ` — create a ${isBracketMode ? 'bracket' : 'pool'} first`}:
@@ -450,18 +404,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
                     </Box>
 
                     <Divider sx={{ my: 1.5 }} />
-
-                    {/* Auto-schedule action, sandwiched between two rules above the Pools tab bar. */}
-                    {cardTab === 'pools' && (
-                      <>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1.5 }}>
-                          <Button variant="outlined" onClick={() => setAutoScheduleOpen(true)} disabled={!canEdit}>
-                            Auto-Schedule Pools
-                          </Button>
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
-                      </>
-                    )}
 
                     {row3Options.length === 0 ? (
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -534,12 +476,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       )}
 
       {/* ── Create dialogs ── */}
-      <AutoSchedulePoolsDialog
-        tid={tid}
-        totalTeams={divisionTeams.length}
-        isOpen={autoScheduleOpen}
-        onCancel={() => setAutoScheduleOpen(false)}
-      />
 
       <DivisionEditorDialog
         tid={tid}
@@ -686,151 +622,6 @@ const DivisionTimePoolCompare = ({ tid, divisions, canEdit }: { tid: string; div
         })}
       </CardContent>
     </Card>
-  )
-}
-
-// ── Pool/Bracket detail ──────────────────────────────────────────────────────
-
-interface PoolDetailProps {
-  teams: TeamRowTS[]
-  games: GameRowTS[]
-  canEdit: boolean
-  onRemoveTeam: (teamid: string) => void
-  onNavigateGame: (gid: string) => void
-}
-
-/**
- * The detail for the selected pool/bracket (its name is shown by its tab): the teams in it (chips)
- * and a Rooms × Rounds matrix of the matchups played in it, rendered with each team's name. Renders
- * inline (no card of its own) since it lives inside the schedule card, below the tabs.
- */
-const PoolDetail = ({ teams, games, canEdit, onRemoveTeam, onNavigateGame }: PoolDetailProps) => {
-  // Each team gets a 1-based number (its order in the pool), shown on its chip and in the matrix so
-  // the compact matchup cells stay unambiguous.
-  const numberByTeam = useMemo(() => {
-    const m = new Map<string, number>()
-    teams.forEach((t, i) => m.set(t.teamid, i + 1))
-    return m
-  }, [teams])
-
-  // The scheduled start of the pool/bracket's first round — the earliest game start time (the
-  // stored timestamps are ISO strings, so a lexical min is the chronological min).
-  const firstRoundStart = useMemo(() => {
-    const times = games.map(g => g.scheduled_start_time).filter((t): t is string => !!t)
-    return times.length === 0 ? null : times.reduce((a, b) => (a < b ? a : b))
-  }, [games])
-
-  // Distinct rooms (X axis) and rounds (Y axis) taken from the games in this pool/bracket.
-  const rooms = useMemo(() => {
-    const m = new Map<string, string>()
-    games.forEach(g => m.set(g.roomid, g.room_name))
-    return [...m.entries()].sort((a, b) => naturalCompare(a[1], b[1]))
-  }, [games])
-
-  const rounds = useMemo(() => {
-    const m = new Map<string, number | null>()
-    games.forEach(g => m.set(g.roundid, g.round_number))
-    return [...m.entries()].sort((a, b) => (a[1] ?? Number.MAX_SAFE_INTEGER) - (b[1] ?? Number.MAX_SAFE_INTEGER))
-  }, [games])
-
-  const gamesByCell = useMemo(() => {
-    const m = new Map<string, GameRowTS[]>()
-    games.forEach(g => {
-      const key = `${g.roundid}|${g.roomid}`
-      const list = m.get(key)
-      if (list) list.push(g); else m.set(key, [g])
-    })
-    return m
-  }, [games])
-
-  // A single team's "N: name" (plain text — the whole matchup cell is the link, see below).
-  const teamToken = (teamid: string, name: string) => {
-    const n = numberByTeam.get(teamid)
-    return <span key={teamid}>{n != null ? `${n}: ${name}` : name}</span>
-  }
-
-  // The whole cell's matchup text is one link to that game's profile.
-  const matchup = (g: GameRowTS) => {
-    const tokens: React.ReactNode[] = [teamToken(g.leftteamid, g.left_team_name)]
-    if (g.centerteamid) tokens.push(teamToken(g.centerteamid, g.center_team_name ?? ''))
-    tokens.push(teamToken(g.rightteamid, g.right_team_name))
-    const withSeparators = tokens.reduce<React.ReactNode[]>((acc, tok, i) =>
-      i === 0 ? [tok] : [...acc, <span key={`v${i}`}> v </span>, tok], [])
-    return (
-      <Box
-        component="span"
-        onClick={() => onNavigateGame(g.gid)}
-        sx={{ cursor: 'pointer', color: 'primary.main', textDecoration: 'underline' }}
-      >
-        {withSeparators}
-      </Box>
-    )
-  }
-
-  return (
-    <Box sx={{ mt: 1.5, textAlign: 'left' }}>
-        {/* First-round start time (just under the tabs) */}
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Start time: {firstRoundStart ? dayjs(firstRoundStart).format('MMM D, YYYY h:mm A') : '—'}
-        </Typography>
-
-        {/* Teams in this pool/bracket (chips) */}
-        <Typography variant="caption" color="text.secondary">
-          Teams{canEdit ? ' — click a team to remove it from this pool/bracket' : ''}:
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5, mb: 1 }}>
-          {teams.length === 0
-            ? <Typography variant="body2" color="text.secondary">No teams yet.</Typography>
-            : teams.map((t, i) => (
-                <Chip
-                  key={t.teamid}
-                  label={`${i + 1}: ${t.name}`}
-                  size="small"
-                  onClick={canEdit ? () => onRemoveTeam(t.teamid) : undefined}
-                  onDelete={canEdit ? () => onRemoveTeam(t.teamid) : undefined}
-                />
-              ))
-          }
-        </Box>
-
-        {/* Card Row 3 — Rooms × Rounds matchup matrix */}
-        {games.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">No games scheduled.</Typography>
-        ) : (
-          <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Round \ Room</TableCell>
-                  {rooms.map(([roomid, roomName]) => (
-                    <TableCell key={roomid} align="center" sx={{ fontWeight: 600 }}>Room: {roomName}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rounds.map(([roundid, roundNumber]) => (
-                  <TableRow key={roundid}>
-                    <TableCell sx={{ fontWeight: 600 }}>{roundNumber != null ? `Round: ${roundNumber}` : 'Round'}</TableCell>
-                    {rooms.map(([roomid]) => {
-                      const cellGames = gamesByCell.get(`${roundid}|${roomid}`) ?? []
-                      return (
-                        <TableCell key={roomid} align="center">
-                          {cellGames.map((g, i) => (
-                            <Box key={g.gid} sx={{ whiteSpace: 'nowrap' }}>
-                              {i > 0 && <Divider sx={{ my: 0.5 }} />}
-                              {matchup(g)}
-                            </Box>
-                          ))}
-                        </TableCell>
-                      )
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-    </Box>
   )
 }
 

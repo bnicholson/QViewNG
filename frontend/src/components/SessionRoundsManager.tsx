@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import Chip from '@mui/material/Chip'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
 import AddIcon from '@mui/icons-material/Add'
@@ -15,6 +17,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import ScheduleIcon from '@mui/icons-material/Schedule'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import dayjs from 'dayjs'
@@ -23,10 +26,13 @@ import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { type GameRowTS } from '../features/GameAPI'
 import { GameAPI } from '../features/GameAPI'
 import { type PoolBracketTS } from '../features/PoolBracketAPI'
+import { PoolBracketGroupAPI, type PoolBracketGroupTS } from '../features/PoolBracketGroupAPI'
+import { PoolGroupsEditorDialog } from './PoolGroupsEditorDialog'
 import { RoundEditorDialog } from './RoundEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { GameEditorDialog } from './GameEditorDialog'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
+import { SessionStartTimeDialog } from './SessionStartTimeDialog'
 import { useAuth } from '../hooks/useAuth'
 
 const PAGE = 0
@@ -107,10 +113,16 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
   const closeGameDialog = () => setGameDialog({ open: false, roundGroupId: '', roundId: '', game: null })
   // Pool/bracket edit dialog (TimePool): opened from the pencil on the chips above the sessions.
   const [poolDialog, setPoolDialog] = useState<{ open: boolean; bracket: PoolBracketTS | null }>({ open: false, bracket: null })
-  // Pools whose games are hidden below (client-side visual filter toggled by clicking a pool chip).
+  // "Edit Session Start Time" dialog — re-times all of a session's rounds from a chosen start.
+  const [sessionTimeDialog, setSessionTimeDialog] = useState<{ open: boolean; session: RoundGroupTS | null }>({ open: false, session: null })
+  // Games are controlled directly by pool/room/team visibility. Pool GROUPS control their pools (a
+  // 2nd-degree effect on games): toggling a group off hides all of its pools, which hides their games.
   const [hiddenPoolIds, setHiddenPoolIds] = useState<Set<string>>(new Set())
   const [hiddenRoomIds, setHiddenRoomIds] = useState<Set<string>>(new Set())
   const [hiddenTeamIds, setHiddenTeamIds] = useState<Set<string>>(new Set())
+  // When off, sessions/rounds that end up with no visible games (from filtering, or genuinely empty)
+  // are hidden entirely. On (default) keeps them visible.
+  const [showEmpty, setShowEmpty] = useState(true)
   // Toggle an id in one of the visual-filter sets (clicking a Pool/Room/Team chip hides it).
   const makeToggle = (setter: Dispatch<SetStateAction<Set<string>>>) => (id: string) =>
     setter(prev => {
@@ -121,6 +133,28 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
   const togglePoolFilter = makeToggle(setHiddenPoolIds)
   const toggleRoomFilter = makeToggle(setHiddenRoomIds)
   const toggleTeamFilter = makeToggle(setHiddenTeamIds)
+  // Set several pools hidden/shown at once — how a pool-group toggle cascades to its member pools.
+  const setPoolsHidden = (ids: string[], hidden: boolean) => setHiddenPoolIds(prev => {
+    const next = new Set(prev)
+    ids.forEach(id => { if (hidden) next.add(id); else next.delete(id) })
+    return next
+  })
+
+  // TimePool: the division's pool groups (loaded locally) drive the "Pool Groups" filter row and the
+  // "Edit Pool Groups" dialog. Each group maps to its member pools (from `poolBrackets`).
+  const [poolGroups, setPoolGroups] = useState<PoolBracketGroupTS[]>([])
+  const [poolGroupsDialogOpen, setPoolGroupsDialogOpen] = useState(false)
+  const loadPoolGroups = useCallback(() => {
+    if (!isTimePool) return
+    PoolBracketGroupAPI.getByDivision(did).then(setPoolGroups).catch(() => setNotice('Failed to load pool groups.'))
+  }, [isTimePool, did])
+  useEffect(() => { loadPoolGroups() }, [loadPoolGroups])
+  // groupId → its pool ids, and the set of all pools that belong to some group (for the row's eye).
+  const poolIdsOfGroup = (groupId: string) => (poolBrackets ?? []).filter(pb => pb.poolbracketgroupid === groupId).map(pb => pb.pool_bracket_id)
+  const allGroupedPoolIds = useMemo(
+    () => (poolBrackets ?? []).filter(pb => pb.poolbracketgroupid != null).map(pb => pb.pool_bracket_id),
+    [poolBrackets]
+  )
 
   const loadRounds = useCallback(() => {
     RoundAPI.getByDivision(did, PAGE, SIZE)
@@ -155,6 +189,21 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     } catch (e) {
       // Surfaces the backend's "still has rounds" guard message.
       setNotice(e instanceof Error ? e.message : 'Failed to delete session.')
+    }
+  }
+
+  // Re-time a session's rounds: the first (chronological) round gets `startTimeIso`, and each later
+  // round is spaced `durationMinutes` after the one before it, keeping the session evenly scheduled.
+  const applySessionStartTime = async (session: RoundGroupTS, startTimeIso: string, durationMinutes: number) => {
+    const ordered = roundsBySession.get(session.roundgroup_id) ?? []  // already sorted chronologically
+    try {
+      for (let i = 0; i < ordered.length; i++) {
+        const t = dayjs(startTimeIso).add(i * durationMinutes, 'minute').toISOString()
+        await RoundAPI.update(ordered[i].roundid, { scheduled_start_time: t }, accessToken)
+      }
+      loadRounds()
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Failed to update the session start time.')
     }
   }
 
@@ -274,11 +323,79 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         </>
       )}
 
-      {/* Filters card — client-side show/hide of the games below by Pool, Room, or Team. */}
-      {isTimePool && ((poolBrackets?.length ?? 0) > 0 || roomsInGames.length > 0 || teamsInGames.length > 0) && (
+      {/* Filters card — client-side show/hide of the games below by Pool Group, Pool, Room, or Team. */}
+      {isTimePool && (poolGroups.length > 0 || canEdit || (poolBrackets?.length ?? 0) > 0 || roomsInGames.length > 0 || teamsInGames.length > 0) && (
         <Card variant="outlined" sx={{ mb: 1.5 }}>
           <CardContent sx={{ pb: '12px !important' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Filters</Typography>
+            {/* Reset — clears the Pool/Room/Team hide filters so every game shows again. */}
+            <Box sx={{ mb: 1.5 }}>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                disableElevation
+                disabled={hiddenPoolIds.size === 0 && hiddenRoomIds.size === 0 && hiddenTeamIds.size === 0}
+                onClick={() => { setHiddenPoolIds(new Set()); setHiddenRoomIds(new Set()); setHiddenTeamIds(new Set()) }}
+              >
+                Reset / Show All
+              </Button>
+            </Box>
+
+      {/* Pool groups — filter chips (like the rows below) plus an Edit chip that opens the editor. */}
+      {isTimePool && (poolGroups.length > 0 || canEdit) && (
+        <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>Pool Groups:</Typography>
+          {canEdit && (
+            <Tooltip title="Edit pool groups">
+              <Chip
+                variant="outlined"
+                icon={<EditIcon sx={{ fontSize: 15 }} />}
+                label="Edit"
+                onClick={() => setPoolGroupsDialogOpen(true)}
+                sx={{ height: 'auto', borderRadius: '8px', cursor: 'pointer', '& .MuiChip-label': { px: 0.75, py: 0.5 } }}
+              />
+            </Tooltip>
+          )}
+          {(() => {
+            // Show/hide-all eye for the whole row: operates on every grouped pool (via hiddenPoolIds).
+            const anyHidden = allGroupedPoolIds.some(id => hiddenPoolIds.has(id))
+            return (
+              <Tooltip title={anyHidden ? 'Show all pool groups' : 'Hide all pool groups'}>
+                <Chip
+                  variant="outlined"
+                  onClick={() => setPoolsHidden(allGroupedPoolIds, !anyHidden)}
+                  sx={{ height: 'auto', borderRadius: '8px', cursor: 'pointer', '& .MuiChip-label': { display: 'flex', alignItems: 'center', px: 0.75, py: 0.5 } }}
+                  label={anyHidden ? <VisibilityIcon sx={{ fontSize: 16 }} /> : <VisibilityOffIcon sx={{ fontSize: 16 }} />}
+                />
+              </Tooltip>
+            )
+          })()}
+          {poolGroups.map(group => {
+            // A group is "off" when all of its pools are hidden; clicking flips its pools' visibility.
+            const poolIds = poolIdsOfGroup(group.poolbracketgroupid)
+            const hidden = poolIds.length > 0 && poolIds.every(id => hiddenPoolIds.has(id))
+            return (
+              <Chip
+                key={group.poolbracketgroupid}
+                variant="outlined"
+                onClick={() => setPoolsHidden(poolIds, !hidden)}
+                sx={{
+                  height: 'auto', borderRadius: '8px', cursor: 'pointer',
+                  opacity: hidden ? 0.45 : 1,
+                  bgcolor: hidden ? 'transparent' : 'rgba(0, 128, 128, 0.08)',
+                  '& .MuiChip-label': { display: 'block', px: 1, py: 0.5 },
+                }}
+                label={
+                  <Typography component="span" variant="caption" sx={{ fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1, textDecoration: hidden ? 'line-through' : 'none' }}>
+                    {group.name}
+                  </Typography>
+                }
+              />
+            )
+          })}
+        </Box>
+      )}
 
       {/* Pools/brackets for the division — editable chips above the first session. */}
       {isTimePool && poolBrackets && poolBrackets.length > 0 && (
@@ -378,6 +495,13 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
           })}
         </Box>
       )}
+
+      {/* Bottom row: whether to keep empty (or filtered-to-empty) sessions/rounds visible. */}
+      <FormControlLabel
+        sx={{ mt: 0.5 }}
+        control={<Checkbox size="small" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />}
+        label={<Typography variant="body2">Show Sessions/Rounds When Empty</Typography>}
+      />
           </CardContent>
         </Card>
       )}
@@ -388,6 +512,11 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {sortedSessions.map((session, sessionIdx) => {
             const sessionRounds = roundsBySession.get(session.roundgroup_id) ?? []
+            // With "Show ... When Empty" off, drop rounds that have no visible games, and skip a
+            // session entirely when none of its rounds have any visible games.
+            const hideEmpty = isTimePool && !showEmpty
+            const displayRounds = hideEmpty ? sessionRounds.filter(r => gamesForRound(r.roundid).length > 0) : sessionRounds
+            if (hideEmpty && displayRounds.length === 0) return null
             const isDropTarget = !isTimePool && dragOverSession === session.roundgroup_id && draggingId != null
             const prevSession = sortedSessions[sessionIdx - 1]
             const nextSession = sortedSessions[sessionIdx + 1]
@@ -414,6 +543,15 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                   </Typography>
                   {canEdit && (
                     <>
+                      {isTimePool && (
+                        <Tooltip title={sessionRounds.length === 0 ? 'Add a round first to set a start time.' : ''}>
+                          <span>
+                            <Button size="small" startIcon={<ScheduleIcon />} disabled={sessionRounds.length === 0} onClick={() => setSessionTimeDialog({ open: true, session })}>
+                              Edit Session Start Time
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      )}
                       <Button size="small" startIcon={<AddIcon />} onClick={() => setRoundDialog({ open: true, sessionId: session.roundgroup_id, round: null })}>
                         Add Round
                       </Button>
@@ -443,11 +581,11 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                 )}
 
                 {/* Round cards (concentric, own colour) */}
-                {sessionRounds.length === 0 ? (
+                {displayRounds.length === 0 ? (
                   <Typography variant="caption" color="text.secondary">No rounds yet.</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {sessionRounds.map(round => {
+                    {displayRounds.map(round => {
                       const roundGames = isTimePool ? gamesForRound(round.roundid) : []
                       // Whether the round has any games at all (ignoring the pool-visibility filter). A
                       // round with a game can't be deleted, so the Delete button is disabled; it also
@@ -612,6 +750,35 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
           // Editing an existing game: allow viewing its profile and deleting it from the dialog.
           onView={gameDialog.game && onNavigateGame ? () => onNavigateGame(gameDialog.game!.gid) : undefined}
           onDelete={gameDialog.game ? () => { const gid = gameDialog.game!.gid; closeGameDialog(); handleDeleteGame(gid) } : undefined}
+        />
+      )}
+
+      {isTimePool && (
+        <PoolGroupsEditorDialog
+          isOpen={poolGroupsDialogOpen}
+          tid={tid}
+          did={did}
+          canEdit={canEdit}
+          onClose={() => setPoolGroupsDialogOpen(false)}
+          onChanged={() => { loadPoolGroups(); onPoolsChanged?.(); onGamesChanged?.() }}
+        />
+      )}
+
+      {isTimePool && (
+        <SessionStartTimeDialog
+          isOpen={sessionTimeDialog.open}
+          tid={tid}
+          sessionName={sessionTimeDialog.session?.name ?? ''}
+          defaultStart={sessionTimeDialog.session
+            ? (roundsBySession.get(sessionTimeDialog.session.roundgroup_id)?.find(r => r.scheduled_start_time)?.scheduled_start_time ?? null)
+            : null}
+          roundCount={sessionTimeDialog.session ? (roundsBySession.get(sessionTimeDialog.session.roundgroup_id)?.length ?? 0) : 0}
+          onCancel={() => setSessionTimeDialog({ open: false, session: null })}
+          onApply={(startIso, dur) => {
+            const s = sessionTimeDialog.session
+            setSessionTimeDialog({ open: false, session: null })
+            if (s) applySessionStartTime(s, startIso, dur)
+          }}
         />
       )}
 
