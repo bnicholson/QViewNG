@@ -178,6 +178,19 @@ async fn create(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
+    // A game with a center team (3-team game) can only be scheduled in a room that supports 3-team games.
+    if item.centerteamid.is_some() {
+        match models::room::read(&mut conn, item.roomid) {
+            Ok(room) if !room.supports_threeteam_games => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": "This room does not support 3-team games. Remove the center team or choose a room that supports 3-team games."
+            }))),
+            Ok(_) => {}
+            Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Room with ID {} does not exist", item.roomid)
+            }))),
+        }
+    }
+
     // Inherit quizmaster and content judge from the room if the room has them set.
     let mut item = if let Ok(room) = models::room::read(&mut conn, item.roomid) {
         let mut item = item;
@@ -246,6 +259,22 @@ async fn update(
     let game_update_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Update.as_str());
     if is_rbac_and_abac_authorized(&policy_ctx, &game_update_permission, AppResource::Game.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    // After applying the changeset, a game with a center team (3-team game) must be in a room that
+    // supports 3-team games. (A missing changeset field leaves the existing value in place.)
+    let effective_room_id = item.roomid.unwrap_or(game.roomid);
+    let effective_center = item.centerteamid.or(game.centerteamid);
+    if effective_center.is_some() {
+        match models::room::read(&mut conn, effective_room_id) {
+            Ok(room) if !room.supports_threeteam_games => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": "This room does not support 3-team games. Remove the center team or choose a room that supports 3-team games."
+            }))),
+            Ok(_) => {}
+            Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": format!("Room with ID {} does not exist", effective_room_id)
+            }))),
+        }
     }
 
     tracing::debug!("{} Game model update {:?} {:?}", line!(), game_id, item);

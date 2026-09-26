@@ -127,6 +127,7 @@ pub fn seed_1_room_with_minimum_required_dependencies(db: &mut database::Connect
 
 pub fn new_room_one(tid: Uuid, room_name: &str) -> NewRoom {
     RoomBuilder::new_default(room_name, tid)
+        .set_supports_threeteam_games(true)
         .build()
         .unwrap()
 }

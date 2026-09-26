@@ -19,6 +19,7 @@ pub struct RoomBuilder {
     contentjudge_id: Option<Uuid>,
     last_modified_user: Option<Uuid>,
     roomgroupid: Option<Uuid>,
+    supports_threeteam_games: bool,
 }
 
 impl RoomBuilder {
@@ -33,6 +34,7 @@ impl RoomBuilder {
             contentjudge_id: None,
             last_modified_user: None,
             roomgroupid: None,
+            supports_threeteam_games: false,
         }
     }
     pub fn new_default(room_name: &str, tid: Uuid) -> Self {
@@ -46,7 +48,12 @@ impl RoomBuilder {
             contentjudge_id: None,
             last_modified_user: None,
             roomgroupid: None,
+            supports_threeteam_games: false,
         }
+    }
+    pub fn set_supports_threeteam_games(mut self, v: bool) -> Self {
+        self.supports_threeteam_games = v;
+        self
     }
     pub fn set_name(mut self, room_name: String) -> Self {
         self.name = Some(room_name);
@@ -120,6 +127,7 @@ impl RoomBuilder {
                         contentjudge_id: self.contentjudge_id,
                         last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil),
                         roomgroupid: self.roomgroupid,
+                        supports_threeteam_games: self.supports_threeteam_games,
                     }
                 )
             }
@@ -175,6 +183,8 @@ pub struct Room {
     pub del_fl: bool,
     /// Optional roomgroup (e.g. building) this room belongs to.
     pub roomgroupid: Option<Uuid>,
+    /// Whether this room may host 3-team games (games with a center team).
+    pub supports_threeteam_games: bool,
 }
 
 #[derive(
@@ -196,6 +206,8 @@ pub struct NewRoom {
     pub last_modified_user: Uuid,
     #[serde(default)]
     pub roomgroupid: Option<Uuid>,
+    #[serde(default)]
+    pub supports_threeteam_games: bool,
 }
 
 // #[tsync::tsync]
@@ -218,6 +230,7 @@ pub struct RoomChangeset {
     pub ping_game_id: Option<Uuid>,             // optional game the room's client last pinged about
     pub ping_host_ip: Option<String>,           // latest host/IP reported by the room's client
     pub ping_last_checkin_ts: Option<DateTime<Utc>>, // timestamp of the last check-in (ping) from the room's client
+    pub supports_threeteam_games: Option<bool>, // whether this room may host 3-team games
 }
 
 impl RoomChangeset {
@@ -238,6 +251,7 @@ impl RoomChangeset {
             ping_game_id: None,
             ping_host_ip: None,
             ping_last_checkin_ts: None,
+            supports_threeteam_games: None,
         }
     }
 }

@@ -3,6 +3,8 @@ import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
 import Collapse from '@mui/material/Collapse'
@@ -34,6 +36,7 @@ interface RoomFormState {
   building: string;
   comments: string;
   clientkey: string;
+  supports_threeteam_games: boolean;
 }
 
 const emptyState: RoomFormState = {
@@ -41,6 +44,7 @@ const emptyState: RoomFormState = {
   building: "",
   comments: "",
   clientkey: "",
+  supports_threeteam_games: false,
 };
 
 interface Props {
@@ -102,6 +106,7 @@ export const RoomEditorDialog = (props: Props) => {
       comments: form.comments,
       clientkey: "",
       roomgroupid: lockedRoomGroupId ?? null,
+      supports_threeteam_games: form.supports_threeteam_games,
     };
 
     let result: RoomTS;
@@ -194,6 +199,18 @@ export const RoomEditorDialog = (props: Props) => {
                 />
               </Grid>
             </Grid>
+          </ListItem>
+
+          <ListItem>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.supports_threeteam_games}
+                  onChange={(e) => setForm(s => ({ ...s, supports_threeteam_games: e.target.checked }))}
+                />
+              }
+              label="Supports 3-team games"
+            />
           </ListItem>
         </List>
       </Box>

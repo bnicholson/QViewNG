@@ -11,6 +11,8 @@ export interface RoomTS {
   contentjudge_id: string | null;
   /** Optional roomgroup (e.g. building) this room belongs to. */
   roomgroupid: string | null;
+  /** Whether this room may host 3-team games (games with a center team). */
+  supports_threeteam_games: boolean;
 }
 
 export interface NewRoomPayload {
@@ -22,6 +24,7 @@ export interface NewRoomPayload {
   quizmaster_id?: string | null;
   contentjudge_id?: string | null;
   roomgroupid?: string | null;
+  supports_threeteam_games?: boolean;
 }
 
 export interface PagedRooms {

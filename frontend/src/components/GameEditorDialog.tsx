@@ -4,6 +4,7 @@ import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Tooltip from '@mui/material/Tooltip'
 import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -154,6 +155,10 @@ export const GameEditorDialog = (props: Props) => {
       setCjFromRoom(true);
     } else {
       setCjFromRoom(false);
+    }
+    // A room that doesn't support 3-team games can't have a center team — clear it on selection.
+    if (room && !room.supports_threeteam_games) {
+      patch.centerteamid = '';
     }
     set(patch);
   };
@@ -322,6 +327,10 @@ export const GameEditorDialog = (props: Props) => {
     ? poolBrackets.filter(b => b.divisionid === form.divisionid)
     : [];
 
+  // A center team (3-team game) is only allowed when the chosen room supports 3-team games.
+  const selectedRoom = rooms.find(r => r.roomid === form.roomid);
+  const roomBlocksThreeTeam = selectedRoom != null && !selectedRoom.supports_threeteam_games;
+
   return (
     <Dialog
       fullScreen
@@ -433,12 +442,16 @@ export const GameEditorDialog = (props: Props) => {
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Center Team</InputLabel>
-                <Select value={form.centerteamid} onChange={(e) => set({ centerteamid: e.target.value })}
-                  displayEmpty fullWidth disabled={!divisionChosen}
-                  renderValue={(v) => v ? (teams.find(t => t.teamid === v)?.name ?? v) : <em>Select a team</em>}
-                >
-                  {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
-                </Select>
+                <Tooltip title={roomBlocksThreeTeam ? 'The selected Room does not support 3-team Games.' : ''}>
+                  <Box component="span" sx={{ display: 'block' }}>
+                    <Select value={form.centerteamid} onChange={(e) => set({ centerteamid: e.target.value })}
+                      displayEmpty fullWidth disabled={!divisionChosen || roomBlocksThreeTeam}
+                      renderValue={(v) => v ? (teams.find(t => t.teamid === v)?.name ?? v) : <em>Select a team</em>}
+                    >
+                      {divisionTeams.map(t => <MenuItem key={t.teamid} value={t.teamid}>{t.name}</MenuItem>)}
+                    </Select>
+                  </Box>
+                </Tooltip>
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Right Team (*required)</InputLabel>

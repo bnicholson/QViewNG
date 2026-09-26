@@ -642,3 +642,134 @@ async fn get_gameevents_of_game_works() {
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
 
+#[actix_web::test]
+async fn create_threeteam_game_requires_room_support() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner, _admin_user, _unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, _cj_id, poolbracket_id) =
+        fixtures::games::arrange_game_create_works_integration_test(&mut conn);
+
+    // `room_id` from the fixture supports 3-team games; make a second room that does not
+    // (RoomBuilder::new_default defaults supports_threeteam_games to false).
+    let no_3t_room = backend::models::room::RoomBuilder::new_default("No 3-Team Room", tournament.tid)
+        .set_quizmaster_id(Some(qm_id))
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = "/api/games";
+    let token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    // ── Fail: a 3-team game (center team present) in a room that does not support them ──
+
+    let mut blocked_payload = fixtures::games::get_game_payload(tournament.tid, did, no_3t_room.roomid, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    blocked_payload.poolbracket_id = poolbracket_id;
+    blocked_payload.clientkey = "blocked-3team".to_string();
+    let blocked_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&blocked_payload)
+        .to_request();
+    let blocked_resp = test::call_service(&app, blocked_req).await;
+    assert_eq!(blocked_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // ── Success: the same 3-team game in a room that supports them ──
+
+    let mut allowed_3team_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    allowed_3team_payload.poolbracket_id = poolbracket_id;
+    allowed_3team_payload.clientkey = "allowed-3team".to_string();
+    let allowed_3team_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&allowed_3team_payload)
+        .to_request();
+    let allowed_3team_resp = test::call_service(&app, allowed_3team_req).await;
+    assert_eq!(allowed_3team_resp.status(), StatusCode::CREATED);
+
+    // ── Success: a 2-team game (no center team) is fine in a non-supporting room ──
+
+    let mut two_team_payload = fixtures::games::get_game_payload(tournament.tid, did, no_3t_room.roomid, round_id, left_team_id, None, right_team_id, qm_id);
+    two_team_payload.poolbracket_id = poolbracket_id;
+    two_team_payload.clientkey = "allowed-2team".to_string();
+    let two_team_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&two_team_payload)
+        .to_request();
+    let two_team_resp = test::call_service(&app, two_team_req).await;
+    assert_eq!(two_team_resp.status(), StatusCode::CREATED);
+}
+
+#[actix_web::test]
+async fn update_into_non_supporting_room_rejects_threeteam_game() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner, _admin_user, _unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, _cj_id, poolbracket_id) =
+        fixtures::games::arrange_game_create_works_integration_test(&mut conn);
+
+    // A 3-team game inserted (via the model, which does not validate) in the supporting room.
+    let mut game_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    game_payload.poolbracket_id = poolbracket_id;
+    let game = backend::models::game::create(&mut conn, &game_payload).unwrap();
+
+    // A room that does not support 3-team games.
+    let no_3t_room = backend::models::room::RoomBuilder::new_default("No 3-Team Room", tournament.tid)
+        .set_quizmaster_id(Some(qm_id))
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let put_uri = format!("/api/games/{}", game.gid);
+    let token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    // ── Fail: moving the 3-team game into a non-supporting room ──
+
+    let blocked_payload = json!({ "roomid": no_3t_room.roomid });
+    let blocked_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&blocked_payload)
+        .to_request();
+    let blocked_resp = test::call_service(&app, blocked_req).await;
+    assert_eq!(blocked_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // ── Success: an unrelated update (still in the supporting room) is fine ──
+
+    let ok_payload = json!({ "org": "Updated Org" });
+    let ok_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&ok_payload)
+        .to_request();
+    let ok_resp = test::call_service(&app, ok_req).await;
+    assert_eq!(ok_resp.status(), StatusCode::OK);
+}
+

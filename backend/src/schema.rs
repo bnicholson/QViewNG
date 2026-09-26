@@ -500,6 +500,7 @@ diesel::table! {
         last_modified_user -> Uuid,
         del_fl -> Bool,
         roomgroupid -> Nullable<Uuid>,
+        supports_threeteam_games -> Bool,
     }
 }
 

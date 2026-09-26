@@ -36,7 +36,7 @@ pub fn seed_1_game_with_minimum_required_dependencies(db: &mut database::Connect
         .set_name("1")
         .build_and_insert(db)
         .unwrap();
-    let room = RoomBuilder::new_default("Room 1", tour.tid)
+    let room = RoomBuilder::new_default("Room 1", tour.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();    
     let coach_1 = UserBuilder::new_default("Coach 1")
@@ -88,7 +88,7 @@ pub fn seed_2_games_1_round_with_minimum_required_dependencies(db: &mut database
         .set_coachid(coach_2.id)
         .build_and_insert(db)
         .unwrap();
-    let room_2 = RoomBuilder::new_default("Room 2", tour.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tour.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();    
     let game_2 = GameBuilder::new_default(room_2.roomid, round.roundid)
@@ -223,11 +223,11 @@ pub fn seed_get_games_of_round(db: &mut database::Connection) -> (Game, Game) { 
         .unwrap();
 
 
-    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -359,11 +359,11 @@ pub fn seed_get_games_of_division(db: &mut database::Connection) -> (Uuid, Game,
         .unwrap();
 
 
-    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -518,19 +518,19 @@ pub fn seed_get_games_of_tournament(db: &mut database::Connection) -> (Uuid, Gam
         .unwrap();
 
 
-    let room_1_of_tour_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+    let room_1_of_tour_1 = RoomBuilder::new_default("Room 1", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2_of_tour_1 = RoomBuilder::new_default("Room 2", tour_1.tid)
+    let room_2_of_tour_1 = RoomBuilder::new_default("Room 2", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_1_of_tour_2 = RoomBuilder::new_default("Room 1", tour_2.tid)
+    let room_1_of_tour_2 = RoomBuilder::new_default("Room 1", tour_2.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2_of_tour_2 = RoomBuilder::new_default("Room 2", tour_2.tid)
+    let room_2_of_tour_2 = RoomBuilder::new_default("Room 2", tour_2.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -680,11 +680,11 @@ pub fn seed_get_games_of_room(db: &mut database::Connection) -> (Game, Game) {  
         .unwrap();
 
 
-    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -839,11 +839,11 @@ pub fn seed_get_games_of_team(db: &mut database::Connection) -> (Uuid, Game, Gam
         .unwrap();
 
 
-    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -965,11 +965,11 @@ pub fn seed_get_games_where_user_is_quizmaster_or_contentjudge(db: &mut database
         .unwrap();
 
 
-    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid)
+    let room_1 = RoomBuilder::new_default("Room 1", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
-    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tour_1.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
 
@@ -1153,10 +1153,10 @@ pub fn arrange_game_delete_works_integration_test(
         .set_name("1")
         .build_and_insert(db)
         .unwrap();
-    let room_1 = RoomBuilder::new_default("Room 1", tournament.tid)
+    let room_1 = RoomBuilder::new_default("Room 1", tournament.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
-    let room_2 = RoomBuilder::new_default("Room 2", tournament.tid)
+    let room_2 = RoomBuilder::new_default("Room 2", tournament.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
     let quizmaster = UserBuilder::new_default("Quizmaster")
@@ -1215,7 +1215,7 @@ pub fn arrange_game_update_works_integration_test(
         .set_name("1")
         .build_and_insert(db)
         .unwrap();
-    let room = RoomBuilder::new_default("Room 1", tournament.tid)
+    let room = RoomBuilder::new_default("Room 1", tournament.tid).set_supports_threeteam_games(true)
         .build_and_insert(db)
         .unwrap();
     let quizmaster = UserBuilder::new_default("Quizmaster")
@@ -1278,7 +1278,7 @@ pub fn arrange_game_create_works_integration_test(
         .set_hash_password("ContentJudgePwd123!")
         .build_and_insert(db)
         .unwrap();
-    let room = RoomBuilder::new_default("Room 1", tournament.tid)
+    let room = RoomBuilder::new_default("Room 1", tournament.tid).set_supports_threeteam_games(true)
         .set_quizmaster_id(Some(quizmaster.id))
         .set_contentjudge_id(Some(content_judge.id))
         .build_and_insert(db)
@@ -1320,8 +1320,8 @@ pub fn seed_person_and_team_games(db: &mut database::Connection) -> PersonGamesS
 
     let tour = TournamentBuilder::new_default("Person Games Tour").set_owner_id(owner.id).build_and_insert(db).unwrap();
     let division = DivisionBuilder::new_default("PG Div", tour.tid).build_and_insert(db).unwrap();
-    let room_1 = RoomBuilder::new_default("Room 1", tour.tid).build_and_insert(db).unwrap();
-    let room_2 = RoomBuilder::new_default("Room 2", tour.tid).build_and_insert(db).unwrap();
+    let room_1 = RoomBuilder::new_default("Room 1", tour.tid).set_supports_threeteam_games(true).build_and_insert(db).unwrap();
+    let room_2 = RoomBuilder::new_default("Room 2", tour.tid).set_supports_threeteam_games(true).build_and_insert(db).unwrap();
     let round_1 = RoundBuilder::new_default(roundgroup_for(db, division.did)).set_name("1").build_and_insert(db).unwrap();
 
     // team_1 carries the target coach + quizzer; the other teams carry unrelated people.
