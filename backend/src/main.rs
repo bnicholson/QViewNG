@@ -8,7 +8,6 @@ use backend::database::seed_data::system_default_data::insert_system_default_dat
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use backend::routes::configure_routes;
-use chrono::Utc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
