@@ -8,14 +8,21 @@ import DialogTitle from '@mui/material/DialogTitle'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import InputLabel from '@mui/material/InputLabel'
+import FormControl from '@mui/material/FormControl'
+import Select, { type SelectChangeEvent } from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import Chip from '@mui/material/Chip'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { type Dayjs } from 'dayjs'
 import { TournamentAPI } from '../features/TournamentAPI'
+import { RoomAPI, type RoomTS } from '../features/RoomAPI'
 
 interface Props {
   isOpen: boolean
@@ -63,10 +70,16 @@ function singleRoundRobinRounds(n: number): number {
 
 export const AutoSchedulePoolsDialog = (props: Props) => {
   const { isOpen, tid, totalTeams, onCancel } = props
+  const [scheduleType, setScheduleType] = useState<'round_robin' | 'brackets'>('round_robin')
+  const [teamsPerGame, setTeamsPerGame] = useState<2 | 3>(2)
   const [timesEachPlays, setTimesEachPlays] = useState(1)
   const [numPools, setNumPools] = useState(1)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
   const [roundDurationMin, setRoundDurationMin] = useState(30)
+  // Rooms available to the schedule, and the ordered room ids the user has assigned to the needed slots.
+  const [rooms, setRooms] = useState<RoomTS[]>([])
+  const [roomOptionId, setRoomOptionId] = useState('')
+  const [roomSlots, setRoomSlots] = useState<string[]>([])
 
   // Default the start time to 8am on the tournament's start date, and pull the tournament's default
   // round duration, whenever the dialog opens.
@@ -74,14 +87,20 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
     if (!isOpen) return
     setTimesEachPlays(1)
     setNumPools(1)
+    setTeamsPerGame(2)
     setStartTime(null)
     setRoundDurationMin(30)
+    setRoomSlots([])
+    setRoomOptionId('')
     TournamentAPI.getById(tid)
       .then(t => {
         if (t.fromdate) setStartTime(t.fromdate.hour(8).minute(0).second(0).millisecond(0))
         if (t.default_round_duration) setRoundDurationMin(t.default_round_duration)
       })
       .catch(() => { /* leave defaults if the tournament can't be loaded */ })
+    RoomAPI.getByTournament(tid, 0, 500)
+      .then(setRooms)
+      .catch(() => { /* leave rooms empty if they can't be loaded */ })
   }, [isOpen, tid])
 
   // Rounds needed = single round-robin rounds for the largest pool, times how many times each pairing plays.
@@ -95,6 +114,20 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
     [teamsPerLargestPool, timesEachPlays],
   )
 
+  // Rooms needed per round = concurrent games in a round: each pool plays floor(poolSize / teamsPerGame)
+  // games at once, across all pools. The 2-team/3-team toggle sets how many teams share a game/room.
+  const roomsNeeded = useMemo(
+    () => numPools * Math.floor(teamsPerLargestPool / teamsPerGame),
+    [numPools, teamsPerLargestPool, teamsPerGame],
+  )
+  // Rooms still selectable (not already assigned to a slot).
+  const availableRooms = useMemo(
+    () => rooms.filter(r => !roomSlots.includes(r.roomid)),
+    [rooms, roomSlots],
+  )
+  const roomName = (roomid: string) => rooms.find(r => r.roomid === roomid)?.name ?? roomid
+  const slotsFilled = roomSlots.length === roomsNeeded
+
   // Total time duration = rounds × the tournament's default round duration; end time = start + duration.
   const durationMinutes = totalRounds * roundDurationMin
   const totalDuration = useMemo(() => {
@@ -107,18 +140,50 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
 
   return (
     <Dialog open={isOpen} onClose={onCancel} fullWidth maxWidth="sm">
-      <DialogTitle>Auto-Schedule Pools</DialogTitle>
+      <DialogTitle>Auto-Schedule</DialogTitle>
       <DialogContent dividers>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <IncrementControl
-            label="# of times each Team plays every other Team"
-            value={timesEachPlays}
-            onChange={setTimesEachPlays}
-          />
+          <Box>
+            <InputLabel>Schedule type</InputLabel>
+            <Select
+              value={scheduleType}
+              onChange={(e: SelectChangeEvent) => setScheduleType(e.target.value as 'round_robin' | 'brackets')}
+              size="small"
+              fullWidth
+            >
+              <MenuItem value="round_robin">Round-Robin</MenuItem>
+              <MenuItem value="brackets">Tournament Bracket(s)</MenuItem>
+            </Select>
+          </Box>
+
+          {scheduleType === 'brackets' ? (
+            <Typography variant="body2" color="text.secondary">
+              Tournament Bracket(s) scheduling isn't available yet.
+            </Typography>
+          ) : (
+          <>
+          <Box>
+            <InputLabel>Teams per game</InputLabel>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={teamsPerGame}
+              onChange={(_e, v) => { if (v) setTeamsPerGame(v) }}
+              sx={{ mt: 0.5 }}
+            >
+              <ToggleButton value={2}>2-Team</ToggleButton>
+              <ToggleButton value={3}>3-Team</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
           <IncrementControl
             label="# of Pools"
             value={numPools}
             onChange={setNumPools}
+          />
+          <IncrementControl
+            label="# of times each Team plays every other Team within their Pool"
+            value={timesEachPlays}
+            onChange={setTimesEachPlays}
           />
 
           <Divider />
@@ -132,6 +197,53 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
             <Typography variant="caption" color="text.secondary">Rounds required</Typography>
             <Typography variant="body1">{totalRounds}</Typography>
           </Box>
+
+          <Divider />
+
+          {/* Assign a room to each concurrent-game slot needed per round. All slots must be filled. */}
+          <Box>
+            <InputLabel>Rooms</InputLabel>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <Select
+                  value={availableRooms.some(r => r.roomid === roomOptionId) ? roomOptionId : ''}
+                  onChange={(e: SelectChangeEvent) => setRoomOptionId(e.target.value)}
+                  displayEmpty
+                  renderValue={(v) => v ? roomName(v) : <em>Select a room</em>}
+                >
+                  {availableRooms.map(r => <MenuItem key={r.roomid} value={r.roomid}>{r.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button
+                variant="outlined"
+                disabled={!roomOptionId || roomSlots.length >= roomsNeeded}
+                onClick={() => { if (roomOptionId) { setRoomSlots(s => [...s, roomOptionId]); setRoomOptionId('') } }}
+              >
+                Use
+              </Button>
+              <Typography variant="caption" color={slotsFilled ? 'text.secondary' : 'error'}>
+                {roomSlots.length} / {roomsNeeded} room slots filled
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+              {roomSlots.map((rid, i) => (
+                <Chip
+                  key={`${rid}-${i}`}
+                  label={roomName(rid)}
+                  onClick={() => setRoomSlots(s => s.filter((_, idx) => idx !== i))}
+                  onDelete={() => setRoomSlots(s => s.filter((_, idx) => idx !== i))}
+                />
+              ))}
+            </Box>
+          </Box>
+
+          <Divider />
+
+          <IncrementControl
+            label="Duration per Round (minutes)"
+            value={roundDurationMin}
+            onChange={setRoundDurationMin}
+          />
 
           <TextField
             label="Total time duration"
@@ -165,11 +277,13 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               />
             </Box>
           </LocalizationProvider>
+          </>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
-        <Button variant="contained" onClick={onCancel}>Auto-Schedule</Button>
+        <Button variant="contained" onClick={onCancel} disabled={scheduleType === 'round_robin' && !slotsFilled}>Auto-Schedule</Button>
       </DialogActions>
     </Dialog>
   )

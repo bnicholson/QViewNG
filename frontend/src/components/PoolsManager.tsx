@@ -23,7 +23,6 @@ import { TeamAPI, type TeamTS, type TeamRowTS } from '../features/TeamAPI'
 import { GameAPI, type GameRowTS } from '../features/GameAPI'
 import { PoolDetail } from './PoolDetail'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
-import { AutoSchedulePoolsDialog } from './AutoSchedulePoolsDialog'
 
 const PAGE = 0
 const SIZE = 500
@@ -56,7 +55,6 @@ export const PoolsManager = ({ tid, did, canEdit, onChanged }: Props) => {
   const [selectedPoolId, setSelectedPoolId] = useState('')
 
   const [poolDialog, setPoolDialog] = useState<{ open: boolean; pool: PoolBracketTS | null }>({ open: false, pool: null })
-  const [autoScheduleOpen, setAutoScheduleOpen] = useState(false)
 
   // Load per-pool team placements + games for the given pools.
   const loadPlacementAndGames = useCallback((forPools: PoolBracketTS[]) => {
@@ -173,11 +171,6 @@ export const PoolsManager = ({ tid, did, canEdit, onChanged }: Props) => {
 
       <Divider sx={{ my: 1.5 }} />
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1.5 }}>
-        <Button variant="outlined" onClick={() => setAutoScheduleOpen(true)} disabled={!canEdit}>Auto-Schedule Pools</Button>
-      </Box>
-      <Divider sx={{ mb: 1.5 }} />
-
       {groupPools.length === 0 ? (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Typography variant="body2" color="text.secondary">This group has no pools yet:</Typography>
@@ -221,13 +214,6 @@ export const PoolsManager = ({ tid, did, canEdit, onChanged }: Props) => {
           )}
         </>
       )}
-
-      <AutoSchedulePoolsDialog
-        tid={tid}
-        totalTeams={teams.length}
-        isOpen={autoScheduleOpen}
-        onCancel={() => setAutoScheduleOpen(false)}
-      />
 
       <PoolBracketEditorDialog
         tid={tid}

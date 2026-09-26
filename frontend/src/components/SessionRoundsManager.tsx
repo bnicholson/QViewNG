@@ -27,7 +27,9 @@ import { type GameRowTS } from '../features/GameAPI'
 import { GameAPI } from '../features/GameAPI'
 import { type PoolBracketTS } from '../features/PoolBracketAPI'
 import { PoolBracketGroupAPI, type PoolBracketGroupTS } from '../features/PoolBracketGroupAPI'
+import { TeamAPI } from '../features/TeamAPI'
 import { PoolGroupsEditorDialog } from './PoolGroupsEditorDialog'
+import { AutoSchedulePoolsDialog } from './AutoSchedulePoolsDialog'
 import { RoundEditorDialog } from './RoundEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { GameEditorDialog } from './GameEditorDialog'
@@ -150,11 +152,18 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
   // "Edit Pool Groups" dialog. Each group maps to its member pools (from `poolBrackets`).
   const [poolGroups, setPoolGroups] = useState<PoolBracketGroupTS[]>([])
   const [poolGroupsDialogOpen, setPoolGroupsDialogOpen] = useState(false)
+  const [autoScheduleOpen, setAutoScheduleOpen] = useState(false)
+  const [divisionTeamCount, setDivisionTeamCount] = useState(0)
   const loadPoolGroups = useCallback(() => {
     if (!isTimePool) return
     PoolBracketGroupAPI.getByDivision(did).then(setPoolGroups).catch(() => setNotice('Failed to load pool groups.'))
   }, [isTimePool, did])
   useEffect(() => { loadPoolGroups() }, [loadPoolGroups])
+  // The division's team count feeds the Auto-Schedule dialog's round math.
+  useEffect(() => {
+    if (!isTimePool) return
+    TeamAPI.getByDivision(did, PAGE, SIZE).then(ts => setDivisionTeamCount(ts.length)).catch(() => {})
+  }, [isTimePool, did])
   // groupId → its pool ids, and the set of all pools that belong to some group (for the row's eye).
   const poolIdsOfGroup = (groupId: string) => (poolBrackets ?? []).filter(pb => pb.poolbracketgroupid === groupId).map(pb => pb.pool_bracket_id)
   const allGroupedPoolIds = useMemo(
@@ -277,6 +286,12 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     return [...m.entries()].map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   }, [gamesByRound])
+  // Whether the division has any games at all — the filters are hidden until it does.
+  const hasAnyGames = useMemo(() => {
+    if (!gamesByRound) return false
+    for (const list of gamesByRound.values()) if (list.length > 0) return true
+    return false
+  }, [gamesByRound])
 
   // A game is hidden if its pool or its room is toggled off, or — for teams — if EVERY team in the
   // game is toggled off. (A matchup stays visible as long as at least one of its teams is visible, so
@@ -329,8 +344,16 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         </>
       )}
 
-      {/* Filters card — client-side show/hide of the games below by Pool Group, Pool, Room, or Team. */}
-      {isTimePool && (poolGroups.length > 0 || canEdit || (poolBrackets?.length ?? 0) > 0 || roomsInGames.length > 0 || teamsInGames.length > 0) && (
+      {/* Auto-Schedule — sits just above the filters. */}
+      {isTimePool && canEdit && (
+        <Box sx={{ mb: 1.5 }}>
+          <Button variant="outlined" onClick={() => setAutoScheduleOpen(true)}>Auto-Schedule</Button>
+        </Box>
+      )}
+
+      {/* Filters card — client-side show/hide of the games below by Pool Group, Pool, Room, or Team.
+          Hidden until the division actually has games (which implies it has sessions/rounds too). */}
+      {isTimePool && hasAnyGames && (
         <Card variant="outlined" sx={{ mb: 1.5 }}>
           <CardContent sx={{ pb: '12px !important' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Filters</Typography>
@@ -767,6 +790,15 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
           // Editing an existing game: allow viewing its profile and deleting it from the dialog.
           onView={gameDialog.game && onNavigateGame ? () => onNavigateGame(gameDialog.game!.gid) : undefined}
           onDelete={gameDialog.game ? () => { const gid = gameDialog.game!.gid; closeGameDialog(); handleDeleteGame(gid) } : undefined}
+        />
+      )}
+
+      {isTimePool && (
+        <AutoSchedulePoolsDialog
+          tid={tid}
+          totalTeams={divisionTeamCount}
+          isOpen={autoScheduleOpen}
+          onCancel={() => setAutoScheduleOpen(false)}
         />
       )}
 
