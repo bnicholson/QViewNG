@@ -382,9 +382,9 @@ async fn delete_soft_deletes_and_purge_removes() {
         "purged roundgroup row should be gone");
 }
 
-/// DELETE /api/roundgroups/{id} is blocked (409) when the session still has rounds.
+/// DELETE /api/roundgroups/{id} now cascades: the session and all of its rounds are deleted together.
 #[actix_web::test]
-async fn delete_roundgroup_with_rounds_is_blocked() {
+async fn delete_roundgroup_cascades_its_rounds() {
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
@@ -393,7 +393,7 @@ async fn delete_roundgroup_with_rounds_is_blocked() {
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
     let roundgroup = RoundGroupBuilder::new(division.did)
         .set_name("Session 1").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
-    backend::models::round::RoundBuilder::new_default(roundgroup.roundgroup_id)
+    let round = backend::models::round::RoundBuilder::new_default(roundgroup.roundgroup_id)
         .set_name("Round 1").set_last_modified_user(owner.id).build_and_insert(&mut conn).unwrap();
 
     let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
@@ -404,6 +404,7 @@ async fn delete_roundgroup_with_rounds_is_blocked() {
         .insert_header(("Authorization", format!("Bearer {}", token)))
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::CONFLICT);
-    assert!(backend::models::roundgroup::read(&mut conn, roundgroup.roundgroup_id).is_ok(), "the session is not deleted");
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert!(backend::models::roundgroup::read(&mut conn, roundgroup.roundgroup_id).is_err(), "the session is deleted");
+    assert!(backend::models::round::read(&mut conn, round.roundid).is_err(), "the session's round is deleted too");
 }

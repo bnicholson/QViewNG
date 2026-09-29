@@ -269,7 +269,9 @@ export const GameEditorDialog = (props: Props) => {
         result = await GameAPI.update(game.gid, changeset, accessToken);
       } else {
         const payload: NewGamePayload = {
-          // Org, Ruleset and Ignore are no longer collected in the form; send backend-safe defaults.
+          // Org, Ruleset, Ignore and Clientkey are no longer collected in the form; send backend-safe
+          // defaults. The create endpoint requires a clientkey (it's part of the games unique key), so
+          // supply one rather than have the request rejected for a missing field.
           org: '',
           poolbracket_id: form.poolbracket_id,
           roomid: form.roomid,
@@ -281,6 +283,7 @@ export const GameEditorDialog = (props: Props) => {
           rightteamid: form.rightteamid,
           quizmasterid: form.quizmasterid,
           contentjudgeid: form.contentjudgeid || null,
+          clientkey: 'fe-default-create-game',
         };
         result = await GameAPI.create(payload, accessToken);
       }

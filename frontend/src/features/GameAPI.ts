@@ -35,6 +35,7 @@ export interface NewGamePayload {
   rightteamid: string;
   quizmasterid: string;
   contentjudgeid?: string | null;
+  clientkey?: string;
 }
 
 export interface PagedGames {

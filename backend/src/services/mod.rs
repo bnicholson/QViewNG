@@ -10,6 +10,7 @@ pub mod common;
 pub mod room;
 pub mod roomgroup;
 pub mod round;
+pub mod schedule;
 pub mod team;
 pub mod game;
 pub mod tournamentgroup;

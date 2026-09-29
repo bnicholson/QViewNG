@@ -603,26 +603,27 @@ async fn move_round_to_another_session_works() {
     assert_eq!(moved.roundgroup_id, target.roundgroup_id, "the round now belongs to the target session");
 }
 
-/// DELETE /api/rounds/{id} is blocked (409) when a game is assigned to the round.
+/// DELETE /api/rounds/{id} now cascades: the round and its game(s) are deleted together.
 #[actix_web::test]
-async fn delete_round_with_game_is_blocked() {
+async fn delete_round_cascades_its_games() {
     clean_database();
     let db = Database::new(TEST_DB_URL);
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
-    let (_game, tour, _division, round, _room, _t1, _t2, _c1, _c2, _qm) =
+    let (game, tour, _division, round, _room, _t1, _t2, _c1, _c2, _qm) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
 
     let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
 
-    // The tournament owner (with round:delete) attempts to delete a round that has a game.
+    // The tournament owner (with round:delete) deletes a round that has a game — it now succeeds.
     let token = make_token(tour.owner_id, vec!["tournament_manager".to_string()], vec!["round:delete".to_string()]);
     let req = test::TestRequest::delete()
         .uri(&format!("/api/rounds/{}", round.roundid))
         .insert_header(("Authorization", format!("Bearer {}", token)))
         .to_request();
     let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::CONFLICT);
+    assert_eq!(resp.status(), StatusCode::OK);
 
-    assert!(models::round::read(&mut conn, round.roundid).is_ok(), "the round is not deleted");
+    assert!(models::round::read(&mut conn, round.roundid).is_err(), "the round is deleted");
+    assert!(models::game::read(&mut conn, game.gid).is_err(), "the round's game is deleted too");
 }

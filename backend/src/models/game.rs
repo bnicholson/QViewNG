@@ -397,6 +397,18 @@ pub fn count_of_round(db_conn: &mut database::Connection, round_id: Uuid) -> Que
     games.filter(roundid.eq(round_id)).filter(del_fl.eq(false)).count().get_result(db_conn)
 }
 
+/// Count of non-deleted games belonging to any pool bracket in the given pool bracket group.
+pub fn count_of_poolbracketgroup(db_conn: &mut database::Connection, group_id: Uuid) -> QueryResult<i64> {
+    use crate::schema::{games, pool_brackets};
+    games::table
+        .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+        .filter(pool_brackets::poolbracketgroupid.eq(group_id))
+        .filter(pool_brackets::del_fl.eq(false))
+        .filter(games::del_fl.eq(false))
+        .count()
+        .get_result(db_conn)
+}
+
 pub fn count_by_tournament(db_conn: &mut database::Connection, tournament_id: Uuid) -> QueryResult<i64> {
     use crate::schema::{games, pool_brackets, divisions};
     games::table
@@ -566,10 +578,10 @@ pub fn read_all_games_of_pool_bracket(db: &mut database::Connection, bracket_id:
 
 /// One page of games belonging to a division roundgroup — i.e. games whose `roundid` is one of the
 /// roundgroup's rounds (a round is the time-bound entity tying a game to a roundgroup).
-pub fn read_all_games_of_roundgroup(db: &mut database::Connection, roundgroup_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
+pub fn read_all_games_of_roundgroup(db: &mut database::Connection, rg_id: Uuid, pagination: &PaginationParams) -> QueryResult<Vec<Game>> {
     let round_ids: Vec<Uuid> = {
         use crate::schema::rounds::dsl::*;
-        rounds.filter(roundgroup_id.eq(roundgroup_id)).filter(del_fl.eq(false)).select(roundid).load::<Uuid>(db)?
+        rounds.filter(roundgroup_id.eq(rg_id)).filter(del_fl.eq(false)).select(roundid).load::<Uuid>(db)?
     };
     if round_ids.is_empty() {
         return Ok(Vec::new());

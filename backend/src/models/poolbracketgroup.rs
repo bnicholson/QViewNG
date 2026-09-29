@@ -197,6 +197,20 @@ pub fn delete(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize
         .execute(db)
 }
 
+/// Cascade cleanup used after games/rounds are deleted: if the group has no non-deleted games left
+/// across its pool brackets, soft-delete the group and its pool brackets and return true; otherwise
+/// leave everything untouched and return false.
+pub fn delete_if_no_games(db: &mut database::Connection, group_id: Uuid) -> QueryResult<bool> {
+    if crate::models::game::count_of_poolbracketgroup(db, group_id)? > 0 {
+        return Ok(false);
+    }
+    for bracket in crate::models::pool_bracket::read_all_of_poolbracketgroup(db, group_id)? {
+        crate::models::pool_bracket::delete(db, bracket.pool_bracket_id)?;
+    }
+    delete(db, group_id)?;
+    Ok(true)
+}
+
 /// Purge: permanently remove the group row from the database.
 pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::poolbracketgroups::dsl::*;

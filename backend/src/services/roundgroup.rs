@@ -3,6 +3,7 @@ use serde_json::json;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, roundgroup::{NewRoundGroup, RoundGroup, RoundGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
 use diesel::QueryResult;
+use diesel::Connection as _;
 use uuid::Uuid;
 
 // Division roundgroups are children of divisions and are authorized with the parent Division's
@@ -265,23 +266,41 @@ async fn destroy(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    // A session with rounds attached can't be deleted — the rounds (and their games) would be orphaned.
-    match models::round::count_of_roundgroup(&mut conn, roundgroup_id) {
-        Ok(n) if n > 0 => return Ok(HttpResponse::Conflict().json(serde_json::json!({
-            "error": "This session cannot be deleted because it still has rounds. Move or delete its rounds first."
-        }))),
-        Ok(_) => {}
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    }
+    tracing::debug!("{} RoundGroup cascade delete {:?}", line!(), roundgroup_id);
 
-    tracing::debug!("{} RoundGroup model delete {:?}", line!(), roundgroup_id);
+    // Deleting a session now cascades: all of its rounds and every game in those rounds are deleted
+    // with it. If that empties a pool bracket group (no games left across its pool brackets), the
+    // group and its pools are removed too. All in one transaction, so a failure changes nothing.
+    let result = conn.transaction::<(), diesel::result::Error, _>(|conn| {
+        let page = PaginationParams { page: 0, page_size: 1000 };
+        let rounds = models::round::read_all_rounds_of_roundgroup(conn, roundgroup_id, &page)?;
 
-    let result = models::roundgroup::delete(&mut conn, roundgroup_id);
+        // Track the pool bracket groups these games touched, so we can clean up empties afterward.
+        let mut affected_groups: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
+        for round in &rounds {
+            let games = models::game::read_all_games_of_round(conn, round.roundid, &page)?;
+            for game in &games {
+                if let Ok(bracket) = models::pool_bracket::read(conn, game.poolbracket_id) {
+                    if let Some(group_id) = bracket.poolbracketgroupid {
+                        affected_groups.insert(group_id);
+                    }
+                }
+                models::game::delete(conn, game.gid)?;
+            }
+            models::round::delete(conn, round.roundid)?;
+        }
 
-    if result.is_ok() {
-        Ok(HttpResponse::Ok().finish())
-    } else {
-        Ok(HttpResponse::InternalServerError().finish())
+        models::roundgroup::delete(conn, roundgroup_id)?;
+
+        for group_id in affected_groups {
+            models::poolbracketgroup::delete_if_no_games(conn, group_id)?;
+        }
+        Ok(())
+    });
+
+    match result {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }
 }
 

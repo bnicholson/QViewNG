@@ -3,6 +3,7 @@ use serde_json::json;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{round::RoundPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, permission::{AppAction, AppResource}, round::{NewRound, Round, RoundChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
 use diesel::QueryResult;
+use diesel::Connection as _;
 use uuid::Uuid;
 
 // #[derive(OpenApi)]
@@ -285,23 +286,37 @@ async fn destroy(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    // A round with games attached can't be deleted — the game(s) would be orphaned.
-    match models::game::count_of_round(&mut conn, round_id) {
-        Ok(n) if n > 0 => return Ok(HttpResponse::Conflict().json(json!({
-            "error": "This round cannot be deleted because there is a game associated with it. To delete the round, the game would need to be deleted or moved to a different round."
-        }))),
-        Ok(_) => {}
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    }
+    tracing::debug!("{} Round cascade delete {:?}", line!(), round_id);
 
-    tracing::debug!("{} Round model delete {:?}", line!(), round_id);
+    // Deleting a round now cascades: all of the round's games are deleted with it. If that empties a
+    // pool bracket group (no games left across its pool brackets), the group and its pools are removed
+    // too. Everything runs in one transaction so a failure leaves the data untouched.
+    let result = conn.transaction::<(), diesel::result::Error, _>(|conn| {
+        let page = PaginationParams { page: 0, page_size: 1000 };
+        let games = models::game::read_all_games_of_round(conn, round_id, &page)?;
 
-    let result = models::round::delete(&mut conn, round_id);
+        // Remember which pool bracket groups these games touched, so we can clean up empties after.
+        let mut affected_groups: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
+        for game in &games {
+            if let Ok(bracket) = models::pool_bracket::read(conn, game.poolbracket_id) {
+                if let Some(group_id) = bracket.poolbracketgroupid {
+                    affected_groups.insert(group_id);
+                }
+            }
+            models::game::delete(conn, game.gid)?;
+        }
 
-    if result.is_ok() {
-        Ok(HttpResponse::Ok().finish())
-    } else {
-        Ok(HttpResponse::InternalServerError().finish())
+        models::round::delete(conn, round_id)?;
+
+        for group_id in affected_groups {
+            models::poolbracketgroup::delete_if_no_games(conn, group_id)?;
+        }
+        Ok(())
+    });
+
+    match result {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }
 }
 

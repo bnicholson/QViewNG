@@ -47,6 +47,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .service(services::room::endpoints(web::scope("/rooms")))
             .service(services::roomgroup::endpoints(web::scope("/roomgroups")))
             .service(services::round::endpoints(web::scope("/rounds")))
+            .service(services::schedule::endpoints(web::scope("/schedule")))
             .service(services::team::endpoints(web::scope("/teams")))
             .service(services::game::endpoints(web::scope("/games")))
             .service(services::gameevent::endpoints(web::scope("/gameevents")))

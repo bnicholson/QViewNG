@@ -206,7 +206,7 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 /// Rounds belonging directly to a division roundgroup (the new, time-bound relationship).
 pub fn read_all_rounds_of_roundgroup(
     db: &mut database::Connection,
-    roundgroup_id: Uuid,
+    rg_id: Uuid,
     pagination: &PaginationParams,
 ) -> QueryResult<Vec<Round>> {
     use crate::schema::rounds::dsl::*;
@@ -215,7 +215,7 @@ pub fn read_all_rounds_of_roundgroup(
     let offset_val = pagination.page * page_size;
 
     rounds
-        .filter(roundgroup_id.eq(roundgroup_id))
+        .filter(roundgroup_id.eq(rg_id))
         .filter(del_fl.eq(false))
         .order(scheduled_start_time.asc())
         .limit(page_size)
