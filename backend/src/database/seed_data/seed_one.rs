@@ -315,6 +315,56 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
+    // Quizmasters and content judges for Rooms 8-10 (added so every room is fully staffed).
+    let qm_8 = UserBuilder::new("Cameron")
+        .set_lname("Reese (Demo)")
+        .set_username("creese_qm")
+        .set_email("creese@fakeemail.com")
+        .set_hash_password(&default_password())
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    let qm_9 = UserBuilder::new("Devon")
+        .set_lname("Sloan (Demo)")
+        .set_username("dsloan_qm")
+        .set_email("dsloan@fakeemail.com")
+        .set_hash_password(&default_password())
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    let qm_10 = UserBuilder::new("Emerson")
+        .set_lname("Tate (Demo)")
+        .set_username("etate_qm")
+        .set_email("etate@fakeemail.com")
+        .set_hash_password(&default_password())
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    let cj_8 = UserBuilder::new("Kai")
+        .set_lname("Owens (Demo)")
+        .set_username("kowens_cj")
+        .set_email("kowens@fakeemail.com")
+        .set_hash_password(&default_password())
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    let cj_9 = UserBuilder::new("Lennon")
+        .set_lname("Pierce (Demo)")
+        .set_username("lpierce_cj")
+        .set_email("lpierce@fakeemail.com")
+        .set_hash_password(&default_password())
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+    let cj_10 = UserBuilder::new("Marlowe")
+        .set_lname("Vance (Demo)")
+        .set_username("mvance_cj")
+        .set_email("mvance@fakeemail.com")
+        .set_hash_password(&default_password())
+        .set_activated(true)
+        .build_and_insert(db)
+        .unwrap();
+
     // Three roomgroups (buildings). Each division quizzes in its own building: Experienced in
     // Building A (rooms 1-6), Novice in Building B (rooms 7-8), Decades in Building C (rooms 9-10).
     let building_a = RoomGroupBuilder::new(tour.tid)
@@ -406,6 +456,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("rm8xk2po".to_string()))
+        .set_quizmaster_id(Some(qm_8.id))
+        .set_contentjudge_id(Some(cj_8.id))
         .build_and_insert(db)
         .unwrap();
     let room_9 = RoomBuilder::new_default("Room 9", tour.tid)
@@ -413,6 +465,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("rm9zt5qa".to_string()))
+        .set_quizmaster_id(Some(qm_9.id))
+        .set_contentjudge_id(Some(cj_9.id))
         .build_and_insert(db)
         .unwrap();
     let room_10 = RoomBuilder::new_default("Room 10", tour.tid)
@@ -420,6 +474,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_last_modified_user(tour_owner.id)
         .set_comments("".to_string())
         .set_clientkey(Some("rm10wv3b".to_string()))
+        .set_quizmaster_id(Some(qm_10.id))
+        .set_contentjudge_id(Some(cj_10.id))
         .build_and_insert(db)
         .unwrap();
 
