@@ -23,11 +23,31 @@ pub fn insert_system_default_data(db: &mut database::Connection) {
 }
 
 fn add_super_user(db: &mut database::Connection) {
-    let super_user = UserBuilder::new("Super")
-        .set_lname("User")
-        .set_username("superuser")
-        .set_hash_password(&default_password())
-        .set_email("superuser@fakeemail.com")
+    let superuser_fname = match std::env::var("SUPERUSER_FNAME") {
+        Ok(p) => p.to_string(),
+        Err(_) => "Super".to_string()
+    };
+    let superuser_lname = match std::env::var("SUPERUSER_LNAME") {
+        Ok(p) => p.to_string(),
+        Err(_) => "User".to_string()
+    };
+    let superuser_username = match std::env::var("SUPERUSER_USERNAME") {
+        Ok(p) => p.to_string(),
+        Err(_) => "superuser".to_string()
+    };
+    let superuser_pwd = match std::env::var("SUPERUSER_PWD") {
+        Ok(p) => p.to_string(),
+        Err(_) => default_password().to_string()
+    };
+    let superuser_email = match std::env::var("SUPERUSER_EMAIL") {
+        Ok(p) => p.to_string(),
+        Err(_) => "superuser@fakeemail.com".to_string()
+    };
+    let super_user = UserBuilder::new(&superuser_fname)
+        .set_lname(&superuser_lname)
+        .set_username(&superuser_username)
+        .set_hash_password(&superuser_pwd)
+        .set_email(&superuser_email)
         .set_activated(true)
         .build_and_insert(db)
         .unwrap();
