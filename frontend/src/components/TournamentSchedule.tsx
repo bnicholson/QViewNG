@@ -279,8 +279,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         <ButtonGroup variant="outlined" size="small">
           <Button variant={activeMode === 'read' ? 'contained' : 'outlined'} onClick={() => setMode('read')}>Read</Button>
           <Button variant={activeMode === 'conflicts' ? 'contained' : 'outlined'} onClick={() => setMode('conflicts')}>Conflicts</Button>
-          <Button variant={activeMode === 'edit' ? 'contained' : 'outlined'} onClick={() => setMode('edit')}>Create / Edit (V1)</Button>
-          <Button variant={activeMode === 'edit2' ? 'contained' : 'outlined'} onClick={() => setMode('edit2')}>Create / Edit (V2)</Button>
+          {/* The original "V1" Create / Edit view is still implemented below (the `edit` mode) — its
+              button is removed so only this view is reachable, but its components are kept. */}
+          <Button variant={activeMode === 'edit2' ? 'contained' : 'outlined'} onClick={() => setMode('edit2')}>Create / Edit</Button>
         </ButtonGroup>
       )}
 

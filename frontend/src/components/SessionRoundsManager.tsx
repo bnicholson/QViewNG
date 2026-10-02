@@ -575,7 +575,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
       {isTimePool && hasAnyGames && (
         <Card variant="outlined" sx={{ mb: 1.5 }}>
           <CardContent sx={{ pb: '12px !important' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Filters</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Filter:</Typography>
             {/* Reset — clears the Pool/Room/Team hide filters so every game shows again. */}
             <Box sx={{ mb: 1.5 }}>
               <Button
