@@ -1,4 +1,5 @@
 import { useAuthCheck } from './hooks/useAuth';
+import { usePageTitle } from './hooks/usePageTitle';
 import './App.css';
 import '@mui/material/colors';
 import Toolbar from '@mui/material/Toolbar';
@@ -13,6 +14,7 @@ if (import.meta.env.NODE_ENV === 'development') import('./setupDevelopment')
 
 export default function App() {
   useAuthCheck()
+  usePageTitle()
 
   return (
     <ProfileHistoryProvider>
