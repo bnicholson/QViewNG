@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Collapse from '@mui/material/Collapse'
+import Divider from '@mui/material/Divider'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Select, { type SelectChangeEvent } from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import {
   docCategories,
@@ -19,6 +19,9 @@ import {
   type DocNavNode,
   type DocVersion,
 } from '../data/docs'
+
+/** Horizontal inset shared by the header, the selectors and every nav row. */
+const ITEM_INSET = 1
 
 function containsSlug(node: DocNavNode, slug?: string): boolean {
   if (!slug) return false
@@ -55,6 +58,8 @@ function NavNodes({
   open: Record<string, boolean>
   toggle: (id: string) => void
 }) {
+  const depth = path.length
+
   return (
     <>
       {nodes.map((node) => {
@@ -69,14 +74,19 @@ function NavNodes({
               sx={{
                 display: 'block',
                 textDecoration: 'none',
-                px: '10px',
-                py: '3px',
-                borderLeft: '3px solid',
-                borderColor: active ? 'primary.main' : 'transparent',
-                color: active ? 'primary.main' : 'text.primary',
+                px: ITEM_INSET,
+                py: 0.625,
+                my: '1px',
+                borderRadius: 1,
+                fontSize: '0.8125rem',
+                lineHeight: 1.45,
                 fontWeight: active ? 600 : 400,
-                fontSize: '0.875rem',
-                '&:hover': { bgcolor: 'action.hover' },
+                color: active ? 'primary.main' : 'text.secondary',
+                bgcolor: active ? 'action.selected' : 'transparent',
+                '&:hover': {
+                  bgcolor: active ? 'action.selected' : 'action.hover',
+                  color: active ? 'primary.main' : 'text.primary',
+                },
               }}
             >
               {node.title}
@@ -96,22 +106,33 @@ function NavNodes({
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0.25,
-                px: '6px',
-                py: '3px',
+                gap: 0.5,
+                px: ITEM_INSET,
+                py: 0.75,
+                mt: depth === 0 ? 1.75 : 0.5,
+                borderRadius: 1,
                 cursor: 'pointer',
                 userSelect: 'none',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: 'text.secondary',
+                fontSize: depth === 0 ? '0.9375rem' : '0.875rem',
+                fontWeight: 700,
+                lineHeight: 1.35,
+                color: 'text.primary',
                 '&:hover': { bgcolor: 'action.hover' },
               }}
             >
-              {isOpen ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+              <ChevronRightIcon
+                sx={{
+                  fontSize: 18,
+                  flexShrink: 0,
+                  color: 'text.disabled',
+                  transition: 'transform 150ms ease',
+                  transform: isOpen ? 'rotate(90deg)' : 'none',
+                }}
+              />
               {node.title}
             </Box>
             <Collapse in={isOpen} unmountOnExit>
-              <Box sx={{ ml: '9px', pl: '6px', borderLeft: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ ml: 1.25, pl: 1, borderLeft: '1px solid', borderColor: 'divider' }}>
                 <NavNodes
                   nodes={node.children ?? []}
                   path={[...path, node.title]}
@@ -185,6 +206,15 @@ export default function DocsSidebar({ category, docVersion, activeSlug }: Props)
         top: 'calc(74px + 16px)',
         alignSelf: 'flex-start',
         display: { xs: 'none', md: 'block' },
+        maxHeight: 'calc(100vh - 74px - 32px)',
+        overflowY: 'auto',
+        pr: 0.5,
+        // Trailing room so the last items can be scrolled up near the top of the column rather
+        // than being stuck at its bottom edge.
+        pb: '50vh',
+        '&::-webkit-scrollbar': { width: 6 },
+        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 3 },
+        '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
       }}
     >
       <Typography
@@ -199,8 +229,8 @@ export default function DocsSidebar({ category, docVersion, activeSlug }: Props)
           textTransform: 'uppercase',
           fontSize: '0.68rem',
           letterSpacing: '0.08em',
-          px: '10px',
-          mb: 1,
+          px: ITEM_INSET,
+          mb: 1.5,
           '&:hover': { color: 'primary.main' },
         }}
       >
@@ -208,7 +238,7 @@ export default function DocsSidebar({ category, docVersion, activeSlug }: Props)
       </Typography>
 
       {/* Category + version selectors drive the navigation below them. */}
-      <Box sx={{ px: '10px', mb: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box sx={{ px: ITEM_INSET, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
         <FormControl size="small" fullWidth>
           <InputLabel id="docs-category-label">Documentation</InputLabel>
           <Select
@@ -242,6 +272,8 @@ export default function DocsSidebar({ category, docVersion, activeSlug }: Props)
           </Select>
         </FormControl>
       </Box>
+
+      <Divider sx={{ mt: 2 }} />
 
       <NavNodes
         nodes={docVersion.nav}
