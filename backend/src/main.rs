@@ -65,6 +65,8 @@ async fn main() -> std::io::Result<()> {
         }
         let conn = conn;
         drop(conn);
+
+        return;
     }
     
     log::info!("Server listening on http://{host_and_port} ...");
