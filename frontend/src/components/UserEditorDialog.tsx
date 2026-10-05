@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { PasswordTextField } from './PasswordField'
 import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
@@ -259,8 +260,8 @@ export const UserEditorDialog = (props: Props) => {
               {!isEditMode && (
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <InputLabel>Password (*required)</InputLabel>
-                  <TextField
-                    variant="outlined" fullWidth type="password" placeholder="Password"
+                  <PasswordTextField
+                    variant="outlined" fullWidth placeholder="Password"
                     value={form.password}
                     onChange={(e) => setForm(s => ({ ...s, password: e.target.value }))}
                   />

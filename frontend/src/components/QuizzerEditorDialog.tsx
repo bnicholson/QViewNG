@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { PasswordTextField } from './PasswordField'
 import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
@@ -233,9 +234,8 @@ export const QuizzerEditorDialog = (props: Props) => {
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <InputLabel>Password (*required)</InputLabel>
-                <TextField
+                <PasswordTextField
                   variant="outlined"
-                  type="password"
                   placeholder="Password"
                   value={form.password}
                   fullWidth

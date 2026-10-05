@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PasswordInput } from '../components/PasswordField'
 import { useNavigate } from 'react-router-dom'
 import { IS_DEMO } from '../main'
 
@@ -126,8 +127,7 @@ export const UserRegistrationPage = () => {
       </div>
       <div style={{ display: 'flex', flexFlow: 'column' }}>
         <label>Password</label>
-        <input
-          type="password"
+        <PasswordInput
           value={password}
           onChange={(e) => { setPassword(e.target.value); setPasswordError(null) }}
           onBlur={handlePasswordBlur}

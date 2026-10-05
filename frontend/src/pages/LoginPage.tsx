@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PasswordInput } from '../components/PasswordField'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
@@ -40,8 +41,7 @@ export const LoginPage = () => {
       </div>
       <div style={{ display: 'flex', flexFlow: 'column' }}>
         <label>Password</label>
-        <input
-          type="password"
+        <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />

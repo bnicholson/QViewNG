@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PasswordInput } from './PasswordField'
 
 /** Shared password-strength rules for setting a new password. */
 export const validatePassword = (password: string): string | null => {
@@ -112,8 +113,7 @@ export const PasswordForm = ({
       {requireCurrentPassword && (
         <div style={fieldStyle}>
           <label>Current Password</label>
-          <input
-            type="password"
+          <PasswordInput
             value={currentPassword}
             onChange={(e) => { setCurrentPassword(e.target.value); setCurrentError(null) }}
           />
@@ -123,8 +123,7 @@ export const PasswordForm = ({
 
       <div style={fieldStyle}>
         <label>New Password</label>
-        <input
-          type="password"
+        <PasswordInput
           value={newPassword}
           onChange={(e) => { setNewPassword(e.target.value); setNewError(null) }}
           onBlur={() => setNewError(newPassword ? validatePassword(newPassword) : null)}
@@ -134,8 +133,7 @@ export const PasswordForm = ({
 
       <div style={fieldStyle}>
         <label>Confirm New Password</label>
-        <input
-          type="password"
+        <PasswordInput
           value={confirmPassword}
           onChange={(e) => { setConfirmPassword(e.target.value); setConfirmError(null) }}
           onBlur={() => setConfirmError(confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match.' : null)}
