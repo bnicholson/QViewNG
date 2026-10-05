@@ -118,14 +118,23 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
     ];
 
     let tour_group_update_id = perm_ids.get(&(AppResource::TournamentGroup.as_str(), AppAction::Update.as_str())).copied();
+    // Every resource a tournament's organisers manage. `user` and `roommonitor` are deliberately
+    // absent: managing accounts and the room monitor are not part of running a tournament.
     let tour_manager_permissions: Vec<Uuid> = [
             AppResource::Tournament,
             AppResource::TournamentGroup,
+            AppResource::TournamentAdmin,
             AppResource::Division,
+            AppResource::RoundGroup,
+            AppResource::PoolBracketGroup,
+            AppResource::PoolBracket,
             AppResource::Round,
+            AppResource::RoomGroup,
             AppResource::Room,
             AppResource::Game,
             AppResource::Team,
+            AppResource::Equipment,
+            AppResource::StatsGroup,
         ].iter().flat_map(|resource| {
             [
                 AppAction::Create.as_str(),

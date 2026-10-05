@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate, useParams } from 'react-router'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
@@ -40,21 +41,21 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!division || !tournament) return <div>Loading Division…</div>
 
-  const { isOwnerOrSystemAdmin, canViewAdmins, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAdmins, canViewAuditColumns, canCreate, canRead } = access
 
   // Only super users, the tournament owner, and tournament admins may view Stats Groups.
   const canViewStatsGroups = isOwnerOrSystemAdmin || canViewAdmins
 
   const navItems = [
-    { kind: 'route' as const, label: 'Overview',     to: `/division/${did}/overview`     },
-    { kind: 'route' as const, label: 'Teams',        to: `/division/${did}/teams`        },
-    { kind: 'route' as const, label: 'Quizzers',     to: `/division/${did}/quizzers`     },
-    { kind: 'route' as const, label: 'Sessions',     to: `/division/${did}/sessions`     },
-    { kind: 'route' as const, label: 'Pools',        to: `/division/${did}/pools`        },
-    { kind: 'route' as const, label: 'Brackets',     to: `/division/${did}/brackets`     },
-    { kind: 'route' as const, label: 'Rounds',       to: `/division/${did}/rounds`       },
-    { kind: 'route' as const, label: 'Games',        to: `/division/${did}/games`        },
-    ...(canViewStatsGroups
+    ...(canRead(PERMISSION.DIVISION_READ)    ? [{ kind: 'route' as const, label: 'Overview', to: `/division/${did}/overview` }] : []),
+    ...(canRead(PERMISSION.TEAM_READ)        ? [{ kind: 'route' as const, label: 'Teams',    to: `/division/${did}/teams`    }] : []),
+    ...(canRead(PERMISSION.USER_READ)        ? [{ kind: 'route' as const, label: 'Quizzers', to: `/division/${did}/quizzers` }] : []),
+    ...(canRead(PERMISSION.ROUNDGROUP_READ)  ? [{ kind: 'route' as const, label: 'Sessions', to: `/division/${did}/sessions` }] : []),
+    ...(canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Pools',    to: `/division/${did}/pools`    }] : []),
+    ...(canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Brackets', to: `/division/${did}/brackets` }] : []),
+    ...(canRead(PERMISSION.ROUND_READ)       ? [{ kind: 'route' as const, label: 'Rounds',   to: `/division/${did}/rounds`   }] : []),
+    ...(canRead(PERMISSION.GAME_READ)        ? [{ kind: 'route' as const, label: 'Games',    to: `/division/${did}/games`    }] : []),
+    ...(canViewStatsGroups && canRead(PERMISSION.STATSGROUP_READ)
       ? [{ kind: 'route' as const, label: 'Stats Groups', to: `/division/${did}/stats-groups` }]
       : []),
   ]
@@ -71,11 +72,11 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} canEdit={isOwnerOrSystemAdmin} />
+            <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} canEdit={canCreate(PERMISSION.DIVISION_UPDATE)} />
           )}
           {props.childRoute === 'teams' && (
             <TeamsTable tid={tournament.tid} did={did}
-              showCreateButton={canCreate('team:create')} showDeleteButton={canCreate('team:delete')}
+              showCreateButton={canCreate(PERMISSION.TEAM_CREATE)} showDeleteButton={canCreate(PERMISSION.TEAM_DELETE)}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every team is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
@@ -87,9 +88,9 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           )}
           {props.childRoute === 'sessions' && (
             <RoundGroupsTable tid={tournament.tid} did={did}
-              showCreateButton={canCreate('division:create')}
-              showEditButton={canCreate('division:update')}
-              showDeleteButton={canCreate('division:delete')}
+              showCreateButton={canCreate(PERMISSION.ROUNDGROUP_CREATE)}
+              showEditButton={canCreate(PERMISSION.ROUNDGROUP_UPDATE)}
+              showDeleteButton={canCreate(PERMISSION.ROUNDGROUP_DELETE)}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every roundgroup is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
@@ -97,9 +98,9 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'pools' && (
             <PoolBracketsTable tid={tournament.tid} did={did}
               type="pool" entityLabel="Pool" title="Pools"
-              showCreateButton={canCreate('division:create')}
-              showEditButton={canCreate('division:update')}
-              showDeleteButton={canCreate('division:delete')}
+              showCreateButton={canCreate(PERMISSION.POOLBRACKET_CREATE)}
+              showEditButton={canCreate(PERMISSION.POOLBRACKET_UPDATE)}
+              showDeleteButton={canCreate(PERMISSION.POOLBRACKET_DELETE)}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every pool is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
@@ -107,22 +108,22 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'brackets' && (
             <PoolBracketsTable tid={tournament.tid} did={did}
               type="bracket" entityLabel="Bracket" title="Brackets"
-              showCreateButton={canCreate('division:create')}
-              showEditButton={canCreate('division:update')}
-              showDeleteButton={canCreate('division:delete')}
+              showCreateButton={canCreate(PERMISSION.POOLBRACKET_CREATE)}
+              showEditButton={canCreate(PERMISSION.POOLBRACKET_UPDATE)}
+              showDeleteButton={canCreate(PERMISSION.POOLBRACKET_DELETE)}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every bracket is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'rounds' && (
             <RoundsTable tid={tournament.tid} did={did}
-              showCreateButton={canCreate('round:create')} showDeleteButton={canCreate('round:delete')}
+              showCreateButton={canCreate(PERMISSION.ROUND_CREATE)} showDeleteButton={canCreate(PERMISSION.ROUND_DELETE)}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} did={did}
-              showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
+              showCreateButton={canCreate(PERMISSION.GAME_CREATE)} showDeleteButton={canCreate(PERMISSION.GAME_DELETE)}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}

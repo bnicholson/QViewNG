@@ -31,12 +31,12 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
 
-    // ── Success: tournament owner with division:create ───────────────────────
+    // ── Success: tournament owner with roundgroup:create ───────────────────────
 
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:create".to_string()],
+        vec!["roundgroup:create".to_string()],
     );
 
     let owner_req = test::TestRequest::post()
@@ -56,12 +56,12 @@ async fn create_works() {
     assert_eq!(roundgroup.creator_userid, owner.id);
     assert_eq!(roundgroup.last_modified_userid, owner.id);
 
-    // ── Success: tournament admin with division:create ───────────────────────
+    // ── Success: tournament admin with roundgroup:create ───────────────────────
 
     let admin_token = make_token(
         admin_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:create".to_string()],
+        vec!["roundgroup:create".to_string()],
     );
 
     let admin_req = test::TestRequest::post()
@@ -84,12 +84,12 @@ async fn create_works() {
     let dup_resp = test::call_service(&app, dup_req).await;
     assert_ne!(dup_resp.status(), StatusCode::CREATED);
 
-    // ── Fail: has division:create but is neither owner nor tournament admin ──
+    // ── Fail: has roundgroup:create but is neither owner nor tournament admin ──
 
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:create".to_string()],
+        vec!["roundgroup:create".to_string()],
     );
 
     let unrelated_req = test::TestRequest::post()
@@ -101,12 +101,12 @@ async fn create_works() {
     let unrelated_resp = test::call_service(&app, unrelated_req).await;
     assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
 
-    // ── Fail: no division:create permission at all ───────────────────────────
+    // ── Fail: no roundgroup:create permission at all ───────────────────────────
 
     let no_perm_token = make_token(
         owner.id,
         vec!["member".to_string()],
-        vec!["division:read".to_string()],
+        vec!["roundgroup:read".to_string()],
     );
 
     let no_perm_req = test::TestRequest::post()
@@ -220,12 +220,12 @@ async fn update_works() {
 
     let put_uri = format!("/api/roundgroups/{}", roundgroup.roundgroup_id);
 
-    // ── Success: owner with division:update ──────────────────────────────────
+    // ── Success: owner with roundgroup:update ──────────────────────────────────
 
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:update".to_string()],
+        vec!["roundgroup:update".to_string()],
     );
 
     let owner_req = test::TestRequest::put()
@@ -241,12 +241,12 @@ async fn update_works() {
     assert_eq!(body.code, 200);
     assert_eq!(body.data.unwrap().name.as_str(), "Bracket Play");
 
-    // ── Fail: unrelated user with division:update ────────────────────────────
+    // ── Fail: unrelated user with roundgroup:update ────────────────────────────
 
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:update".to_string()],
+        vec!["roundgroup:update".to_string()],
     );
 
     let unrelated_req = test::TestRequest::put()
@@ -285,12 +285,12 @@ async fn delete_works() {
 
     let delete_uri = format!("/api/roundgroups/{}", roundgroup.roundgroup_id);
 
-    // ── Fail: unrelated user with division:delete ────────────────────────────
+    // ── Fail: unrelated user with roundgroup:delete ────────────────────────────
 
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:delete".to_string()],
+        vec!["roundgroup:delete".to_string()],
     );
 
     let unrelated_req = test::TestRequest::delete()
@@ -301,12 +301,12 @@ async fn delete_works() {
     let unrelated_resp = test::call_service(&app, unrelated_req).await;
     assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
 
-    // ── Success: owner with division:delete ──────────────────────────────────
+    // ── Success: owner with roundgroup:delete ──────────────────────────────────
 
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:delete".to_string()],
+        vec!["roundgroup:delete".to_string()],
     );
 
     let owner_req = test::TestRequest::delete()
@@ -343,8 +343,8 @@ async fn delete_soft_deletes_and_purge_removes() {
         App::new().app_data(web::Data::new(db)).configure(configure_routes)
     ).await;
 
-    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
-    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["roundgroup:delete".to_string()]);
+    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["roundgroup:delete".to_string()]);
 
     // ── DELETE is a soft delete: the row is hidden from reads but still present. ──
     let del_resp = test::call_service(&app, test::TestRequest::delete()
@@ -398,7 +398,7 @@ async fn delete_roundgroup_cascades_its_rounds() {
 
     let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
 
-    let token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["roundgroup:delete".to_string()]);
     let req = test::TestRequest::delete()
         .uri(&format!("/api/roundgroups/{}", roundgroup.roundgroup_id))
         .insert_header(("Authorization", format!("Bearer {}", token)))

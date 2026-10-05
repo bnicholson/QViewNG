@@ -21,6 +21,11 @@ export interface TournamentAccess {
   canViewAuditColumns: boolean;
   /** True when the user may act as owner/admin AND holds the given resource permission. */
   canCreate: (permission: string) => boolean;
+  /**
+   * Whether a section may be read. Mirrors the API's read gate: a signed-out visitor keeps the
+   * public read access they have always had, while a signed-in user must hold `{resource}:read`.
+   */
+  canRead: (permission: string) => boolean;
 }
 
 export function useTournamentAccess(
@@ -58,5 +63,8 @@ export function useTournamentAccess(
   const canCreate = (permission: string): boolean =>
     canViewAdmins && (session?.can(permission) ?? false);
 
-  return { isOwnerOrSystemAdmin, canViewAdmins, canViewPairingCode, canViewAuditColumns, canCreate };
+  const canRead = (permission: string): boolean =>
+    !session || session.can(permission);
+
+  return { isOwnerOrSystemAdmin, canViewAdmins, canViewPairingCode, canViewAuditColumns, canCreate, canRead };
 }

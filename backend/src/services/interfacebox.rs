@@ -1,7 +1,8 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use crate::models::permission::{AppAction, AppResource};
+use actix_web::{HttpMessage, delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{database::Database, models::interfacebox::{InterfaceBox, InterfaceBoxChangeSet, NewInterfaceBox}};
 use crate::models::{self, common::PaginationParams};
-use crate::services::common::{EntityResponse, PagedResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, authorized_to_write, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 
@@ -22,6 +23,10 @@ async fn create(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Create) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
     
     let result: QueryResult<InterfaceBox> = models::interfacebox::create(&mut conn, &item);
 
@@ -50,6 +55,10 @@ async fn update(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Update) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
     let result = models::interfacebox::update(&mut db, item_id.into_inner(), &item);
 
     let response = process_response(result, "put");
@@ -73,6 +82,10 @@ async fn destroy(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Delete) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let result = models::interfacebox::delete(&mut db, item_id.into_inner());
 

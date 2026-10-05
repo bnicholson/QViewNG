@@ -1,4 +1,6 @@
-use actix_web::{HttpResponse, HttpRequest, get, web::{Data, Path, Query}};
+use crate::models::permission::{AppAction, AppResource};
+use crate::services::common::{authorized_to_read};
+use actix_web::{HttpMessage, HttpResponse, HttpRequest, get, web::{Data, Path, Query}};
 use crate::{database::Database, models::common::PaginationParams};
 use crate::models;
 
@@ -12,6 +14,11 @@ async fn read(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs equipment:read.
+    if !authorized_to_read(&req, AppResource::Equipment) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::equipment::read(&mut conn, item_id.into_inner()) {
         Ok(equipment) => HttpResponse::Ok().json(equipment),
@@ -30,6 +37,11 @@ async fn read_equipmentregistrations(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs equipment:read.
+    if !authorized_to_read(&req, AppResource::Equipment) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::equipmentregistration::read_all_equipmentregistrations_of_equipment_piece(&mut conn, equipment_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),

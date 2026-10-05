@@ -11,6 +11,18 @@ use backend::services::common::EntityResponse;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
+/// Gear endpoints require `equipment:{create,update,delete}` (one `equipment` resource covers
+/// every gear table). Tests authenticate with all three.
+fn gear_auth_header() -> (&'static str, String) {
+    let token = common::make_token(
+        uuid::Uuid::new_v4(),
+        vec![],
+        vec!["equipment:create".to_string(), "equipment:update".to_string(),
+             "equipment:delete".to_string()],
+    );
+    ("Authorization", format!("Bearer {}", token))
+}
+
 #[actix_web::test]
 async fn create_works() {
 
@@ -30,6 +42,7 @@ async fn create_works() {
     
     let req = test::TestRequest::post()
         .uri("/api/equipmentregistrations")
+        .insert_header(gear_auth_header())
         .set_json(&new_equipment_registration)
         .to_request();
 
@@ -122,6 +135,7 @@ async fn update_works() {
     let put_uri = format!("/api/equipmentregistrations/{}", equipmentregistration.id);
     let put_req = test::TestRequest::put()
         .uri(&put_uri)
+        .insert_header(gear_auth_header())
         .set_json(&put_payload)
         .to_request();
 
@@ -173,6 +187,7 @@ async fn delete_works() {
     let delete_uri = format!("/api/equipmentregistrations/{}", equipmentregistration.id);
     let delete_req = test::TestRequest::delete()
         .uri(&delete_uri)
+        .insert_header(gear_auth_header())
         .to_request();
 
     // Act:

@@ -2,7 +2,8 @@ use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post
 use crate::auth::policies::UserContext;
 use crate::{database::Database, models::game_statsgroup::{GameStatsGroup, NewGameStatsGroup}};
 use crate::models::{self, common::PaginationParams, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupChangeset}};
-use crate::services::common::{EntityResponse, PagedResponse, process_response};
+use crate::models::permission::AppResource;
+use crate::services::common::{EntityResponse, PagedResponse, authorized_to_read, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
 
@@ -10,9 +11,9 @@ use uuid::Uuid;
 // #[openapi(paths(index))]
 // pub struct StatsGroupDoc;
 
-/// Ensures the caller may view the stats group's data: allowed only for super users, the
-/// owning tournament's owner, and its admins. Returns Err(response) to return directly
-/// (404 if the group is unknown, 403 if the caller lacks access).
+/// Ensures the caller may view the stats group's data: they must hold `statsgroup:read`, and be
+/// a system administrator, the owning tournament's owner, or one of its admins. Returns
+/// Err(response) to return directly (404 if the group is unknown, 403 if the caller lacks access).
 fn authorize_statsgroup_view(
     conn: &mut crate::database::Connection,
     sg_id: Uuid,
@@ -22,6 +23,9 @@ fn authorize_statsgroup_view(
         Ok(sg) => sg.tournament_id,
         Err(_) => return Err(HttpResponse::NotFound().finish()),
     };
+    if !authorized_to_read(req, AppResource::StatsGroup) {
+        return Err(HttpResponse::Forbidden().finish());
+    }
     let user_ctx = req.extensions().get::<UserContext>().cloned();
     if crate::auth::can_view_tournament_restricted_section(conn, tournament_id, user_ctx.as_ref()) {
         Ok(())

@@ -1,3 +1,4 @@
+use crate::services::common::{authorized_to_read};
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, roundgroup::{NewRoundGroup, RoundGroup, RoundGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
@@ -20,6 +21,11 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roundgroup:read.
+    if !authorized_to_read(&req, AppResource::RoundGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::roundgroup::read_all(&mut db) {
         Ok(items) => {
             let count = items.len() as i64;
@@ -39,6 +45,11 @@ async fn read(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs roundgroup:read.
+    if !authorized_to_read(&req, AppResource::RoundGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::roundgroup::read(&mut conn, item_id.into_inner()) {
         Ok(roundgroup) => HttpResponse::Ok().json(roundgroup),
@@ -60,6 +71,11 @@ async fn read_game_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roundgroup:read.
+    if !authorized_to_read(&req, AppResource::RoundGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::game::read_game_rows_of_roundgroup(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -79,6 +95,11 @@ async fn read_rounds(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roundgroup:read.
+    if !authorized_to_read(&req, AppResource::RoundGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::round::read_all_rounds_of_roundgroup(&mut conn, item_id.into_inner(), &url_params) {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -97,6 +118,11 @@ async fn read_round_rows(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs roundgroup:read.
+    if !authorized_to_read(&req, AppResource::RoundGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::round::read_round_rows_of_roundgroup(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -141,8 +167,8 @@ async fn create(
         user_ctx: user_ctx.clone(),
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
-    let create_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Create.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &create_permission, AppResource::Division.as_str()).is_err() {
+    let create_permission = format!("{}:{}", AppResource::RoundGroup.as_str(), AppAction::Create.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &create_permission, AppResource::RoundGroup.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -204,8 +230,8 @@ async fn update(
         user_ctx: user_ctx.clone(),
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
-    let update_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Update.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &update_permission, AppResource::Division.as_str()).is_err() {
+    let update_permission = format!("{}:{}", AppResource::RoundGroup.as_str(), AppAction::Update.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &update_permission, AppResource::RoundGroup.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -261,8 +287,8 @@ async fn destroy(
         user_ctx: user_ctx.clone(),
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
-    let delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::Division.as_str()).is_err() {
+    let delete_permission = format!("{}:{}", AppResource::RoundGroup.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::RoundGroup.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -346,8 +372,8 @@ async fn purge(
         user_ctx: user_ctx.clone(),
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
-    let delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::Division.as_str()).is_err() {
+    let delete_permission = format!("{}:{}", AppResource::RoundGroup.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::RoundGroup.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

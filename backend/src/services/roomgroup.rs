@@ -1,3 +1,4 @@
+use crate::services::common::{authorized_to_read};
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::{auth::policies::UserContext, models::{self, common::PaginationParams, roomgroup::{NewRoomGroup, RoomGroup, RoomGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
@@ -8,7 +9,7 @@ use uuid::Uuid;
 // by a single tournament, so they're authorized with the plain Room RBAC permission (no tournament
 // ABAC) — the same permission that guards room management.
 fn has_room_permission(user_ctx: &UserContext, action: AppAction) -> bool {
-    let permission = format!("{}:{}", AppResource::Room.as_str(), action.as_str());
+    let permission = format!("{}:{}", AppResource::RoomGroup.as_str(), action.as_str());
     user_ctx.can(&permission)
 }
 
@@ -20,6 +21,11 @@ async fn index(
 ) -> HttpResponse {
     let mut conn = db.get_connection().expect("Failed to get connection");
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs roomgroup:read.
+    if !authorized_to_read(&req, AppResource::RoomGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::roomgroup::read_all(&mut conn) {
         Ok(items) => {
@@ -39,6 +45,11 @@ async fn read(
     let mut conn = db.pool.get().unwrap();
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roomgroup:read.
+    if !authorized_to_read(&req, AppResource::RoomGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::roomgroup::read(&mut conn, item_id.into_inner()) {
         Ok(roomgroup) => HttpResponse::Ok().json(roomgroup),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -55,6 +66,11 @@ async fn read_room_rows(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs roomgroup:read.
+    if !authorized_to_read(&req, AppResource::RoomGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::room::read_room_rows_of_roomgroup(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),

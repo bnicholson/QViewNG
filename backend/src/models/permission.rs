@@ -8,32 +8,48 @@ use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-/// Resources that can be the subject of a permission.
+/// Resources that can be the subject of a permission. Each gets `:create`, `:read`, `:update` and
+/// `:delete`. Scoping is generic — a resource is not qualified by the tournament it belongs to;
+/// ownership is handled separately by the ABAC policies.
 #[derive(EnumIter)]
 pub enum AppResource {
     TournamentGroup,
     Tournament,
+    TournamentAdmin,
     Division,
+    RoundGroup,
+    PoolBracketGroup,
+    PoolBracket,
     Round,
+    RoomGroup,
     Room,
     RoomMonitor,
     Game,
     Team,
+    Equipment,
+    StatsGroup,
     User,
 }
 
 impl AppResource {
     pub fn as_str(&self) -> &'static str {
         match self {
-            AppResource::TournamentGroup => "tournamentgroup",
-            AppResource::Tournament   => "tournament",
-            AppResource::Division     => "division",
-            AppResource::Round        => "round",
-            AppResource::Room         => "room",
-            AppResource::RoomMonitor  => "roommonitor",
-            AppResource::Game         => "game",
-            AppResource::Team         => "team",
-            AppResource::User         => "user",
+            AppResource::TournamentGroup  => "tournamentgroup",
+            AppResource::Tournament       => "tournament",
+            AppResource::TournamentAdmin  => "tournamentadmin",
+            AppResource::Division         => "division",
+            AppResource::RoundGroup       => "roundgroup",
+            AppResource::PoolBracketGroup => "poolbracketgroup",
+            AppResource::PoolBracket      => "poolbracket",
+            AppResource::Round            => "round",
+            AppResource::RoomGroup        => "roomgroup",
+            AppResource::Room             => "room",
+            AppResource::RoomMonitor      => "roommonitor",
+            AppResource::Game             => "game",
+            AppResource::Team             => "team",
+            AppResource::Equipment        => "equipment",
+            AppResource::StatsGroup       => "statsgroup",
+            AppResource::User             => "user",
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserCo
 use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
-use crate::services::common::{EntityResponse, PagedResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, authorized_to_read, authorized_to_write, process_response};
 use chrono::Utc;
 use utoipa::OpenApi;
 use diesel::{QueryResult};
@@ -52,6 +52,11 @@ async fn get_between_dates(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs tournament:read.
+    if !authorized_to_read(&req, AppResource::Tournament) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     let visibility = models::tournament::VisibilityFilter::from_param(vis.visibility.as_deref());
     let result = models::tournament::read_between_dates(&mut db, dinfo.from_date, dinfo.to_date, visibility);
 
@@ -85,6 +90,11 @@ async fn index(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs tournament:read.
+    if !authorized_to_read(&req, AppResource::Tournament) {
+        return HttpResponse::Forbidden().finish();
+    }
     
     match (models::tournament::read_all(&mut db, &url_params), models::tournament::count(&mut db)) {
         (Ok(items), Ok(count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -111,6 +121,11 @@ async fn read(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs tournament:read.
+    if !authorized_to_read(&req, AppResource::Tournament) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let tournament = match models::tournament::read(&mut db, item_id.into_inner()) {
         Ok(t) => t,
@@ -148,6 +163,11 @@ async fn read_divisions(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs division:read.
+    if !authorized_to_read(&req, AppResource::Division) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::division::read_all_divisions_of_tournament(&mut db, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -164,6 +184,11 @@ async fn read_division_rows(
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs division:read.
+    if !authorized_to_read(&req, AppResource::Division) {
+        return HttpResponse::Forbidden().finish();
+    }
     match models::division::read_division_rows_of_tournament(&mut db, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -180,6 +205,11 @@ async fn read_room_rows(
 ) -> HttpResponse {
     let mut db = db.pool.get().unwrap();
     models::apicalllog::create(&mut db, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs room:read.
+    if !authorized_to_read(&req, AppResource::Room) {
+        return HttpResponse::Forbidden().finish();
+    }
     match models::room::read_room_rows_of_tournament(&mut db, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -197,6 +227,11 @@ async fn read_statsgroups(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs statsgroup:read.
+    if !authorized_to_read(&req, AppResource::StatsGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let tid = item_id.into_inner();
 
@@ -224,6 +259,11 @@ async fn read_admins(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs tournamentadmin:read.
+    if !authorized_to_read(&req, AppResource::TournamentAdmin) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::user::read_all_admins_of_tournament(&mut db, item_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -242,6 +282,11 @@ async fn read_equipmentregistrations(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs equipment:read.
+    if !authorized_to_read(&req, AppResource::Equipment) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::equipmentregistration::read_all_equipmentregistrations_of_tournament(&mut db, tour_id.into_inner(), &params) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -259,6 +304,11 @@ async fn read_rooms(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs room:read.
+    if !authorized_to_read(&req, AppResource::Room) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::room::read_all_rooms_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok(division) => HttpResponse::Ok().json(division),
@@ -279,6 +329,11 @@ async fn read_roomgroups(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roomgroup:read.
+    if !authorized_to_read(&req, AppResource::RoomGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::roomgroup::read_all_of_tournament(&mut conn, item_id.into_inner()) {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -298,6 +353,11 @@ async fn read_roomgroup_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roomgroup:read.
+    if !authorized_to_read(&req, AppResource::RoomGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::roomgroup::read_roomgroup_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -316,6 +376,11 @@ async fn read_rounds(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs round:read.
+    if !authorized_to_read(&req, AppResource::Round) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::round::read_all_rounds_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -333,6 +398,11 @@ async fn read_teams(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs team:read.
+    if !authorized_to_read(&req, AppResource::Team) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let tid = item_id.into_inner();
     match (
@@ -356,6 +426,11 @@ async fn read_my_teams(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs team:read.
+    if !authorized_to_read(&req, AppResource::Team) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let extensions = req.extensions();
     let user_ctx = match extensions.get::<UserContext>() {
@@ -381,6 +456,11 @@ async fn read_my_gear_registration(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs equipment:read.
+    if !authorized_to_read(&req, AppResource::Equipment) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let extensions = req.extensions();
     let user_ctx = match extensions.get::<UserContext>() {
@@ -420,6 +500,10 @@ async fn create_gear_registrations(
     if extensions.get::<UserContext>().is_none() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
+    drop(extensions);
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Create) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
 
     let tournament_id = item_id.into_inner();
     let status = body.status.unwrap_or_else(|| "Not Yet Received from Owner".to_string());
@@ -457,6 +541,11 @@ async fn read_quizzers(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs user:read.
+    if !authorized_to_read(&req, AppResource::User) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     let tid = item_id.into_inner();
     match models::team::read_all_quizzers_of_tournament(&mut conn, tid) {
         Ok(items) => {
@@ -489,6 +578,11 @@ async fn read_persons(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs user:read.
+    if !authorized_to_read(&req, AppResource::User) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     // Treat a missing role or the sentinel "all" as no filter.
     let role = params.role.as_deref().filter(|r| !r.is_empty() && *r != "all");
     match models::user::read_all_persons_of_tournament(&mut conn, item_id.into_inner(), role) {
@@ -514,6 +608,11 @@ async fn read_person_game_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs game:read.
+    if !authorized_to_read(&req, AppResource::Game) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     let (tid, uid) = path.into_inner();
     match models::game::read_game_rows_of_user_any_role(&mut conn, tid, uid, &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -535,6 +634,11 @@ async fn read_game_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs game:read.
+    if !authorized_to_read(&req, AppResource::Game) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::game::read_game_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -554,6 +658,11 @@ async fn read_round_rows(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs round:read.
+    if !authorized_to_read(&req, AppResource::Round) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::round::read_round_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -585,6 +694,11 @@ async fn read_pool_bracket_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs poolbracket:read.
+    if !authorized_to_read(&req, AppResource::PoolBracket) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     let pagination = PaginationParams { page: params.page, page_size: params.page_size };
     match models::pool_bracket::read_pool_bracket_rows_of_tournament(&mut conn, item_id.into_inner(), &params.type_, &pagination) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -606,6 +720,11 @@ async fn read_roundgroup_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs roundgroup:read.
+    if !authorized_to_read(&req, AppResource::RoundGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::roundgroup::read_roundgroup_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -625,6 +744,11 @@ async fn read_team_rows(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs team:read.
+    if !authorized_to_read(&req, AppResource::Team) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::team::read_team_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -646,6 +770,11 @@ async fn read_quizzer_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs user:read.
+    if !authorized_to_read(&req, AppResource::User) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     let tid = item_id.into_inner();
     match models::team::read_quizzer_rows_of_tournament(&mut conn, tid, &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -664,6 +793,11 @@ async fn read_games(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs game:read.
+    if !authorized_to_read(&req, AppResource::Game) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let tid = tour_id.into_inner();
     match (
@@ -685,6 +819,11 @@ async fn read_room_monitor(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs roommonitor:read.
+    if !authorized_to_read(&req, AppResource::RoomMonitor) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let tid = tour_id.into_inner();
 
@@ -710,6 +849,11 @@ async fn read_game_statuses(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs game:read.
+    if !authorized_to_read(&req, AppResource::Game) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::game::read_game_statuses_of_tournament(&mut conn, tour_id.into_inner()) {
         Ok(statuses) => HttpResponse::Ok().json(statuses),
@@ -769,6 +913,11 @@ async fn read_tournamentgroups(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs tournamentgroup:read.
+    if !authorized_to_read(&req, AppResource::TournamentGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::tournamentgroup::read_all_tournamentgroups_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok(rounds) => HttpResponse::Ok().json(rounds),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -785,6 +934,11 @@ async fn read_tournamentgroup_rows(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs tournamentgroup:read.
+    if !authorized_to_read(&req, AppResource::TournamentGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
     match models::tournamentgroup::read_tournamentgroup_rows_of_tournament(&mut conn, tour_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -880,6 +1034,10 @@ async fn add_admin(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    if !authorized_to_write(&req, AppResource::TournamentAdmin, AppAction::Create) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
 
     tracing::debug!("{} Tournament model create {:?}", line!(), item);
 
@@ -1009,6 +1167,10 @@ async fn remove_admin(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    if !authorized_to_write(&req, AppResource::TournamentAdmin, AppAction::Delete) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let tour_id = path_ids.0;
     let admin_id = path_ids.1;

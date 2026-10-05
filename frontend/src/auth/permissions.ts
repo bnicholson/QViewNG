@@ -8,12 +8,80 @@
 /** CRUD permissions, as `"{resource}:{action}"`. */
 export const PERMISSION = {
   TOURNAMENT_CREATE: 'tournament:create',
+  TOURNAMENT_READ: 'tournament:read',
   TOURNAMENT_UPDATE: 'tournament:update',
   TOURNAMENT_DELETE: 'tournament:delete',
+
+  TOURNAMENTADMIN_CREATE: 'tournamentadmin:create',
+  TOURNAMENTADMIN_READ: 'tournamentadmin:read',
+  TOURNAMENTADMIN_UPDATE: 'tournamentadmin:update',
+  TOURNAMENTADMIN_DELETE: 'tournamentadmin:delete',
+
   TOURNAMENTGROUP_CREATE: 'tournamentgroup:create',
+  TOURNAMENTGROUP_READ: 'tournamentgroup:read',
+  TOURNAMENTGROUP_UPDATE: 'tournamentgroup:update',
   TOURNAMENTGROUP_DELETE: 'tournamentgroup:delete',
+
+  DIVISION_CREATE: 'division:create',
+  DIVISION_READ: 'division:read',
+  DIVISION_UPDATE: 'division:update',
+  DIVISION_DELETE: 'division:delete',
+
+  ROUNDGROUP_CREATE: 'roundgroup:create',
+  ROUNDGROUP_READ: 'roundgroup:read',
+  ROUNDGROUP_UPDATE: 'roundgroup:update',
+  ROUNDGROUP_DELETE: 'roundgroup:delete',
+
+  POOLBRACKETGROUP_CREATE: 'poolbracketgroup:create',
+  POOLBRACKETGROUP_READ: 'poolbracketgroup:read',
+  POOLBRACKETGROUP_UPDATE: 'poolbracketgroup:update',
+  POOLBRACKETGROUP_DELETE: 'poolbracketgroup:delete',
+
+  POOLBRACKET_CREATE: 'poolbracket:create',
+  POOLBRACKET_READ: 'poolbracket:read',
+  POOLBRACKET_UPDATE: 'poolbracket:update',
+  POOLBRACKET_DELETE: 'poolbracket:delete',
+
+  ROUND_CREATE: 'round:create',
+  ROUND_READ: 'round:read',
+  ROUND_UPDATE: 'round:update',
+  ROUND_DELETE: 'round:delete',
+
+  ROOMGROUP_CREATE: 'roomgroup:create',
+  ROOMGROUP_READ: 'roomgroup:read',
+  ROOMGROUP_UPDATE: 'roomgroup:update',
+  ROOMGROUP_DELETE: 'roomgroup:delete',
+
+  ROOM_CREATE: 'room:create',
+  ROOM_READ: 'room:read',
+  ROOM_UPDATE: 'room:update',
+  ROOM_DELETE: 'room:delete',
+
+  ROOMMONITOR_READ: 'roommonitor:read',
+
+  GAME_CREATE: 'game:create',
+  GAME_READ: 'game:read',
+  GAME_UPDATE: 'game:update',
+  GAME_DELETE: 'game:delete',
+
+  TEAM_CREATE: 'team:create',
+  TEAM_READ: 'team:read',
   TEAM_UPDATE: 'team:update',
+  TEAM_DELETE: 'team:delete',
+
+  EQUIPMENT_CREATE: 'equipment:create',
+  EQUIPMENT_READ: 'equipment:read',
+  EQUIPMENT_UPDATE: 'equipment:update',
+  EQUIPMENT_DELETE: 'equipment:delete',
+
+  STATSGROUP_CREATE: 'statsgroup:create',
+  STATSGROUP_READ: 'statsgroup:read',
+  STATSGROUP_UPDATE: 'statsgroup:update',
+  STATSGROUP_DELETE: 'statsgroup:delete',
+
   USER_CREATE: 'user:create',
+  USER_READ: 'user:read',
+  USER_UPDATE: 'user:update',
   USER_DELETE: 'user:delete',
 
   // ── Permissions that are not a plain CRUD action ──

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate, useParams } from 'react-router'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
@@ -34,11 +35,11 @@ export const RoomProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!room || !tournament) return <div>Loading Room…</div>
 
-  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate, canRead } = access
 
   const navItems = [
-    { kind: 'route' as const, label: 'Overview', to: `/room/${roomid}/overview` },
-    { kind: 'route' as const, label: 'Games',    to: `/room/${roomid}/games`    },
+    ...(canRead(PERMISSION.ROOM_READ) ? [{ kind: 'route' as const, label: 'Overview', to: `/room/${roomid}/overview` }] : []),
+    ...(canRead(PERMISSION.GAME_READ) ? [{ kind: 'route' as const, label: 'Games',    to: `/room/${roomid}/games`    }] : []),
   ]
 
   return (
@@ -57,7 +58,7 @@ export const RoomProfile = (props: { childRoute?: string }) => {
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} roomid={roomid}
-              showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
+              showCreateButton={canCreate(PERMISSION.GAME_CREATE)} showDeleteButton={canCreate(PERMISSION.GAME_DELETE)}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Room']} />
           )}

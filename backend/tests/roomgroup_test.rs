@@ -12,7 +12,7 @@ use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
 use crate::common::{TEST_DB_URL, clean_database, make_token};
 
-/// POST /api/roomgroups: a user with `room:create` may create one under a tournament (type defaults
+/// POST /api/roomgroups: a user with `roomgroup:create` may create one under a tournament (type defaults
 /// to "building"); missing permission, unauthenticated, and a bad tournament are rejected.
 #[actix_web::test]
 async fn create_works() {
@@ -24,8 +24,8 @@ async fn create_works() {
 
     let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
 
-    // ── Success: user with room:create (type omitted → defaults to "building") ──
-    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["room:create".to_string()]);
+    // ── Success: user with roomgroup:create (type omitted → defaults to "building") ──
+    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["roomgroup:create".to_string()]);
     let req = test::TestRequest::post()
         .uri("/api/roomgroups")
         .insert_header(("Authorization", format!("Bearer {}", token)))
@@ -42,8 +42,8 @@ async fn create_works() {
     assert_eq!(rg.creator_userid, user.id);
     assert!(!rg.del_fl);
 
-    // ── Fail: authenticated but lacks room:create ──
-    let no_perm = make_token(user.id, vec!["member".to_string()], vec!["room:read".to_string()]);
+    // ── Fail: authenticated but lacks roomgroup:create ──
+    let no_perm = make_token(user.id, vec!["member".to_string()], vec!["roomgroup:read".to_string()]);
     let req = test::TestRequest::post()
         .uri("/api/roomgroups")
         .insert_header(("Authorization", format!("Bearer {}", no_perm)))
@@ -96,7 +96,7 @@ async fn read_and_index_work() {
     assert_eq!(paged.items[0].name, "Hall A");
 }
 
-/// PUT /api/roomgroups/{id}: a user with `room:update` may rename it; others are rejected.
+/// PUT /api/roomgroups/{id}: a user with `roomgroup:update` may rename it; others are rejected.
 #[actix_web::test]
 async fn update_works() {
     clean_database();
@@ -108,8 +108,8 @@ async fn update_works() {
 
     let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
 
-    // ── Fail: lacks room:update ──
-    let no_perm = make_token(user.id, vec!["member".to_string()], vec!["room:read".to_string()]);
+    // ── Fail: lacks roomgroup:update ──
+    let no_perm = make_token(user.id, vec!["member".to_string()], vec!["roomgroup:read".to_string()]);
     let req = test::TestRequest::put()
         .uri(&format!("/api/roomgroups/{}", rg.roomgroupid))
         .insert_header(("Authorization", format!("Bearer {}", no_perm)))
@@ -117,8 +117,8 @@ async fn update_works() {
         .to_request();
     assert_eq!(test::call_service(&app, req).await.status(), StatusCode::UNAUTHORIZED);
 
-    // ── Success: room:update ──
-    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["room:update".to_string()]);
+    // ── Success: roomgroup:update ──
+    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["roomgroup:update".to_string()]);
     let req = test::TestRequest::put()
         .uri(&format!("/api/roomgroups/{}", rg.roomgroupid))
         .insert_header(("Authorization", format!("Bearer {}", token)))
@@ -133,7 +133,7 @@ async fn update_works() {
     assert_eq!(reread.last_modified_userid, user.id);
 }
 
-/// DELETE /api/roomgroups/{id}: a user with `room:delete` soft-deletes it (hidden from reads).
+/// DELETE /api/roomgroups/{id}: a user with `roomgroup:delete` soft-deletes it (hidden from reads).
 #[actix_web::test]
 async fn delete_soft_deletes() {
     clean_database();
@@ -145,7 +145,7 @@ async fn delete_soft_deletes() {
 
     let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
 
-    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["room:delete".to_string()]);
+    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["roomgroup:delete".to_string()]);
     let req = test::TestRequest::delete()
         .uri(&format!("/api/roomgroups/{}", rg.roomgroupid))
         .insert_header(("Authorization", format!("Bearer {}", token)))

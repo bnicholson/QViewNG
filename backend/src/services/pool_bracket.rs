@@ -1,3 +1,4 @@
+use crate::services::common::{authorized_to_read};
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, pool_bracket::{NewPoolBracket, PoolBracket, PoolBracketChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
@@ -33,6 +34,11 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs poolbracket:read.
+    if !authorized_to_read(&req, AppResource::PoolBracket) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::pool_bracket::read_all(&mut db) {
         Ok(items) => {
             let count = items.len() as i64;
@@ -53,6 +59,11 @@ async fn read(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs poolbracket:read.
+    if !authorized_to_read(&req, AppResource::PoolBracket) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::pool_bracket::read(&mut conn, item_id.into_inner()) {
         Ok(bracket) => HttpResponse::Ok().json(bracket),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -72,6 +83,11 @@ async fn read_team_rows(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Public for unauthenticated callers; an authenticated caller needs poolbracket:read.
+    if !authorized_to_read(&req, AppResource::PoolBracket) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     match models::team::read_team_rows_of_pool_bracket(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -90,6 +106,11 @@ async fn read_game_rows(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs poolbracket:read.
+    if !authorized_to_read(&req, AppResource::PoolBracket) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::game::read_game_rows_of_pool_bracket(&mut conn, item_id.into_inner(), &params) {
         Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
@@ -128,8 +149,9 @@ async fn add_team(
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };
     let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
-    let permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Create.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::Team.as_str()).is_err() {
+    // Placing a team changes this bracket's membership, so it is a bracket update.
+    let permission = format!("{}:{}", AppResource::PoolBracket.as_str(), AppAction::Update.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::PoolBracket.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -193,8 +215,9 @@ async fn remove_team(
         None => return Ok(HttpResponse::InternalServerError().finish()),
     };
     let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
-    let permission = format!("{}:{}", AppResource::Team.as_str(), AppAction::Delete.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::Team.as_str()).is_err() {
+    // Removing a team changes this bracket's membership, so it is a bracket update.
+    let permission = format!("{}:{}", AppResource::PoolBracket.as_str(), AppAction::Update.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::PoolBracket.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -236,8 +259,8 @@ async fn create(
     };
 
     let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
-    let create_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Create.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &create_permission, AppResource::Division.as_str()).is_err() {
+    let create_permission = format!("{}:{}", AppResource::PoolBracket.as_str(), AppAction::Create.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &create_permission, AppResource::PoolBracket.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -290,8 +313,8 @@ async fn update(
     };
 
     let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
-    let update_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Update.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &update_permission, AppResource::Division.as_str()).is_err() {
+    let update_permission = format!("{}:{}", AppResource::PoolBracket.as_str(), AppAction::Update.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &update_permission, AppResource::PoolBracket.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -338,8 +361,8 @@ async fn destroy(
     };
 
     let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
-    let delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::Division.as_str()).is_err() {
+    let delete_permission = format!("{}:{}", AppResource::PoolBracket.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::PoolBracket.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -387,8 +410,8 @@ async fn purge(
     };
 
     let policy_ctx = PolicyContext { user_ctx: user_ctx.clone(), resource };
-    let delete_permission = format!("{}:{}", AppResource::Division.as_str(), AppAction::Delete.as_str());
-    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::Division.as_str()).is_err() {
+    let delete_permission = format!("{}:{}", AppResource::PoolBracket.as_str(), AppAction::Delete.as_str());
+    if is_rbac_and_abac_authorized(&policy_ctx, &delete_permission, AppResource::PoolBracket.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

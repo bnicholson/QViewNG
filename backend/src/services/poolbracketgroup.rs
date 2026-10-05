@@ -1,3 +1,4 @@
+use crate::services::common::{authorized_to_read};
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path}};
 use serde_json::json;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, poolbracketgroup::{NewPoolBracketGroup, PoolBracketGroup, PoolBracketGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
@@ -31,8 +32,8 @@ fn authorize_via_division(
         user_ctx: user_ctx.clone(),
         resource: DivisionPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
     };
-    let permission = format!("{}:{}", AppResource::Division.as_str(), action);
-    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::Division.as_str()).is_err() {
+    let permission = format!("{}:{}", AppResource::PoolBracketGroup.as_str(), action);
+    if is_rbac_and_abac_authorized(&policy_ctx, &permission, AppResource::PoolBracketGroup.as_str()).is_err() {
         return Err(HttpResponse::Unauthorized().finish());
     }
     Ok(())
@@ -45,6 +46,11 @@ async fn index(
 ) -> HttpResponse {
     let mut conn = db.get_connection().expect("Failed to get connection");
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs poolbracketgroup:read.
+    if !authorized_to_read(&req, AppResource::PoolBracketGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
     match models::poolbracketgroup::read_all(&mut conn) {
         Ok(items) => {
             let count = items.len() as i64;
@@ -62,6 +68,11 @@ async fn read(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs poolbracketgroup:read.
+    if !authorized_to_read(&req, AppResource::PoolBracketGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
     match models::poolbracketgroup::read(&mut conn, item_id.into_inner()) {
         Ok(group) => HttpResponse::Ok().json(group),
         Err(_) => HttpResponse::NotFound().finish(),
@@ -77,6 +88,11 @@ async fn read_poolbrackets(
 ) -> HttpResponse {
     let mut conn = db.pool.get().unwrap();
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs poolbracketgroup:read.
+    if !authorized_to_read(&req, AppResource::PoolBracketGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
     match models::pool_bracket::read_all_of_poolbracketgroup(&mut conn, item_id.into_inner()) {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(_) => HttpResponse::InternalServerError().finish(),

@@ -768,9 +768,17 @@ async fn add_admin_works() {
             .configure(configure_routes)
     ).await;
 
+    // Adding a tournament admin now requires `tournamentadmin:create`.
+    let admin_token = common::make_token(
+        user_to_become_admin.id,
+        vec![],
+        vec!["tournamentadmin:create".to_string(), "tournamentadmin:delete".to_string(),
+             "tournamentadmin:read".to_string()],
+    );
     let uri = format!("/api/tournaments/{}/admins", tournament.tid);
     let req = test::TestRequest::post()
         .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .set_json(payload)
         .to_request();
 
@@ -901,9 +909,16 @@ async fn delete_admin_works() {
             .configure(configure_routes)
     ).await;
     
+    // Removing a tournament admin now requires `tournamentadmin:delete`.
+    let admin_token = common::make_token(
+        user.id,
+        vec![],
+        vec!["tournamentadmin:delete".to_string(), "tournamentadmin:read".to_string()],
+    );
     let delete_uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
     let delete_req = test::TestRequest::delete()
         .uri(&delete_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .to_request();
 
     // Act:
@@ -922,6 +937,7 @@ async fn delete_admin_works() {
     let get_admins_uri = format!("/api/tournaments/{}/admins?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
     let get_admins_req = test::TestRequest::get()
         .uri(&get_admins_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .to_request();
 
     let get_admins_resp = test::call_service(&app, get_admins_req).await;
@@ -1495,7 +1511,7 @@ async fn my_teams_returns_only_the_users_teams_enriched() {
         App::new().app_data(web::Data::new(db)).configure(configure_routes)
     ).await;
 
-    let token = make_token(owner.id, vec!["member".to_string()], vec![]);
+    let token = make_token(owner.id, vec!["member".to_string()], vec!["team:read".to_string()]);
     let uri = format!("/api/tournaments/{}/my-teams", tournament.tid);
     let resp = test::call_service(&app, test::TestRequest::get()
         .uri(&uri)
@@ -1528,7 +1544,8 @@ async fn my_gear_registration_and_bulk_register_work() {
         App::new().app_data(web::Data::new(db)).configure(configure_routes)
     ).await;
 
-    let token = make_token(owner.id, vec!["member".to_string()], vec![]);
+    let token = make_token(owner.id, vec!["member".to_string()],
+        vec!["equipment:read".to_string(), "equipment:create".to_string()]);
 
     // ── Aggregate before registering: one set, two items, no registrations. ──
     let get_uri = format!("/api/tournaments/{}/my-gear-registration", tournament.tid);

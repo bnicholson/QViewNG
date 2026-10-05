@@ -39,12 +39,12 @@ async fn create_works() {
             .configure(configure_routes)
     ).await;
 
-    // ── Success: owner with division:create ──────────────────────────────────
+    // ── Success: owner with poolbracket:create ──────────────────────────────────
 
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:create".to_string()],
+        vec!["poolbracket:create".to_string()],
     );
 
     let owner_req = test::TestRequest::post()
@@ -64,12 +64,12 @@ async fn create_works() {
     assert_eq!(bracket.type_.as_str(), "pool");
     assert_eq!(bracket.creator_userid, owner.id);
 
-    // ── Success: admin with division:create, "bracket" type ──────────────────
+    // ── Success: admin with poolbracket:create, "bracket" type ──────────────────
 
     let admin_token = make_token(
         admin_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:create".to_string()],
+        vec!["poolbracket:create".to_string()],
     );
 
     let admin_req = test::TestRequest::post()
@@ -92,12 +92,12 @@ async fn create_works() {
     let dup_resp = test::call_service(&app, dup_req).await;
     assert_ne!(dup_resp.status(), StatusCode::CREATED);
 
-    // ── Fail: unrelated user with division:create ────────────────────────────
+    // ── Fail: unrelated user with poolbracket:create ────────────────────────────
 
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:create".to_string()],
+        vec!["poolbracket:create".to_string()],
     );
 
     let unrelated_req = test::TestRequest::post()
@@ -208,14 +208,14 @@ async fn add_and_remove_team_works() {
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["team:create".to_string(), "team:delete".to_string()],
+        vec!["poolbracket:update".to_string()],
     );
 
     // ── Fail: unrelated user can't associate ─────────────────────────────────
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["team:create".to_string()],
+        vec!["poolbracket:update".to_string()],
     );
     let unrelated_resp = test::call_service(&app, test::TestRequest::post()
         .uri(&assoc_uri)
@@ -292,12 +292,12 @@ async fn update_works() {
 
     let put_uri = format!("/api/poolbrackets/{}", bracket.pool_bracket_id);
 
-    // ── Success: owner with division:update ──────────────────────────────────
+    // ── Success: owner with poolbracket:update ──────────────────────────────────
 
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:update".to_string()],
+        vec!["poolbracket:update".to_string()],
     );
 
     let owner_req = test::TestRequest::put()
@@ -313,12 +313,12 @@ async fn update_works() {
     assert_eq!(body.code, 200);
     assert_eq!(body.data.unwrap().name.as_str(), "Pool B");
 
-    // ── Fail: unrelated user with division:update ────────────────────────────
+    // ── Fail: unrelated user with poolbracket:update ────────────────────────────
 
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:update".to_string()],
+        vec!["poolbracket:update".to_string()],
     );
 
     let unrelated_req = test::TestRequest::put()
@@ -363,12 +363,12 @@ async fn delete_works() {
 
     let delete_uri = format!("/api/poolbrackets/{}", bracket.pool_bracket_id);
 
-    // ── Fail: unrelated user with division:delete ────────────────────────────
+    // ── Fail: unrelated user with poolbracket:delete ────────────────────────────
 
     let unrelated_token = make_token(
         unrelated_user.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:delete".to_string()],
+        vec!["poolbracket:delete".to_string()],
     );
 
     let unrelated_req = test::TestRequest::delete()
@@ -379,12 +379,12 @@ async fn delete_works() {
     let unrelated_resp = test::call_service(&app, unrelated_req).await;
     assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
 
-    // ── Success: owner with division:delete ──────────────────────────────────
+    // ── Success: owner with poolbracket:delete ──────────────────────────────────
 
     let owner_token = make_token(
         owner.id,
         vec!["tournament_manager".to_string()],
-        vec!["division:delete".to_string()],
+        vec!["poolbracket:delete".to_string()],
     );
 
     let owner_req = test::TestRequest::delete()
@@ -422,8 +422,8 @@ async fn delete_soft_deletes_and_purge_removes() {
         App::new().app_data(web::Data::new(db)).configure(configure_routes)
     ).await;
 
-    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
-    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["poolbracket:delete".to_string()]);
+    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["poolbracket:delete".to_string()]);
 
     // ── DELETE is a soft delete: hidden from reads but still present. ──
     let del_resp = test::call_service(&app, test::TestRequest::delete()

@@ -232,7 +232,7 @@ async fn deleting_round_cascades_games_and_deleting_session_cascades_empty_pool_
 
     // Deleting the session deletes its remaining rounds + games, which empties the pool group — so the
     // group and its pool are removed too.
-    let session_token = make_token(owner_id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let session_token = make_token(owner_id, vec!["tournament_manager".to_string()], vec!["roundgroup:delete".to_string()]);
     let del_session = test::TestRequest::delete()
         .uri(&format!("/api/roundgroups/{}", rounds[0].roundgroup_id))
         .insert_header(("Authorization", format!("Bearer {}", session_token)))
@@ -266,7 +266,7 @@ async fn deleting_one_session_leaves_other_sessions_intact() {
     // Delete only "Session 1".
     let session_1 = backend::models::roundgroup::read_all_of_division(&mut conn, division.did).unwrap()
         .into_iter().find(|rg| rg.name == "Session 1").expect("Session 1 exists");
-    let session_token = make_token(owner_id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let session_token = make_token(owner_id, vec!["tournament_manager".to_string()], vec!["roundgroup:delete".to_string()]);
     let del = test::TestRequest::delete()
         .uri(&format!("/api/roundgroups/{}", session_1.roundgroup_id))
         .insert_header(("Authorization", format!("Bearer {}", session_token)))

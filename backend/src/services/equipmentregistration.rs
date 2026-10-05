@@ -1,7 +1,8 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use crate::models::permission::{AppAction, AppResource};
+use actix_web::{HttpMessage, delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, equipmentregistration::{NewEquipmentRegistration, EquipmentRegistration, EquipmentRegistrationChangeset}};
-use crate::services::common::{EntityResponse, PagedResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, authorized_to_write, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 
@@ -23,6 +24,10 @@ async fn create(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Create) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
     
     let result: QueryResult<EquipmentRegistration> = models::equipmentregistration::create(&mut conn, &item);
 
@@ -51,6 +56,10 @@ async fn update(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Update) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
     let result = models::equipmentregistration::update(&mut db, item_id.into_inner(), &item);
 
     let response = process_response(result, "put");
@@ -74,6 +83,10 @@ async fn destroy(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Delete) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     let result = models::equipmentregistration::delete(&mut db, item_id.into_inner());
 

@@ -25,8 +25,8 @@ async fn create_works() {
         App::new().app_data(web::Data::new(db)).configure(configure_routes)
     ).await;
 
-    // ── Success: tournament owner with division:create ───────────────────────
-    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:create".to_string()]);
+    // ── Success: tournament owner with poolbracketgroup:create ───────────────────────
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["poolbracketgroup:create".to_string()]);
     let owner_req = test::TestRequest::post()
         .uri("/api/poolbracketgroups")
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
@@ -41,8 +41,8 @@ async fn create_works() {
     assert_eq!(group.name.as_str(), "Group 1");
     assert_eq!(group.creator_userid, owner.id);
 
-    // ── Success: tournament admin with division:create ───────────────────────
-    let admin_token = make_token(admin_user.id, vec!["tournament_manager".to_string()], vec!["division:create".to_string()]);
+    // ── Success: tournament admin with poolbracketgroup:create ───────────────────────
+    let admin_token = make_token(admin_user.id, vec!["tournament_manager".to_string()], vec!["poolbracketgroup:create".to_string()]);
     let admin_req = test::TestRequest::post()
         .uri("/api/poolbracketgroups")
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
@@ -58,8 +58,8 @@ async fn create_works() {
         .to_request();
     assert_ne!(test::call_service(&app, dup_req).await.status(), StatusCode::CREATED);
 
-    // ── Fail: has division:create but is neither owner nor tournament admin ──
-    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["division:create".to_string()]);
+    // ── Fail: has poolbracketgroup:create but is neither owner nor tournament admin ──
+    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["poolbracketgroup:create".to_string()]);
     let unrelated_req = test::TestRequest::post()
         .uri("/api/poolbracketgroups")
         .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
@@ -150,8 +150,8 @@ async fn update_works() {
     ).await;
     let put_uri = format!("/api/poolbracketgroups/{}", group.poolbracketgroupid);
 
-    // owner with division:update
-    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:update".to_string()]);
+    // owner with poolbracketgroup:update
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["poolbracketgroup:update".to_string()]);
     let owner_resp = test::call_service(&app, test::TestRequest::put()
         .uri(&put_uri)
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
@@ -161,7 +161,7 @@ async fn update_works() {
     assert_eq!(body.data.unwrap().name.as_str(), "Round 2 Groups");
 
     // unrelated user rejected
-    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["division:update".to_string()]);
+    let unrelated_token = make_token(unrelated_user.id, vec!["tournament_manager".to_string()], vec!["poolbracketgroup:update".to_string()]);
     let unrelated_resp = test::call_service(&app, test::TestRequest::put()
         .uri(&put_uri)
         .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
@@ -187,7 +187,7 @@ async fn delete_works_and_is_blocked_with_pools() {
         App::new().app_data(web::Data::new(db)).configure(configure_routes)
     ).await;
     let del_uri = format!("/api/poolbracketgroups/{}", group.poolbracketgroupid);
-    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["division:delete".to_string()]);
+    let owner_token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["poolbracketgroup:delete".to_string()]);
 
     // ── Blocked (409) while the group still has a pool. ──
     let blocked = test::call_service(&app, test::TestRequest::delete()

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate, useParams } from 'react-router'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -37,11 +38,11 @@ export const BuildingProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!building || !tournament) return <div>Loading Building…</div>
 
-  const { canViewAuditColumns, canCreate } = access
+  const { canViewAuditColumns, canCreate, canRead } = access
 
   const navItems = [
-    { kind: 'route' as const, label: 'Overview', to: `/building/${buildingid}/overview` },
-    { kind: 'route' as const, label: 'Rooms',    to: `/building/${buildingid}/rooms`    },
+    ...(canRead(PERMISSION.ROOMGROUP_READ) ? [{ kind: 'route' as const, label: 'Overview', to: `/building/${buildingid}/overview` }] : []),
+    ...(canRead(PERMISSION.ROOM_READ)      ? [{ kind: 'route' as const, label: 'Rooms',    to: `/building/${buildingid}/rooms`    }] : []),
   ]
 
   return (
@@ -61,13 +62,13 @@ export const BuildingProfile = (props: { childRoute?: string }) => {
               tid={tournament.tid}
               onUpdated={setBuilding}
               showAuditColumns={canViewAuditColumns}
-              canEdit={canCreate('room:update')} />
+              canEdit={canCreate(PERMISSION.ROOMGROUP_UPDATE)} />
           )}
           {props.childRoute === 'rooms' && (
             // The tournament's Rooms table, scoped to this building.
             <RoomsTable tid={tournament.tid} roomgroupid={buildingid}
-              showCreateButton={canCreate('room:create')}
-              showDeleteButton={canCreate('room:delete')}
+              showCreateButton={canCreate(PERMISSION.ROOM_CREATE)}
+              showDeleteButton={canCreate(PERMISSION.ROOM_DELETE)}
               showAuditColumns={canViewAuditColumns} />
           )}
         </Box>

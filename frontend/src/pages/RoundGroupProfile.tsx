@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate, useParams } from 'react-router'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -43,12 +44,12 @@ export const RoundGroupProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!session || !division || !tournament) return <div>Loading Session…</div>
 
-  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
+  const { canViewAuditColumns, canCreate, canRead } = access
 
   const navItems = [
-    { kind: 'route' as const, label: 'Overview', to: `/division-session/${sessionid}/overview` },
-    { kind: 'route' as const, label: 'Rounds',   to: `/division-session/${sessionid}/rounds`   },
-    { kind: 'route' as const, label: 'Games',    to: `/division-session/${sessionid}/games`    },
+    ...(canRead(PERMISSION.ROUNDGROUP_READ) ? [{ kind: 'route' as const, label: 'Overview', to: `/division-session/${sessionid}/overview` }] : []),
+    ...(canRead(PERMISSION.ROUND_READ)      ? [{ kind: 'route' as const, label: 'Rounds',   to: `/division-session/${sessionid}/rounds`   }] : []),
+    ...(canRead(PERMISSION.GAME_READ)       ? [{ kind: 'route' as const, label: 'Games',    to: `/division-session/${sessionid}/games`    }] : []),
   ]
 
   return (
@@ -64,20 +65,20 @@ export const RoundGroupProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <RoundGroupProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={isOwnerOrSystemAdmin} />
+            <RoundGroupProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={canCreate(PERMISSION.ROUNDGROUP_UPDATE)} />
           )}
           {props.childRoute === 'rounds' && (
             // Rounds belong to a division session; Division and Session are fixed context here.
             <RoundsTable tid={tournament.tid} did={division.did} roundgroupId={sessionid}
-              showCreateButton={canCreate('division:create')}
-              showDeleteButton={canCreate('division:delete')}
+              showCreateButton={canCreate(PERMISSION.ROUND_CREATE)}
+              showDeleteButton={canCreate(PERMISSION.ROUND_DELETE)}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division', 'Session']} />
           )}
           {props.childRoute === 'games' && (
             // Games whose round belongs to this session. Division is fixed context here.
             <GamesTable tid={tournament.tid} roundgroupId={sessionid}
-              showCreateButton={false} showDeleteButton={canCreate('game:delete')}
+              showCreateButton={false} showDeleteButton={canCreate(PERMISSION.GAME_DELETE)}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}

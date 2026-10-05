@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate, useParams } from 'react-router'
 import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
@@ -43,11 +44,11 @@ export const RoundProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!round || !division || !tournament) return <div>Loading Round…</div>
 
-  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
+  const { canViewAuditColumns, canCreate, canRead } = access
 
   const navItems = [
-    { kind: 'route' as const, label: 'Overview', to: `/round/${roundid}/overview` },
-    { kind: 'route' as const, label: 'Games',    to: `/round/${roundid}/games`    },
+    ...(canRead(PERMISSION.ROUND_READ) ? [{ kind: 'route' as const, label: 'Overview', to: `/round/${roundid}/overview` }] : []),
+    ...(canRead(PERMISSION.GAME_READ)  ? [{ kind: 'route' as const, label: 'Games',    to: `/round/${roundid}/games`    }] : []),
   ]
 
   return (
@@ -68,12 +69,12 @@ export const RoundProfile = (props: { childRoute?: string }) => {
               division={division}
               tournament={tournament}
               onUpdated={setRound}
-              canEdit={isOwnerOrSystemAdmin}
+              canEdit={canCreate(PERMISSION.ROUND_UPDATE)}
             />
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} roundid={roundid}
-              showCreateButton={canCreate('game:create')} showDeleteButton={canCreate('game:delete')}
+              showCreateButton={canCreate(PERMISSION.GAME_CREATE)} showDeleteButton={canCreate(PERMISSION.GAME_DELETE)}
               showAuditColumns={canViewAuditColumns}
               // Breadcrumb here is Home / Tournament / Division / Round, so both Division and Round are fixed context.
               hiddenColumns={['Division', 'Round']} />

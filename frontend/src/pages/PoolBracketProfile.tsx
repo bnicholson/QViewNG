@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate, useParams } from 'react-router'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -49,13 +50,13 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!bracket || !division || !tournament) return <div>Loading…</div>
 
-  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
+  const { canViewAuditColumns, canCreate, canRead } = access
   const label = typeLabel(bracket.type)
 
   const navItems = [
-    { kind: 'route' as const, label: 'Overview', to: `/pool-bracket/${bracketid}/overview` },
-    { kind: 'route' as const, label: 'Teams',    to: `/pool-bracket/${bracketid}/teams`    },
-    { kind: 'route' as const, label: 'Games',    to: `/pool-bracket/${bracketid}/games`    },
+    ...(canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Overview', to: `/pool-bracket/${bracketid}/overview` }] : []),
+    ...(canRead(PERMISSION.TEAM_READ)        ? [{ kind: 'route' as const, label: 'Teams',    to: `/pool-bracket/${bracketid}/teams`    }] : []),
+    ...(canRead(PERMISSION.GAME_READ)        ? [{ kind: 'route' as const, label: 'Games',    to: `/pool-bracket/${bracketid}/games`    }] : []),
   ]
 
   return (
@@ -73,21 +74,21 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'overview' && (
             <PoolBracketProfileOverviewPage
               bracket={bracket} division={division}
-              entityLabel={label} onUpdated={setBracket} canEdit={isOwnerOrSystemAdmin} />
+              entityLabel={label} onUpdated={setBracket} canEdit={canCreate(PERMISSION.POOLBRACKET_UPDATE)} />
           )}
           {props.childRoute === 'teams' && (
             // Teams associated with this pool bracket via its teamgroup. Creating a team here also
             // adds it to this bracket; the row delete removes it from the bracket (not the team).
             <TeamsTable tid={tournament.tid} did={division.did} poolBracketId={bracketid}
-              showCreateButton={canCreate('team:create')}
-              showEditButton={canCreate('team:update')}
-              showDeleteButton={canCreate('team:delete')}
+              showCreateButton={canCreate(PERMISSION.TEAM_CREATE)}
+              showEditButton={canCreate(PERMISSION.TEAM_UPDATE)}
+              showDeleteButton={canCreate(PERMISSION.TEAM_DELETE)}
               showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} poolbracketid={bracketid}
-              showCreateButton={false} showDeleteButton={canCreate('game:delete')}
+              showCreateButton={false} showDeleteButton={canCreate(PERMISSION.GAME_DELETE)}
               showAuditColumns={canViewAuditColumns} />
           )}
         </Box>

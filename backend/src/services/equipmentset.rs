@@ -1,7 +1,8 @@
-use actix_web::{delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
+use crate::models::permission::{AppAction, AppResource};
+use actix_web::{HttpMessage, delete, Error, get, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::database::Database;
 use crate::models::{self, common::PaginationParams, equipmentset::{NewEquipmentSet, EquipmentSet, EquipmentSetChangeset}};
-use crate::services::common::{EntityResponse, PagedResponse, process_response};
+use crate::services::common::{EntityResponse, PagedResponse, authorized_to_read, authorized_to_write, process_response};
 // use utoipa::OpenApi;
 use diesel::QueryResult;
 
@@ -19,6 +20,11 @@ async fn read(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs equipment:read.
+    if !authorized_to_read(&req, AppResource::Equipment) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::equipmentset::read(&mut conn, item_id.into_inner()) {
         Ok(equipmentset) => HttpResponse::Ok().json(equipmentset),
@@ -39,6 +45,10 @@ async fn create(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Create) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
     
     let result: QueryResult<EquipmentSet> = models::equipmentset::create(&mut conn, &item);
 
@@ -67,6 +77,10 @@ async fn update(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Update) {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
     let result = models::equipmentset::update(&mut db, item_id.into_inner(), &item);
 
     let response = process_response(result, "put");
@@ -91,6 +105,10 @@ async fn destroy(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
+    if !authorized_to_write(&req, AppResource::Equipment, AppAction::Delete) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     let result = models::equipmentset::delete(&mut db, item_id.into_inner());
 
     if result.is_ok() {
@@ -110,6 +128,11 @@ async fn read_equipment_of_set(
 
     // log this api call
     models::apicalllog::create(&mut db, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs equipment:read.
+    if !authorized_to_read(&req, AppResource::Equipment) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::equipment_dbo::read_all_by_equipmentset(&mut db, set_id.into_inner()) {
         Ok(items) => HttpResponse::Ok().json(items),
