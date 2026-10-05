@@ -7,7 +7,7 @@ use backend::{
     database::Database,
     models::{self, apicalllog::ApiCalllog, role::Role, role_permission::RolePermission},
     routes::configure_routes,
-    services::common::EntityResponse,
+    services::common::{EntityResponse, PagedResponse},
 };
 use serde_json::json;
 use crate::common::{TEST_DB_URL, clean_database};
@@ -63,7 +63,10 @@ async fn get_all_roles_works() {
 
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let roles: Vec<Role> = test::read_body_json(resp).await;
+    // GET /api/roles is paginated: { count, items }.
+    let body: PagedResponse<Role> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 3);
+    let roles = body.items;
     assert_eq!(roles.len(), 3);
     // Returned ordered by name asc
     assert_eq!(roles[0].name, "admin");

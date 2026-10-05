@@ -369,7 +369,11 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
-export default function StatsGroupsPanel({ tid }: { tid: string }) {
+/**
+ * `canImport` gates the game-event import, which rewrites games' recorded events and so needs
+ * `game:update` — the same permission the import endpoints check.
+ */
+export default function StatsGroupsPanel({ tid, canImport = false }: { tid: string; canImport?: boolean }) {
   const { accessToken } = useAuth();
   const [statsGroups, setStatsGroups] = useState<StatsGroupTS[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
@@ -462,7 +466,7 @@ export default function StatsGroupsPanel({ tid }: { tid: string }) {
             </Select>
           </FormControl>
 
-          {dataView === "games" && (
+          {dataView === "games" && canImport && (
             <ImportGameEventsButton tid={tid} onImported={() => setGamesRefreshKey((k) => k + 1)} />
           )}
 

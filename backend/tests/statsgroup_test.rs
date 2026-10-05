@@ -245,6 +245,10 @@ async fn team_stats_works() {
 
     // Standings are ordered by wins desc, then total points desc.
     // Red answered 4 tossups (80 pts) and wins; Blue answered 2 (40 pts).
+    //
+    // Olympic points follow §12.4 for a 2-team round: 8 to the winner, 3 to the runner-up.
+    // Modified Olympic (§12.5) adds 0.75 per 10 points above a threshold — 100 for 1st, 60 for
+    // 2nd — so with 80 and 40 points neither team clears its threshold and both match the base.
     let red = &body[0];
     assert_eq!(red.name.as_str(), "Red Team");
     assert_eq!(red.place, 1);
@@ -252,8 +256,8 @@ async fn team_stats_works() {
     assert_eq!(red.wins, 1);
     assert_eq!(red.losses, 0);
     assert_eq!(red.total_points, 80);
-    assert_eq!(red.olympic_points, 2);
-    assert_eq!(red.mod_olympic_points, 2);
+    assert_eq!(red.olympic_points, 8);
+    assert_eq!(red.mod_olympic_points, 8);
 
     let blue = &body[1];
     assert_eq!(blue.name.as_str(), "Blue Team");
@@ -262,7 +266,8 @@ async fn team_stats_works() {
     assert_eq!(blue.wins, 0);
     assert_eq!(blue.losses, 1);
     assert_eq!(blue.total_points, 40);
-    assert_eq!(blue.olympic_points, 1);
+    assert_eq!(blue.olympic_points, 3);
+    assert_eq!(blue.mod_olympic_points, 3);
 
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);

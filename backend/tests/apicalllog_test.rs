@@ -5,7 +5,7 @@ mod fixtures;
 use actix_http::StatusCode;
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog}, routes::configure_routes};
 use actix_web::{App, test, web::{self}};
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{TEST_DB_URL, clean_database, make_token};
 
 #[actix_web::test]
 async fn create_and_read_all_works() {
@@ -20,6 +20,16 @@ async fn create_and_read_all_works() {
     let (tour_1, tour_2) = 
         fixtures::apicalllogs::arrange_create_works_integration_test();
 
+    // POST /api/tournaments requires an authenticated caller holding `tournament:create`; the
+    // created tournament's owner is taken from the token, so the user must exist.
+    let creator = fixtures::users::seed_user(&mut conn);
+    let token = make_token(
+        creator.id,
+        vec![],
+        vec!["tournament:create".to_string()],
+    );
+    let auth_header = ("Authorization", format!("Bearer {}", token));
+
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
@@ -29,12 +39,14 @@ async fn create_and_read_all_works() {
     let uri_1 = format!("/api/tournaments");
     let req_1 = test::TestRequest::post()
         .uri(&uri_1)
+        .insert_header(auth_header.clone())
         .set_json(&tour_1)
         .to_request();
     
     let uri_2 = format!("/api/tournaments");
     let req_2 = test::TestRequest::post()
         .uri(&uri_2)
+        .insert_header(auth_header)
         .set_json(&tour_2)
         .to_request();
     

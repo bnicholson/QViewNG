@@ -2727,7 +2727,7 @@ mod tests {
 
         let (game_events, _) = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             
             .then_add_TN("Red Team", left_team).unwrap()
             .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
@@ -2929,7 +2929,7 @@ mod tests {
 
         let base_game_event_stream_builder = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             
             .then_add_TN("Red Team", left_team).unwrap()
             .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
@@ -3085,7 +3085,7 @@ mod tests {
 
         let base_game_event_stream_builder = GameEventStreamBuilder::new(game_id)
         .then_add_RM("Tournament")
-        .then_add_QT("Nazarene")
+        .then_add_QT("N")
             
             .then_add_TN("Red Team", left_team).unwrap()
             .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
@@ -3481,7 +3481,7 @@ mod tests {
 
         let (game_events, _) = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             
             .then_add_TN("Red Team", left_team).unwrap()
             .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
@@ -3640,12 +3640,12 @@ mod tests {
             .to_game_events();
 
         let (game_events_with_QT, _) = base_game_event_stream_builder.clone()
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             .to_game_events();
 
         let (game_events_with_both_RM_and_QT, _) = base_game_event_stream_builder.clone()
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             .to_game_events();
         
         // ACT
@@ -3700,7 +3700,7 @@ mod tests {
 
         let (game_events, _) = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             
             .then_add_TN("Red Team", left_team).unwrap()
             .then_add_QN_plus_if_SC_or_SS(jacob.0, jacob.1, seat_one, true, false).unwrap()
@@ -3853,7 +3853,7 @@ mod tests {
 
         let base_game_events_stream = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene");
+            .then_add_QT("N");
 
         let (game_events_no_team_or_quizzers, _) = base_game_events_stream.clone()
             .to_game_events();
@@ -3926,7 +3926,7 @@ mod tests {
 
         let base_game_events_stream = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             .then_add_TN("Red Team", left_team).unwrap();
 
         let (game_events_has_captain_and_cocaptain, _) = base_game_events_stream.clone()
@@ -4088,7 +4088,7 @@ mod tests {
 
         let base_game_events_stream = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene");
+            .then_add_QT("N");
         
         let (game_events_all_are_unique, _) = base_game_events_stream.clone()
             .then_add_TN("Red Team", left_team).unwrap()
@@ -4195,7 +4195,7 @@ mod tests {
 
         let base_game_events_stream = GameEventStreamBuilder::new(game_id)
             .then_add_RM("Tournament")
-            .then_add_QT("Nazarene")
+            .then_add_QT("N")
             .then_add_TN("Red Team", left_team).unwrap();
         
         let (game_events_all_names_appear_once, _) = base_game_events_stream.clone()

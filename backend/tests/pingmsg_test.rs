@@ -82,11 +82,12 @@ async fn pingmsg_records_checkin_and_resend() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let expected_resend = format!(
-        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}",
+        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}&gameid={}",
         percent_encode(&tournament.tname),
         percent_encode(&division.dname),
         percent_encode(&room.name),
         percent_encode(&round.name),
+        game.gid,
     );
 
     // The Resend command appears (URL-encoded) in the response body.
@@ -168,11 +169,12 @@ async fn request_resend_endpoint_flags_game_then_ping_returns_command() {
     assert_eq!(ping_resp.status(), StatusCode::OK);
 
     let expected_resend = format!(
-        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}",
+        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}&gameid={}",
         percent_encode(&tournament.tname),
         percent_encode(&division.dname),
         percent_encode(&room.name),
         percent_encode(&round.name),
+        game.gid,
     );
     let body = test::read_body(ping_resp).await;
     let body_str = std::str::from_utf8(&body).unwrap();

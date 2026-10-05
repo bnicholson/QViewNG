@@ -878,6 +878,11 @@ async fn import_gameevents_preview(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
+    // Importing rewrites the games' recorded events, so it is a game update.
+    if !authorized_to_write(&req, AppResource::Game, AppAction::Update) {
+        return HttpResponse::Forbidden().finish();
+    }
+
     // Dry run: parse, match and validate only — no writes.
     let preview = models::gameevent_import::preview(&mut conn, tour_id.into_inner(), &body.csv);
     HttpResponse::Ok().json(preview)
@@ -894,6 +899,11 @@ async fn import_gameevents_commit(
 
     // log this api call
     models::apicalllog::create(&mut conn, &req);
+
+    // Importing rewrites the games' recorded events, so it is a game update.
+    if !authorized_to_write(&req, AppResource::Game, AppAction::Update) {
+        return HttpResponse::Forbidden().finish();
+    }
 
     match models::gameevent_import::commit(&mut conn, tour_id.into_inner(), &body.csv) {
         Ok(result) => HttpResponse::Ok().json(result),

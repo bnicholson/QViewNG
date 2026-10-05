@@ -54,6 +54,11 @@ pub fn seed_tournaments(db: &mut database::Connection) -> Vec<Tournament> {
     seed_tournaments_with_names(db, "Q2025", "Tour 2", "Tour 3")
 }
 
+/// Tournaments spread around today, for the `/api/tournaments/filter` date window.
+///
+/// They are all `is_public = true` because that endpoint defaults to `VisibilityFilter::Public`
+/// (`TournamentBuilder` defaults to private), plus one private tournament inside the window so the
+/// visibility default itself stays covered.
 pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection) -> Vec<Tournament> {
     let owner = UserBuilder::new_default("Tour Owner")
         .set_hash_password("OwnerPwd123!")
@@ -68,6 +73,7 @@ pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection)
     let one_month_before_today: NaiveDate = today.checked_sub_months(Months::new(1)).unwrap();
 
     let tour_1 = TournamentBuilder::new_default("2 months in the future exactly")
+        .set_is_public(true)
         .set_fromdate(two_months_from_today)
         .set_todate(two_months_from_today)
         .set_owner_id(owner.id)
@@ -75,6 +81,7 @@ pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection)
         .unwrap();
 
     let tour_2 = TournamentBuilder::new_default("eight days past exactly")
+        .set_is_public(true)
         .set_fromdate(days_8_past)
         .set_todate(days_8_past)
         .set_owner_id(owner.id)
@@ -82,6 +89,7 @@ pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection)
         .unwrap();
 
     let tour_3 = TournamentBuilder::new_default("eight to twelve days future")
+        .set_is_public(true)
         .set_fromdate(days_8_future)
         .set_todate(days_12_future)
         .set_owner_id(owner.id)
@@ -89,6 +97,7 @@ pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection)
         .unwrap();
 
     let tour_4 = TournamentBuilder::new_default("Today Exactly")
+        .set_is_public(true)
         .set_fromdate(today)
         .set_todate(today)
         .set_owner_id(owner.id)
@@ -96,13 +105,23 @@ pub fn seed_tournaments_for_get_all_in_date_range(db: &mut database::Connection)
         .unwrap();
 
     let tour_5 = TournamentBuilder::new_default("1 month ago exactly")
+        .set_is_public(true)
         .set_fromdate(one_month_before_today)
         .set_todate(one_month_before_today)
         .set_owner_id(owner.id)
         .build_and_insert(db)
         .unwrap();
 
-    vec![tour_1,tour_2,tour_3,tour_4,tour_5]
+    // In range, but private: the default (public) filter must leave it out.
+    let tour_6_private = TournamentBuilder::new_default("today exactly but private")
+        .set_is_public(false)
+        .set_fromdate(today)
+        .set_todate(today)
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    vec![tour_1,tour_2,tour_3,tour_4,tour_5,tour_6_private]
 }
 
 pub fn seed_get_divisions_by_tournament(db: &mut database::Connection) -> Tournament {

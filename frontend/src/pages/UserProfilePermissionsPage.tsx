@@ -20,7 +20,11 @@ export const UserProfilePermissionsPage = ({ userId }: { userId: string }) => {
         if (!r.ok) throw new Error(`Failed to load permissions (${r.status})`)
         return r.json()
       })
-      .then((d: RolesAndPermissions) => setData(d))
+      // The endpoint returns them in whatever order the joins produce; sort both for display.
+      .then((d: RolesAndPermissions) => setData({
+        roles: [...d.roles].sort((a, b) => a.localeCompare(b)),
+        permissions: [...d.permissions].sort((a, b) => a.localeCompare(b)),
+      }))
       .catch((e) => setLoadError(e.message))
   }, [userId])
 

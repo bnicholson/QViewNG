@@ -273,13 +273,104 @@ async fn get_all_in_date_range_works() {
     assert_eq!(body[add_8_tour_idx].fromdate, add_8_days_to_today);
     assert_eq!(body[add_8_tour_idx].todate, add_12_days_to_today);
 
+    // The same window with `visibility=all` also picks up the private tournament inside it.
+    let all_uri = format!(
+        "/api/tournaments/filter?from_date={}&to_date={}&visibility=all",
+        sub_ten_days_millis, add_ten_days_millis
+    );
+    let all_resp = test::call_service(&app, test::TestRequest::get().uri(&all_uri).to_request()).await;
+    assert_eq!(all_resp.status(), StatusCode::OK);
+    let all_body: Vec<Tournament> = test::read_body_json(all_resp).await;
+    assert_eq!(all_body.iter().count(), 4);
+    assert!(all_body.iter().any(|t| t.tname == "today exactly but private"));
+
     // Check that ApiCalllog is recording API calls for this endpoint:
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    assert_eq!(apicalllog_records.iter().count(), 1);
-    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    // 1 default-visibility call + 1 visibility=all call.
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert!(apicalllog_records.iter().all(|r| r.method.as_str() == "GET"));
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    assert_eq!(apicalllog_records.last().unwrap().uri, all_uri);
+}
+
+/// The game-event import endpoints rewrite games' recorded events, so both the preview and the
+/// commit require `game:update`. An empty CSV is enough: the gate runs before any parsing.
+#[actix_web::test]
+async fn gameevents_import_requires_game_update() {
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Import Gate Tour");
+    let user = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let body = json!({ "csv": "" });
+
+    for endpoint in ["preview", "commit"] {
+        let uri = format!("/api/tournaments/{}/gameevents/import/{}", tournament.tid, endpoint);
+
+        // Unauthenticated: rejected.
+        let anon = test::TestRequest::post().uri(&uri).set_json(&body).to_request();
+        assert_eq!(
+            test::call_service(&app, anon).await.status(),
+            StatusCode::FORBIDDEN,
+            "{} must reject an unauthenticated caller", endpoint
+        );
+
+        // Authenticated but without game:update: rejected.
+        let read_only = common::make_token(user.id, vec![], vec!["game:read".to_string()]);
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {}", read_only)))
+            .set_json(&body)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, req).await.status(),
+            StatusCode::FORBIDDEN,
+            "{} must reject a caller without game:update", endpoint
+        );
+
+        // With game:update: allowed through the gate.
+        let permitted = common::make_token(user.id, vec![], vec!["game:update".to_string()]);
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {}", permitted)))
+            .set_json(&body)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, req).await.status(),
+            StatusCode::OK,
+            "{} must allow a caller holding game:update", endpoint
+        );
+
+        // `system:administer` bypasses it, as everywhere else.
+        let admin = common::make_token(
+            user.id,
+            vec![],
+            vec![AppSpecialPermission::SystemAdminister.as_str().to_string()],
+        );
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {}", admin)))
+            .set_json(&body)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, req).await.status(),
+            StatusCode::OK,
+            "{} must allow a system administrator", endpoint
+        );
+    }
 }
 
 fn tournament_create_payload() -> serde_json::Value {
