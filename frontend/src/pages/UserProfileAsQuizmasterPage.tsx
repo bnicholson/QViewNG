@@ -2,18 +2,18 @@ import UserGamesAsQuizmasterTable from '../components/UserGamesAsQuizmasterTable
 
 export const UserProfileAsQuizmasterPage = ({
   userId,
-  isSuperUser,
+  canAdminister,
   isOwnProfile = false,
 }: {
   userId: string
-  isSuperUser: boolean
+  canAdminister: boolean
   isOwnProfile?: boolean
 }) => {
   return (
     <UserGamesAsQuizmasterTable
       userId={userId}
-      showCreateButton={isSuperUser}
-      showDeleteButton={isSuperUser}
+      showCreateButton={canAdminister}
+      showDeleteButton={canAdminister}
       showAuditColumns={isOwnProfile}
     />
   )

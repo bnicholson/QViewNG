@@ -1,6 +1,6 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
 use serde::{Deserialize, Serialize};
-use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource}, role::AppRole, room::Room, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, users_roles::NewUsersRole}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext}}, models::{self, permission::{AppAction, AppResource, AppSpecialPermission}, role::AppRole, room::Room, tournament_admin::{NewTournamentAdmin, TournamentAdmin}, users_roles::NewUsersRole}};
 use crate::models::tournament::{NewTournament, NewTournamentPayload, Tournament, TournamentChangeset};
 use crate::models::tournament_admin::TournamentAdminChangeset;
 use crate::models::common::{PaginationParams,SearchDateParams};
@@ -120,11 +120,10 @@ async fn read(
     let can_view_pairing_code = req
         .extensions()
         .get::<UserContext>()
-        .map(|ctx| ctx.roles.iter().any(|r| {
-            r == AppRole::SuperUser.as_str()
-                || r == AppRole::TournamentManager.as_str()
-                || r == AppRole::TournamentAdmin.as_str()
-        }))
+        .map(|ctx| {
+            ctx.is_system_administrator()
+                || ctx.has(AppSpecialPermission::TournamentReadPairingCode)
+        })
         .unwrap_or(false);
 
     let mut body = serde_json::to_value(&tournament).unwrap();
@@ -822,7 +821,7 @@ async fn create(
     tracing::debug!("Line {}, User Context: {:?}", line!(), user_ctx);
     
     let tour_create_permission = format!["{}:{}", AppResource::Tournament.as_str(), AppAction::Create.as_str()];
-    if !user_ctx.permissions.contains(&tour_create_permission) {
+    if !user_ctx.can(&tour_create_permission) {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

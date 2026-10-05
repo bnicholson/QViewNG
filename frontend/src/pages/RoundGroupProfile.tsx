@@ -43,7 +43,7 @@ export const RoundGroupProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!session || !division || !tournament) return <div>Loading Session…</div>
 
-  const { isOwnerOrSuperUser, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/division-session/${sessionid}/overview` },
@@ -64,7 +64,7 @@ export const RoundGroupProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <RoundGroupProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={isOwnerOrSuperUser} />
+            <RoundGroupProfileOverviewPage session={session} division={division} onUpdated={setSession} canEdit={isOwnerOrSystemAdmin} />
           )}
           {props.childRoute === 'rounds' && (
             // Rounds belong to a division session; Division and Session are fixed context here.

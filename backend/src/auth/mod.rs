@@ -6,7 +6,7 @@ use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey}
 use chrono::{Utc, Duration};
 use uuid::Uuid;
 
-use crate::{auth::policies::{Policy, PolicyContext, UserContext}, errors::AppError, models::role::AppRole};
+use crate::{auth::policies::{Policy, PolicyContext, UserContext}, errors::AppError, models::permission::AppSpecialPermission};
 
 pub(crate) const REFRESH_COOKIE: &str = "refresh_token";
 pub(crate) const ACCESS_EXPIRY_HOURS: i64 = 1;
@@ -105,8 +105,8 @@ pub(crate) fn clear_refresh_cookie() -> cookie::Cookie<'static> {
 }
 
 /// Access check for tournament-scoped, view-restricted sections (Server Monitor,
-/// Server Stats): allowed only for super users, the tournament's owner, or one of the
-/// tournament's admins. `user_ctx` is None for unauthenticated requests (always denied).
+/// Server Stats): allowed only for system administrators, the tournament's owner, or one of
+/// the tournament's admins. `user_ctx` is None for unauthenticated requests (always denied).
 pub(crate) fn can_view_tournament_restricted_section(
     db: &mut crate::database::Connection,
     tournament_id: Uuid,
@@ -116,8 +116,8 @@ pub(crate) fn can_view_tournament_restricted_section(
         Some(c) => c,
         None => return false,
     };
-    // Super users may view everything.
-    if ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
+    // `system:administer` may view everything.
+    if ctx.is_system_administrator() {
         return true;
     }
     // The tournament's owner.
@@ -134,13 +134,13 @@ pub(crate) fn is_rbac_and_abac_authorized<R>(ctx: &PolicyContext<R>, permission:
 where
     PolicyContext<R>: Policy<R>
 {
-    // Super users bypass all authorization checks.
-    if ctx.user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str()) {
+    // `system:administer` bypasses all authorization checks.
+    if ctx.user_ctx.is_system_administrator() {
         return Ok(());
     }
 
     // RBAC gate
-    if !ctx.user_ctx.permissions.contains(&permission.to_string()) {
+    if !ctx.user_ctx.has_permission(permission) {
         return Err(AppError::Forbidden);
     }
 
@@ -184,9 +184,9 @@ mod tests {
     }
 
     #[test]
-    fn super_user_bypasses_rbac_and_abac() {
-        let ctx = make_ctx(vec![AppRole::SuperUser.as_str()], vec![]);
-        // No permissions in the token, yet every check must pass.
+    fn system_administrator_bypasses_rbac_and_abac() {
+        let ctx = make_ctx(vec![], vec![AppSpecialPermission::SystemAdminister.as_str()]);
+        // No resource permissions in the token, yet every check must pass.
         assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
         assert!(is_rbac_and_abac_authorized(&ctx, "tournament:edit",   "tournament").is_ok());
         assert!(is_rbac_and_abac_authorized(&ctx, "tournament:delete", "tournament").is_ok());
@@ -195,14 +195,21 @@ mod tests {
     }
 
     #[test]
-    fn non_super_user_without_permission_is_forbidden() {
+    fn without_permission_is_forbidden() {
         let ctx = make_ctx(vec!["member"], vec![]);
         assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_err());
     }
 
     #[test]
-    fn non_super_user_with_permission_is_allowed() {
+    fn with_permission_is_allowed() {
         let ctx = make_ctx(vec!["tournament_manager"], vec!["tournament:create"]);
         assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_ok());
+    }
+
+    #[test]
+    fn a_role_name_alone_grants_nothing() {
+        // The role that used to be the bypass is now inert without the permission behind it.
+        let ctx = make_ctx(vec!["super_user"], vec![]);
+        assert!(is_rbac_and_abac_authorized(&ctx, "tournament:create", "tournament").is_err());
     }
 }

@@ -2,7 +2,7 @@ use strum::IntoEnumIterator;
 use uuid::Uuid;
 use chrono::Utc;
 
-use crate::{database, models::{permission::{AppAction, AppResource, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database, models::{permission::{AppAction, AppResource, AppSpecialPermission, PermissionBuilder}, role::{AppRole, RoleBuilder}, role_permission::RolePermissionBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 
 
 pub fn default_password() -> String {
@@ -69,8 +69,12 @@ fn add_super_user(db: &mut database::Connection) {
 /// Role permission tree (each role is self-contained):
 ///
 ///  member             → :read on every resource
-///  tournament_manager → tournament:create/update/delete only (member covers :read)
-///  super_user         → full CRUD on every resource
+///  tournament_manager → tournament:create/update/delete, plus the tournament views and the
+///                       participant user scope (member covers :read)
+///  tournament_admin   → the same minus tournament:create and the participant user scope
+///  super_user         → every permission, including `system:administer`
+///
+/// Authorization never looks at a role name; the role rows exist only to carry these grants.
 fn init_roles_and_permissions(db: &mut database::Connection) {
     use std::collections::HashMap;
 
@@ -88,11 +92,30 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
         }
     }
 
+    // ── Permissions that are not a plain resource × action pair ───────────────
+    let mut special_ids: HashMap<&str, Uuid> = HashMap::new();
+    for special in AppSpecialPermission::iter() {
+        let perm = PermissionBuilder::new(special.as_str())
+            .resource(special.resource())
+            .action(special.action())
+            .build_and_insert(db)
+            .unwrap();
+        special_ids.insert(special.as_str(), perm.id);
+    }
+    let special = |p: AppSpecialPermission| *special_ids.get(p.as_str()).unwrap();
+
     let read_ids: Vec<Uuid> = AppResource::iter()
         .map(|r| *perm_ids.get(&(r.as_str(), AppAction::Read.as_str())).unwrap())
         .collect();
 
-    let all_ids: Vec<Uuid> = perm_ids.values().copied().collect();
+    let all_ids: Vec<Uuid> = perm_ids.values().copied().chain(special_ids.values().copied()).collect();
+
+    // The tournament sections that used to be gated on holding the manager/admin role.
+    let tour_view_permissions: Vec<Uuid> = vec![
+        special(AppSpecialPermission::TournamentReadPairingCode),
+        special(AppSpecialPermission::TournamentReadAudit),
+        special(AppSpecialPermission::TournamentUpdateSchedule),
+    ];
 
     let tour_group_update_id = perm_ids.get(&(AppResource::TournamentGroup.as_str(), AppAction::Update.as_str())).copied();
     let tour_manager_permissions: Vec<Uuid> = [
@@ -120,6 +143,14 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
         .iter()
         .copied()
         .filter(|id| Some(*id) != tour_create_id)
+        .chain(tour_view_permissions.iter().copied())
+        .collect();
+
+    // Managers additionally see the participants of the tournaments they manage.
+    let tour_manager_permissions: Vec<Uuid> = tour_manager_permissions
+        .into_iter()
+        .chain(tour_view_permissions.iter().copied())
+        .chain([special(AppSpecialPermission::UserReadTournamentParticipants)])
         .collect();
 
     // ── Build one role row per AppRole variant ────────────────────────────────

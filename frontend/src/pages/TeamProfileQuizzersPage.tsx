@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
@@ -38,11 +39,8 @@ export const TeamProfileQuizzersPage = ({ teamid, showSensitiveColumns, showAudi
   const [slots, setSlots] = useState<(string | null)[]>([null, null, null, null, null, null]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Only tournament managers, tournament admins, and superusers may add/remove roster quizzers.
-  const canManage =
-    (session?.hasRole('super_user') ?? false) ||
-    (session?.hasRole('tournament_manager') ?? false) ||
-    (session?.hasRole('tournament_admin') ?? false);
+  // Adding/removing roster quizzers edits the team.
+  const canManage = session?.can(PERMISSION.TEAM_UPDATE) ?? false;
 
   useEffect(() => {
     setIsLoading(true);

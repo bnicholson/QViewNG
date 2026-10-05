@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { PERMISSION } from '../auth/permissions'
 
 type ID = string
 
@@ -24,45 +25,51 @@ export interface UserSessionResponse {
 const MILLISECONDS_UNTIL_EXPIRY_CHECK = 10 * 1000 // check expiry every 10 seconds
 const REMAINING_TOKEN_EXPIRY_TIME_ALLOWED = 60 * 1000 // 1 minute before token should be refreshed
 
+/**
+ * The permissions carried by the access token. Deliberately exposes no role accessor: every
+ * access decision in the UI resolves against a permission, so the token's `roles` claim is
+ * informational only (a user's roles are shown on their Permissions page, read from the API).
+ */
 class Permissions {
-  private readonly rolesSet: Set<string>
-  private readonly rolesArray: string[]
-
   private readonly permissionsSet: Set<string>
   private readonly permissionsArray: string[]
 
-  constructor(roles: string[], perms: string[]) {
-    this.rolesArray = roles
+  constructor(perms: string[]) {
     this.permissionsArray = perms
-
-    this.rolesSet = new Set(this.rolesArray)
     this.permissionsSet = new Set(this.permissionsArray)
-  }
-
-  public get roles(): string[] {
-    return this.rolesArray
   }
 
   public get permissions(): string[] {
     return this.permissionsArray
   }
 
-  public hasRole = (role: string): boolean => {
-    return this.rolesSet.has(role)
-  }
-
+  /** Exact check — true only when this permission was granted. */
   public hasPermission = (permission: string): boolean => {
     return this.permissionsSet.has(permission)
+  }
+
+  /**
+   * The check to reach for. True when the permission was granted, or when the user holds
+   * `system:administer` — mirroring the backend's single unrestricted-access bypass in
+   * `is_rbac_and_abac_authorized`, so the UI and the API agree on who may act.
+   */
+  public can = (permission: string): boolean => {
+    return this.permissionsSet.has(permission)
+      || this.permissionsSet.has(PERMISSION.SYSTEM_ADMINISTER)
+  }
+
+  public get isSystemAdministrator(): boolean {
+    return this.permissionsSet.has(PERMISSION.SYSTEM_ADMINISTER)
   }
 }
 
 interface Session {
   expiresOnUTC: number
   userId: ID
-  roles: string[]
   permissions: string[]
-  hasRole(role: string): boolean
   hasPermission(permission: string): boolean
+  can(permission: string): boolean
+  isSystemAdministrator: boolean
 }
 
 interface AuthContext {
@@ -97,15 +104,15 @@ async function seedAccessToken(context: AuthContext): Promise<boolean> {
     }
     const responseJson = await response.json()
     const parsedToken = parseJwt(responseJson.access_token) as AccessTokenClaims
-    const permissions = new Permissions(parsedToken.roles, parsedToken.permissions)
+    const permissions = new Permissions(parsedToken.permissions)
     context.setAccessToken(responseJson.access_token)
     context.setSession({
       userId: parsedToken.sub,
       expiresOnUTC: parsedToken.exp,
-      roles: permissions.roles,
       permissions: permissions.permissions,
-      hasRole: permissions.hasRole,
       hasPermission: permissions.hasPermission,
+      can: permissions.can,
+      isSystemAdministrator: permissions.isSystemAdministrator,
     })
     return true
   } catch {
@@ -159,15 +166,15 @@ export const useAuth = () => {
     if (response.ok) {
       const responseJson = await response.json()
       const parsedToken = parseJwt(responseJson.access_token) as AccessTokenClaims
-      const permissions = new Permissions(parsedToken.roles, parsedToken.permissions)
+      const permissions = new Permissions(parsedToken.permissions)
       context.setAccessToken(responseJson.access_token)
       context.setSession({
         userId: parsedToken.sub,
         expiresOnUTC: parsedToken.exp,
-        roles: permissions.roles,
         permissions: permissions.permissions,
         hasPermission: permissions.hasPermission,
-        hasRole: permissions.hasRole,
+        can: permissions.can,
+        isSystemAdministrator: permissions.isSystemAdministrator,
       })
       localStorage.setItem('qview_session', '1')
       return null

@@ -72,10 +72,10 @@ export const TournamentGroupTournamentsPage = ({ tgid, canEdit, canCreate }: Pro
       const linkedIds = new Set(linked.map(t => String(t.tid)))
       setSearchResults(
         result.items.filter(t => {
-          const isSuperUser = session?.hasRole('super_user') ?? false
+          const readsAll = session?.isSystemAdministrator ?? false
           return t.tname.toLowerCase().includes(lower) &&
             !linkedIds.has(String(t.tid)) &&
-            (isSuperUser || t.owner_id === session?.userId)
+            (readsAll || t.owner_id === session?.userId)
         })
       )
     } catch (e: any) {

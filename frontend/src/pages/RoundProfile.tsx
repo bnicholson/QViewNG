@@ -43,7 +43,7 @@ export const RoundProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!round || !division || !tournament) return <div>Loading Round…</div>
 
-  const { isOwnerOrSuperUser, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/round/${roundid}/overview` },
@@ -68,7 +68,7 @@ export const RoundProfile = (props: { childRoute?: string }) => {
               division={division}
               tournament={tournament}
               onUpdated={setRound}
-              canEdit={isOwnerOrSuperUser}
+              canEdit={isOwnerOrSystemAdmin}
             />
           )}
           {props.childRoute === 'games' && (

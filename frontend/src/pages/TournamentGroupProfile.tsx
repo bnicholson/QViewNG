@@ -29,7 +29,7 @@ export const TournamentGroupProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!group) return <div>Loading Tournament Group…</div>
 
-  const isOwner = session?.userId === group.owner_id || session?.hasRole('super_user')
+  const isOwner = session?.userId === group.owner_id || session?.isSystemAdministrator
   const canEdit = isOwner ?? false
 
   const navItems = [

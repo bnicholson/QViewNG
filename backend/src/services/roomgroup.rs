@@ -9,7 +9,7 @@ use uuid::Uuid;
 // ABAC) — the same permission that guards room management.
 fn has_room_permission(user_ctx: &UserContext, action: AppAction) -> bool {
     let permission = format!("{}:{}", AppResource::Room.as_str(), action.as_str());
-    user_ctx.permissions.contains(&permission)
+    user_ctx.can(&permission)
 }
 
 #[get("")]

@@ -19,10 +19,12 @@ interface Props {
   canCreate: boolean
   canDelete: boolean
   isTournamentManager: boolean
-  isSuperUser: boolean
+  /** Holder of `tournament:read_pairing_code`. */
+  canViewPairingCode: boolean
+  canAdminister: boolean
   isOwnProfile?: boolean
-  targetIsSuperUser: boolean
-  targetIsTournamentManager: boolean
+  targetCanAdminister: boolean
+  targetCanCreateTournaments: boolean
 }
 
 function formatDateRange(from: string, to: string): string {
@@ -202,7 +204,7 @@ function ApplyView({ userId }: { userId: string }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete, isTournamentManager, isSuperUser, isOwnProfile = false, targetIsSuperUser, targetIsTournamentManager }: Props) => {
+export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete, isTournamentManager, canViewPairingCode, canAdminister, isOwnProfile = false, targetCanAdminister, targetCanCreateTournaments }: Props) => {
   const [rows, setRows] = useState<UserManagedTournamentRowTS[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(0)
@@ -251,7 +253,7 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
 
   return (
     <Box>
-      {isSuperUser && !targetIsTournamentManager && (
+      {canAdminister && !targetCanCreateTournaments && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: "left" }}>
           Note: <em>This user does not have the appropriate permissions to create or manage Tournaments and Tournament Groups.</em>
         </Typography>
@@ -259,7 +261,7 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'left' }}>
         This page shows all tournaments that you are the owner and manager of.
       </Typography>
-      {isSuperUser && !targetIsSuperUser && targetIsTournamentManager && (
+      {canAdminister && !targetCanAdminister && targetCanCreateTournaments && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
             variant="outlined"
@@ -296,7 +298,7 @@ export const UserProfileManagedTournamentsPage = ({ userId, canCreate, canDelete
       />
       <TournamentEditorDialog
         isOpen={editorOpen}
-        canViewPairingCode={isTournamentManager || isSuperUser}
+        canViewPairingCode={canViewPairingCode}
         onCancel={() => setEditorOpen(false)}
         onSave={handleCreated}
       />

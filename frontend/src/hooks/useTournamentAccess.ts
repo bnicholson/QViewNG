@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PERMISSION } from '../auth/permissions'
 import { useAuth } from './useAuth';
 import { AdminAPI } from '../features/AdminAPI';
 
@@ -10,11 +11,11 @@ import { AdminAPI } from '../features/AdminAPI';
  * Mirrors the logic originally defined inline in TournamentProfile.
  */
 export interface TournamentAccess {
-  /** Superuser or the tournament's owner. */
-  isOwnerOrSuperUser: boolean;
-  /** Superuser, owner, or one of this tournament's designated admins (resolved via API). */
+  /** Holder of `system:administer`, or the tournament's owner. */
+  isOwnerOrSystemAdmin: boolean;
+  /** `system:administer`, the owner, or one of this tournament's designated admins (via API). */
   canViewAdmins: boolean;
-  /** Superuser, tournament_manager, or tournament_admin (role-based). */
+  /** Holder of `tournament:read_pairing_code`. */
   canViewPairingCode: boolean;
   /** Who may see "Created" / "Last Modified" audit columns on entity tables. */
   canViewAuditColumns: boolean;
@@ -31,7 +32,7 @@ export function useTournamentAccess(
 
   useEffect(() => {
     if (!tid || !ownerId || !session) { setCanViewAdmins(false); return; }
-    if (session.hasRole('super_user') || session.userId === ownerId) {
+    if (session.isSystemAdministrator || session.userId === ownerId) {
       setCanViewAdmins(true);
       return;
     }
@@ -43,22 +44,19 @@ export function useTournamentAccess(
     return () => { cancelled = true; };
   }, [tid, ownerId, session?.userId]);
 
-  const isOwnerOrSuperUser =
-    (session?.hasRole('super_user') ?? false) ||
+  const isOwnerOrSystemAdmin =
+    (session?.isSystemAdministrator ?? false) ||
     (session?.userId === ownerId);
 
   const canViewPairingCode =
-    (session?.hasRole('super_user') ?? false) ||
-    (session?.hasRole('tournament_manager') ?? false) ||
-    (session?.hasRole('tournament_admin') ?? false);
+    session?.can(PERMISSION.TOURNAMENT_READ_PAIRING_CODE) ?? false;
 
   const canViewAuditColumns =
     canViewAdmins ||
-    (session?.hasRole('tournament_manager') ?? false) ||
-    (session?.hasRole('tournament_admin') ?? false);
+    (session?.can(PERMISSION.TOURNAMENT_READ_AUDIT) ?? false);
 
   const canCreate = (permission: string): boolean =>
-    canViewAdmins && (session?.hasPermission(permission) ?? false);
+    canViewAdmins && (session?.can(permission) ?? false);
 
-  return { isOwnerOrSuperUser, canViewAdmins, canViewPairingCode, canViewAuditColumns, canCreate };
+  return { isOwnerOrSystemAdmin, canViewAdmins, canViewPairingCode, canViewAuditColumns, canCreate };
 }

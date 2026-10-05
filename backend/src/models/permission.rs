@@ -58,6 +58,59 @@ impl AppAction {
     }
 }
 
+/// Permissions that are not a plain `resource:action` CRUD pair. Authorization that used to key
+/// off a role name keys off one of these instead, so a deployment can move a capability between
+/// roles without a code change.
+#[derive(EnumIter, Clone, Copy)]
+pub enum AppSpecialPermission {
+    /// Unrestricted access. The permission form of what the `super_user` role used to mean, and
+    /// the single bypass honoured by `is_rbac_and_abac_authorized`.
+    SystemAdminister,
+    /// Reach the /dev page and the developer tooling it links to.
+    SystemAccessDevTools,
+    /// See a tournament's pairing code; it is stripped from the payload otherwise.
+    TournamentReadPairingCode,
+    /// See "Created" / "Last Modified" audit columns on a tournament's entity tables.
+    TournamentReadAudit,
+    /// Use the schedule editor rather than the read-only schedule view.
+    TournamentUpdateSchedule,
+    /// Read any user's account, not just one's own.
+    UserReadAny,
+    /// Read the users participating in tournaments one manages.
+    UserReadTournamentParticipants,
+}
+
+impl AppSpecialPermission {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AppSpecialPermission::SystemAdminister               => "system:administer",
+            AppSpecialPermission::SystemAccessDevTools           => "system:access_dev_tools",
+            AppSpecialPermission::TournamentReadPairingCode      => "tournament:read_pairing_code",
+            AppSpecialPermission::TournamentReadAudit            => "tournament:read_audit",
+            AppSpecialPermission::TournamentUpdateSchedule       => "tournament:update_schedule",
+            AppSpecialPermission::UserReadAny                    => "user:read_any",
+            AppSpecialPermission::UserReadTournamentParticipants => "user:read_tournament_participants",
+        }
+    }
+
+    pub fn resource(&self) -> &'static str {
+        match self {
+            AppSpecialPermission::SystemAdminister
+            | AppSpecialPermission::SystemAccessDevTools => "system",
+            AppSpecialPermission::TournamentReadPairingCode
+            | AppSpecialPermission::TournamentReadAudit
+            | AppSpecialPermission::TournamentUpdateSchedule => AppResource::Tournament.as_str(),
+            AppSpecialPermission::UserReadAny
+            | AppSpecialPermission::UserReadTournamentParticipants => AppResource::User.as_str(),
+        }
+    }
+
+    /// The part of `as_str()` after the colon, stored in `permissions.action`.
+    pub fn action(&self) -> &'static str {
+        self.as_str().split_once(':').map(|(_, a)| a).unwrap_or(self.as_str())
+    }
+}
+
 /// Builder for a `Permission`. The `resource` + `action` fields provide
 /// structured decomposition of the `name` (e.g. `name="post:create"`,
 /// `resource="post"`, `action="create"`), enabling fine-grained permission

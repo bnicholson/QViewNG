@@ -49,7 +49,7 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!bracket || !division || !tournament) return <div>Loading…</div>
 
-  const { isOwnerOrSuperUser, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
   const label = typeLabel(bracket.type)
 
   const navItems = [
@@ -73,7 +73,7 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'overview' && (
             <PoolBracketProfileOverviewPage
               bracket={bracket} division={division}
-              entityLabel={label} onUpdated={setBracket} canEdit={isOwnerOrSuperUser} />
+              entityLabel={label} onUpdated={setBracket} canEdit={isOwnerOrSystemAdmin} />
           )}
           {props.childRoute === 'teams' && (
             // Teams associated with this pool bracket via its teamgroup. Creating a team here also

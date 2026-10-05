@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
 use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
-use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::{common::{EntityResponse, PagedResponse}, tournament::TournamentWithRooms}};
+use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, permission::AppSpecialPermission, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::{common::{EntityResponse, PagedResponse}, tournament::TournamentWithRooms}};
 use backend::models::{division::Division, tournament::Tournament};
 use backend::database::Database;
 use diesel::prelude::*;
@@ -142,17 +142,41 @@ async fn get_by_id_works() {
         "pairing_code must be hidden from `member` callers"
     );
 
-    // Act + Assert: TournamentManager, TournamentAdmin, and SuperUser all see pairing_code.
+    // Act + Assert: a role name alone no longer reveals pairing_code — only a permission does.
 
-    for role in [
-        AppRole::TournamentManager.as_str(),
-        AppRole::TournamentAdmin.as_str(),
-        AppRole::SuperUser.as_str(),
+    let role_only_token = common::make_token(
+        user.id,
+        vec![
+            AppRole::TournamentManager.as_str().to_string(),
+            AppRole::TournamentAdmin.as_str().to_string(),
+            AppRole::SuperUser.as_str().to_string(),
+        ],
+        vec!["tournament:read".to_string()],
+    );
+    let role_only_req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .insert_header(("Authorization", format!("Bearer {}", role_only_token)))
+        .to_request();
+
+    let role_only_resp = test::call_service(&app, role_only_req).await;
+    assert_eq!(role_only_resp.status(), StatusCode::OK);
+
+    let role_only_body: serde_json::Value = test::read_body_json(role_only_resp).await;
+    assert!(
+        role_only_body.get("pairing_code").is_none(),
+        "pairing_code must be hidden from a caller holding only role names"
+    );
+
+    // Act + Assert: `tournament:read_pairing_code` reveals it, and so does `system:administer`.
+
+    for permission in [
+        AppSpecialPermission::TournamentReadPairingCode.as_str(),
+        AppSpecialPermission::SystemAdminister.as_str(),
     ] {
         let privileged_token = common::make_token(
             user.id,
-            vec![role.to_string()],
-            vec!["tournament:read".to_string()],
+            vec![],
+            vec!["tournament:read".to_string(), permission.to_string()],
         );
         let privileged_req = test::TestRequest::get()
             .uri(uri.as_str())
@@ -167,7 +191,7 @@ async fn get_by_id_works() {
             privileged_body.get("pairing_code").and_then(|v| v.as_str()),
             Some(tournaments[0].pairing_code.as_str()),
             "{} must receive pairing_code in the response",
-            role
+            permission
         );
     }
 
@@ -175,7 +199,7 @@ async fn get_by_id_works() {
     let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
     assert!(apicalllog_get_result.is_ok());
     let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
-    // 1 anon + 1 member + 3 privileged = 5 calls
+    // 1 anon + 1 member + 1 roles-only + 2 permitted = 5 calls
     assert_eq!(apicalllog_records.iter().count(), 5);
     assert!(apicalllog_records.iter().all(|r| r.method.as_str() == "GET"));
     assert!(apicalllog_records.iter().all(|r| r.uri.as_str() == uri));
@@ -337,7 +361,7 @@ async fn create_with_tournament_create_permission_works() {
 }
 
 #[actix_web::test]
-async fn create_as_super_user_works() {
+async fn create_as_system_administrator_works() {
 
     // Arrange:
 
@@ -346,10 +370,11 @@ async fn create_as_super_user_works() {
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = fixtures::users::seed_user(&mut conn);
+    // `system:administer` alone, with no tournament:create — the bypass must carry the request.
     let token = common::make_token(
         user.id,
-        vec!["super_user".to_string()],
-        vec!["tournament:create".to_string()],
+        vec![],
+        vec![AppSpecialPermission::SystemAdminister.as_str().to_string()],
     );
 
     let app = test::init_service(

@@ -2,18 +2,18 @@ import UserGamesAsContentJudgeTable from '../components/UserGamesAsContentJudgeT
 
 export const UserProfileAsContentJudgePage = ({
   userId,
-  isSuperUser,
+  canAdminister,
   isOwnProfile = false,
 }: {
   userId: string
-  isSuperUser: boolean
+  canAdminister: boolean
   isOwnProfile?: boolean
 }) => {
   return (
     <UserGamesAsContentJudgeTable
       userId={userId}
-      showCreateButton={isSuperUser}
-      showDeleteButton={isSuperUser}
+      showCreateButton={canAdminister}
+      showDeleteButton={canAdminister}
       showAuditColumns={isOwnProfile}
     />
   )

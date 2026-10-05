@@ -1,4 +1,5 @@
 
+use crate::models::permission::AppSpecialPermission;
 use crate::database;
 use crate::models::roster_coach::RosterCoach;
 use crate::models::roster_quizzer::RosterQuizzer;
@@ -235,15 +236,28 @@ pub fn read_all(db: &mut database::Connection, pagination: &PaginationParams) ->
 }
 
 /// Whether `user_id` has the named role (e.g. "tournament_manager", "super_user").
-fn user_has_role(db: &mut database::Connection, user_id_val: Uuid, role_name: &str) -> QueryResult<bool> {
-    let role = match crate::models::role::read_by_name(db, role_name) {
-        Ok(r) => r,
+/// Whether `user_id_val` holds `permission_name`, resolved through whichever roles they are
+/// assigned. Roles remain the delivery mechanism for grants; nothing here tests a role's name.
+fn user_has_permission(
+    db: &mut database::Connection,
+    user_id_val: Uuid,
+    permission_name: &str,
+) -> QueryResult<bool> {
+    let permission = match crate::models::permission::read_by_name(db, permission_name) {
+        Ok(p) => p,
         Err(_) => return Ok(false),
     };
-    use crate::schema::users_roles::dsl::*;
-    let count: i64 = users_roles
-        .filter(user_id.eq(user_id_val))
-        .filter(role_id.eq(role.id))
+    let role_ids: Vec<Uuid> = {
+        use crate::schema::users_roles::dsl::*;
+        users_roles.filter(user_id.eq(user_id_val)).select(role_id).load::<Uuid>(db)?
+    };
+    if role_ids.is_empty() {
+        return Ok(false);
+    }
+    use crate::schema::roles_permissions::dsl::*;
+    let count: i64 = roles_permissions
+        .filter(role_id.eq_any(&role_ids))
+        .filter(permission_id.eq(permission.id))
         .count()
         .get_result(db)?;
     Ok(count > 0)
@@ -252,9 +266,10 @@ fn user_has_role(db: &mut database::Connection, user_id_val: Uuid, role_name: &s
 /// Users eligible to be assigned as quizzers on a team, from the perspective of `user_id`:
 ///   1. the user's "My Quizzers" set — quizzers across every roster they coach (created or shared),
 ///      plus quizzer accounts they created; and
-///   2. if the user is a tournament manager, every participant (team coaches & quizzers, game
+///   2. with `user:read_tournament_participants`, every participant (team coaches & quizzers, game
 ///      quizmasters & content judges, tournament admins & owners) of any tournament they manage;
-///      a super user gets that same participant set across *all* tournaments.
+///      with `user:read_any` (or `system:administer`) that same participant set across *all*
+///      tournaments.
 ///
 /// Returned non-deleted and ordered alphabetically by display name, so a dropdown can use them
 /// directly.
@@ -288,11 +303,16 @@ pub fn read_eligible_quizzers_for_user(db: &mut database::Connection, user_id_va
         ids.extend(created_ids);
     }
 
-    // (2) Participants of managed tournaments (managers) or all tournaments (super users).
-    let is_super = user_has_role(db, user_id_val, crate::models::role::AppRole::SuperUser.as_str())?;
-    let is_manager = user_has_role(db, user_id_val, crate::models::role::AppRole::TournamentManager.as_str())?;
-    if is_super || is_manager {
-        let tour_ids: Vec<Uuid> = if is_super {
+    // (2) Participants of managed tournaments, or of all tournaments for an unrestricted reader.
+    let reads_all = user_has_permission(db, user_id_val, AppSpecialPermission::SystemAdminister.as_str())?
+        || user_has_permission(db, user_id_val, AppSpecialPermission::UserReadAny.as_str())?;
+    let reads_managed = user_has_permission(
+        db,
+        user_id_val,
+        AppSpecialPermission::UserReadTournamentParticipants.as_str(),
+    )?;
+    if reads_all || reads_managed {
+        let tour_ids: Vec<Uuid> = if reads_all {
             use crate::schema::tournaments::dsl::*;
             tournaments.select(tid).load::<Uuid>(db)?
         } else {

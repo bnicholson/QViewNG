@@ -2,16 +2,16 @@ import UserTeamsAsQuizzerTable from '../components/UserTeamsAsQuizzerTable'
 
 export const UserProfileAsQuizzerPage = ({
   userId,
-  isSuperUser,
+  canAdminister,
 }: {
   userId: string
-  isSuperUser: boolean
+  canAdminister: boolean
 }) => {
   return (
     <UserTeamsAsQuizzerTable
       userId={userId}
-      showCreateButton={isSuperUser}
-      showDeleteButton={isSuperUser}
+      showCreateButton={canAdminister}
+      showDeleteButton={canAdminister}
     />
   )
 }

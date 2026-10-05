@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PERMISSION } from '../auth/permissions'
 import { useAuth } from '../hooks/useAuth'
 
 interface UserProfile {
@@ -33,9 +34,9 @@ export const UserProfileOverviewPage = ({ userId }: { userId: string }) => {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
 
-  const isSuperUser = auth.session?.hasRole('super_user') ?? false
+  const canReadAnyUser = auth.session?.can(PERMISSION.USER_READ_ANY) ?? false
   const isOwnProfile = auth.session?.userId === userId
-  const canViewAll = isSuperUser || isOwnProfile
+  const canViewAll = canReadAnyUser || isOwnProfile
 
   useEffect(() => {
     fetch(`/api/users/${userId}`)

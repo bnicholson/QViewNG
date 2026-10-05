@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { PERMISSION } from '../auth/permissions'
 import {
   Button, Card, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
 } from '@mui/material';
@@ -29,8 +30,10 @@ export const TournamentFinder = () => {
   const [tournaments, setTournaments] = useState<TournamentTS[]>([])
   const [tournamentEditor, setTournamentEditor] = useState<{ isOpen: boolean, tournament: TournamentTS | undefined }>({ isOpen: false, tournament: undefined });
   const { session } = useAuth();
-  const isTournamentCreate = session?.hasPermission('tournament:create') ?? false;
-  const isTournamentManager = (session?.hasRole('super_user') ?? false) || (session?.hasRole('tournament_manager') ?? false);
+  // Creating a tournament is also what makes someone a manager of tournaments, so the same
+  // permission gates the create dialog and the "tournaments I manage" shortcut.
+  const isTournamentCreate = session?.can(PERMISSION.TOURNAMENT_CREATE) ?? false;
+  const isTournamentManager = isTournamentCreate;
   const dispatcher = useAppDispatch();
   const navigate = useNavigate();
   const openTournament = (tournament: TournamentTS) => {

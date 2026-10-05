@@ -346,7 +346,7 @@ function RosterPanel({
 
 // ── Main Page ───────────────────────────────────────────────────────────────
 
-export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; isSuperUser: boolean }) => {
+export const UserProfileAsCoachQuizzerRostersPage = (props: { userId: string; canAdminister: boolean }) => {
   const { userId } = props;
   const { accessToken } = useAuth();
 

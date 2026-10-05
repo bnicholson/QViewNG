@@ -4,11 +4,11 @@ import UserMyTeamsTable from '../components/UserMyTeamsTable'
 
 export const UserProfileMyTeamsPage = ({
   userId,
-  isSuperUser,
+  canAdminister,
   isOwnProfile = false,
 }: {
   userId: string
-  isSuperUser: boolean
+  canAdminister: boolean
   isOwnProfile?: boolean
 }) => {
   return (
@@ -18,8 +18,8 @@ export const UserProfileMyTeamsPage = ({
       </Typography>
       <UserMyTeamsTable
         userId={userId}
-        showCreateButton={isSuperUser}
-        showDeleteButton={isSuperUser}
+        showCreateButton={canAdminister}
+        showDeleteButton={canAdminister}
         showAuditColumns={isOwnProfile}
       />
     </Box>

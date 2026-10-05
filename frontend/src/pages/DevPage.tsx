@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { PERMISSION } from '../auth/permissions'
 import { Navigate } from 'react-router'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
@@ -29,7 +30,7 @@ export function DevPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
 
-  if (!session?.hasRole('super_user')) return <Navigate to="/404" replace />
+  if (!session?.can(PERMISSION.SYSTEM_ACCESS_DEV_TOOLS)) return <Navigate to="/404" replace />
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4, px: 2 }}>

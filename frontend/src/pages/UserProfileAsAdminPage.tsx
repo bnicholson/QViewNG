@@ -2,18 +2,18 @@ import UserTournamentsAsAdminTable from '../components/UserTournamentsAsAdminTab
 
 export const UserProfileAsAdminPage = ({
   userId,
-  isSuperUser,
+  canAdminister,
   isOwnProfile = false,
 }: {
   userId: string
-  isSuperUser: boolean
+  canAdminister: boolean
   isOwnProfile?: boolean
 }) => {
   return (
     <UserTournamentsAsAdminTable
       userId={userId}
-      showCreateButton={isSuperUser}
-      showDeleteButton={isSuperUser}
+      showCreateButton={canAdminister}
+      showDeleteButton={canAdminister}
       showAuditColumns={isOwnProfile}
     />
   )

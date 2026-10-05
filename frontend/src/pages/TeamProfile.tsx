@@ -60,7 +60,7 @@ export const TeamProfile = (props: { childRoute?: ChildRoute }) => {
         {props.childRoute === 'overview' && <TeamProfileOverviewPage teamid={teamid} />}
         {props.childRoute === 'quizzers' && (
           <TeamProfileQuizzersPage teamid={teamid}
-            showSensitiveColumns={access.isOwnerOrSuperUser}
+            showSensitiveColumns={access.isOwnerOrSystemAdmin}
             showAuditColumns={access.canViewAuditColumns} />
         )}
       </Stack>

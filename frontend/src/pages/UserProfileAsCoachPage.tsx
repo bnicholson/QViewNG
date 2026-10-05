@@ -2,16 +2,16 @@ import UserTeamsAsCoachTable from '../components/UserTeamsAsCoachTable'
 
 export const UserProfileAsCoachPage = ({
   userId,
-  isSuperUser,
+  canAdminister,
 }: {
   userId: string
-  isSuperUser: boolean
+  canAdminister: boolean
 }) => {
   return (
     <UserTeamsAsCoachTable
       userId={userId}
-      showCreateButton={isSuperUser}
-      showDeleteButton={isSuperUser}
+      showCreateButton={canAdminister}
+      showDeleteButton={canAdminister}
     />
   )
 }

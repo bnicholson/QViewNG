@@ -40,10 +40,10 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!division || !tournament) return <div>Loading Division…</div>
 
-  const { isOwnerOrSuperUser, canViewAdmins, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAdmins, canViewAuditColumns, canCreate } = access
 
   // Only super users, the tournament owner, and tournament admins may view Stats Groups.
-  const canViewStatsGroups = isOwnerOrSuperUser || canViewAdmins
+  const canViewStatsGroups = isOwnerOrSystemAdmin || canViewAdmins
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview',     to: `/division/${did}/overview`     },
@@ -71,7 +71,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} canEdit={isOwnerOrSuperUser} />
+            <DivisionProfileOverviewPage division={division} tournament={tournament} onUpdated={setDivision} canEdit={isOwnerOrSystemAdmin} />
           )}
           {props.childRoute === 'teams' && (
             <TeamsTable tid={tournament.tid} did={did}
@@ -82,7 +82,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           )}
           {props.childRoute === 'quizzers' && (
             <QuizzersTable did={did}
-              showSensitiveColumns={isOwnerOrSuperUser} showAuditColumns={canViewAuditColumns}
+              showSensitiveColumns={isOwnerOrSystemAdmin} showAuditColumns={canViewAuditColumns}
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'sessions' && (

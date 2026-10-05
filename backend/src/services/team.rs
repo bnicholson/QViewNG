@@ -2,7 +2,7 @@ use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post
 use serde_json::json;
 use crate::{database::Database, models::division::Division};
 use crate::auth::{is_rbac_and_abac_authorized, policies::{team::TeamPolicyResource, PolicyContext, UserContext}};
-use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, role::AppRole, team::{NewTeam, Team, TeamChangeset}};
+use crate::models::{self, common::PaginationParams, permission::{AppAction, AppResource}, team::{NewTeam, Team, TeamChangeset}};
 use crate::schema::divisions::dsl::{divisions as divisions_table};
 use crate::services::common::{EntityResponse, PagedResponse, process_response};
 // use utoipa::OpenApi;
@@ -147,15 +147,15 @@ async fn create(
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
-    let has_permission = user_ctx.permissions.contains(
+    let has_permission = user_ctx.can(
         &format!("{}:{}", AppResource::Team.as_str(), AppAction::Create.as_str())
     );
     let is_owner = tournament.owner_id == user_ctx.user_id;
     let is_admin = models::tournament_admin::is_admin(&mut conn, tournament.tid, user_ctx.user_id);
-    let is_super_user = user_ctx.roles.iter().any(|r| r == AppRole::SuperUser.as_str());
     let is_coach = item.coachid == user_ctx.user_id;
 
-    let is_authorized = is_super_user || has_permission || is_owner || is_admin || is_coach;
+    // `has_permission` already covers `system:administer` via `UserContext::can`.
+    let is_authorized = has_permission || is_owner || is_admin || is_coach;
     if !is_authorized {
         return Ok(HttpResponse::Unauthorized().finish());
     }

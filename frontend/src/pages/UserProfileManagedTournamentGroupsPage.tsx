@@ -6,15 +6,15 @@ interface Props {
   userId: string
   canCreate: boolean
   canDelete: boolean
-  isSuperUser: boolean
+  canAdminister: boolean
   isOwnProfile: boolean
-  targetIsTournamentManager: boolean
+  targetCanCreateTournaments: boolean
 }
 
-export const UserProfileManagedTournamentGroupsPage = ({ userId, canCreate, canDelete, isSuperUser, isOwnProfile, targetIsTournamentManager }: Props) => {
+export const UserProfileManagedTournamentGroupsPage = ({ userId, canCreate, canDelete, canAdminister, isOwnProfile, targetCanCreateTournaments }: Props) => {
   return (
     <Box>
-      {isSuperUser && !targetIsTournamentManager && (
+      {canAdminister && !targetCanCreateTournaments && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: "left" }}>
           Note: <em>This user does not have the appropriate permissions to create or manage Tournaments and Tournament Groups.</em>
         </Typography>

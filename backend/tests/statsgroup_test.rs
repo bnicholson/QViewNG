@@ -2,6 +2,7 @@
 mod common;
 mod fixtures;
 
+use backend::models::permission::AppSpecialPermission;
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
 use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, game_statsgroup::GameStatsGroup}};
@@ -12,11 +13,15 @@ use diesel::prelude::*;
 use serde_json::json;
 use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
 
-// The stats view endpoints (games/teamstats/individualstats) are restricted to super users,
-// the tournament owner, and its admins. Tests authenticate as a super user, who bypasses the
-// owner/admin check regardless of the tournament.
-fn super_user_auth_header() -> (&'static str, String) {
-    let token = common::make_token(uuid::Uuid::new_v4(), vec!["super_user".to_string()], vec![]);
+// The stats view endpoints (games/teamstats/individualstats) are restricted to holders of
+// `system:administer`, the tournament owner, and its admins. Tests authenticate with that
+// permission, which bypasses the owner/admin check regardless of the tournament.
+fn system_admin_auth_header() -> (&'static str, String) {
+    let token = common::make_token(
+        uuid::Uuid::new_v4(),
+        vec![],
+        vec![AppSpecialPermission::SystemAdminister.as_str().to_string()],
+    );
     ("Authorization", format!("Bearer {}", token))
 }
 
@@ -150,7 +155,7 @@ async fn get_all_games_of_statsgroup_works() {
     let uri = format!("/api/statsgroups/{}/games?page={}&page_size={}", statsgroup.sgid, PAGE_NUM, PAGE_SIZE);
     let req = test::TestRequest::get()
         .uri(&uri)
-        .insert_header(super_user_auth_header())
+        .insert_header(system_admin_auth_header())
         .to_request();
     
     // Act:
@@ -224,7 +229,7 @@ async fn team_stats_works() {
     let uri = format!("/api/statsgroups/{}/teamstats", statsgroup.sgid);
     let req = test::TestRequest::get()
         .uri(&uri)
-        .insert_header(super_user_auth_header())
+        .insert_header(system_admin_auth_header())
         .to_request();
 
     // Act:
@@ -290,7 +295,7 @@ async fn individual_stats_works() {
     let uri = format!("/api/statsgroups/{}/individualstats", statsgroup.sgid);
     let req = test::TestRequest::get()
         .uri(&uri)
-        .insert_header(super_user_auth_header())
+        .insert_header(system_admin_auth_header())
         .to_request();
 
     // Act:

@@ -516,7 +516,7 @@ function GearSetPanel({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export const UserProfileAsCoachGearPage = (props: { userId: string; isSuperUser: boolean; isOwnProfile?: boolean }) => {
+export const UserProfileAsCoachGearPage = (props: { userId: string; canAdminister: boolean; isOwnProfile?: boolean }) => {
   const { userId, isOwnProfile = false } = props;
 
   const [gearSets, setGearSets] = useState<GearSetTS[]>([]);

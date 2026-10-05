@@ -248,12 +248,12 @@ export default function TournamentGroupsTable({ tid, ownerId, showCreateButton =
       const result = await TournamentGroupAPI.getAll(0, 500)
       const lower = q.toLowerCase()
       const linkedIds = new Set(groups.map(g => g.tgid))
-      const isSuperUser = session?.hasRole('super_user') ?? false
+      const readsAll = session?.isSystemAdministrator ?? false
       setSearchResults(
         result.items.filter(g =>
           g.name.toLowerCase().includes(lower) &&
           !linkedIds.has(g.tgid) &&
-          (isSuperUser || g.owner_id === session?.userId)
+          (readsAll || g.owner_id === session?.userId)
         )
       )
     } catch (e: any) {

@@ -34,7 +34,7 @@ export const RoomProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!room || !tournament) return <div>Loading Room…</div>
 
-  const { isOwnerOrSuperUser, canViewAuditColumns, canCreate } = access
+  const { isOwnerOrSystemAdmin, canViewAuditColumns, canCreate } = access
 
   const navItems = [
     { kind: 'route' as const, label: 'Overview', to: `/room/${roomid}/overview` },
@@ -53,7 +53,7 @@ export const RoomProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <RoomProfileOverviewPage room={room} tournament={tournament} onUpdated={setRoom} showSensitiveColumns={isOwnerOrSuperUser} />
+            <RoomProfileOverviewPage room={room} tournament={tournament} onUpdated={setRoom} showSensitiveColumns={isOwnerOrSystemAdmin} />
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} roomid={roomid}

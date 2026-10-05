@@ -35,8 +35,8 @@ export const GameProfile = (props: { childRoute?: string }) => {
   if (notFound) return <Navigate to="/404" replace />
   if (!game || !tournament || !division) return <div>Loading Game…</div>
 
-  const isOwnerOrSuperUser =
-    (session?.hasRole('super_user') ?? false) ||
+  const isOwnerOrSystemAdmin =
+    (session?.isSystemAdministrator ?? false) ||
     (session?.userId === tournament.owner_id)
 
   const navItems = [
@@ -56,7 +56,7 @@ export const GameProfile = (props: { childRoute?: string }) => {
 
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'overview' && (
-            <GameProfileOverviewPage game={game} tournament={tournament} onUpdated={setGame} canEdit={isOwnerOrSuperUser} />
+            <GameProfileOverviewPage game={game} tournament={tournament} onUpdated={setGame} canEdit={isOwnerOrSystemAdmin} />
           )}
         </Box>
 
