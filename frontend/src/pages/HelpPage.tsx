@@ -1,62 +1,70 @@
 import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import { kbNav, type KbNavNode } from '../data/knowledgeBase'
-
-// Flatten a category subtree into its article leaves (for the home-page card lists).
-function articlesUnder(node: KbNavNode): { slug: string; title: string }[] {
-  if (node.slug) return [{ slug: node.slug, title: node.title }]
-  return (node.children ?? []).flatMap(articlesUnder)
-}
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import { docCategories, docPath, latestVersion } from '../data/docs'
 
 export const HelpPage = () => {
   return (
-    <Box sx={{ maxWidth: 960, mx: 'auto' }}>
+    <Box sx={{ maxWidth: 1040, mx: 'auto' }}>
       {/* Hero */}
       <Box sx={{ textAlign: 'center', py: { xs: 4, sm: 6 } }}>
         <Typography variant="h3" sx={{ fontWeight: 600, mb: 1 }}>
-          QView Help Center
+          Help Center
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 620, mx: 'auto' }}>
-          Guides and answers for running tournaments, managing teams and rosters, and setting up
-          your equipment. Browse a category below to get started.
+        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, mx: 'auto' }}>
+          Documentation for the QView web app and for the QuizMachine and QMServer desktop
+          programs. Choose a product below to browse its guide.
         </Typography>
       </Box>
 
-      {/* Category cards */}
+      {/* One card per documentation category. */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
           gap: 2,
           pb: 6,
+          textAlign: 'left',
         }}
       >
-        {kbNav.map((category) => {
-          const articles = articlesUnder(category)
+        {docCategories.map((category) => {
+          const newest = latestVersion(category)
           return (
-            <Paper key={category.title} variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                {category.title}
+            <Paper
+              key={category.id}
+              component={RouterLink}
+              to={docPath(category, newest.version)}
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'border-color 120ms, box-shadow 120ms',
+                '&:hover': { borderColor: 'primary.main', boxShadow: 2 },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {category.title}
+                </Typography>
+                <Chip label={`v${newest.version}`} size="small" variant="outlined" />
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 2 }}>
+                {category.description}
               </Typography>
-              <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
-                {articles.map((a) => (
-                  <Box component="li" key={a.slug} sx={{ mb: 0.5 }}>
-                    <Typography
-                      component={RouterLink}
-                      to={`/help/${a.slug}`}
-                      sx={{
-                        color: 'primary.main',
-                        textDecoration: 'none',
-                        fontSize: '0.925rem',
-                        '&:hover': { textDecoration: 'underline' },
-                      }}
-                    >
-                      {a.title}
-                    </Typography>
-                  </Box>
-                ))}
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'primary.main' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Browse documentation
+                </Typography>
+                <ChevronRightIcon fontSize="small" />
               </Box>
             </Paper>
           )

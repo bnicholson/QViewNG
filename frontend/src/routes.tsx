@@ -7,7 +7,10 @@ import { ActivationPage } from "./pages/ActivationPage";
 import { UserRegistrationPage } from "./pages/UserRegistrationPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { HelpPage } from "./pages/HelpPage";
-import { HelpArticlePage } from "./pages/HelpArticlePage";
+import { LegacyHelpRedirect } from "./pages/LegacyHelpRedirect";
+import { DocsCategoryPage } from "./pages/DocsCategoryPage";
+import { DocsArticlePage } from "./pages/DocsArticlePage";
+import { docCategories } from "./data/docs";
 import { MarkdownCheatsheetPage } from "./pages/MarkdownCheatsheetPage";
 import { TournamentsPage } from "./pages/TournamentsPage";
 import { TournamentProfile } from "./pages/TournamentProfile";
@@ -35,7 +38,27 @@ export default function QViewRoutes() {
             <Route path="/" element={<TournamentFinder />} />
             <Route path="/tournaments" element={<TournamentFinder />} />
             <Route path="/help" element={<HelpPage />} />
-            <Route path="/help/:slug" element={<HelpArticlePage />} />
+            {/* Pre-split Help links (/help/:slug) now resolve into the QView documentation. */}
+            <Route path="/help/:slug" element={<LegacyHelpRedirect />} />
+            {/* One route set per documentation category, generated from the docs registry:
+                /{category}  →  /{category}/{newest version}  →  /{category}/{version}/{slug} */}
+            {docCategories.flatMap((category) => [
+                <Route
+                    key={`${category.id}-root`}
+                    path={`/${category.path}`}
+                    element={<DocsCategoryPage categoryId={category.id} />}
+                />,
+                <Route
+                    key={`${category.id}-version`}
+                    path={`/${category.path}/:version`}
+                    element={<DocsCategoryPage categoryId={category.id} />}
+                />,
+                <Route
+                    key={`${category.id}-article`}
+                    path={`/${category.path}/:version/:slug`}
+                    element={<DocsArticlePage categoryId={category.id} />}
+                />,
+            ])}
             <Route path="/markdown-cheatsheet" element={<MarkdownCheatsheetPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/recovery" element={<RecoveryPage />} />
