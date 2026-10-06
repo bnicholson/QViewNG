@@ -88,6 +88,7 @@ pub struct StatsGroup {
     pub tournament_id: Uuid,                       // Tournament the statsgroup belongs to (required)
     pub division_id: Option<Uuid>,                 // Division the statsgroup is scoped to (optional)
     pub del_fl: bool,
+    pub tiebreaker_rules: String,                  // see `TieBreakerRule::parse` ("" = defaults)
 }
 
 #[derive(
@@ -213,6 +214,131 @@ pub fn purge(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> {
     diesel::delete(statsgroups.filter(sgid.eq(sg_id))).execute(db)
 }
 
+// ─── Tie-breaking rules ───────────────────────────────────────────────────────
+
+/// A criterion for ordering two teams that are otherwise level in the standings.
+///
+/// The stats group stores its criteria as an ordered, comma-separated list of the keys below,
+/// each optionally prefixed with `-` when the user has unchecked it. A disabled criterion keeps
+/// its slot in the list so that re-enabling it restores its original position.
+/// The JSON names are spelled out so that the wire format, the stored form and `key()` are all the
+/// same string — a derived `rename_all` would give `team_win_loss` where the key is `team_wl`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub enum TieBreakerRule {
+    #[serde(rename = "team_wl")]
+    TeamWinLoss,
+    #[serde(rename = "head_to_head")]
+    HeadToHead,
+    #[serde(rename = "total_points")]
+    TotalPoints,
+    #[serde(rename = "avg_points")]
+    AvgPoints,
+    #[serde(rename = "olympic")]
+    OlympicPoints,
+    #[serde(rename = "mod_olympic")]
+    ModOlympicPoints,
+}
+
+impl TieBreakerRule {
+    pub fn key(&self) -> &'static str {
+        match self {
+            TieBreakerRule::TeamWinLoss      => "team_wl",
+            TieBreakerRule::HeadToHead       => "head_to_head",
+            TieBreakerRule::TotalPoints      => "total_points",
+            TieBreakerRule::AvgPoints        => "avg_points",
+            TieBreakerRule::OlympicPoints    => "olympic",
+            TieBreakerRule::ModOlympicPoints => "mod_olympic",
+        }
+    }
+
+    /// How the criterion reads in the UI and in the "Rank Rules" explanation.
+    pub fn label(&self) -> &'static str {
+        match self {
+            TieBreakerRule::TeamWinLoss      => "Team W-L Record",
+            TieBreakerRule::HeadToHead       => "Head-to-Head W-L",
+            TieBreakerRule::TotalPoints      => "Total Points",
+            TieBreakerRule::AvgPoints        => "Total Avg Pts",
+            TieBreakerRule::OlympicPoints    => "Olympic Pts",
+            TieBreakerRule::ModOlympicPoints => "Mod Olympic Pts",
+        }
+    }
+
+    fn from_key(key: &str) -> Option<Self> {
+        DEFAULT_TIEBREAKER_ORDER.iter().copied().find(|r| r.key() == key)
+    }
+}
+
+/// The order criteria are applied in until a stats group saves its own.
+pub const DEFAULT_TIEBREAKER_ORDER: [TieBreakerRule; 6] = [
+    TieBreakerRule::TeamWinLoss,
+    TieBreakerRule::HeadToHead,
+    TieBreakerRule::TotalPoints,
+    TieBreakerRule::AvgPoints,
+    TieBreakerRule::OlympicPoints,
+    TieBreakerRule::ModOlympicPoints,
+];
+
+/// One row of a stats group's tie-breaker configuration: the criterion and whether it is used.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
+pub struct TieBreakerSetting {
+    pub rule: TieBreakerRule,
+    pub enabled: bool,
+}
+
+/// Parses the stored form. An empty or unparseable value yields the default order, all enabled.
+/// Criteria missing from a stored value are appended (enabled) so a newly added criterion shows up
+/// for stats groups configured before it existed.
+pub fn parse_tiebreaker_rules(stored: &str) -> Vec<TieBreakerSetting> {
+    let mut settings: Vec<TieBreakerSetting> = Vec::new();
+    for token in stored.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            continue;
+        }
+        let (enabled, key) = match token.strip_prefix('-') {
+            Some(rest) => (false, rest),
+            None => (true, token),
+        };
+        if let Some(rule) = TieBreakerRule::from_key(key) {
+            if !settings.iter().any(|s| s.rule == rule) {
+                settings.push(TieBreakerSetting { rule, enabled });
+            }
+        }
+    }
+    for rule in DEFAULT_TIEBREAKER_ORDER {
+        if !settings.iter().any(|s| s.rule == rule) {
+            settings.push(TieBreakerSetting { rule, enabled: true });
+        }
+    }
+    settings
+}
+
+/// Renders settings back into the stored form.
+pub fn serialize_tiebreaker_rules(settings: &[TieBreakerSetting]) -> String {
+    settings
+        .iter()
+        .map(|s| if s.enabled { s.rule.key().to_string() } else { format!("-{}", s.rule.key()) })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+pub fn read_tiebreaker_rules(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<TieBreakerSetting>> {
+    Ok(parse_tiebreaker_rules(&read(db, sg_id)?.tiebreaker_rules))
+}
+
+pub fn update_tiebreaker_rules(
+    db: &mut database::Connection,
+    sg_id: Uuid,
+    settings: &[TieBreakerSetting],
+) -> QueryResult<Vec<TieBreakerSetting>> {
+    use crate::schema::statsgroups::dsl::*;
+    let stored = serialize_tiebreaker_rules(settings);
+    diesel::update(statsgroups.filter(sgid.eq(sg_id)))
+        .set((tiebreaker_rules.eq(stored), updated_at.eq(diesel::dsl::now)))
+        .get_result::<StatsGroup>(db)
+        .map(|sg| parse_tiebreaker_rules(&sg.tiebreaker_rules))
+}
+
 // ─── Team standings for a statsgroup ──────────────────────────────────────────
 
 /// Aggregated standings row for one team within a statsgroup.
@@ -226,7 +352,21 @@ pub struct TeamStat {
     pub olympic_points: i32,        // Olympic points per round (§12.4): 2-team 8/3, 3-team 10/5/1
     pub mod_olympic_points: i32,    // Modified Olympic points (§12.5): Olympic base adjusted by team score
     pub total_points: i32,          // sum of final scores across games
-    pub tie_breaker: String,        // manual tie-break rule (blank until set)
+    pub avg_points: f64,            // total_points / games (0 when no games were scored)
+    /// Which criterion placed this team below the one above it. None on the first row.
+    pub rank_rule_above: Option<RankRuleExplanation>,
+    /// Which criterion placed this team above the one below it. None on the last row.
+    pub rank_rule_below: Option<RankRuleExplanation>,
+}
+
+/// Why one team sits above another, for the "Rank Rules" column.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct RankRuleExplanation {
+    pub number: i32,            // 1-based position of the criterion in the configured sequence
+    pub rule: TieBreakerRule,
+    pub label: String,          // the criterion's display label
+    pub other_team: String,     // the team on the other side of the comparison
+    pub detail: String,         // the values that decided it, e.g. "6-2 vs 4-4"
 }
 
 struct TeamStatAgg {
@@ -236,6 +376,11 @@ struct TeamStatAgg {
     olympic_points: i32,
     mod_olympic_points: i32,
     total_points: i32,
+}
+
+/// One scored game reduced to the names and ranks needed for head-to-head.
+struct GameRanks {
+    ranks: Vec<(String, i32)>,  // (team name, placement rank)
 }
 
 /// Olympic (§12.4) and Modified Olympic (§12.5) points awarded to one team for one round
@@ -275,16 +420,26 @@ fn olympic_awards(num_teams: usize, rank: i32, score: i32, game_total: i32) -> (
     }
 }
 
-/// Computes team standings for a statsgroup by running the score calculator over
-/// each of the statsgroup's games and aggregating per team (keyed by team name).
-/// Games whose event stream can't be scored are skipped.
+/// Computes team standings for a statsgroup by running the score calculator over each of the
+/// statsgroup's games and aggregating per team (keyed by team name). Games whose event stream
+/// can't be scored are skipped.
+///
+/// Within a game a team's W-L is counted per opponent, so a 3-team round gives 1st 2 wins,
+/// 2nd 1 win and 1 loss, and 3rd 2 losses; a 2-team round gives 1-0 and 0-1.
+///
+/// Ordering applies the stats group's enabled tie-breaker criteria in their configured order,
+/// falling back to team name so the result is stable. Each row also carries which criterion
+/// separated it from its neighbours, for the "Rank Rules" column.
 pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<TeamStat>> {
     use std::collections::HashMap;
+
+    let settings = read_tiebreaker_rules(db, sg_id)?;
 
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
 
     let mut agg: HashMap<String, TeamStatAgg> = HashMap::new();
+    let mut game_ranks: Vec<GameRanks> = Vec::new();
 
     for game in games {
         let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
@@ -296,6 +451,15 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
         // Round size and the round's total team score (for the modified "10% of total" clause).
         let num_teams = results.len();
         let game_total: i32 = results.iter().map(|r| r.score).sum();
+
+        game_ranks.push(GameRanks {
+            ranks: results
+                .iter()
+                .filter(|r| !r.name.trim().is_empty())
+                .map(|r| (r.name.clone(), r.rank))
+                .collect(),
+        });
+
         for result in &results {
             if result.name.trim().is_empty() {
                 continue;
@@ -306,10 +470,16 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
             });
             entry.games += 1;
             entry.total_points += result.score;
-            if result.rank == 1 {
-                entry.wins += 1;
-            } else {
-                entry.losses += 1;
+            // One win per team this team finished ahead of, one loss per team that finished ahead.
+            for other in &results {
+                if other.team == result.team || other.name.trim().is_empty() {
+                    continue;
+                }
+                if other.rank > result.rank {
+                    entry.wins += 1;
+                } else if other.rank < result.rank {
+                    entry.losses += 1;
+                }
             }
             entry.olympic_points += olympic;
             entry.mod_olympic_points += mod_olympic;
@@ -327,21 +497,138 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
             olympic_points: a.olympic_points,
             mod_olympic_points: a.mod_olympic_points,
             total_points: a.total_points,
-            tie_breaker: String::new(),
+            avg_points: if a.games > 0 { a.total_points as f64 / a.games as f64 } else { 0.0 },
+            rank_rule_above: None,
+            rank_rule_below: None,
         })
         .collect();
 
-    // Standings order: most wins, then most total points (name as a stable final tiebreak).
+    // Order by the configured criteria, with the team name as the final stable tiebreak.
     stats.sort_by(|a, b| {
-        b.wins.cmp(&a.wins)
-            .then(b.total_points.cmp(&a.total_points))
+        decide_order(a, b, &settings, &game_ranks)
+            .map(|(_, _, ordering)| ordering)
+            .unwrap_or(std::cmp::Ordering::Equal)
             .then(a.name.cmp(&b.name))
     });
+
+    // Record which criterion separated each adjacent pair, for the "Rank Rules" column.
+    let decisions: Vec<Option<(usize, TieBreakerRule, String, String)>> = stats
+        .windows(2)
+        .map(|pair| {
+            decide_order(&pair[0], &pair[1], &settings, &game_ranks).map(|(idx, rule, _)| {
+                (idx, rule, describe_rule_values(&pair[0], rule, &game_ranks, &pair[1].name),
+                 describe_rule_values(&pair[1], rule, &game_ranks, &pair[0].name))
+            })
+            // `idx` is the criterion's 0-based slot in the configured sequence.
+        })
+        .collect();
+
+    for (idx, decision) in decisions.into_iter().enumerate() {
+        if let Some((rule_idx, rule, upper_detail, lower_detail)) = decision {
+            let number = rule_idx as i32 + 1;
+            let upper_name = stats[idx].name.clone();
+            let lower_name = stats[idx + 1].name.clone();
+            stats[idx].rank_rule_below = Some(RankRuleExplanation {
+                number,
+                rule,
+                label: rule.label().to_string(),
+                other_team: lower_name,
+                detail: format!("{} vs {}", upper_detail, lower_detail),
+            });
+            stats[idx + 1].rank_rule_above = Some(RankRuleExplanation {
+                number,
+                rule,
+                label: rule.label().to_string(),
+                other_team: upper_name,
+                detail: format!("{} vs {}", lower_detail, upper_detail),
+            });
+        }
+    }
+
     for (idx, stat) in stats.iter_mut().enumerate() {
         stat.place = (idx + 1) as i32;
     }
 
     Ok(stats)
+}
+
+/// Applies the enabled criteria in order and returns the first one that separates `a` and `b`,
+/// as (index into `settings`, the criterion, the ordering). None when every criterion ties.
+fn decide_order(
+    a: &TeamStat,
+    b: &TeamStat,
+    settings: &[TieBreakerSetting],
+    game_ranks: &[GameRanks],
+) -> Option<(usize, TieBreakerRule, std::cmp::Ordering)> {
+    for (idx, setting) in settings.iter().enumerate() {
+        if !setting.enabled {
+            continue;
+        }
+        let ordering = compare_by_rule(a, b, setting.rule, game_ranks);
+        if ordering != std::cmp::Ordering::Equal {
+            return Some((idx, setting.rule, ordering));
+        }
+    }
+    None
+}
+
+/// Compares two teams by one criterion. Returns Less when `a` ranks ahead of `b`.
+fn compare_by_rule(
+    a: &TeamStat,
+    b: &TeamStat,
+    rule: TieBreakerRule,
+    game_ranks: &[GameRanks],
+) -> std::cmp::Ordering {
+    match rule {
+        // More wins first; on equal wins, fewer losses first.
+        TieBreakerRule::TeamWinLoss => b.wins.cmp(&a.wins).then(a.losses.cmp(&b.losses)),
+        TieBreakerRule::HeadToHead => {
+            let (a_wins, b_wins) = head_to_head(&a.name, &b.name, game_ranks);
+            b_wins.cmp(&a_wins)
+        }
+        TieBreakerRule::TotalPoints => b.total_points.cmp(&a.total_points),
+        TieBreakerRule::AvgPoints => b.avg_points.partial_cmp(&a.avg_points).unwrap_or(std::cmp::Ordering::Equal),
+        TieBreakerRule::OlympicPoints => b.olympic_points.cmp(&a.olympic_points),
+        TieBreakerRule::ModOlympicPoints => b.mod_olympic_points.cmp(&a.mod_olympic_points),
+    }
+}
+
+/// Wins for each side across only the games both teams played in.
+fn head_to_head(a_name: &str, b_name: &str, game_ranks: &[GameRanks]) -> (i32, i32) {
+    let mut a_wins = 0;
+    let mut b_wins = 0;
+    for game in game_ranks {
+        let a_rank = game.ranks.iter().find(|(n, _)| n == a_name).map(|(_, r)| *r);
+        let b_rank = game.ranks.iter().find(|(n, _)| n == b_name).map(|(_, r)| *r);
+        if let (Some(ar), Some(br)) = (a_rank, b_rank) {
+            if ar < br {
+                a_wins += 1;
+            } else if br < ar {
+                b_wins += 1;
+            }
+        }
+    }
+    (a_wins, b_wins)
+}
+
+/// The value that `rule` compared for `stat`, rendered for the explanation dialog.
+fn describe_rule_values(
+    stat: &TeamStat,
+    rule: TieBreakerRule,
+    game_ranks: &[GameRanks],
+    opponent: &str,
+) -> String {
+    match rule {
+        TieBreakerRule::TeamWinLoss => format!("{}-{}", stat.wins, stat.losses),
+        TieBreakerRule::HeadToHead => {
+            let (mine, theirs) = head_to_head(&stat.name, opponent, game_ranks);
+            format!("{}-{}", mine, theirs)
+        }
+        TieBreakerRule::TotalPoints => stat.total_points.to_string(),
+        TieBreakerRule::AvgPoints => format!("{:.1}", stat.avg_points),
+        TieBreakerRule::OlympicPoints => stat.olympic_points.to_string(),
+        TieBreakerRule::ModOlympicPoints => stat.mod_olympic_points.to_string(),
+    }
 }
 
 // ─── Individual (quizzer) standings for a statsgroup ──────────────────────────
@@ -506,5 +793,108 @@ mod tests {
         assert_eq!(modv(3, 3, 50, 200), 18);
         //   s=30,total=30  -> max(1, 1) floor 1 -> 1.
         assert_eq!(modv(3, 3, 30, 30), 1);
+    }
+}
+
+#[cfg(test)]
+mod tiebreaker_tests {
+    use super::*;
+
+    fn stat(name: &str, wins: i32, losses: i32, total: i32, games: i32, oly: i32, mod_oly: i32) -> TeamStat {
+        TeamStat {
+            place: 0,
+            name: name.to_string(),
+            games,
+            wins,
+            losses,
+            olympic_points: oly,
+            mod_olympic_points: mod_oly,
+            total_points: total,
+            avg_points: if games > 0 { total as f64 / games as f64 } else { 0.0 },
+            rank_rule_above: None,
+            rank_rule_below: None,
+        }
+    }
+
+    #[test]
+    fn default_order_is_the_documented_sequence() {
+        let settings = parse_tiebreaker_rules("");
+        let keys: Vec<&str> = settings.iter().map(|s| s.rule.key()).collect();
+        assert_eq!(keys, vec!["team_wl", "head_to_head", "total_points", "avg_points", "olympic", "mod_olympic"]);
+        assert!(settings.iter().all(|s| s.enabled));
+    }
+
+    #[test]
+    fn disabled_criteria_keep_their_slot_through_a_round_trip() {
+        let stored = "total_points,-team_wl,head_to_head,avg_points,olympic,mod_olympic";
+        let settings = parse_tiebreaker_rules(stored);
+        assert_eq!(settings[0].rule, TieBreakerRule::TotalPoints);
+        assert_eq!(settings[1].rule, TieBreakerRule::TeamWinLoss);
+        assert!(!settings[1].enabled, "the unchecked criterion stays in position 2");
+        assert_eq!(serialize_tiebreaker_rules(&settings), stored);
+    }
+
+    #[test]
+    fn a_criterion_absent_from_a_stored_value_is_appended_enabled() {
+        let settings = parse_tiebreaker_rules("total_points,team_wl");
+        assert_eq!(settings.len(), DEFAULT_TIEBREAKER_ORDER.len());
+        assert_eq!(settings[0].rule, TieBreakerRule::TotalPoints);
+        assert_eq!(settings[1].rule, TieBreakerRule::TeamWinLoss);
+        assert!(settings[2..].iter().all(|s| s.enabled));
+    }
+
+    #[test]
+    fn reordering_changes_which_team_leads() {
+        // Red has the better record; Blue has more points.
+        let red = stat("Red", 4, 0, 100, 4, 32, 32);
+        let blue = stat("Blue", 2, 2, 200, 4, 22, 22);
+
+        let by_record = parse_tiebreaker_rules("team_wl,total_points");
+        let (_, rule, ordering) = decide_order(&red, &blue, &by_record, &[]).unwrap();
+        assert_eq!(rule, TieBreakerRule::TeamWinLoss);
+        assert_eq!(ordering, std::cmp::Ordering::Less, "Red leads on record");
+
+        let by_points = parse_tiebreaker_rules("total_points,team_wl");
+        let (_, rule, ordering) = decide_order(&red, &blue, &by_points, &[]).unwrap();
+        assert_eq!(rule, TieBreakerRule::TotalPoints);
+        assert_eq!(ordering, std::cmp::Ordering::Greater, "with points first, Blue leads");
+    }
+
+    #[test]
+    fn an_unchecked_criterion_is_skipped() {
+        let red = stat("Red", 4, 0, 100, 4, 32, 32);
+        let blue = stat("Blue", 2, 2, 200, 4, 22, 22);
+        // W-L would decide, but it is unchecked, so Total Points does.
+        let settings = parse_tiebreaker_rules("-team_wl,total_points");
+        let (idx, rule, ordering) = decide_order(&red, &blue, &settings, &[]).unwrap();
+        assert_eq!(rule, TieBreakerRule::TotalPoints);
+        assert_eq!(idx + 1, 2, "Total Points is rule number 2 in this sequence");
+        assert_eq!(ordering, std::cmp::Ordering::Greater);
+    }
+
+    #[test]
+    fn head_to_head_counts_only_shared_games() {
+        let games = vec![
+            GameRanks { ranks: vec![("Red".into(), 1), ("Blue".into(), 2)] },
+            GameRanks { ranks: vec![("Blue".into(), 1), ("Red".into(), 2)] },
+            GameRanks { ranks: vec![("Blue".into(), 1), ("Red".into(), 2)] },
+            // Red beats a third team — irrelevant to Red vs Blue.
+            GameRanks { ranks: vec![("Red".into(), 1), ("Green".into(), 2)] },
+        ];
+        assert_eq!(head_to_head("Red", "Blue", &games), (1, 2));
+
+        let red = stat("Red", 2, 2, 0, 4, 0, 0);
+        let blue = stat("Blue", 2, 2, 0, 4, 0, 0);
+        let settings = parse_tiebreaker_rules("head_to_head");
+        let (_, rule, ordering) = decide_order(&red, &blue, &settings, &games).unwrap();
+        assert_eq!(rule, TieBreakerRule::HeadToHead);
+        assert_eq!(ordering, std::cmp::Ordering::Greater, "Blue won the series 2-1");
+    }
+
+    #[test]
+    fn teams_level_on_every_criterion_are_not_separated() {
+        let a = stat("A", 2, 2, 100, 4, 10, 10);
+        let b = stat("B", 2, 2, 100, 4, 10, 10);
+        assert!(decide_order(&a, &b, &parse_tiebreaker_rules(""), &[]).is_none());
     }
 }

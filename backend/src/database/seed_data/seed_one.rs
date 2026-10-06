@@ -2354,6 +2354,53 @@ fn seed_game_events(
         }
         let _ = qev;
     }
+
+    // ── Overtime ──
+    //
+    // A quiz may not end level, so if regulation finished tied, play overtime until one team is
+    // ahead. Rather than re-implement the scoring rules here (and risk drifting from them), ask
+    // the real calculator what the standing is and react to its answer.
+    //
+    // An overtime toss-up is a TC on a question past regulation. The calculator only accepts one
+    // while a tie exists, and scores it by awarding the points, re-ranking, then taking the points
+    // back — so the displayed score stays level while the rank records who won.
+    let mut overtime_question = total_questions + 1;
+    while overtime_question <= total_questions + MAX_OVERTIME_QUESTIONS {
+        let tied_teams = match tied_team_indices(db, gid) {
+            Some(teams) if teams.len() > 1 => teams,
+            // Not tied (or the stream can't be scored) — nothing to break.
+            _ => break,
+        };
+
+        // Pick the overtime winner deterministically from among the tied teams.
+        let winner = tied_teams[next(tied_teams.len() as u64) as usize];
+        let winning_quizzers = if winner == 0 { &left_quizzers } else { &right_quizzers };
+        let seat = next(winning_quizzers.len() as u64) as i32;
+        let quizzer_name = winning_quizzers[seat as usize].clone();
+
+        insert_game_event(
+            db, gid, overtime_question, 0, &quizzer_name, winner, seat, GameEventCode::TC, ts,
+        );
+        ts = ts + Duration::minutes(1);
+        overtime_question += 1;
+    }
+}
+
+/// How many overtime questions the seed will play before giving up on separating the teams. A
+/// single correct toss-up settles it, so this is only a guard against looping forever.
+const MAX_OVERTIME_QUESTIONS: i32 = 5;
+
+/// The team indices currently sharing the top rank of a game, via the real score calculator.
+/// None when the event stream cannot be scored.
+fn tied_team_indices(db: &mut database::Connection, gid: Uuid) -> Option<Vec<i32>> {
+    let pagination = crate::models::common::PaginationParams {
+        page: 0,
+        page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
+    };
+    let events = crate::models::gameevent::read_all_gameevents_of_game(db, gid, &pagination).ok()?;
+    let results = crate::models::gameevent::calculate_team_results_for_game(gid, events).ok()?;
+    let best = results.iter().map(|r| r.rank).min()?;
+    Some(results.iter().filter(|r| r.rank == best).map(|r| r.team).collect())
 }
 
 /// Returns the distinct display names of the Users seated on a team (quizzer_one_id..six_id),

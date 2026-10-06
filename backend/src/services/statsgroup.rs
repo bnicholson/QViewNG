@@ -2,8 +2,8 @@ use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post
 use crate::auth::policies::UserContext;
 use crate::{database::Database, models::game_statsgroup::{GameStatsGroup, NewGameStatsGroup}};
 use crate::models::{self, common::PaginationParams, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupChangeset}};
-use crate::models::permission::AppResource;
-use crate::services::common::{EntityResponse, PagedResponse, authorized_to_read, process_response};
+use crate::models::permission::{AppAction, AppResource};
+use crate::services::common::{EntityResponse, PagedResponse, authorized_to_read, authorized_to_write, process_response};
 use diesel::QueryResult;
 use uuid::Uuid;
 
@@ -101,9 +101,68 @@ async fn read_individual_stats(
     }
 }
 
+#[derive(serde::Deserialize, utoipa::ToSchema)]
+struct TieBreakerRulesPayload {
+    rules: Vec<models::statsgroup::TieBreakerSetting>,
+}
+
+/// The stats group's tie-breaking criteria, in the order they are applied. Always returns all
+/// criteria — a disabled one keeps its slot so the dialog can show it unchecked in place.
+#[get("/{id}/tiebreaker-rules")]
+async fn read_tiebreaker_rules(
+    db: Data<Database>,
+    sg_id: Path<Uuid>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    if !authorized_to_read(&req, AppResource::StatsGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    match models::statsgroup::read_tiebreaker_rules(&mut db, sg_id.into_inner()) {
+        Ok(rules) => HttpResponse::Ok().json(rules),
+        Err(_) => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// Replaces the stats group's tie-breaking criteria. Reordering them changes how the team
+/// standings are sorted on the next read.
+#[put("/{id}/tiebreaker-rules")]
+async fn update_tiebreaker_rules(
+    db: Data<Database>,
+    sg_id: Path<Uuid>,
+    Json(payload): Json<TieBreakerRulesPayload>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    if !authorized_to_write(&req, AppResource::StatsGroup, AppAction::Update) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let sg_id = sg_id.into_inner();
+    if !models::statsgroup::exists(&mut db, sg_id) {
+        return HttpResponse::NotFound().finish();
+    }
+
+    match models::statsgroup::update_tiebreaker_rules(&mut db, sg_id, &payload.rules) {
+        Ok(rules) => HttpResponse::Ok().json(rules),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(read_games)
         .service(read_team_stats)
         .service(read_individual_stats)
+        .service(read_tiebreaker_rules)
+        .service(update_tiebreaker_rules)
 }

@@ -353,3 +353,249 @@ async fn individual_stats_works() {
     assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
     assert_eq!(apicalllog_records.first().unwrap().uri, uri);
 }
+
+// ─── Tie-breaking rules ───────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize, Debug)]
+struct TieBreakerSettingBody {
+    rule: String,
+    enabled: bool,
+}
+
+/// GET /api/statsgroups/{id}/tiebreaker-rules starts at the documented default order.
+#[actix_web::test]
+async fn tiebreaker_rules_default_to_the_documented_order() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/statsgroups/{}/tiebreaker-rules", statsgroup.sgid);
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&uri).insert_header(system_admin_auth_header()).to_request(),
+    ).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let rules: Vec<TieBreakerSettingBody> = test::read_body_json(resp).await;
+    let keys: Vec<&str> = rules.iter().map(|r| r.rule.as_str()).collect();
+    assert_eq!(
+        keys,
+        vec!["team_wl", "head_to_head", "total_points", "avg_points", "olympic", "mod_olympic"]
+    );
+    assert!(rules.iter().all(|r| r.enabled), "every criterion starts selected");
+}
+
+/// PUT replaces the order, and an unchecked criterion keeps its slot across a round trip.
+#[actix_web::test]
+async fn tiebreaker_rules_can_be_reordered_and_disabled() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/statsgroups/{}/tiebreaker-rules", statsgroup.sgid);
+    let payload = json!({ "rules": [
+        { "rule": "total_points",  "enabled": true  },
+        { "rule": "team_wl",       "enabled": false },
+        { "rule": "head_to_head",  "enabled": true  },
+        { "rule": "avg_points",    "enabled": true  },
+        { "rule": "olympic",       "enabled": false },
+        { "rule": "mod_olympic",   "enabled": true  },
+    ]});
+
+    let put = test::call_service(
+        &app,
+        test::TestRequest::put()
+            .uri(&uri)
+            .insert_header(system_admin_auth_header())
+            .set_json(&payload)
+            .to_request(),
+    ).await;
+    assert_eq!(put.status(), StatusCode::OK);
+
+    // Read it back: the order and the unchecked slots survive.
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&uri).insert_header(system_admin_auth_header()).to_request(),
+    ).await;
+    let rules: Vec<TieBreakerSettingBody> = test::read_body_json(resp).await;
+    let keys: Vec<&str> = rules.iter().map(|r| r.rule.as_str()).collect();
+    assert_eq!(
+        keys,
+        vec!["total_points", "team_wl", "head_to_head", "avg_points", "olympic", "mod_olympic"]
+    );
+    assert!(!rules[1].enabled, "Team W-L stays in position 2, unchecked");
+    assert!(!rules[4].enabled, "Olympic Pts stays in position 5, unchecked");
+    assert!(rules[0].enabled && rules[2].enabled && rules[3].enabled && rules[5].enabled);
+}
+
+/// Saving the rules changes a stats group, so it needs `statsgroup:update`.
+#[actix_web::test]
+async fn saving_tiebreaker_rules_requires_statsgroup_update() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/statsgroups/{}/tiebreaker-rules", statsgroup.sgid);
+    let payload = json!({ "rules": [{ "rule": "total_points", "enabled": true }] });
+
+    // Unauthenticated.
+    let anon = test::TestRequest::put().uri(&uri).set_json(&payload).to_request();
+    assert_eq!(test::call_service(&app, anon).await.status(), StatusCode::FORBIDDEN);
+
+    // Authenticated, but read-only on stats groups.
+    let read_only = common::make_token(uuid::Uuid::new_v4(), vec![], vec!["statsgroup:read".to_string()]);
+    let req = test::TestRequest::put()
+        .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", read_only)))
+        .set_json(&payload)
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), StatusCode::FORBIDDEN);
+
+    // With the permission.
+    let permitted = common::make_token(uuid::Uuid::new_v4(), vec![], vec!["statsgroup:update".to_string()]);
+    let req = test::TestRequest::put()
+        .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", permitted)))
+        .set_json(&payload)
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), StatusCode::OK);
+}
+
+/// Each standings row says which criterion separated it from its neighbours, with that
+/// criterion's number in the configured sequence.
+#[actix_web::test]
+async fn team_stats_explain_the_rule_that_set_each_rank() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/statsgroups/{}/teamstats", statsgroup.sgid);
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&uri).insert_header(system_admin_auth_header()).to_request(),
+    ).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let rows = body.as_array().expect("teamstats returns an array");
+    assert_eq!(rows.len(), 2);
+
+    // Red (80 pts) beat Blue (40 pts) in their one game, so Team W-L — rule 1 — separates them.
+    let red = &rows[0];
+    assert_eq!(red["name"], "Red Team");
+    assert_eq!(red["avg_points"], 80.0);
+    assert!(red["rank_rule_above"].is_null(), "the leader has no team above it");
+    assert_eq!(red["rank_rule_below"]["number"], 1);
+    assert_eq!(red["rank_rule_below"]["rule"], "team_wl");
+    assert_eq!(red["rank_rule_below"]["other_team"], "Blue Team");
+    assert_eq!(red["rank_rule_below"]["detail"], "1-0 vs 0-1");
+
+    let blue = &rows[1];
+    assert_eq!(blue["name"], "Blue Team");
+    assert_eq!(blue["avg_points"], 40.0);
+    assert_eq!(blue["rank_rule_above"]["number"], 1);
+    assert_eq!(blue["rank_rule_above"]["other_team"], "Red Team");
+    assert_eq!(blue["rank_rule_above"]["detail"], "0-1 vs 1-0");
+    assert!(blue["rank_rule_below"].is_null(), "the last team has none below it");
+}
+
+/// Reordering the criteria reorders the standings on the next read.
+#[actix_web::test]
+async fn reordering_the_rules_reorders_the_standings() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .configure(configure_routes)
+    ).await;
+
+    let rules_uri = format!("/api/statsgroups/{}/tiebreaker-rules", statsgroup.sgid);
+    let stats_uri = format!("/api/statsgroups/{}/teamstats", statsgroup.sgid);
+
+    // With every criterion unchecked, level teams fall back to name order — so Blue leads Red.
+    let payload = json!({ "rules": [
+        { "rule": "team_wl",      "enabled": false },
+        { "rule": "head_to_head", "enabled": false },
+        { "rule": "total_points", "enabled": false },
+        { "rule": "avg_points",   "enabled": false },
+        { "rule": "olympic",      "enabled": false },
+        { "rule": "mod_olympic",  "enabled": false },
+    ]});
+    let put = test::call_service(
+        &app,
+        test::TestRequest::put()
+            .uri(&rules_uri)
+            .insert_header(system_admin_auth_header())
+            .set_json(&payload)
+            .to_request(),
+    ).await;
+    assert_eq!(put.status(), StatusCode::OK);
+
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&stats_uri).insert_header(system_admin_auth_header()).to_request(),
+    ).await;
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let rows = body.as_array().unwrap();
+    assert_eq!(rows[0]["name"], "Blue Team", "with no criteria enabled, name order decides");
+    assert_eq!(rows[0]["place"], 1);
+    assert!(rows[0]["rank_rule_below"].is_null(), "nothing separated them, so no rule to report");
+
+    // Re-enable Team W-L and Red leads again.
+    let payload = json!({ "rules": [{ "rule": "team_wl", "enabled": true }] });
+    test::call_service(
+        &app,
+        test::TestRequest::put()
+            .uri(&rules_uri)
+            .insert_header(system_admin_auth_header())
+            .set_json(&payload)
+            .to_request(),
+    ).await;
+
+    let resp = test::call_service(
+        &app,
+        test::TestRequest::get().uri(&stats_uri).insert_header(system_admin_auth_header()).to_request(),
+    ).await;
+    let body: serde_json::Value = test::read_body_json(resp).await;
+    let rows = body.as_array().unwrap();
+    assert_eq!(rows[0]["name"], "Red Team");
+    assert_eq!(rows[0]["rank_rule_below"]["rule"], "team_wl");
+}
+

@@ -10,6 +10,40 @@ export interface StatsGroupTS {
   division_id: string | null;
 }
 
+/** The criteria a stats group can apply when two teams are otherwise level. */
+export type TieBreakerRule =
+  | "team_wl"
+  | "head_to_head"
+  | "total_points"
+  | "avg_points"
+  | "olympic"
+  | "mod_olympic";
+
+/** One row of a stats group's tie-breaker configuration, in application order. */
+export interface TieBreakerSettingTS {
+  rule: TieBreakerRule;
+  enabled: boolean;
+}
+
+/** How the criteria read in the UI. Mirrors `TieBreakerRule::label` on the backend. */
+export const TIE_BREAKER_LABELS: Record<TieBreakerRule, string> = {
+  team_wl: "Team W-L Record",
+  head_to_head: "Head-to-Head W-L",
+  total_points: "Total Points",
+  avg_points: "Total Avg Pts",
+  olympic: "Olympic Pts",
+  mod_olympic: "Mod Olympic Pts",
+};
+
+/** Why one team sits above another, for the "Rank Rules" column. */
+export interface RankRuleExplanationTS {
+  number: number;        // 1-based position of the criterion in the configured sequence
+  rule: TieBreakerRule;
+  label: string;
+  other_team: string;
+  detail: string;        // the values that decided it, e.g. "6-2 vs 4-4"
+}
+
 export interface TeamStatTS {
   place: number;
   name: string;
@@ -19,7 +53,9 @@ export interface TeamStatTS {
   olympic_points: number;
   mod_olympic_points: number;
   total_points: number;
-  tie_breaker: string;
+  avg_points: number;
+  rank_rule_above: RankRuleExplanationTS | null;
+  rank_rule_below: RankRuleExplanationTS | null;
 }
 
 export interface IndividualStatTS {
@@ -56,6 +92,22 @@ export const StatsGroupAPI = {
   getTeamStats: async (sgid: string, accessToken?: string): Promise<TeamStatTS[]> => {
     const res = await fetch(`/api/statsgroups/${sgid}/teamstats`, { headers: authHeaders(accessToken) });
     if (!res.ok) throw new Error(`Failed to load team stats (${res.status})`);
+    return res.json();
+  },
+  // The stats group's tie-breaking criteria, in the order they are applied.
+  getTieBreakerRules: async (sgid: string, accessToken?: string): Promise<TieBreakerSettingTS[]> => {
+    const res = await fetch(`/api/statsgroups/${sgid}/tiebreaker-rules`, { headers: authHeaders(accessToken) });
+    if (!res.ok) throw new Error(`Failed to load tie-breaking rules (${res.status})`);
+    return res.json();
+  },
+  // Replaces them; the next team-stats read is sorted by the new order.
+  saveTieBreakerRules: async (sgid: string, rules: TieBreakerSettingTS[], accessToken?: string): Promise<TieBreakerSettingTS[]> => {
+    const res = await fetch(`/api/statsgroups/${sgid}/tiebreaker-rules`, {
+      method: "PUT",
+      headers: { ...authHeaders(accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ rules }),
+    });
+    if (!res.ok) throw new Error(`Failed to save tie-breaking rules (${res.status})`);
     return res.json();
   },
   // Computed individual (per-quizzer) stats for a stats group.

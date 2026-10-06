@@ -17,6 +17,11 @@ import { DivisionAPI } from "../features/DivisionAPI";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 import ImportGameEventsButton from "./ImportGameEventsButton";
+import RankRuleDialog from "./RankRuleDialog";
+import TieBreakerRulesDialog from "./TieBreakerRulesDialog";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExportTableButton from "./ExportTableButton";
 import type { ExportPayload } from "../features/exportTable";
 
@@ -216,10 +221,16 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
   );
 }
 
-function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
+function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
+  statsGroupId: string;
+  onExportReady: (p: ExportPayload) => void;
+  /** Bumped when the tie-breaking rules are saved, to refetch the re-sorted standings. */
+  rulesRefreshKey: number;
+}) {
   const { accessToken } = useAuth();
   const [rows, setRows] = useState<TeamStatTS[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rankRuleTeam, setRankRuleTeam] = useState<TeamStatTS | null>(null);
 
   useEffect(() => {
     if (!statsGroupId) {
@@ -242,13 +253,16 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
     return () => {
       cancelled = true;
     };
-  }, [statsGroupId, accessToken]);
+  }, [statsGroupId, accessToken, rulesRefreshKey]);
 
   useEffect(() => {
     onExportReady({
       filename: "team-stats",
-      columns: ["Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Tie Breaker (manual)"],
-      rows: rows.map((r) => [r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points, r.total_points, r.tie_breaker || ""]),
+      columns: ["Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg Pts", "Rank Rules"],
+      rows: rows.map((r) => [
+        r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points,
+        r.total_points, r.avg_points.toFixed(1), rankRuleSummary(r),
+      ]),
     });
   }, [rows, onExportReady]);
 
@@ -261,10 +275,24 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
     { header: "Olympic Points", render: (r) => r.olympic_points },
     { header: "Mod. Olympic Points", render: (r) => r.mod_olympic_points },
     { header: "Total Points", render: (r) => r.total_points },
-    { header: "Tie Breaker (manual)", render: (r) => r.tie_breaker || "—" },
+    { header: "Total Avg Pts", render: (r) => r.avg_points.toFixed(1) },
+    {
+      header: "Rank Rules",
+      render: (r) => (
+        <IconButton
+          size="small"
+          aria-label={`Why ${r.name} is ranked here`}
+          title={`Why ${r.name} is ranked here`}
+          onClick={() => setRankRuleTeam(r)}
+        >
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      ),
+    },
   ];
 
   return (
+    <>
     <DataTableTemplate<TeamStatTS>
       loading={loading}
       entityLabel="Team"
@@ -281,7 +309,21 @@ function TeamStatsSection({ statsGroupId, onExportReady }: { statsGroupId: strin
       onPageChange={() => {}}
       onPageSizeChange={() => {}}
     />
+    <RankRuleDialog team={rankRuleTeam} onClose={() => setRankRuleTeam(null)} />
+    </>
   );
+}
+
+/** One-line form of a row's rank rules, for the CSV/export where a dialog isn't available. */
+function rankRuleSummary(r: TeamStatTS): string {
+  const parts: string[] = [];
+  if (r.rank_rule_above) {
+    parts.push(`below ${r.rank_rule_above.other_team} by rule ${r.rank_rule_above.number} (${r.rank_rule_above.label}: ${r.rank_rule_above.detail})`);
+  }
+  if (r.rank_rule_below) {
+    parts.push(`above ${r.rank_rule_below.other_team} by rule ${r.rank_rule_below.number} (${r.rank_rule_below.label}: ${r.rank_rule_below.detail})`);
+  }
+  return parts.join("; ");
 }
 
 function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId: string; onExportReady: (p: ExportPayload) => void }) {
@@ -373,7 +415,12 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
  * `canImport` gates the game-event import, which rewrites games' recorded events and so needs
  * `game:update` — the same permission the import endpoints check.
  */
-export default function StatsGroupsPanel({ tid, canImport = false }: { tid: string; canImport?: boolean }) {
+export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBreakers = false }: {
+  tid: string;
+  canImport?: boolean;
+  /** Whether the "Tie-breaking Rules" button is offered (needs `statsgroup:update`). */
+  canEditTieBreakers?: boolean;
+}) {
   const { accessToken } = useAuth();
   const [statsGroups, setStatsGroups] = useState<StatsGroupTS[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
@@ -382,6 +429,9 @@ export default function StatsGroupsPanel({ tid, canImport = false }: { tid: stri
   const [gamesRefreshKey, setGamesRefreshKey] = useState(0);
   // Full-table export payload for the active view (published by the active section).
   const [exportPayload, setExportPayload] = useState<ExportPayload | null>(null);
+  // The tie-breaking rules dialog, and a key bumped on save so Team Stats refetches in the new order.
+  const [tieBreakerDialogOpen, setTieBreakerDialogOpen] = useState(false);
+  const [rulesRefreshKey, setRulesRefreshKey] = useState(0);
 
   // Clear stale export data when switching views (the new section republishes on load).
   useEffect(() => {
@@ -409,14 +459,14 @@ export default function StatsGroupsPanel({ tid, canImport = false }: { tid: stri
   const content = useMemo(() => {
     switch (dataView) {
       case "team":
-        return <TeamStatsSection statsGroupId={selectedGroup} onExportReady={setExportPayload} />;
+        return <TeamStatsSection statsGroupId={selectedGroup} onExportReady={setExportPayload} rulesRefreshKey={rulesRefreshKey} />;
       case "individual":
         return <IndividualStatsSection statsGroupId={selectedGroup} onExportReady={setExportPayload} />;
       case "games":
       default:
         return <GamesSelectionSection tid={tid} statsGroupId={selectedGroup} refreshKey={gamesRefreshKey} onExportReady={setExportPayload} />;
     }
-  }, [dataView, tid, selectedGroup, gamesRefreshKey]);
+  }, [dataView, tid, selectedGroup, gamesRefreshKey, rulesRefreshKey]);
 
   return (
     <Stack spacing={1.5}>
@@ -470,6 +520,12 @@ export default function StatsGroupsPanel({ tid, canImport = false }: { tid: stri
             <ImportGameEventsButton tid={tid} onImported={() => setGamesRefreshKey((k) => k + 1)} />
           )}
 
+          {dataView === "team" && canEditTieBreakers && selectedGroup && (
+            <Button variant="outlined" onClick={() => setTieBreakerDialogOpen(true)}>
+              Tie-breaking Rules
+            </Button>
+          )}
+
           <ExportTableButton
             getPayload={() => exportPayload}
             disabled={!exportPayload || exportPayload.rows.length === 0}
@@ -479,6 +535,17 @@ export default function StatsGroupsPanel({ tid, canImport = false }: { tid: stri
 
       {/* ── Content ── */}
       <Box>{content}</Box>
+
+      {/* Saving a new order re-sorts the standings; Cancel leaves them untouched. */}
+      <TieBreakerRulesDialog
+        statsGroupId={selectedGroup}
+        isOpen={tieBreakerDialogOpen}
+        onCancel={() => setTieBreakerDialogOpen(false)}
+        onSaved={() => {
+          setTieBreakerDialogOpen(false);
+          setRulesRefreshKey((k) => k + 1);
+        }}
+      />
     </Stack>
   );
 }
