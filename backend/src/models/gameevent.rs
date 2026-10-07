@@ -854,7 +854,7 @@ impl GameEventCalculator {
 
 /// A single team's outcome for one game, extracted from the score calculator.
 #[derive(Debug, Clone)]
-pub struct TeamGameInfo {
+pub struct TeamGameResult {
     pub team: i32,      // team index within the game (0/1/2)
     pub name: String,   // team name (from the TN event)
     pub score: i32,     // final score
@@ -867,7 +867,7 @@ pub struct TeamGameInfo {
 pub fn calculate_team_results_for_game(
     game_id: Uuid,
     game_events: Vec<GameEvent>,
-) -> Result<Vec<TeamGameInfo>, Vec<String>> {
+) -> Result<Vec<TeamGameResult>, Vec<String>> {
     let calculator = GameEventCalculator::new(game_id, game_events);
     let calculated = calculator.calculate_current_game_scores_and_counts()?;
     // During overtime (questions past regulation) the calculator decides a winner and assigns
@@ -878,7 +878,7 @@ pub fn calculate_team_results_for_game(
     Ok(calculated
         .teams
         .iter()
-        .map(|(team_idx, team)| TeamGameInfo {
+        .map(|(team_idx, team)| TeamGameResult {
             team: *team_idx,
             name: team.name.clone(),
             score: team.score,
@@ -893,7 +893,7 @@ pub fn calculate_team_results_for_game(
 
 /// A single quizzer's individual results for one game, extracted from the calculator.
 #[derive(Debug, Clone)]
-pub struct QuizzerGameInfo {
+pub struct QuizzerGameResult {
     pub team_name: String,     // the quizzer's team name
     pub name: String,          // the quizzer's name
     pub score: i32,            // individual points: tossups + bonuses + quiz-out
@@ -908,7 +908,7 @@ pub struct QuizzerGameInfo {
 pub fn calculate_quizzer_results_for_game(
     game_id: Uuid,
     game_events: Vec<GameEvent>,
-) -> Result<Vec<QuizzerGameInfo>, Vec<String>> {
+) -> Result<Vec<QuizzerGameResult>, Vec<String>> {
     let calculator = GameEventCalculator::new(game_id, game_events);
     let calculated = calculator.calculate_current_game_scores_and_counts()?;
 
@@ -929,7 +929,7 @@ pub fn calculate_quizzer_results_for_game(
                 quizzer.question_quizzed_out_on != -1 && quizzer.errors_on_tossups.is_empty();
             let quiz_out_pts = if quizzed_out_without_error { quiz_out_award } else { 0 };
 
-            results.push(QuizzerGameInfo {
+            results.push(QuizzerGameResult {
                 team_name: team.name.clone(),
                 name: quizzer.name.clone(),
                 score: correct * tossup_award + bonus_pts + quiz_out_pts,
