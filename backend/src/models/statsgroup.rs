@@ -1,5 +1,7 @@
 
+use crate::cache::Cache;
 use crate::database;
+use crate::models::gameevent::{QuizzerGameResult, TeamGameResult};
 use crate::models::common::PaginationParams;
 use crate::models::game_statsgroup::GameStatsGroup;
 use diesel::prelude::*;
@@ -430,24 +432,43 @@ fn olympic_awards(num_teams: usize, rank: i32, score: i32, game_total: i32) -> (
 /// Ordering applies the stats group's enabled tie-breaker criteria in their configured order,
 /// falling back to team name so the result is stable. Each row also carries which criterion
 /// separated it from its neighbours, for the "Rank Rules" column.
-pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<TeamStat>> {
-    use std::collections::HashMap;
-
+pub async fn read_team_stats_of_statsgroup(
+    cache: &Cache,
+    db: &mut database::Connection,
+    sg_id: Uuid,
+) -> QueryResult<Vec<TeamStat>> {
     let settings = read_tiebreaker_rules(db, sg_id)?;
 
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
 
-    let mut agg: HashMap<String, TeamStatAgg> = HashMap::new();
-    let mut game_ranks: Vec<GameRanks> = Vec::new();
-
+    // One cache lookup (or one replay) per game. Games whose event stream can't be scored
+    // come back as None and are skipped.
+    let mut per_game: Vec<Vec<TeamGameResult>> = Vec::with_capacity(games.len());
     for game in games {
-        let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
-        // Skip games whose event stream is invalid / cannot be scored.
-        let results = match crate::models::gameevent::calculate_team_results_for_game(game.gid, events) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
+        if let Some(calculated) =
+            crate::models::gameevent::calculate_game_cached(cache, db, game.gid).await?
+        {
+            per_game.push(crate::models::gameevent::team_results_from_calculated(&calculated));
+        }
+    }
+
+    Ok(aggregate_team_stats(&per_game, &settings))
+}
+
+/// Aggregates per-game team results into the sorted, placed `TeamStat` rows the endpoint
+/// serves. Pure: no database, no cache, no scoring -- which makes the olympic-point and
+/// tie-breaker behaviour unit-testable without a game event in sight.
+fn aggregate_team_stats(
+    per_game: &[Vec<TeamGameResult>],
+    settings: &[TieBreakerSetting],
+) -> Vec<TeamStat> {
+    use std::collections::HashMap;
+
+    let mut agg: HashMap<String, TeamStatAgg> = HashMap::new();
+    let mut game_ranks: Vec<GameRanks> = Vec::with_capacity(per_game.len());
+
+    for results in per_game {
         // Round size and the round's total team score (for the modified "10% of total" clause).
         let num_teams = results.len();
         let game_total: i32 = results.iter().map(|r| r.score).sum();
@@ -460,7 +481,7 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
                 .collect(),
         });
 
-        for result in &results {
+        for result in results {
             if result.name.trim().is_empty() {
                 continue;
             }
@@ -471,7 +492,7 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
             entry.games += 1;
             entry.total_points += result.score;
             // One win per team this team finished ahead of, one loss per team that finished ahead.
-            for other in &results {
+            for other in results {
                 if other.team == result.team || other.name.trim().is_empty() {
                     continue;
                 }
@@ -505,7 +526,7 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
 
     // Order by the configured criteria, with the team name as the final stable tiebreak.
     stats.sort_by(|a, b| {
-        decide_order(a, b, &settings, &game_ranks)
+        decide_order(a, b, settings, &game_ranks)
             .map(|(_, _, ordering)| ordering)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then(a.name.cmp(&b.name))
@@ -515,7 +536,7 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
     let decisions: Vec<Option<(usize, TieBreakerRule, String, String)>> = stats
         .windows(2)
         .map(|pair| {
-            decide_order(&pair[0], &pair[1], &settings, &game_ranks).map(|(idx, rule, _)| {
+            decide_order(&pair[0], &pair[1], settings, &game_ranks).map(|(idx, rule, _)| {
                 (idx, rule, describe_rule_values(&pair[0], rule, &game_ranks, &pair[1].name),
                  describe_rule_values(&pair[1], rule, &game_ranks, &pair[0].name))
             })
@@ -549,7 +570,7 @@ pub fn read_team_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid)
         stat.place = (idx + 1) as i32;
     }
 
-    Ok(stats)
+    stats
 }
 
 /// Applies the enabled criteria in order and returns the first one that separates `a` and `b`,
@@ -663,22 +684,39 @@ struct IndividualStatAgg {
 /// Computes individual (per-quizzer) stats for a statsgroup by running the score
 /// calculator over each of the statsgroup's games and aggregating per quizzer
 /// (keyed by team name + quizzer name). Games that can't be scored are skipped.
-pub fn read_individual_stats_of_statsgroup(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<IndividualStat>> {
-    use std::collections::HashMap;
-
+pub async fn read_individual_stats_of_statsgroup(
+    cache: &Cache,
+    db: &mut database::Connection,
+    sg_id: Uuid,
+) -> QueryResult<Vec<IndividualStat>> {
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
+
+    // Note this shares the cache with the team-stats endpoint: whichever of the two is
+    // requested first warms every game, and the second is served without touching the
+    // gameevents table or the calculator at all.
+    let mut per_game: Vec<Vec<QuizzerGameResult>> = Vec::with_capacity(games.len());
+    for game in games {
+        if let Some(calculated) =
+            crate::models::gameevent::calculate_game_cached(cache, db, game.gid).await?
+        {
+            per_game.push(crate::models::gameevent::quizzer_results_from_calculated(&calculated));
+        }
+    }
+
+    Ok(aggregate_individual_stats(&per_game))
+}
+
+/// Aggregates per-game quizzer results into the sorted, placed `IndividualStat` rows the
+/// endpoint serves. Pure: no database, no cache, no scoring.
+fn aggregate_individual_stats(per_game: &[Vec<QuizzerGameResult>]) -> Vec<IndividualStat> {
+    use std::collections::HashMap;
 
     // Keyed by (team name, quizzer name) so quizzers with the same name on
     // different teams are not merged.
     let mut agg: HashMap<(String, String), IndividualStatAgg> = HashMap::new();
 
-    for game in games {
-        let events = crate::models::gameevent::read_all_gameevents_of_game(db, game.gid, &pagination)?;
-        let results = match crate::models::gameevent::calculate_quizzer_results_for_game(game.gid, events) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
+    for results in per_game {
         for result in results {
             if result.name.trim().is_empty() {
                 continue;
@@ -731,7 +769,7 @@ pub fn read_individual_stats_of_statsgroup(db: &mut database::Connection, sg_id:
         stat.place = current_place;
     }
 
-    Ok(stats)
+    stats
 }
 
 #[cfg(test)]
@@ -793,6 +831,158 @@ mod tests {
         assert_eq!(modv(3, 3, 50, 200), 18);
         //   s=30,total=30  -> max(1, 1) floor 1 -> 1.
         assert_eq!(modv(3, 3, 30, 30), 1);
+    }
+}
+
+#[cfg(test)]
+mod aggregation_tests {
+    use super::*;
+
+    fn team(team: i32, name: &str, score: i32, rank: i32) -> TeamGameResult {
+        TeamGameResult { team, name: name.to_string(), score, rank }
+    }
+
+    fn quizzer(team_name: &str, name: &str, score: i32, correct: i32, errors: i32) -> QuizzerGameResult {
+        QuizzerGameResult {
+            team_name: team_name.to_string(),
+            name: name.to_string(),
+            score,
+            correct,
+            errors,
+            bonus_pts: 0,
+            bonus_attempts: 0,
+        }
+    }
+
+    /// W-L is counted per opponent, so a 2-team round gives 1-0 and 0-1 and a 3-team round
+    /// gives 2-0, 1-1 and 0-2. This is the rule the tie-breakers sort on, so it is the one
+    /// the refactor most needed to preserve.
+    #[test]
+    fn wins_and_losses_are_counted_per_opponent() {
+        let settings = parse_tiebreaker_rules("");
+
+        let two_team = vec![vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)]];
+        let stats = aggregate_team_stats(&two_team, &settings);
+        let red = stats.iter().find(|s| s.name == "Red").unwrap();
+        let blue = stats.iter().find(|s| s.name == "Blue").unwrap();
+        assert_eq![(red.wins, red.losses), (1, 0)];
+        assert_eq![(blue.wins, blue.losses), (0, 1)];
+
+        let three_team = vec![vec![
+            team(0, "Red", 100, 1),
+            team(1, "Blue", 80, 2),
+            team(2, "Green", 60, 3),
+        ]];
+        let stats = aggregate_team_stats(&three_team, &settings);
+        for (name, expected) in [("Red", (2, 0)), ("Blue", (1, 1)), ("Green", (0, 2))] {
+            let row = stats.iter().find(|s| s.name == name).unwrap();
+            assert_eq![(row.wins, row.losses), expected, "{name}"];
+        }
+    }
+
+    /// Rows accumulate across games and `place` is assigned 1..n in sorted order.
+    #[test]
+    fn totals_accumulate_across_games_and_places_are_assigned() {
+        let settings = parse_tiebreaker_rules("");
+        let per_game = vec![
+            vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)],
+            vec![team(0, "Red", 60, 2), team(1, "Blue", 90, 1)],
+        ];
+
+        let stats = aggregate_team_stats(&per_game, &settings);
+        assert_eq![stats.len(), 2];
+        assert_eq![stats.iter().map(|s| s.place).collect::<Vec<_>>(), vec![1, 2]];
+
+        let red = stats.iter().find(|s| s.name == "Red").unwrap();
+        assert_eq![red.games, 2];
+        assert_eq![red.total_points, 160];
+        assert_eq![(red.wins, red.losses), (1, 1)];
+        assert_eq![red.avg_points, 80.0];
+    }
+
+    /// Unnamed teams and quizzers are placeholders in a partially set-up game and must not
+    /// become rows -- nor inflate a real team's W-L.
+    #[test]
+    fn blank_names_are_excluded_everywhere() {
+        let settings = parse_tiebreaker_rules("");
+        let per_game = vec![vec![
+            team(0, "Red", 100, 1),
+            team(1, "   ", 0, 2),
+        ]];
+
+        let stats = aggregate_team_stats(&per_game, &settings);
+        assert_eq![stats.len(), 1];
+        assert_eq![stats[0].name, "Red"];
+        assert_eq![(stats[0].wins, stats[0].losses), (0, 0),
+            "a blank opponent must not count as a win"];
+
+        let individuals = aggregate_individual_stats(&vec![vec![
+            quizzer("Red", "Jacob", 40, 2, 0),
+            quizzer("Red", "", 0, 0, 0),
+        ]]);
+        assert_eq![individuals.len(), 1];
+        assert_eq![individuals[0].individual, "Jacob"];
+    }
+
+    /// Same quizzer name on two different teams must stay two rows.
+    #[test]
+    fn identically_named_quizzers_on_different_teams_are_not_merged() {
+        let per_game = vec![vec![
+            quizzer("Red", "Alex", 40, 2, 0),
+            quizzer("Blue", "Alex", 20, 1, 0),
+        ]];
+        let stats = aggregate_individual_stats(&per_game);
+        assert_eq![stats.len(), 2];
+        assert_eq![stats[0].score, 40];
+        assert_eq![stats[0].team_name, "Red"];
+        assert_eq![stats[1].team_name, "Blue"];
+    }
+
+    /// Individuals level on (score, errors) share a place, and the next distinct quizzer's
+    /// place is its position in the list -- not the next integer.
+    #[test]
+    fn individual_places_are_competitive() {
+        let per_game = vec![vec![
+            quizzer("Red", "Ann", 40, 2, 0),
+            quizzer("Red", "Bob", 40, 2, 0),
+            quizzer("Red", "Cal", 20, 1, 0),
+        ]];
+        let stats = aggregate_individual_stats(&per_game);
+        assert_eq![
+            stats.iter().map(|s| (s.individual.as_str(), s.place)).collect::<Vec<_>>(),
+            vec![("Ann", 1), ("Bob", 1), ("Cal", 3)]
+        ];
+    }
+
+    /// Individual counts sum across games.
+    #[test]
+    fn individual_counts_accumulate_across_games() {
+        let per_game = vec![
+            vec![quizzer("Red", "Jacob", 40, 2, 1)],
+            vec![quizzer("Red", "Jacob", 60, 3, 0)],
+        ];
+        let stats = aggregate_individual_stats(&per_game);
+        assert_eq![stats.len(), 1];
+        assert_eq![stats[0].games, 2];
+        assert_eq![stats[0].score, 100];
+        assert_eq![stats[0].correct, 5];
+        assert_eq![stats[0].errors, 1];
+        assert_eq![stats[0].avg, 50.0];
+    }
+
+    /// A stats group with no scoreable games yields no rows rather than panicking -- the
+    /// `windows(2)` tie-breaker pass has to tolerate 0 and 1 rows.
+    #[test]
+    fn empty_and_single_row_inputs_are_safe() {
+        let settings = parse_tiebreaker_rules("");
+        assert![aggregate_team_stats(&[], &settings).is_empty()];
+        assert![aggregate_individual_stats(&[]).is_empty()];
+
+        let one = vec![vec![team(0, "Red", 100, 1)]];
+        let stats = aggregate_team_stats(&one, &settings);
+        assert_eq![stats.len(), 1];
+        assert![stats[0].rank_rule_above.is_none()];
+        assert![stats[0].rank_rule_below.is_none()];
     }
 }
 

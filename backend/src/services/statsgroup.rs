@@ -1,5 +1,6 @@
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use crate::auth::policies::UserContext;
+use crate::cache::Cache;
 use crate::{database::Database, models::game_statsgroup::{GameStatsGroup, NewGameStatsGroup}};
 use crate::models::{self, common::PaginationParams, statsgroup::{NewStatsGroup, StatsGroup, StatsGroupChangeset}};
 use crate::models::permission::{AppAction, AppResource};
@@ -60,6 +61,7 @@ async fn read_games(
 #[get("/{id}/teamstats")]
 async fn read_team_stats(
     db: Data<Database>,
+    cache: Data<Cache>,
     sg_id: Path<Uuid>,
     req: HttpRequest
 ) -> HttpResponse {
@@ -73,7 +75,7 @@ async fn read_team_stats(
         return resp;
     }
 
-    match models::statsgroup::read_team_stats_of_statsgroup(&mut db, sg_id) {
+    match models::statsgroup::read_team_stats_of_statsgroup(&cache, &mut db, sg_id).await {
         Ok(team_stats) => HttpResponse::Ok().json(team_stats),
         Err(_) => HttpResponse::NotFound().finish(),
     }
@@ -82,6 +84,7 @@ async fn read_team_stats(
 #[get("/{id}/individualstats")]
 async fn read_individual_stats(
     db: Data<Database>,
+    cache: Data<Cache>,
     sg_id: Path<Uuid>,
     req: HttpRequest
 ) -> HttpResponse {
@@ -95,7 +98,7 @@ async fn read_individual_stats(
         return resp;
     }
 
-    match models::statsgroup::read_individual_stats_of_statsgroup(&mut db, sg_id) {
+    match models::statsgroup::read_individual_stats_of_statsgroup(&cache, &mut db, sg_id).await {
         Ok(individual_stats) => HttpResponse::Ok().json(individual_stats),
         Err(_) => HttpResponse::NotFound().finish(),
     }

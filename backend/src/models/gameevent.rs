@@ -5,7 +5,7 @@ use diesel::{insert_into, prelude::*, upsert::on_constraint};
 use uuid::Uuid;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use crate::{database, models::{common::PaginationParams}};
+use crate::{cache::Cache, database, models::{common::PaginationParams}};
 use utoipa::ToSchema;
 
 const DEFAULT_QUESTIONS_PER_GAME: i32 = 20;
@@ -1073,6 +1073,65 @@ pub fn calculate_game(
     let calculator = GameEventCalculator::new(game_id, game_events);
     let calculated = calculator.calculate_current_game_scores_and_counts()?;
     Ok(calculated.to_calculated())
+}
+
+/// How long a cached [`CalculatedGame`] lives.
+///
+/// This is a backstop, not the correctness mechanism -- the write path invalidates a game's
+/// entry as soon as a new event for it lands (see `services::gameevent::write`). The TTL
+/// covers the cases invalidation cannot: an invalidation lost to a Valkey blip, and reclaiming
+/// memory for games nobody is looking at any more.
+///
+/// Six hours is chosen so that a tournament day stays warm end to end while a lost
+/// invalidation still self-heals the same day rather than persisting indefinitely.
+pub const CALCULATED_GAME_TTL: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
+
+/// [`calculate_game`], but served from the Valkey cache when possible.
+///
+/// On a hit this does **no** database work at all -- it skips the game's event read as well as
+/// the replay, which is the whole point: a stats group with 50 games goes from 51 queries plus
+/// 50 replays down to one query.
+///
+/// Return values follow the three real outcomes:
+///   * `Ok(Some(..))` -- calculated state, from cache or freshly computed
+///   * `Ok(None)` -- the event stream cannot be scored, so the caller should skip this game
+///     (the same signal the uncached path gives via `Err`)
+///   * `Err(..)` -- a genuine database failure, which should propagate
+///
+/// A cache failure is never an error here; it degrades to the uncached path.
+pub async fn calculate_game_cached(
+    cache: &Cache,
+    db: &mut database::Connection,
+    game_id: Uuid,
+) -> QueryResult<Option<CalculatedGame>> {
+    let key = CalculatedGame::cache_key(game_id);
+
+    if let Some(hit) = cache.get_json::<CalculatedGame>(&key).await {
+        return Ok(Some(hit));
+    }
+
+    let pagination = PaginationParams {
+        page: 0,
+        page_size: PaginationParams::MAX_PAGE_SIZE as i64,
+    };
+    let events = read_all_gameevents_of_game(db, game_id, &pagination)?;
+
+    match calculate_game(game_id, events) {
+        Ok(calculated) => {
+            cache.set_json(&key, &calculated, CALCULATED_GAME_TTL).await;
+            Ok(Some(calculated))
+        }
+        Err(messages) => {
+            // An unscoreable stream is normal for a game still being set up or one with
+            // corrupt events; the stats readers skip it. Not cached: it may well become
+            // scoreable as more events arrive.
+            log::debug!(
+                "Game {game_id} could not be scored, skipping it in stats: {:?}",
+                messages
+            );
+            Ok(None)
+        }
+    }
 }
 
 /// A single team's outcome for one game, extracted from the score calculator.
@@ -4595,5 +4654,111 @@ mod tests {
         // The cache key must carry the format version, so a bump orphans stale entries.
         assert![CalculatedGame::cache_key(game_id).contains(&CALC_VERSION.to_string())];
         assert![CalculatedGame::cache_key(game_id).contains(&game_id.to_string())];
+    }
+
+    /// Puts the real production payload through a real Valkey. Opt-in; see the matching test
+    /// in `crate::cache` for the container one-liner.
+    ///
+    ///   VALKEY_TEST_URL=redis://127.0.0.1:6399 cargo test --lib -- --ignored --nocapture
+    ///
+    /// Also prints the payload sizes, which is the measurement behind the decision not to
+    /// cache `GameEventCalculator` itself (it carries its own `game_events`).
+    #[actix_web::test]
+    #[ignore = "needs a running Valkey; set VALKEY_TEST_URL"]
+    async fn a_calculated_game_round_trips_through_valkey() {
+        let Ok(url) = std::env::var("VALKEY_TEST_URL") else {
+            eprintln!("VALKEY_TEST_URL not set; skipping.");
+            return;
+        };
+        let cache = crate::cache::Cache::connect(&url).await;
+        assert![cache.is_enabled(), "expected to connect to Valkey at {url}"];
+
+        // A stream with substitutions, fouls, bonuses and a quiz-out, so the payload exercises
+        // every Vec and tuple field rather than just scores.
+        let game_id = Uuid::new_v4();
+        let (game_events, _) = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("N")
+            .then_add_TN("Red Team", 0).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Jacob", 0, 0, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Taran", 0, 1, false, true).unwrap()
+            .then_add_TN("Blue Team", 1).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Audrey", 1, 0, true, false).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Jesse", 1, 1, false, true).unwrap()
+            .then_add_TC("Jacob", 0).unwrap()
+            .then_add_TE_and_bonuses("Audrey", 1, true, false).unwrap()
+            .then_add_TC("Taran", 0).unwrap()
+            .then_add_TO(0).unwrap()
+            .then_add_TC("Jesse", 1).unwrap()
+            .to_game_events();
+
+        let event_count = game_events.len();
+        let events_json = serde_json::to_string(&game_events).unwrap();
+        let calculated = calculate_game(game_id, game_events).expect("stream should score");
+        let state_json = serde_json::to_string(&calculated).unwrap();
+
+        eprintln!(
+            "payload sizes for {event_count} events: raw events {} bytes, calculated state \
+             {} bytes ({:.1}x smaller)",
+            events_json.len(),
+            state_json.len(),
+            events_json.len() as f64 / state_json.len() as f64
+        );
+        assert![
+            state_json.len() < events_json.len(),
+            "derived state ({} B) should be smaller than the events it came from ({} B)",
+            state_json.len(),
+            events_json.len()
+        ];
+
+        // Miss, then store, then hit.
+        let key = CalculatedGame::cache_key(game_id);
+        assert![cache.get_json::<CalculatedGame>(&key).await.is_none(), "expected a cold miss"];
+        cache.set_json(&key, &calculated, CALCULATED_GAME_TTL).await;
+
+        let revived: CalculatedGame = cache
+            .get_json(&key)
+            .await
+            .expect("the entry just written should read back");
+
+        // The projections the endpoints serve must be identical across the real round trip.
+        let mut fresh_teams = team_results_from_calculated(&calculated);
+        let mut revived_teams = team_results_from_calculated(&revived);
+        fresh_teams.sort_by_key(|r| r.team);
+        revived_teams.sort_by_key(|r| r.team);
+        assert_eq![fresh_teams, revived_teams];
+
+        let sort_key = |r: &QuizzerGameResult| (r.team_name.clone(), r.name.clone());
+        let mut fresh_quizzers = quizzer_results_from_calculated(&calculated);
+        let mut revived_quizzers = quizzer_results_from_calculated(&revived);
+        fresh_quizzers.sort_by_key(sort_key);
+        revived_quizzers.sort_by_key(sort_key);
+        assert_eq![fresh_quizzers, revived_quizzers];
+
+        // The detail that only `CalculatedGame` carries has to survive too -- it is the
+        // reason for caching the richer object instead of the two projections.
+        for (idx, team) in calculated.teams.iter() {
+            let revived_team = revived.teams.get(idx).unwrap();
+            assert_eq![team.timeouts_taken, revived_team.timeouts_taken];
+            assert_eq![team.captain, revived_team.captain];
+            assert_eq![team.cocaptain, revived_team.cocaptain];
+            for (seat, quizzer) in team.quizzers.iter() {
+                let revived_quizzer = revived_team.quizzers.get(seat).unwrap();
+                assert_eq![quizzer.correct_tossups, revived_quizzer.correct_tossups];
+                assert_eq![quizzer.errors_on_tossups, revived_quizzer.errors_on_tossups];
+                assert_eq![quizzer.correct_bonuses, revived_quizzer.correct_bonuses];
+            }
+        }
+        assert![
+            calculated.teams.values().any(|t| !t.timeouts_taken.is_empty()),
+            "the fixture should have recorded a timeout, or this test is vacuous"
+        ];
+
+        // What the write path does after an event lands.
+        cache.invalidate(&[key.clone()]).await;
+        assert![
+            cache.get_json::<CalculatedGame>(&key).await.is_none(),
+            "invalidation should have dropped the entry"
+        ];
     }
 }

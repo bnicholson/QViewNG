@@ -11,6 +11,7 @@ use diesel::result::Error as DBError;
 use crate::models::{gameeventlog, roominfo};
 // use crate::models::gameevent::{self,GameEvent};
 use crate::models::game::{self,GameChangeset};
+use crate::cache::Cache;
 use crate::database::{self,Database};
 // use utoipa::OpenApi;
 
@@ -20,6 +21,7 @@ use crate::database::{self,Database};
 
 pub async fn write(
     mdb: &mut database::Connection,
+    cache: &Cache,
     req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
     // let db = req.app_data::<Data<Database>>().unwrap();
@@ -330,6 +332,19 @@ pub async fn write(
     
     }
 
+    // The event is committed and Postgres is authoritative, so drop this game's cached
+    // calculation; the next stats read recomputes it from the new event stream.
+    //
+    // Order matters: write first, then invalidate. A lost invalidation (Valkey down, timeout)
+    // then degrades to "stale until CALCULATED_GAME_TTL expires" rather than to wrong data
+    // being written. `invalidate` cannot fail in a way the caller must handle -- see
+    // backend/src/cache.rs.
+    //
+    // Only reached on success: every error arm of the match above returns early.
+    cache
+        .invalidate(&[gameevent::CalculatedGame::cache_key(gameevent_entry.gid)])
+        .await;
+
     let mut sha3_512_hasher_for_response_header = Sha3_512::new();
     sha3_512_hasher_for_response_header.update(&gameeventlog_entry.nonce);
     sha3_512_hasher_for_response_header.update(&gameevent_psk);
@@ -370,6 +385,7 @@ fn print_type_of<T>(_: &T) {
 #[get("/create")]
 async fn index(
     db: Data<Database>,
+    cache: Data<Cache>,
     //Query(url_params): Query<GameEventParams>,
     req: HttpRequest
 ) -> HttpResponse {
@@ -382,7 +398,7 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match write(&mut db, req).await {
+    match write(&mut db, &cache, req).await {
         Ok(response) => {
             // write() succeeded at the Result level; it may still carry a non-2xx
             // status (e.g. a validation BadRequest). Log those but pass them through
