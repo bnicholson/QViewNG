@@ -98,6 +98,13 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
   npm run dev
   ```
 
+  This also starts the Valkey cache container and waits for it to report healthy before the
+  backend boots, so the backend finds the cache on its first connection attempt. Docker must be
+  running; if it is not, `npm run dev` prints a warning and runs uncached rather than failing.
+  The cache is purely an optimization -- see backend/src/cache.rs. To develop with it off, set
+  QVIEW_SKIP_VALKEY=1. To start or stop it on its own: `npm run valkey:start` / `npm run
+  valkey:stop`.
+
 - If you want to build the backend without the frontend:
   ```
   cd {root}/backend/

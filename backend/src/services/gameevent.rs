@@ -8,7 +8,7 @@ use uuid::Uuid;
 use base64::{self, Engine};
 use sha3::{Sha3_512, Digest};
 use diesel::result::Error as DBError;
-use crate::models::{gameeventlog, roominfo};
+use crate::models::gameeventlog;
 // use crate::models::gameevent::{self,GameEvent};
 use crate::models::game::{self,GameChangeset};
 use crate::cache::Cache;
@@ -35,7 +35,6 @@ pub async fn write(
     let mut game_entry: GameChangeset = GameChangeset::empty();
     let mut gameevent_entry = NewGameEvent::empty();
     gameevent_entry.source = Some("qview network".to_string());
-    let mut roominfo_entry = roominfo::empty();
 
     // Okay, it's now time to search all the parameters and set the associated 
     // variables set in all the data that we will write to the cache
@@ -58,13 +57,11 @@ pub async fn write(
             "bldgroom" => {
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.bldgroom = (&tmp).to_string();
-                roominfo_entry.bldgroom = tmp;
                 field_count += 1;    
             },
             "key" => {  // key4server - uniquely identifies a particular client
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.clientkey = (&tmp).to_string();
-                roominfo_entry.clientkey = (&tmp).to_string();
                 gameevent_entry.qm_registration_key = Some(tmp.clone());
                 game_entry.clientkey = Some(tmp);
                 field_count += 1;
@@ -72,7 +69,6 @@ pub async fn write(
             "gid" => { // UUID of Game
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.gid = tmp.clone();
-                roominfo_entry.gid = tmp.clone();
                 match Uuid::parse_str(&tmp) {
                     Ok(uuid) => {
                         gameevent_entry.gid = uuid;
@@ -91,26 +87,22 @@ pub async fn write(
             "tn" => { // Tournament Name
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.tournament = tmp.clone();
-                roominfo_entry.tournament = tmp;
                 field_count += 1;
             },
             "dn" => { // Division Name
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.division = tmp.clone();
-                roominfo_entry.division = tmp;
                 field_count += 1;
             },
             "rm" => { // Room Name
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.room = tmp.clone();
-                roominfo_entry.room = tmp.clone();
 
                 field_count += 1;
             },
             "rd" => { // Round Name (Note: QuizMachine sequential lookup requires that this is an integer with no characters (1, 2, 3, 4, etc.); there should be no letters being received for this query parameter)
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.round = tmp.clone();
-                roominfo_entry.round = tmp;
                 field_count += 1;
             },
             "qn" => { // Question #
@@ -118,7 +110,6 @@ pub async fn write(
                 let qn = pair.1.trim().parse().unwrap(); 
                 gameeventlog_entry.question = qn;
                 gameevent_entry.question = qn;
-                roominfo_entry.question = qn;
                 field_count += 1;
             },
             "e" => { // event number
@@ -172,7 +163,6 @@ pub async fn write(
                 ts = Utc.timestamp_opt(secs,0).unwrap();
                 gameevent_entry.clientts = ts;
                 gameeventlog_entry.ts = pair.1.to_string();
-                roominfo_entry.client_time = ts;
                 field_count += 1;
             }, 
             "md5" => {  // md5 hashsum
@@ -196,7 +186,6 @@ pub async fn write(
                 // this is optional should only be there sometimes.
                 let tmp = pair.1.replace("+"," ");
                 gameeventlog_entry.clientip = (&tmp).to_string();
-                roominfo_entry.clientip = tmp;
             }
             _ => {
                 log::error!("{:?} {:?} Invalid parameter received in /gameevent api call {:?} ",module_path!(),line!(),
@@ -289,9 +278,6 @@ pub async fn write(
             )
         }
     }
-
-    // send an update to the cache for this room.  Rounds in  Progress (tickertape)
-    // roominfo::update_roominfo(&mut roominfo_entry);
 
     // now let's write an entry in the quizzes event table
     // Handle errors while we create the entry - this is a database insert or update

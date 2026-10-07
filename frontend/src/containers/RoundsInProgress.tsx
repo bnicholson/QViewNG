@@ -1,265 +1,196 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router'
+import { useParams } from 'react-router'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
+import Paper from '@mui/material/Paper'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import CircularProgress from '@mui/material/CircularProgress'
 
-import { Breadcrumbs, Link } from '@mui/material'
-import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
+// How often the tickertape re-reads the backend. The backend serves this from the Valkey
+// cache, so a short interval is cheap: a warm read does no gameevents queries at all.
+const POLL_MS = 15_000
 
-export const RoomInfoAPI = {
-  get: async (tk: number )=>
-    await (await fetch(`/api/roominfo`)).json(),
+/** One team's live standing within a round in progress. Mirrors the backend's RoundsInProgressTeam. */
+export interface RoundsInProgressTeam {
+  name: string
+  score: number
 }
 
-interface Column_rip {
-  id: 'tournament' | 'division' | 'room' | 'round' | 'question' | 'team1' | 'score1' | 'team2' | 'score2' | 'team3' | 'score3';
-  label: string;
-  minWidth?: number;
-  align?: 'right';
-  format?: (value: number) => string;
+/** One actively-reporting room. Mirrors the backend's RoundsInProgressRow. */
+export interface RoundsInProgressRow {
+  roomid: string
+  tournament: string
+  division: string | null
+  room: string | null
+  round: string | null
+  question: number | null
+  check_in: string | null
+  teams: RoundsInProgressTeam[]
 }
 
-const columns_rip: readonly Column_rip[] = [
-
-  { id: 'division', label: 'Division', minWidth: 10 },
-  { id: 'room', label: 'Room', minWidth: 10 },
-  { id: 'round', label: 'Round', minWidth: 10 },
-  {
-    id: 'question',
-    label: 'Question',
-    minWidth: 10,
-    align: 'right',
-    format: (value: number) => value.toLocaleString('en-US'),
+export const RoundsInProgressAPI = {
+  get: async (tid: string): Promise<RoundsInProgressRow[]> => {
+    const res = await fetch(`/api/tournaments/${tid}/roundsinprogress`)
+    if (!res.ok) throw new Error(`Failed to load rounds in progress (${res.status})`)
+    return res.json()
   },
-  { id: 'team1', label: 'Team #1', minWidth: 10 },
-  {
-    id: 'score1',
-    label: 'Score',
-    minWidth: 10,
-    align: 'right',
-    format: (value: number) => value.toLocaleString('en-US'),
-  },
-  { id: 'team2', label: 'Team #2', minWidth: 10 },
-  {
-    id: 'score2',
-    label: 'Score',
-    minWidth: 10,
-    align: 'right',
-    format: (value: number) => value.toFixed(2),
-  },
-  { id: 'team3', label: 'Team #3', minWidth: 10 },
-  {
-    id: 'score3',
-    label: 'Score',
-    minWidth: 10,
-    align: 'right',
-    format: (value: number) => value.toFixed(2),
-  },
-];
-
-interface Room {
-  clientkey: String;
-  bldgroom: String;
-  chkd_in: String;
-  client_time: String;
-  tournament: String;
-  division: String;
-  room: String;
-  round: String;
-  question: number
-  error_msgs: String[];
-  clientip: String;
-  jobs_pending: Number;
-  qm_version: String;
-  resend_list: String[];
-  cmd_list: String[];
-  team: String[];
-  score: number[];
 }
 
-interface Data_rip {
-  tournament: string;
-  division: string;
-  room: string;
-  round: string;
-  question: number;
-  team1: string;
-  score1: number;
-  team2: string;
-  score2: number;
-  team3: string;
-  score3: number;
+// Up to three teams per round, so the table has a fixed column for each slot.
+const TEAM_SLOTS = [0, 1, 2]
+
+/** "2m ago" / "just now" — how stale a room's last check-in is. */
+function sinceLabel(checkIn: string | null): string {
+  if (!checkIn) return '—'
+  const seconds = Math.floor((Date.now() - new Date(checkIn).getTime()) / 1000)
+  if (seconds < 10) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}m ago`
 }
 
-var rownum = 0;
-
-function createData_rip(
-  tournament: string,
-  division: string,
-  room: string,
-  round: string,
-  question: number,
-  team1: string,
-  score1: number,
-  team2: string,
-  score2: number,
-  team3: string,
-  score3: number,
-): Data_rip {
-  return { tournament, division, room, round, question, team1, score1, team2, score2, team3, score3 };
-}
-
-export const RoundsInProgress = () => {
-  const navigate = useNavigate();
-  const [processing, setProcessing] = React.useState<boolean>(false)
-  const [displayDate, setDisplayDate] = React.useState<Date>(new Date())
-  const [rooms, setRooms] = React.useState<Room[]>([])
-
-  const [value, setValue] = React.useState(0);
-
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-    setValue(newValue);
-  };
-
-  // ok this logic is quite interesting
-  // This is the useEffect that loads the room data from 
-  // the backend.  It also sets a refresh timer to 
-  // refresh the table once every sixty seconds.
-  useEffect(() => {
-    setProcessing(true)
-    RoomInfoAPI.get(0).then((rooms: Room[]) => {
-      setRooms(rooms)
-      setProcessing(false)
-    })
-    console.log("In useeffect - pulling from room api")
-    console.log(rooms)
-    const interval=setInterval(()=>{
-      setDisplayDate(new Date())
-    },60000)
-    return()=>clearInterval(interval)
-  }, [displayDate])
-
-
-  return (
-    <div>
-      <br/>
-      <Box>
-        <Breadcrumbs aria-label="breadcrumb" >
-          <Link underline="hover" color="inherit" href="/">
-            Home
-          </Link>
-          <Link underline="hover" color="inherit" href="/t/q2022">
-            Q2022
-          </Link>
-          <Link
-            underline="hover"
-            color="inherit"
-            href="/t/q2022/district%20novice"
-          >
-            District Novice
-          </Link>
-          <Typography color="text.primary" onClick={() => navigate("/tdeditor")} >Teams</Typography>
-        </Breadcrumbs>
-      </Box>
-      <Typography variant="h5">Rounds In Progress</Typography>
-      <br/>
-      {RoundsInProgressTable()}
-    </div >
-  )
-}
-
-export const RoundsInProgressTable = () => {
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(40);
-
-  const rows_rip: Data_rip[] = []
-  for (let i=1;i<41;i++) {
-    rows_rip.push(createData_rip(
-      'Q2022', 'District Novice', `Jester ${i}`, "Tue-07b", 3, "Team #1", 120, "Team #2", 180, "Team #3", 20
-    ))
+export const RoundsInProgressTable = ({ rows }: { rows: RoundsInProgressRow[] }) => {
+  if (rows.length === 0) {
+    return (
+      <Paper sx={{ width: '100%', p: 3 }}>
+        <Typography color="text.secondary">
+          No rooms are currently reporting. Rounds appear here while the QuizMachine clients
+          are checking in, and drop off about 30 minutes after a room goes quiet.
+        </Typography>
+      </Paper>
+    )
   }
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(+event.target.value);
-    setPage(0);
-  };
 
   return (
     <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-      <TableContainer >
-        <Table stickyHeader aria-label="sticky table">
+      <TableContainer>
+        <Table stickyHeader aria-label="rounds in progress">
           <TableHead>
-            <TableRow >
-              {columns_rip.map((column) => (
-                <TableCell
-                  key={column.id}
-                  align={column.align}
-                  style={{ minWidth: column.minWidth }}
-                  sx={{
-                    backgroundColor: "#7aba7a",
-                    borderBottom: "2px solid black",
-                    "& th": {
-                      fontSize: "1.25rem",
-                      color: "rgba(96, 96, 96)"
-                    }
-                  }}
-                >
-                  {column.label}
+            <TableRow>
+              {['Division', 'Room', 'Round', 'Question'].map((label) => (
+                <TableCell key={label} sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
+                  {label}
                 </TableCell>
               ))}
+              {TEAM_SLOTS.map((slot) => (
+                <React.Fragment key={slot}>
+                  <TableCell sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
+                    {`Team #${slot + 1}`}
+                  </TableCell>
+                  <TableCell align="right" sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
+                    Score
+                  </TableCell>
+                </React.Fragment>
+              ))}
+              <TableCell align="right" sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
+                Check-in
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows_rip
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((row: Data_rip) => {
-                return (
-                  <TableRow hover role="checkbox" tabIndex={-1} key={row.room}>
-                    {columns_rip.map((column) => {
-                      const value = row[column.id];
-                      return (
-                        <TableCell key={column.id} align={column.align}
-                          sx={{
-                            backgroundColor: "#d0342c",
-                            borderBottom: "2px solid black",
-                            "& th": {
-                              fontSize: "1.25rem",
-                              color: "rgba(96, 96, 96)"
-                            }
-                          }}>
-                          {column.format && typeof value === 'number'
-                            ? column.format(value)
-                            : value}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
+            {rows.map((row) => (
+              <TableRow hover tabIndex={-1} key={row.roomid}>
+                <TableCell>{row.division ?? '—'}</TableCell>
+                <TableCell>{row.room ?? '—'}</TableCell>
+                <TableCell>{row.round ?? '—'}</TableCell>
+                <TableCell align="right">{row.question ?? '—'}</TableCell>
+                {TEAM_SLOTS.map((slot) => {
+                  const team = row.teams[slot]
+                  return (
+                    <React.Fragment key={slot}>
+                      <TableCell>{team ? team.name : ''}</TableCell>
+                      <TableCell align="right">{team ? team.score : ''}</TableCell>
+                    </React.Fragment>
+                  )
+                })}
+                <TableCell align="right" sx={{ color: 'text.secondary' }}>
+                  {sinceLabel(row.check_in)}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
-      <TablePagination
-        rowsPerPageOptions={[10, 25, 100, 500]}
-        component="div"
-        count={rows_rip.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
     </Paper>
-  );
+  )
+}
+
+export const RoundsInProgress = () => {
+  const { tid } = useParams()
+  const [rows, setRows] = useState<RoundsInProgressRow[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+  // Re-renders on each poll so the "check-in" column ages even when the rows are unchanged.
+  const [, setTick] = useState<number>(0)
+
+  useEffect(() => {
+    if (!tid) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+
+    const load = () => {
+      RoundsInProgressAPI.get(tid)
+        .then((fetched) => {
+          if (cancelled) return
+          setRows(fetched)
+          setError(null)
+          setLoading(false)
+        })
+        .catch((e: Error) => {
+          if (cancelled) return
+          setError(e.message)
+          setLoading(false)
+        })
+    }
+
+    load()
+    const poll = setInterval(load, POLL_MS)
+    const tick = setInterval(() => setTick((t) => t + 1), POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(poll)
+      clearInterval(tick)
+    }
+  }, [tid])
+
+  // Reached via the tournament-less /rounds-in-progress path.
+  if (!tid) {
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="h5">Rounds In Progress</Typography>
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          Open this view from a tournament to see its rounds in progress.
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <div>
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="h5">Rounds In Progress</Typography>
+        {rows.length > 0 && (
+          <Typography variant="subtitle1" color="text.secondary">
+            {rows[0].tournament}
+          </Typography>
+        )}
+      </Box>
+      <br />
+      {loading && <CircularProgress />}
+      {error && !loading && (
+        <Paper sx={{ width: '100%', p: 3 }}>
+          <Typography color="error">{error}</Typography>
+        </Paper>
+      )}
+      {!loading && !error && <RoundsInProgressTable rows={rows} />}
+    </div>
+  )
 }

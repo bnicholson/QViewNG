@@ -9,10 +9,12 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "dev_original": "vite",
-    "predev": "node scripts/bump-version.js",
+    "predev": "node scripts/bump-version.js && node scripts/start-valkey.js",
     "dev": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
     "start:frontend": "vite",
-    "start:backend": "cd ../backend && cargo run --bin backend"
+    "start:backend": "cd ../backend && cargo run --bin backend",
+    "valkey:start": "node scripts/start-valkey.js",
+    "valkey:stop": "docker compose -f ../compose.yaml -f ../compose.dev.yaml stop valkey"
   },
   "dependencies": {
     "@emotion/styled": "^11.14.1",

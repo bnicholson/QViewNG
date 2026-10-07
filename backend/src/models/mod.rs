@@ -8,7 +8,6 @@ pub mod poolbracketgroup;
 pub mod teamgroup;
 pub mod team_teamgroup;
 pub mod apicalllog;
-pub mod roominfo;
 pub mod gameeventlog;
 pub mod game;
 pub mod gameevent;

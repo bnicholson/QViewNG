@@ -1326,32 +1326,6 @@ pub fn purge(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<u
     diesel::delete(games.filter(gid.eq(item_id))).execute(db_conn)
 }
 
-// Construct a key for the game information.
-// we will use this to retrieve any information we have
-// on this particular game.  
-// pub fn get_gid_from_cache(game: &GameChangeset) -> Uuid {
-//     // use crate::schema::games::dsl::*;
-//     let gamekey = format!("QV:GAME:{}:{:?}:{:?}:{:?}:{:?}:{}",game.org.unwrap(),game.tournamentid, game.divisionid, game.roomid, game.roundid, game.clientkey.unwrap());
-
-//     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-//     let mut con = client.get_connection().unwrap();
-
-//     // Now lets read the cache to see if we have this entry.
-//     match redis::cmd("get").arg(&gamekey).query::<Option<String>>(&mut con) {
-//         Ok(nil) => {
-//             return -1;   // not found
-//         },
-//         Ok(json) => {
-//             let json_str : String = json.unwrap();
-//             let info : Game = serde_json::from_str(&json_str).unwrap(); 
-//             return info.gid;
-//         },
-//         Err(e) => {
-//             log::error!("{} {} Fault retrieving redis cache for game {:?}",module_path!(),line!(),e);
-//             return -1 ;   // not found
-//         },
-//     }
-// }
 // ─── Per-game readiness status (for the Game Selection view) ──────────────────
 
 /// Whether a game's recorded events are internally valid and whether the game is complete.

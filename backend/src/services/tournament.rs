@@ -8,6 +8,7 @@ use crate::services::common::{EntityResponse, PagedResponse, authorized_to_read,
 use chrono::Utc;
 use utoipa::OpenApi;
 use diesel::{QueryResult};
+use crate::cache::Cache;
 use crate::database::Database;
 use uuid::Uuid;
 
@@ -839,6 +840,37 @@ async fn read_room_monitor(
     }
 }
 
+/// The public "Rounds In Progress" tickertape: every room in the tournament that is currently
+/// reporting, with the live score of the game it is running.
+///
+/// Public by design -- this is the view a broadcast or a spectator screen points at. It
+/// carries no roster or contact data, only what is already on a scoreboard in the room.
+/// Contrast `/roommonitor`, which exposes client IPs and QM versions and stays restricted.
+#[get("/{id}/roundsinprogress")]
+async fn read_rounds_in_progress(
+    db: Data<Database>,
+    cache: Data<Cache>,
+    tour_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs room:read.
+    if !authorized_to_read(&req, AppResource::Room) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let tid = tour_id.into_inner();
+    match models::room::read_rounds_in_progress_of_tournament(&cache, &mut conn, tid).await {
+        Ok(rows) => HttpResponse::Ok().json(rows),
+        Err(diesel::result::Error::NotFound) => HttpResponse::NotFound().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/gamestatuses")]
 async fn read_game_statuses(
     db: Data<Database>,
@@ -1224,6 +1256,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_game_rows)
         .service(read_game_statuses)
         .service(read_room_monitor)
+        .service(read_rounds_in_progress)
         .service(import_gameevents_preview)
         .service(import_gameevents_commit)
         .service(read_admins)

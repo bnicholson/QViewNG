@@ -108,6 +108,7 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/tournament-groups" element={<TournamentProfile childRoute="tournament-groups" />} />
             <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile childRoute="stats-groups" />} />
             <Route path="/tournament/:tid/room-monitor" element={<TournamentProfile childRoute="room-monitor" />} />
+            <Route path="/tournament/:tid/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/tournament-group/:tgid" element={<TournamentGroupProfile />} />
             <Route path="/tournament-group/:tgid/overview" element={<TournamentGroupProfile childRoute="overview" />} />
             <Route path="/tournament-group/:tgid/tournaments" element={<TournamentGroupProfile childRoute="tournaments" />} />

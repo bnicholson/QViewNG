@@ -21,7 +21,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     // cfg.service(services::namelist::endpoints(web::scope("/namelist")));
     // cfg.service(services::gameevent::endpoints(web::scope("/scoreevent")));
     // cfg.service(services::file::endpoints(web::scope("/files")))
-    // cfg.service(services::roominfo::endpoints(web::scope("/roominfo")))
     cfg.service(
         web::scope("/api")
             // For debug:
@@ -32,7 +31,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     // When you add a new scoped service, add its docs path here (*some other configuration required):
                     // .url("/tournaments/docs", TournamentDoc::openapi())
                     // .url("/divisions/docs", DivisionDoc::openapi())
-                    // .url("/roominfo/docs", RoomInfoDoc::openapi())
                     // .url("/quizevents/docs", QuizEventDoc::openapi())
                     // .url("/namelist/docs", NamelistDoc::openapi())
                     // .url("/pingmsg/docs", PingMsgDoc::openapi())

@@ -1,0 +1,23 @@
+# Dev-only overlay: adds what a host-run backend needs, on top of compose.yaml.
+#
+# compose.yaml deliberately gives valkey no "ports:" mapping, because Valkey holds no auth and
+# must stay reachable only from inside qviewng-net. That stays correct for deployment, where the
+# backend also runs on that network and reaches valkey by its service hostname.
+#
+# Local dev is the one case that cannot work: `npm run dev` runs the backend on the host, so it
+# is not on qviewng-net and has no route to valkey at all. This overlay publishes the port for
+# it -- bound to 127.0.0.1, so it is reachable from this machine and nowhere else, which keeps
+# the no-auth reasoning in compose.yaml intact.
+#
+# The cache flags (--save "", --maxmemory, ...) are deliberately NOT repeated here. They live in
+# compose.yaml alone, so dev and deployment cannot drift apart.
+#
+# Started automatically by frontend/scripts/start-valkey.js on `npm run dev`. By hand:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d --wait valkey
+#   docker compose -f compose.yaml -f compose.dev.yaml stop valkey
+
+services:
+
+  valkey:
+    ports:
+      - "127.0.0.1:6379:6379"

@@ -58,6 +58,12 @@ services:
       - SMTP_USER
       - SMTP_PASS
       - SMTP_FROM
+      # Passed through from the host only if set there. It normally is NOT: the release binary
+      # reads VALKEY_URL from the .env.release that the Dockerfile bakes into /app, where it is
+      # "redis://valkey:6379" -- the service hostname on qviewng-net. Do not put a VALKEY_URL in
+      # the root .env to make local dev work; the dev value is a 127.0.0.1 address, and inside
+      # this container that resolves to the container itself, which would silently disable the
+      # cache here. Local dev gets its value from .env.dev instead (see compose.dev.yaml).
       - VALKEY_URL
     restart: unless-stopped
     networks:

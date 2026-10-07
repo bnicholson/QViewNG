@@ -35,6 +35,7 @@ const STANDALONE: Record<string, string | undefined> = {
   '/division/old': 'Divisions',
   '/tdeditor': 'Tournament Director Editor',
   '/rounds-in-progress': 'Rounds in Progress',
+  '/tournament/:tid/rounds-in-progress': 'Rounds in Progress',
   '/files': 'Files',
   '/swagger': 'API Reference',
   '/dev': 'Developer',
