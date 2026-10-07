@@ -2,6 +2,7 @@
 use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
 use backend::database::Database;
+use backend::cache::Cache;
 use backend::database::clean_db::clean_database;
 use backend::database::seed_data::seed_one::insert_seed_data_one;
 use backend::database::seed_data::system_default_data::insert_system_default_data;
@@ -45,6 +46,12 @@ async fn main() -> std::io::Result<()> {
     let host_and_port = format!("{host}:{port}");
 
     let db = Database::new("DATABASE_URL");
+
+    // Valkey cache. Built once and shared by every worker; `Cache` is cheap to clone and
+    // multiplexes over a single auto-reconnecting connection. If VALKEY_URL is unset or the
+    // server is unreachable, this returns a disabled cache and the app runs uncached rather
+    // than failing to start -- see backend/src/cache.rs.
+    let cache = Cache::from_env("VALKEY_URL").await;
     
     if false {
         let mut conn = db.get_connection().expect("Failed to get connection.");
@@ -77,6 +84,7 @@ async fn main() -> std::io::Result<()> {
         .wrap(NormalizePath::trim())
         .wrap(Logger::default())
         .app_data(actix_web::web::Data::new(db.clone()))
+        .app_data(actix_web::web::Data::new(cache.clone()))
         // .app_data(Data::new(app_data.mailer.clone()))
         // .app_data(Data::new(schema.clone()))
         // .app_data(Data::new(storage.clone()))

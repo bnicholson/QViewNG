@@ -4,6 +4,7 @@ pub mod middleware;
 pub mod errors;
 pub mod routes;
 pub mod database;
+pub mod cache;
 pub mod schema;
 pub mod models;
 pub mod services;

@@ -22,6 +22,31 @@ services:
       retries: 10
       start_period: 30s
 
+  valkey:
+    image: "valkey/valkey:8-alpine"
+    # Run as a pure cache, not a datastore:
+    #   --save ""            disable RDB snapshots; nothing here is worth persisting, and a
+    #                        restart should come up empty rather than replay a stale dump
+    #   --maxmemory          cap it so it can never pressure the host
+    #   --maxmemory-policy   evict the least-recently-used key when full instead of erroring
+    command: >
+      valkey-server
+      --save ""
+      --appendonly no
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    networks:
+      - qviewng-net
+    # Deliberately no "ports:" mapping -- Valkey holds no auth and must stay reachable only
+    # from inside qviewng-net. Use `docker compose exec valkey valkey-cli` to inspect it.
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   qviewng:
     image: "${DOCKER_APP_IMAGE}"
     build: .
@@ -33,11 +58,14 @@ services:
       - SMTP_USER
       - SMTP_PASS
       - SMTP_FROM
+      - VALKEY_URL
     restart: unless-stopped
     networks:
       - qviewng-net
     depends_on:
       pgdb:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
     ports:
       - "${APP_PORT:-80}:80"
