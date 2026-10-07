@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import ProfileLayout from '../components/ProfileLayout'
+import { ProfileSidebarToggle } from '../contexts/ProfileSidebarContext'
 import { ManageUsers } from './ManageUsers'
 import { ManageCreateTournamentApplicants } from './ManageCreateTournamentApplicants'
 import { ManageGameevents } from './ManageGameevents'
@@ -15,6 +16,8 @@ export const CRMProfile = (props: { childRoute?: string }) => {
   return (
     <ProfileLayout title="CRM" navItems={navItems}>
       <Stack spacing={3}>
+        {/* CRM has no breadcrumb row, so it hosts the sidebar toggle itself. */}
+        <Box><ProfileSidebarToggle /></Box>
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'users' && <ManageUsers />}
           {props.childRoute === 'create-tournament-applicants' && <ManageCreateTournamentApplicants />}

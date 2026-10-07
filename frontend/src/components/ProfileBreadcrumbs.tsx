@@ -1,6 +1,8 @@
 import { Breadcrumbs } from '@mui/material'
 import { Link } from 'react-router-dom'
+import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import { ProfileSidebarToggle } from '../contexts/ProfileSidebarContext'
 
 /** One segment of a profile breadcrumb: "{label}: {name}" where only the name is a link. */
 export interface Crumb {
@@ -17,10 +19,15 @@ export interface Crumb {
  *   Home / [Tournament] {name} / [Division] {name} / [Team] {name}
  * The type indicator ("[Tournament]") is plain text; only the name is clickable, and only when
  * a `to` is given (the current/last entity is plain text).
+ *
+ * This row also carries the profile sidebar's collapse/expand control, immediately left of the
+ * path — the only place it appears, in either state.
  */
 export function ProfileBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
   return (
-    <Breadcrumbs aria-label="breadcrumb">
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+      <ProfileSidebarToggle />
+      <Breadcrumbs aria-label="breadcrumb">
       {crumbs.map((c, i) => (
         <span key={i} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
           {c.label && (
@@ -43,6 +50,7 @@ export function ProfileBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
           )}
         </span>
       ))}
-    </Breadcrumbs>
+      </Breadcrumbs>
+    </Box>
   )
 }
