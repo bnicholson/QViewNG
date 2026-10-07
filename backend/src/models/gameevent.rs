@@ -852,8 +852,231 @@ impl GameEventCalculator {
     // }
 }
 
+// ============================================================================
+// Cacheable calculated-game state
+//
+// `GameEventCalculator` and its `Team*`/`Quizzer*`/`Options*` helpers are private to this
+// module and carry `game_events` (the whole input stream) alongside the state they derive
+// from it. The `Calculated*` mirrors below are the public, serializable *derived* state with
+// the input stream dropped, so one of these can be cached per game and then projected into
+// the narrower `TeamGameResult` / `QuizzerGameResult` views without re-reading events or
+// re-running the calculator.
+//
+// Conversions are inherent `to_calculated()` methods on the private types rather than `From`
+// impls, because `impl From<&PrivateType> for PublicType` would leak a private type into a
+// public interface.
+// ============================================================================
+
+/// Cache-format version for `CalculatedGame`.
+///
+/// Bump this whenever the scoring logic changes, any `DEFAULT_*` constant at the top of this
+/// file changes, or any `Calculated*` struct below changes shape. It is part of the cache key
+/// (see [`CalculatedGame::cache_key`]), so bumping it orphans previously cached entries
+/// instead of deserializing stale state against new rules.
+pub const CALC_VERSION: u32 = 1;
+
+/// One quizzer's fully-derived state at the end of a game.
+///
+/// The `Vec<i32>` fields hold the *question numbers* each thing happened on, not just counts,
+/// which is what a broadcast overlay needs ("one tossup from quizzing out", "errored out on
+/// Q14"). `QuizzerGameResult` throws this detail away; this type keeps it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalculatedQuizzer {
+    pub name: String,
+    pub correct_tossups: Vec<i32>,
+    pub errors_on_tossups: Vec<i32>,
+    pub correct_bonuses: Vec<i32>,
+    pub errors_on_bonuses: Vec<i32>,
+    pub fouls_received: Vec<i32>,
+    /// -1 when it never happened.
+    pub question_quizzed_out_on: i32,
+    /// -1 when it never happened.
+    pub question_errored_out_on: i32,
+    /// -1 when it never happened.
+    pub question_fouled_out_on: i32,
+}
+
+impl QuizzerForGameEventCalculator {
+    fn to_calculated(&self) -> CalculatedQuizzer {
+        CalculatedQuizzer {
+            name: self.name.clone(),
+            correct_tossups: self.correct_tossups.clone(),
+            errors_on_tossups: self.errors_on_tossups.clone(),
+            correct_bonuses: self.correct_bonuses.clone(),
+            errors_on_bonuses: self.errors_on_bonuses.clone(),
+            fouls_received: self.fouls_received.clone(),
+            question_quizzed_out_on: self.question_quizzed_out_on,
+            question_errored_out_on: self.question_errored_out_on,
+            question_fouled_out_on: self.question_fouled_out_on,
+        }
+    }
+}
+
+/// One team's fully-derived state at the end of a game.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalculatedTeam {
+    pub name: String,
+    pub score: i32,
+    pub timeouts_taken: Vec<i32>,
+    pub overruled_challenges: Vec<i32>,
+    /// `(question_num, is_for_coach)` -- true = coach foul, false = team foul.
+    pub team_and_coach_fouls_received: Vec<(i32, bool)>,
+    /// Keyed by seat index. Note that `serde_json` renders integer map keys as strings
+    /// (`{"0": {...}}`); it round-trips back to `i32` correctly.
+    pub quizzers: HashMap<i32, CalculatedQuizzer>,
+    /// `(seat_idx, can_still_act_as_captain)`.
+    pub captain: (i32, bool),
+    /// `(seat_idx, can_still_act_as_cocaptain)`.
+    pub cocaptain: (i32, bool),
+    /// `(question_num, seat_num)` pairs.
+    pub substitutions: Vec<(i32, i32)>,
+    /// Placement within the game. -1 when the calculator never assigned one (see
+    /// [`CalculatedGame::overtime_ranks_assigned`]).
+    pub rank: i32,
+}
+
+impl TeamForGameEventCalculator {
+    fn to_calculated(&self) -> CalculatedTeam {
+        CalculatedTeam {
+            name: self.name.clone(),
+            score: self.score,
+            timeouts_taken: self.timeouts_taken.clone(),
+            overruled_challenges: self.overruled_challenges.clone(),
+            team_and_coach_fouls_received: self.team_and_coach_fouls_received.clone(),
+            quizzers: self
+                .quizzers
+                .iter()
+                .map(|(seat, quizzer)| (*seat, quizzer.to_calculated()))
+                .collect(),
+            captain: self.captain,
+            cocaptain: self.cocaptain,
+            substitutions: self.substitutions.clone(),
+            rank: self.rank,
+        }
+    }
+}
+
+/// The scoring options actually in force for a game.
+///
+/// These are *not* constants: they start from the `DEFAULT_*` values and are then overridden
+/// by `IP` and `OP` events in the stream (see `calc_new_score_from_game_state`), so they are
+/// per-game derived state and must be cached alongside the scores. `CALC_VERSION` guards the
+/// case where a `DEFAULT_*` fallback changes while cached entries still hold the old value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalculatedOptions {
+    pub is_tournament: bool,
+    pub quiz_out: i32,
+    pub error_out: i32,
+    pub foul_out: i32,
+    pub team_error_begin_deduction_count: i32,
+    pub individual_begin_deduction_count: i32,
+    pub point_award_for_correct_tossup: i32,
+    pub point_award_for_quizzing_out: i32,
+    pub point_deduction_for_error_on_tossup: i32,
+    pub point_award_for_correct_bonus: i32,
+    pub start_error_zone_deductions: i32,
+    pub third_fourth_and_fifth_person_bonus_award_amount: i32,
+    pub attempt_try_when_deductions_begin_for_overruled_challenges_by_a_team: i32,
+    pub overruled_challenge_point_deduction_amount: i32,
+    pub foul_count_where_team_point_deductions_begin: i32,
+    pub team_foul_deduction_amount: i32,
+    pub individual_error_begin_deduction_count: i32,
+}
+
+impl OptionsForGameEventCalculator {
+    fn to_calculated(&self) -> CalculatedOptions {
+        CalculatedOptions {
+            is_tournament: self.is_tournament,
+            quiz_out: self.quiz_out,
+            error_out: self.error_out,
+            foul_out: self.foul_out,
+            team_error_begin_deduction_count: self.team_error_begin_deduction_count,
+            individual_begin_deduction_count: self.individual_begin_deduction_count,
+            point_award_for_correct_tossup: self.point_award_for_correct_tossup,
+            point_award_for_quizzing_out: self.point_award_for_quizzing_out,
+            point_deduction_for_error_on_tossup: self.point_deduction_for_error_on_tossup,
+            point_award_for_correct_bonus: self.point_award_for_correct_bonus,
+            start_error_zone_deductions: self.start_error_zone_deductions,
+            third_fourth_and_fifth_person_bonus_award_amount: self
+                .third_fourth_and_fifth_person_bonus_award_amount,
+            attempt_try_when_deductions_begin_for_overruled_challenges_by_a_team: self
+                .attempt_try_when_deductions_begin_for_overruled_challenges_by_a_team,
+            overruled_challenge_point_deduction_amount: self
+                .overruled_challenge_point_deduction_amount,
+            foul_count_where_team_point_deductions_begin: self
+                .foul_count_where_team_point_deductions_begin,
+            team_foul_deduction_amount: self.team_foul_deduction_amount,
+            individual_error_begin_deduction_count: self.individual_error_begin_deduction_count,
+        }
+    }
+}
+
+/// A game's complete derived state after the calculator has replayed its event stream.
+///
+/// This is the unit of caching: it is the output of the one expensive operation (one DB read
+/// of the game's events + one full replay), it is invalidated by exactly one write path
+/// (`create_update_game_event`), and every consumer below is a cheap in-memory projection of
+/// it. It deliberately does *not* carry `game_events` -- that is the input, it already lives
+/// in Postgres, and it is far larger than the state derived from it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalculatedGame {
+    pub game_id: Uuid,
+    pub current_question: i32,
+    /// Keyed by team index within the game (0/1/2). See the note on
+    /// [`CalculatedTeam::quizzers`] about integer map keys in JSON.
+    pub teams: HashMap<i32, CalculatedTeam>,
+    pub options: CalculatedOptions,
+}
+
+impl CalculatedGame {
+    /// Cache key for one game's calculated state, versioned by [`CALC_VERSION`].
+    pub fn cache_key(game_id: Uuid) -> String {
+        format!("qv:v1:game:{}:calc:{}", game_id, CALC_VERSION)
+    }
+
+    /// True when the calculator assigned real placement ranks itself.
+    ///
+    /// During overtime (questions past regulation) it decides a winner and assigns ranks even
+    /// though the displayed score stays tied. When it did not, placement has to be derived
+    /// from the scores instead -- see [`team_results_from_calculated`].
+    pub fn overtime_ranks_assigned(&self) -> bool {
+        self.teams.values().any(|team| team.rank >= 1)
+    }
+}
+
+impl GameEventCalculator {
+    /// Projects the finished calculator into its serializable derived state, dropping the
+    /// input event stream.
+    fn to_calculated(&self) -> CalculatedGame {
+        CalculatedGame {
+            game_id: self.game_id,
+            current_question: self.current_question,
+            teams: self
+                .teams
+                .iter()
+                .map(|(idx, team)| (*idx, team.to_calculated()))
+                .collect(),
+            options: self.options.to_calculated(),
+        }
+    }
+}
+
+/// Runs the score calculator over a single game's events and returns the full derived state.
+///
+/// This is the function worth putting a cache in front of: everything below is a projection
+/// of its result. Returns Err (with the calculator's messages) if the event stream is invalid
+/// / cannot be scored.
+pub fn calculate_game(
+    game_id: Uuid,
+    game_events: Vec<GameEvent>,
+) -> Result<CalculatedGame, Vec<String>> {
+    let calculator = GameEventCalculator::new(game_id, game_events);
+    let calculated = calculator.calculate_current_game_scores_and_counts()?;
+    Ok(calculated.to_calculated())
+}
+
 /// A single team's outcome for one game, extracted from the score calculator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TeamGameResult {
     pub team: i32,      // team index within the game (0/1/2)
     pub name: String,   // team name (from the TN event)
@@ -861,21 +1084,16 @@ pub struct TeamGameResult {
     pub rank: i32,      // competitive placement rank (1 = 1st place)
 }
 
-/// Runs the score calculator over a single game's events and returns each team's
-/// final score and placement rank. Returns Err (with the calculator's messages)
-/// if the event stream is invalid / cannot be scored.
-pub fn calculate_team_results_for_game(
-    game_id: Uuid,
-    game_events: Vec<GameEvent>,
-) -> Result<Vec<TeamGameResult>, Vec<String>> {
-    let calculator = GameEventCalculator::new(game_id, game_events);
-    let calculated = calculator.calculate_current_game_scores_and_counts()?;
-    // During overtime (questions past regulation) the calculator decides a winner and assigns
-    // real ranks even though the displayed score stays tied. If it did, honor those ranks;
-    // otherwise the game ended in regulation, so compute competitive ranking from the scores.
-    let overtime_ranks_assigned = calculated.teams.values().any(|team| team.rank >= 1);
+/// Projects each team's final score and placement rank out of already-calculated state.
+///
+/// Pure -- no DB access, no replay -- so it is safe to call per request against a cached
+/// [`CalculatedGame`].
+pub fn team_results_from_calculated(calculated: &CalculatedGame) -> Vec<TeamGameResult> {
+    // During overtime the calculator assigns real ranks itself; honor those. Otherwise the
+    // game ended in regulation, so compute competitive ranking from the scores.
+    let overtime_ranks_assigned = calculated.overtime_ranks_assigned();
     let scores: Vec<i32> = calculated.teams.values().map(|team| team.score).collect();
-    Ok(calculated
+    calculated
         .teams
         .iter()
         .map(|(team_idx, team)| TeamGameResult {
@@ -888,11 +1106,26 @@ pub fn calculate_team_results_for_game(
                 scores.iter().filter(|&&s| s > team.score).count() as i32 + 1
             },
         })
-        .collect())
+        .collect()
+}
+
+/// Runs the score calculator over a single game's events and returns each team's final score
+/// and placement rank. Returns Err (with the calculator's messages) if the event stream is
+/// invalid / cannot be scored.
+///
+/// Convenience wrapper over [`calculate_game`] + [`team_results_from_calculated`], kept so
+/// existing callers are unchanged. Callers that need both team *and* quizzer results should
+/// call [`calculate_game`] once and project twice, rather than calling this and
+/// [`calculate_quizzer_results_for_game`], which replays the stream twice.
+pub fn calculate_team_results_for_game(
+    game_id: Uuid,
+    game_events: Vec<GameEvent>,
+) -> Result<Vec<TeamGameResult>, Vec<String>> {
+    Ok(team_results_from_calculated(&calculate_game(game_id, game_events)?))
 }
 
 /// A single quizzer's individual results for one game, extracted from the calculator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct QuizzerGameResult {
     pub team_name: String,     // the quizzer's team name
     pub name: String,          // the quizzer's name
@@ -903,15 +1136,11 @@ pub struct QuizzerGameResult {
     pub bonus_attempts: i32,   // correct + erroneous bonus attempts
 }
 
-/// Runs the score calculator over a single game's events and returns each quizzer's
-/// individual counts and points. Returns Err if the event stream cannot be scored.
-pub fn calculate_quizzer_results_for_game(
-    game_id: Uuid,
-    game_events: Vec<GameEvent>,
-) -> Result<Vec<QuizzerGameResult>, Vec<String>> {
-    let calculator = GameEventCalculator::new(game_id, game_events);
-    let calculated = calculator.calculate_current_game_scores_and_counts()?;
-
+/// Projects each quizzer's individual counts and points out of already-calculated state.
+///
+/// Pure -- no DB access, no replay -- so it is safe to call per request against a cached
+/// [`CalculatedGame`].
+pub fn quizzer_results_from_calculated(calculated: &CalculatedGame) -> Vec<QuizzerGameResult> {
     let tossup_award = calculated.options.point_award_for_correct_tossup;
     let bonus_award = calculated.options.point_award_for_correct_bonus;
     let quiz_out_award = calculated.options.point_award_for_quizzing_out;
@@ -940,7 +1169,19 @@ pub fn calculate_quizzer_results_for_game(
             });
         }
     }
-    Ok(results)
+    results
+}
+
+/// Runs the score calculator over a single game's events and returns each quizzer's
+/// individual counts and points. Returns Err if the event stream cannot be scored.
+///
+/// Convenience wrapper over [`calculate_game`] + [`quizzer_results_from_calculated`], kept so
+/// existing callers are unchanged.
+pub fn calculate_quizzer_results_for_game(
+    game_id: Uuid,
+    game_events: Vec<GameEvent>,
+) -> Result<Vec<QuizzerGameResult>, Vec<String>> {
+    Ok(quizzer_results_from_calculated(&calculate_game(game_id, game_events)?))
 }
 
 #[derive(Clone, Debug)]
@@ -4268,5 +4509,91 @@ mod tests {
 
         assert![game_events_two_names_are_same_specific.is_err()];
         assert![game_events_two_names_are_same_everything.is_err()];
+    }
+
+    /// The cache contract for `CalculatedGame`: it must survive a JSON round-trip with every
+    /// projection byte-identical. If this ever breaks, a cached entry silently serves wrong
+    /// stats to a live broadcast -- the worst possible failure mode for this feature.
+    ///
+    /// Specifically guards:
+    ///   - `HashMap<i32, _>` keys (serde_json writes them as strings; they must parse back)
+    ///   - `options`, which is per-game derived state (`IP`/`OP` events), not constants
+    ///   - the two projections endpoints actually serve
+    #[test]
+    fn calculated_game_survives_a_json_round_trip_with_identical_projections() {
+        // ARRANGE: smallest stream that still produces scores, ranks and quizzer counts.
+        let game_id = Uuid::new_v4();
+        let left_team = 0;
+        let center_team = 1;
+        let seat_one = 0;
+
+        let (game_events, _) = GameEventStreamBuilder::new(game_id)
+            .then_add_RM("Tournament")
+            .then_add_QT("N")
+            .then_add_TN("Red Team", left_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Jacob", left_team, seat_one, true, false).unwrap()
+            .then_add_TN("Blue Team", center_team).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Audrey", center_team, seat_one, true, false).unwrap()
+            .then_add_TC("Jacob", left_team).unwrap()
+            .then_add_TC("Audrey", center_team).unwrap()
+            .then_add_TC("Jacob", left_team).unwrap()
+            .to_game_events();
+
+        let fresh = calculate_game(game_id, game_events).expect("stream should score");
+
+        // ACT: the exact trip a cached entry makes.
+        let json = serde_json::to_string(&fresh).expect("CalculatedGame must serialize");
+        let revived: CalculatedGame =
+            serde_json::from_str(&json).expect("CalculatedGame must deserialize");
+
+        // ASSERT: scalar + map-key fidelity.
+        assert_eq![fresh.game_id, revived.game_id];
+        assert_eq![fresh.current_question, revived.current_question];
+        assert_eq![fresh.teams.len(), revived.teams.len()];
+        for (team_idx, team) in fresh.teams.iter() {
+            let revived_team = revived.teams.get(team_idx)
+                .expect("integer team key must survive the round-trip");
+            assert_eq![team.name, revived_team.name];
+            assert_eq![team.score, revived_team.score];
+            assert_eq![team.quizzers.len(), revived_team.quizzers.len()];
+            for seat in team.quizzers.keys() {
+                assert![revived_team.quizzers.contains_key(seat),
+                    "integer quizzer seat key must survive the round-trip"];
+            }
+        }
+
+        // Per-game options must survive; they drive every point award below.
+        assert_eq![
+            fresh.options.point_award_for_correct_tossup,
+            revived.options.point_award_for_correct_tossup
+        ];
+        assert_eq![fresh.options.quiz_out, revived.options.quiz_out];
+        assert_eq![fresh.options.is_tournament, revived.options.is_tournament];
+
+        // ASSERT: the projections the endpoints serve are unchanged. HashMap iteration order
+        // is nondeterministic, so sort before comparing.
+        let mut fresh_teams = team_results_from_calculated(&fresh);
+        let mut revived_teams = team_results_from_calculated(&revived);
+        fresh_teams.sort_by_key(|r| r.team);
+        revived_teams.sort_by_key(|r| r.team);
+        assert_eq![fresh_teams, revived_teams,
+            "team projection changed across a cache round-trip"];
+
+        let sort_key = |r: &QuizzerGameResult| (r.team_name.clone(), r.name.clone());
+        let mut fresh_quizzers = quizzer_results_from_calculated(&fresh);
+        let mut revived_quizzers = quizzer_results_from_calculated(&revived);
+        fresh_quizzers.sort_by_key(sort_key);
+        revived_quizzers.sort_by_key(sort_key);
+        assert_eq![fresh_quizzers, revived_quizzers,
+            "quizzer projection changed across a cache round-trip"];
+
+        // Sanity: the stream really did score, so the comparisons above were not vacuous.
+        assert_eq![fresh_teams.len(), 2];
+        assert![fresh_teams.iter().any(|r| r.score > 0), "expected a non-zero score"];
+        assert![!fresh_quizzers.is_empty(), "expected at least one quizzer row"];
+
+        // The cache key must carry the format version, so a bump orphans stale entries.
+        assert![CalculatedGame::cache_key(game_id).contains(&CALC_VERSION.to_string())];
+        assert![CalculatedGame::cache_key(game_id).contains(&game_id.to_string())];
     }
 }
