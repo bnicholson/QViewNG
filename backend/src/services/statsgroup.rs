@@ -137,6 +137,7 @@ async fn read_tiebreaker_rules(
 #[put("/{id}/tiebreaker-rules")]
 async fn update_tiebreaker_rules(
     db: Data<Database>,
+    cache: Data<Cache>,
     sg_id: Path<Uuid>,
     Json(payload): Json<TieBreakerRulesPayload>,
     req: HttpRequest,
@@ -156,7 +157,17 @@ async fn update_tiebreaker_rules(
     }
 
     match models::statsgroup::update_tiebreaker_rules(&mut db, sg_id, &payload.rules) {
-        Ok(rules) => HttpResponse::Ok().json(rules),
+        Ok(rules) => {
+            // The configured ordering is baked into the cached `TeamStat` rows (including the
+            // "Rank Rules" explanations), and the aggregate keys do not encode it, so the
+            // standings must be cleared explicitly here. Without this the dialog would save
+            // successfully and the table would keep showing the old order for up to
+            // AGGREGATE_TTL -- which reads as a bug.
+            cache
+                .invalidate(&models::statsgroup::aggregate_cache_keys(sg_id))
+                .await;
+            HttpResponse::Ok().json(rules)
+        }
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }

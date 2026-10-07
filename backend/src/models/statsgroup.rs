@@ -341,6 +341,54 @@ pub fn update_tiebreaker_rules(
         .map(|sg| parse_tiebreaker_rules(&sg.tiebreaker_rules))
 }
 
+// ─── Aggregated-standings cache ───────────────────────────────────────────────
+
+/// Cache-format version for the aggregated standings rows.
+///
+/// Bump when the aggregation logic changes while the row *shape* stays the same: the
+/// olympic-point maths, W-L counting, placement rules or sort order. A change that alters the
+/// shape of `TeamStat` or `IndividualStat` needs no bump -- a stale entry simply fails to
+/// deserialize and is treated as a miss (see backend/src/cache.rs).
+const STATS_VERSION: u32 = 1;
+
+/// How long aggregated standings live.
+///
+/// Deliberately short. The per-game `CalculatedGame` entries behind these rows last hours, so
+/// recomputing after this expires is cheap: it re-aggregates cached state without touching
+/// the gameevents table or the calculator. Sixty seconds is what absorbs a broadcast audience
+/// refreshing at once, while capping how long the mutation paths that have no explicit
+/// invalidation hook -- a game added to or removed from a stats group, a game soft-deleted --
+/// can serve stale rows.
+pub const AGGREGATE_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Cache key for a stats group's team standings.
+fn team_stats_cache_key(sg_id: Uuid) -> String {
+    format!(
+        "qv:v1:sg:{sg_id}:teamstats:{STATS_VERSION}.{}",
+        crate::models::gameevent::CALC_VERSION
+    )
+}
+
+/// Cache key for a stats group's individual standings.
+fn individual_stats_cache_key(sg_id: Uuid) -> String {
+    format!(
+        "qv:v1:sg:{sg_id}:individualstats:{STATS_VERSION}.{}",
+        crate::models::gameevent::CALC_VERSION
+    )
+}
+
+/// Every aggregate key for one stats group, for write paths that must clear its standings.
+///
+/// These keys deliberately do **not** encode the tie-breaker configuration, even though the
+/// ordering of `TeamStat` rows depends on it. Encoding it would make a rules edit
+/// self-invalidating, but it would also mean the game-event write path could not name these
+/// keys without first reading every affected group's rules -- a query per group on the
+/// hottest write in the system. Tie-breaker edits get an explicit invalidation instead (see
+/// `services::statsgroup::update_tiebreaker_rules`), which is a rare operation.
+pub fn aggregate_cache_keys(sg_id: Uuid) -> Vec<String> {
+    vec![team_stats_cache_key(sg_id), individual_stats_cache_key(sg_id)]
+}
+
 // ─── Team standings for a statsgroup ──────────────────────────────────────────
 
 /// Aggregated standings row for one team within a statsgroup.
@@ -437,6 +485,14 @@ pub async fn read_team_stats_of_statsgroup(
     db: &mut database::Connection,
     sg_id: Uuid,
 ) -> QueryResult<Vec<TeamStat>> {
+    // Fast path: fully aggregated rows. A hit here costs one Valkey round trip and zero
+    // database queries. (The caller has already authorized the request -- access checks are
+    // never served from cache.)
+    let aggregate_key = team_stats_cache_key(sg_id);
+    if let Some(cached) = cache.get_json::<Vec<TeamStat>>(&aggregate_key).await {
+        return Ok(cached);
+    }
+
     let settings = read_tiebreaker_rules(db, sg_id)?;
 
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
@@ -453,7 +509,9 @@ pub async fn read_team_stats_of_statsgroup(
         }
     }
 
-    Ok(aggregate_team_stats(&per_game, &settings))
+    let stats = aggregate_team_stats(&per_game, &settings);
+    cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
+    Ok(stats)
 }
 
 /// Aggregates per-game team results into the sorted, placed `TeamStat` rows the endpoint
@@ -689,6 +747,12 @@ pub async fn read_individual_stats_of_statsgroup(
     db: &mut database::Connection,
     sg_id: Uuid,
 ) -> QueryResult<Vec<IndividualStat>> {
+    // Fast path: fully aggregated rows, as in `read_team_stats_of_statsgroup`.
+    let aggregate_key = individual_stats_cache_key(sg_id);
+    if let Some(cached) = cache.get_json::<Vec<IndividualStat>>(&aggregate_key).await {
+        return Ok(cached);
+    }
+
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
 
@@ -704,7 +768,9 @@ pub async fn read_individual_stats_of_statsgroup(
         }
     }
 
-    Ok(aggregate_individual_stats(&per_game))
+    let stats = aggregate_individual_stats(&per_game);
+    cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
+    Ok(stats)
 }
 
 /// Aggregates per-game quizzer results into the sorted, placed `IndividualStat` rows the
@@ -968,6 +1034,153 @@ mod aggregation_tests {
         assert_eq![stats[0].correct, 5];
         assert_eq![stats[0].errors, 1];
         assert_eq![stats[0].avg, 50.0];
+    }
+
+    /// The two aggregate keys must be distinct, name their stats group, and carry both
+    /// version tokens -- a collision between them would serve team rows as individual rows.
+    #[test]
+    fn aggregate_cache_keys_are_distinct_and_versioned() {
+        let sg_id = Uuid::new_v4();
+        let keys = aggregate_cache_keys(sg_id);
+
+        assert_eq![keys.len(), 2];
+        assert_ne![keys[0], keys[1], "team and individual keys must not collide"];
+
+        for key in &keys {
+            assert![key.contains(&sg_id.to_string()), "{key} should name its stats group"];
+            assert![key.contains(&STATS_VERSION.to_string()), "{key} should carry STATS_VERSION"];
+            assert![
+                key.contains(&crate::models::gameevent::CALC_VERSION.to_string()),
+                "{key} should carry CALC_VERSION, since the rows derive from calculated games"
+            ];
+        }
+
+        // Different stats groups must never share a key.
+        assert_ne![aggregate_cache_keys(Uuid::new_v4())[0], keys[0]];
+    }
+
+    /// `TeamStat` is the only cached payload with a nested enum (`TieBreakerRule`, inside the
+    /// optional `RankRuleExplanation`s), so it is the one most likely to break serialization.
+    #[test]
+    fn team_stat_rows_survive_a_json_round_trip() {
+        let settings = parse_tiebreaker_rules("");
+        let rows = aggregate_team_stats(
+            &vec![vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)]],
+            &settings,
+        );
+
+        // Guard against a vacuous test: the pair must actually have been separated.
+        assert![rows[0].rank_rule_below.is_some(), "expected a rank-rule explanation"];
+        assert![rows[1].rank_rule_above.is_some(), "expected a rank-rule explanation"];
+
+        let json = serde_json::to_string(&rows).expect("TeamStat rows must serialize");
+        let revived: Vec<TeamStat> =
+            serde_json::from_str(&json).expect("TeamStat rows must deserialize");
+
+        assert_eq![revived.len(), rows.len()];
+        for (before, after) in rows.iter().zip(revived.iter()) {
+            assert_eq![before.name, after.name];
+            assert_eq![before.place, after.place];
+            assert_eq![(before.wins, before.losses), (after.wins, after.losses)];
+            assert_eq![before.avg_points, after.avg_points];
+            // The nested explanation, including its enum rule, has to survive intact.
+            match (&before.rank_rule_below, &after.rank_rule_below) {
+                (Some(b), Some(a)) => {
+                    assert_eq![b.rule, a.rule];
+                    assert_eq![b.number, a.number];
+                    assert_eq![b.label, a.label];
+                    assert_eq![b.other_team, a.other_team];
+                    assert_eq![b.detail, a.detail];
+                }
+                (None, None) => {}
+                _ => panic!["rank_rule_below changed presence across the round trip"],
+            }
+        }
+    }
+
+    /// `IndividualStat` rows round-trip too.
+    #[test]
+    fn individual_stat_rows_survive_a_json_round_trip() {
+        let rows = aggregate_individual_stats(&vec![vec![
+            quizzer("Red", "Jacob", 40, 2, 1),
+            quizzer("Blue", "Audrey", 60, 3, 0),
+        ]]);
+        assert_eq![rows.len(), 2];
+
+        let json = serde_json::to_string(&rows).unwrap();
+        let revived: Vec<IndividualStat> = serde_json::from_str(&json).unwrap();
+
+        for (before, after) in rows.iter().zip(revived.iter()) {
+            assert_eq![before.individual, after.individual];
+            assert_eq![before.team_name, after.team_name];
+            assert_eq![before.place, after.place];
+            assert_eq![before.score, after.score];
+            assert_eq![before.avg, after.avg];
+        }
+    }
+
+    /// End-to-end through a real Valkey: store standings, read them back, invalidate the way
+    /// the write paths do, confirm both keys are gone. Opt-in; see `crate::cache` for the
+    /// container one-liner.
+    #[actix_web::test]
+    #[ignore = "needs a running Valkey; set VALKEY_TEST_URL"]
+    async fn standings_round_trip_and_invalidate_through_valkey() {
+        let Ok(url) = std::env::var("VALKEY_TEST_URL") else {
+            eprintln!("VALKEY_TEST_URL not set; skipping.");
+            return;
+        };
+        let cache = Cache::connect(&url).await;
+        assert![cache.is_enabled(), "expected to connect to Valkey at {url}"];
+
+        let sg_id = Uuid::new_v4();
+        let settings = parse_tiebreaker_rules("");
+        let team_rows = aggregate_team_stats(
+            &vec![vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)]],
+            &settings,
+        );
+        let individual_rows = aggregate_individual_stats(&vec![vec![
+            quizzer("Red", "Jacob", 40, 2, 0),
+        ]]);
+
+        let team_key = team_stats_cache_key(sg_id);
+        let individual_key = individual_stats_cache_key(sg_id);
+
+        // Cold.
+        assert![cache.get_json::<Vec<TeamStat>>(&team_key).await.is_none()];
+
+        cache.set_json(&team_key, &team_rows, AGGREGATE_TTL).await;
+        cache.set_json(&individual_key, &individual_rows, AGGREGATE_TTL).await;
+
+        let revived_teams: Vec<TeamStat> = cache
+            .get_json(&team_key)
+            .await
+            .expect("team standings should read back");
+        assert_eq![
+            revived_teams.iter().map(|r| (r.name.clone(), r.place)).collect::<Vec<_>>(),
+            team_rows.iter().map(|r| (r.name.clone(), r.place)).collect::<Vec<_>>()
+        ];
+        assert![
+            revived_teams[0].rank_rule_below.is_some(),
+            "the rank-rule explanation must survive Valkey, not just serde"
+        ];
+
+        let revived_individuals: Vec<IndividualStat> = cache
+            .get_json(&individual_key)
+            .await
+            .expect("individual standings should read back");
+        assert_eq![revived_individuals.len(), 1];
+        assert_eq![revived_individuals[0].individual, "Jacob"];
+
+        // What both write paths do: one call clears every aggregate key for the group.
+        cache.invalidate(&aggregate_cache_keys(sg_id)).await;
+        assert![
+            cache.get_json::<Vec<TeamStat>>(&team_key).await.is_none(),
+            "team standings should have been invalidated"
+        ];
+        assert![
+            cache.get_json::<Vec<IndividualStat>>(&individual_key).await.is_none(),
+            "individual standings should have been invalidated"
+        ];
     }
 
     /// A stats group with no scoreable games yields no rows rather than panicking -- the

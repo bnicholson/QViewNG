@@ -87,6 +87,19 @@ pub fn create(db: &mut database::Connection, item: &NewGameStatsGroup) -> QueryR
         .get_result::<GameStatsGroup>(db)
 }
 
+/// The stats groups a game belongs to.
+///
+/// Used by the game-event write path to work out whose cached standings a new event makes
+/// stale. Indexed by the `games_statsgroups` primary key, so this is cheap enough to run on
+/// every event write.
+pub fn read_statsgroup_ids_of_game(db: &mut database::Connection, game_id: Uuid) -> QueryResult<Vec<Uuid>> {
+    use crate::schema::games_statsgroups::dsl::*;
+    games_statsgroups
+        .filter(gameid.eq(game_id))
+        .select(statsgroupid)
+        .load::<Uuid>(db)
+}
+
 pub fn delete(db: &mut database::Connection, statsgroup_id: Uuid, game_id: Uuid) -> QueryResult<usize> {
     use crate::schema::games_statsgroups::dsl::*;
     diesel::delete(

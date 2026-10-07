@@ -332,18 +332,33 @@ pub async fn write(
     
     }
 
-    // The event is committed and Postgres is authoritative, so drop this game's cached
-    // calculation; the next stats read recomputes it from the new event stream.
+    // The event is committed and Postgres is authoritative, so drop everything this event
+    // makes stale: the game's calculated state, and the aggregated standings of every stats
+    // group the game feeds.
     //
     // Order matters: write first, then invalidate. A lost invalidation (Valkey down, timeout)
-    // then degrades to "stale until CALCULATED_GAME_TTL expires" rather than to wrong data
-    // being written. `invalidate` cannot fail in a way the caller must handle -- see
-    // backend/src/cache.rs.
+    // then degrades to "stale until the TTL expires" rather than to wrong data being written.
+    // `invalidate` cannot fail in a way the caller must handle -- see backend/src/cache.rs.
     //
     // Only reached on success: every error arm of the match above returns early.
-    cache
-        .invalidate(&[gameevent::CalculatedGame::cache_key(gameevent_entry.gid)])
-        .await;
+    let mut stale_keys = vec![gameevent::CalculatedGame::cache_key(gameevent_entry.gid)];
+    match models::game_statsgroup::read_statsgroup_ids_of_game(mdb, gameevent_entry.gid) {
+        Ok(sg_ids) => {
+            for sg_id in sg_ids {
+                stale_keys.extend(models::statsgroup::aggregate_cache_keys(sg_id));
+            }
+        }
+        Err(e) => {
+            // We could not learn which stats groups to clear. Their rows carry a short TTL,
+            // so this self-heals; log it rather than failing a write that already succeeded.
+            log::warn!(
+                "{} {} Could not read stats groups for game {} to invalidate standings ({:?}); \
+                 relying on AGGREGATE_TTL.",
+                module_path!(), line!(), gameevent_entry.gid, e
+            );
+        }
+    }
+    cache.invalidate(&stale_keys).await;
 
     let mut sha3_512_hasher_for_response_header = Sha3_512::new();
     sha3_512_hasher_for_response_header.update(&gameeventlog_entry.nonce);
