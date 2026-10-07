@@ -73,8 +73,9 @@ fn seeded_games_never_end_tied() {
     assert!(overtime > 0, "no game went to overtime, so the tie-break path was never exercised");
 }
 
-/// The Experienced division schedules three pools of four teams, each playing a double
-/// round-robin, and every seeded game is a complete round with all 20 questions answered.
+/// The Experienced division splits its double round-robin across two sessions: Session 1 holds
+/// every pair's first meeting and Session 2 the rematch, each session owning its own pool group of
+/// three four-team pools. Every seeded game is a complete round with all 20 questions answered.
 ///
 /// Ignored by default alongside the tie-break check: a full seed takes several minutes.
 #[test]
@@ -93,7 +94,25 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
             .select(d::did).first(&mut conn).unwrap()
     };
 
-    // Three pools, four teams each.
+    // Two sessions (roundgroups), each with its own pool group of three pools.
+    let sessions: Vec<(Uuid, String)> = {
+        use backend::schema::roundgroups::dsl as rg;
+        rg::roundgroups.filter(rg::did.eq(division_id)).filter(rg::del_fl.eq(false))
+            .select((rg::roundgroup_id, rg::name)).order(rg::name.asc()).load(&mut conn).unwrap()
+    };
+    assert_eq!(
+        sessions.iter().map(|(_, n)| n.as_str()).collect::<Vec<_>>(),
+        vec!["Session 1", "Session 2"],
+        "Experienced should run two sessions",
+    );
+
+    let groups: Vec<(Uuid, String)> = {
+        use backend::schema::poolbracketgroups::dsl as pbg;
+        pbg::poolbracketgroups.filter(pbg::divisionid.eq(division_id)).filter(pbg::del_fl.eq(false))
+            .select((pbg::poolbracketgroupid, pbg::name)).order(pbg::name.asc()).load(&mut conn).unwrap()
+    };
+    assert_eq!(groups.len(), 2, "Experienced should have two pool groups, got {:?}", groups);
+
     // A pool references its team group directly, so carry it along for the team count.
     let pools: Vec<(Uuid, String, Option<Uuid>)> = {
         use backend::schema::pool_brackets::dsl as pb;
@@ -101,10 +120,22 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
             .select((pb::pool_bracket_id, pb::name, pb::team_group_id))
             .order(pb::name.asc()).load(&mut conn).unwrap()
     };
-    assert_eq!(pools.len(), 3, "Experienced should have three pools, got {:?}", pools);
+    assert_eq!(pools.len(), 6, "three pools per session group, got {:?}", pools);
+
+    // Each group owns exactly three of them.
+    for (group_id, group_name) in &groups {
+        let in_group: i64 = {
+            use backend::schema::pool_brackets::dsl as pb;
+            pb::pool_brackets.filter(pb::poolbracketgroupid.eq(*group_id)).filter(pb::del_fl.eq(false))
+                .count().get_result(&mut conn).unwrap()
+        };
+        assert_eq!(in_group, 3, "{} should own three pools", group_name);
+    }
 
     let pg = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let mut total_games = 0;
+    // Across both sessions, every pair of pool-mates must meet exactly twice.
+    let mut division_meetings: std::collections::BTreeMap<(Uuid, Uuid), i32> = Default::default();
 
     for (pool_id, pool_name, team_group) in &pools {
         let group = team_group.expect("a seeded pool owns a team group");
@@ -120,11 +151,11 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
             g::games.filter(g::poolbracket_id.eq(*pool_id)).filter(g::del_fl.eq(false))
                 .select((g::gid, g::leftteamid, g::rightteamid)).load(&mut conn).unwrap()
         };
-        // Four teams, each pair twice: 6 pairings x 2 = 12 games.
-        assert_eq!(games.len(), 12, "{} should schedule 12 games", pool_name);
+        // Four teams: each session's pool holds one meeting of each of the 6 pairings.
+        assert_eq!(games.len(), 6, "{} should schedule 6 games", pool_name);
         total_games += games.len();
 
-        // Every unordered pair of pool teams meets exactly twice.
+        // Every unordered pair of pool teams meets exactly once within a session's pool.
         let mut meetings: std::collections::BTreeMap<(Uuid, Uuid), i32> = Default::default();
         for (_, l, r) in &games {
             let (a, b) = (*l, *r);
@@ -133,7 +164,10 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
         }
         assert_eq!(meetings.len(), 6, "{}: expected 6 distinct pairings", pool_name);
         for (pair, count) in &meetings {
-            assert_eq!(*count, 2, "{}: pair {:?} met {} times, expected 2", pool_name, pair, count);
+            assert_eq!(*count, 1, "{}: pair {:?} met {} times in one session, expected 1", pool_name, pair, count);
+        }
+        for pair in meetings.keys() {
+            *division_meetings.entry(*pair).or_insert(0) += 1;
         }
 
         // No team plays twice in the same round, and no room hosts two games in a round.
@@ -150,6 +184,10 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
         }
     }
     assert_eq!(total_games, 36, "Experienced should schedule 36 games in all");
+    assert_eq!(division_meetings.len(), 18, "6 pairings per pool x 3 pools");
+    for (pair, count) in &division_meetings {
+        assert_eq!(*count, 2, "pair {:?} met {} times across the two sessions, expected 2", pair, count);
+    }
 
     // Every game in the tournament is a complete round: questions 1..=20 all present and answered.
     let all_games: Vec<Uuid> = {

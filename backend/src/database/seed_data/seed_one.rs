@@ -1538,37 +1538,47 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // Experienced's Session 1 is split into two pools (its teams divided evenly across them — see the
     // team groups seeded below); every other roundgroup is a single pool holding all of that division's
     // teams. Games must reference a real pool bracket — there is no auto-default.
+    // Experienced plays each pair twice, split by session: Session 1 is every pair's first meeting,
+    // Session 2 the second. Each session has its own poolbracketgroup holding that session's three
+    // pools, so a team is placed once per group. Pool names must be unique within the division, so
+    // they carry the session number (A1/B1/C1, then A2/B2/C2) — the same convention Novice uses.
     let roundgroup_exp_1 = RoundGroupBuilder::new(division_experienced.did)
         .set_name("Session 1")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    // Experienced's two pools run concurrently, so they share one poolbracketgroup (each team is in
-    // exactly one of them).
+    let roundgroup_exp_2 = RoundGroupBuilder::new(division_experienced.did)
+        .set_name("Session 2")
+        .set_creator_userid(tour_owner.id)
+        .build_and_insert(db)
+        .unwrap();
     let pbg_exp_1 = PoolBracketGroupBuilder::new(division_experienced.did)
         .set_name("Group 1")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_exp_1_a = PoolBracketBuilder::new(division_experienced.did)
-        .set_name("Pool A")
-        .set_poolbracketgroupid(pbg_exp_1.poolbracketgroupid)
+    let pbg_exp_2 = PoolBracketGroupBuilder::new(division_experienced.did)
+        .set_name("Group 2")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let pb_exp_1_b = PoolBracketBuilder::new(division_experienced.did)
-        .set_name("Pool B")
-        .set_poolbracketgroupid(pbg_exp_1.poolbracketgroupid)
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let pb_exp_1_c = PoolBracketBuilder::new(division_experienced.did)
-        .set_name("Pool C")
-        .set_poolbracketgroupid(pbg_exp_1.poolbracketgroupid)
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    // Experienced runs a single roundgroup with three pools (four teams each); no Session 2.
+    let mut exp_pools_by_session: Vec<Vec<Uuid>> = Vec::new();
+    for (group_id, suffix) in [
+        (pbg_exp_1.poolbracketgroupid, 1),
+        (pbg_exp_2.poolbracketgroupid, 2),
+    ] {
+        let mut pools = Vec::new();
+        for letter in ['A', 'B', 'C'] {
+            let pool = PoolBracketBuilder::new(division_experienced.did)
+                .set_name(&format!("Pool {}{}", letter, suffix))
+                .set_poolbracketgroupid(group_id)
+                .set_creator_userid(tour_owner.id)
+                .build_and_insert(db)
+                .unwrap();
+            pools.push(pool.pool_bracket_id);
+        }
+        exp_pools_by_session.push(pools);
+    }
 
     let roundgroup_nov_1 = RoundGroupBuilder::new(division_novice.did)
         .set_name("Session 1")
@@ -1650,15 +1660,15 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_last_modified_user(tour_owner.id).set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s1_4 = RoundBuilder::new_default(roundgroup_exp_1.roundgroup_id)
+    let round_exp_s2_4 = RoundBuilder::new_default(roundgroup_exp_2.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s1_5 = RoundBuilder::new_default(roundgroup_exp_1.roundgroup_id)
+    let round_exp_s2_5 = RoundBuilder::new_default(roundgroup_exp_2.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("5")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s1_6 = RoundBuilder::new_default(roundgroup_exp_1.roundgroup_id)
+    let round_exp_s2_6 = RoundBuilder::new_default(roundgroup_exp_2.roundgroup_id)
         .set_last_modified_user(tour_owner.id).set_name("6")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
@@ -1732,20 +1742,22 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db).unwrap();
 
     // Team groups: each pool/bracket owns exactly one team group holding its teams. Experienced's
-    // 12 teams are split evenly across its three pools (1-4 in Pool A, 5-8 in Pool B, 9-12 in
-    // Pool C); every other pool holds all of its division's teams.
-    place_teams_in_pool(db, pb_exp_1_a.pool_bracket_id, tour_owner.id, &[
-        team_1_experienced.teamid, team_2_experienced.teamid,
-        team_3_experienced.teamid, team_4_experienced.teamid,
-    ]);
-    place_teams_in_pool(db, pb_exp_1_b.pool_bracket_id, tour_owner.id, &[
-        team_5_experienced.teamid, team_6_experienced.teamid,
-        team_7_experienced.teamid, team_8_experienced.teamid,
-    ]);
-    place_teams_in_pool(db, pb_exp_1_c.pool_bracket_id, tour_owner.id, &[
-        team_9_experienced.teamid, team_10_experienced.teamid,
-        team_11_experienced.teamid, team_12_experienced.teamid,
-    ]);
+    // 12 teams are split evenly across three pools (1-4 in A, 5-8 in B, 9-12 in C), and each
+    // session's group repeats that split — so a team is placed once per pool group. Every other
+    // division's pool holds all of its teams.
+    let exp_pool_rosters: [[Uuid; 4]; 3] = [
+        [team_1_experienced.teamid, team_2_experienced.teamid,
+         team_3_experienced.teamid, team_4_experienced.teamid],
+        [team_5_experienced.teamid, team_6_experienced.teamid,
+         team_7_experienced.teamid, team_8_experienced.teamid],
+        [team_9_experienced.teamid, team_10_experienced.teamid,
+         team_11_experienced.teamid, team_12_experienced.teamid],
+    ];
+    for session_pools in &exp_pools_by_session {
+        for (pool_id, roster) in session_pools.iter().zip(exp_pool_rosters.iter()) {
+            place_teams_in_pool(db, *pool_id, tour_owner.id, roster);
+        }
+    }
     // Novice: all five teams play in each pool (one pool per group), so place them in A1 and A2.
     for pb in [pb_nov_1.pool_bracket_id, pb_nov_2.pool_bracket_id] {
         place_teams_in_pool(db, pb, tour_owner.id, &[
@@ -1771,35 +1783,38 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // pool = 12 games per pool, 36 in all. The three pools run concurrently, each owning two of
     // Building A's rooms (Pool A -> rooms 1-2, Pool B -> 3-4, Pool C -> 5-6; qm per room, rm1 ->
     // qm1 ... rm6 -> qm6), so no room or quizmaster is ever double-booked within a round.
+    // Rounds 1-3 sit in Session 1 and 4-6 in Session 2, which lines up with the pairing table: its
+    // first three rounds are each pair's first meeting and its last three are the rematches. Each
+    // game is filed under its own session's pool.
     let exp_rounds = [
         &round_exp_s1_1, &round_exp_s1_2, &round_exp_s1_3,
-        &round_exp_s1_4, &round_exp_s1_5, &round_exp_s1_6,
+        &round_exp_s2_4, &round_exp_s2_5, &round_exp_s2_6,
     ];
-    let exp_pools: [(Uuid, [&Team; 4], [(Uuid, Uuid); 2]); 3] = [
+    let exp_pool_members: [([&Team; 4], [(Uuid, Uuid); 2]); 3] = [
         (
-            pb_exp_1_a.pool_bracket_id,
             [&team_1_experienced, &team_2_experienced, &team_3_experienced, &team_4_experienced],
             [(room_1.roomid, qm_1.id), (room_2.roomid, qm_2.id)],
         ),
         (
-            pb_exp_1_b.pool_bracket_id,
             [&team_5_experienced, &team_6_experienced, &team_7_experienced, &team_8_experienced],
             [(room_3.roomid, qm_3.id), (room_4.roomid, qm_4.id)],
         ),
         (
-            pb_exp_1_c.pool_bracket_id,
             [&team_9_experienced, &team_10_experienced, &team_11_experienced, &team_12_experienced],
             [(room_5.roomid, qm_5.id), (room_6.roomid, qm_6.id)],
         ),
     ];
+    let rounds_per_session = exp_rounds.len() / exp_pools_by_session.len();
     for (round_idx, round) in exp_rounds.iter().enumerate() {
-        for (pool_id, teams, rooms) in &exp_pools {
+        let session_pools = &exp_pools_by_session[round_idx / rounds_per_session];
+        for (pool_idx, (teams, rooms)) in exp_pool_members.iter().enumerate() {
+            let pool_id = session_pools[pool_idx];
             for (slot, (left_idx, right_idx)) in FOUR_TEAM_DOUBLE_ROUND_ROBIN[round_idx].iter().enumerate() {
                 let (room_id, quizmaster_id) = rooms[slot];
                 let left = teams[*left_idx];
                 let right = teams[*right_idx];
                 let game = GameBuilder::new_default(room_id, round.roundid)
-                    .set_poolbracket_id(*pool_id)
+                    .set_poolbracket_id(pool_id)
                     .set_leftteamid(left.teamid).set_rightteamid(right.teamid)
                     .set_quizmasterid(quizmaster_id).build_and_insert(db).unwrap();
                 game_event_specs.push((game.gid, left, right));
