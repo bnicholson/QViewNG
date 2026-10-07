@@ -204,589 +204,618 @@ impl GameEventCalculator {
                 println!["TOP of Calc: Question = {}, EventNum = {}, Event = {}", game_event.question, game_event.eventnum, game_event.event];
             }
 
-            // Guard: any in-game event that operates on an existing team/quizzer must find
-            // them first. If not, exit immediately rather than panicking on an unwrap deeper
-            // in the handler. (RM/QT/IP/OP/TN/NJ/A+/A-/DE create or don't touch teams.)
-            let event_code = game_event.event.as_str();
-            let requires_team = matches!(
-                event_code,
-                "TC" | "TE" | "BC" | "BE" | "QO" | "EO" | "C-" | "FC" | "F-" | "SB" | "TO" | "SC" | "SS" | "QN"
-            );
-            if requires_team && !mut_self.teams.contains_key(&game_event.team) {
-                errors.push(format!("Team not found: {}", game_event.team));
-                return Err(errors);
+            mut_self = Self::calc_new_score_from_game_state(
+                mut_self,
+                game_event,
+                &self.options,
+                &mut errors,
+            )?;
+        }
+
+        if errors.len() > 0 {
+            return Err(errors);
+        }
+
+        Ok(mut_self)
+    }
+    /// Applies one game event to the running calculation and returns the advanced state.
+    ///
+    /// Extracted from `calculate_current_game_scores_and_counts`, whose loop calls this once
+    /// per event. Three details carry over from when it was inline:
+    ///
+    /// - `errors` accumulates across events. Some events (QT, OP) record a problem and let the
+    ///   calculation carry on — the caller only fails at the end — while the ones that cannot
+    ///   continue return `Err` carrying everything gathered so far.
+    /// - `options_at_entry` is the *caller's* options, which is what the error-zone check read
+    ///   inline. It is deliberately not `mut_self.options`: IP and OP events mutate the running
+    ///   options, so reading those here could change the result.
+    /// - Where the inline code used `continue` to skip the rest of an event's handling, this
+    ///   returns the state early. The loop body had nothing after the match, so that is the
+    ///   same thing.
+    pub fn calc_new_score_from_game_state(
+        mut mut_self: Self,
+        game_event: &GameEvent,
+        options_at_entry: &OptionsForGameEventCalculator,
+        errors: &mut Vec<String>,
+    ) -> Result<Self, Vec<String>> {
+        // Guard: any in-game event that operates on an existing team/quizzer must find
+        // them first. If not, exit immediately rather than panicking on an unwrap deeper
+        // in the handler. (RM/QT/IP/OP/TN/NJ/A+/A-/DE create or don't touch teams.)
+        let event_code = game_event.event.as_str();
+        let requires_team = matches!(
+            event_code,
+            "TC" | "TE" | "BC" | "BE" | "QO" | "EO" | "C-" | "FC" | "F-" | "SB" | "TO" | "SC" | "SS" | "QN"
+        );
+        if requires_team && !mut_self.teams.contains_key(&game_event.team) {
+            errors.push(format!("Team not found: {}", game_event.team));
+            return Err(std::mem::take(errors));
+        }
+        let requires_quizzer = matches!(event_code, "TC" | "TE" | "BC" | "BE" | "QO" | "EO" | "F-");
+        if requires_quizzer {
+            let quizzer_exists = mut_self
+                .teams
+                .get(&game_event.team)
+                .map_or(false, |team| team.quizzers.contains_key(&game_event.quizzer));
+            if !quizzer_exists {
+                errors.push(format!("Quizzer not found: seat {} on team {}", game_event.quizzer, game_event.team));
+                return Err(std::mem::take(errors));
             }
-            let requires_quizzer = matches!(event_code, "TC" | "TE" | "BC" | "BE" | "QO" | "EO" | "F-");
-            if requires_quizzer {
-                let quizzer_exists = mut_self
+        }
+
+        match string_to_gameeventcode(game_event.event.as_str()) {
+            GameEventCode::RM => {
+                // no impact
+                mut_self.current_question = game_event.question;
+            },
+            GameEventCode::QT => {
+                // could check: if 'N' then good, else throw error
+                if game_event.name != "N" {
+                    errors.push(format!["Game type is something other than 'Nazarene' but rules are implemented only for 'Nazarene'. Specified organization: {}", game_event.name]);
+                }
+            },
+            GameEventCode::IP => {
+                if game_event.name == "Practice".to_string() {
+                    mut_self.options.is_tournament = false;
+                }
+            },
+            GameEventCode::OP => {
+                match game_event.name.as_str() {
+                    "QuizOut" => {
+                        mut_self.options.quiz_out = game_event.quizzer;
+                    },
+                    "ErrorOut" => {
+                        mut_self.options.error_out = game_event.quizzer;
+                    },
+                    "FoulOut" => {
+                        mut_self.options.foul_out = game_event.quizzer;
+                    },
+                    "QuizzerDeduct" => {
+                        mut_self.options.team_error_begin_deduction_count = game_event.quizzer;
+                    },
+                    "TeamDeduct" => {
+                        mut_self.options.individual_begin_deduction_count = game_event.quizzer;
+                    },
+                    "" => {
+                        errors.push("GameEvent code/type 'OP' was specified but option name provided was blank.".to_string());
+                    }
+                    _ => {
+
+                        errors.push(format!["GameEvent code/type 'OP' was specified but option name provided was not found among acceptable options. Option specified: '{}'", game_event.name]);
+                    }
+                }
+            },
+            GameEventCode::TN => {
+                let mut new_team = TeamForGameEventCalculator::new();
+                new_team.name = game_event.name.to_string();
+                mut_self.teams.insert(game_event.team, new_team);
+            },
+            GameEventCode::QN => {
+                // QN is used (1) during round initialization when the quizzer doesn't exist and (2) when 
+                // the quizzer is being substituted.
+                // QN game_event is going to need to check the team for current quizzer names; 
+                // if name is not found, then create the quizzer and assign them to the seat; 
+                // if they already exist, copy them to the seat specified and delete the quizzer from 
+                // their previous seat
+
+                let quizzer_idx: Option<i32> = mut_self
                     .teams
                     .get(&game_event.team)
-                    .map_or(false, |team| team.quizzers.contains_key(&game_event.quizzer));
-                if !quizzer_exists {
-                    errors.push(format!("Quizzer not found: seat {} on team {}", game_event.quizzer, game_event.team));
-                    return Err(errors);
-                }
-            }
+                    .and_then(|team| {
+                        team.quizzers
+                            .iter()
+                            .find(|(_, quizzer)| quizzer.name == game_event.name)
+                            .map(|(idx, _)| idx.clone())
+                    });
 
-            match string_to_gameeventcode(game_event.event.as_str()) {
-                GameEventCode::RM => {
-                    // no impact
-                    mut_self.current_question = game_event.question;
-                },
-                GameEventCode::QT => {
-                    // could check: if 'N' then good, else throw error
-                    if game_event.name != "N" {
-                        errors.push(format!["Game type is something other than 'Nazarene' but rules are implemented only for 'Nazarene'. Specified organization: {}", game_event.name]);
-                    }
-                },
-                GameEventCode::IP => {
-                    if game_event.name == "Practice".to_string() {
-                        mut_self.options.is_tournament = false;
-                    }
-                },
-                GameEventCode::OP => {
-                    match game_event.name.as_str() {
-                        "QuizOut" => {
-                            mut_self.options.quiz_out = game_event.quizzer;
-                        },
-                        "ErrorOut" => {
-                            mut_self.options.error_out = game_event.quizzer;
-                        },
-                        "FoulOut" => {
-                            mut_self.options.foul_out = game_event.quizzer;
-                        },
-                        "QuizzerDeduct" => {
-                            mut_self.options.team_error_begin_deduction_count = game_event.quizzer;
-                        },
-                        "TeamDeduct" => {
-                            mut_self.options.individual_begin_deduction_count = game_event.quizzer;
-                        },
-                        "" => {
-                            errors.push("GameEvent code/type 'OP' was specified but option name provided was blank.".to_string());
-                        }
-                        _ => {
-
-                            errors.push(format!["GameEvent code/type 'OP' was specified but option name provided was not found among acceptable options. Option specified: '{}'", game_event.name]);
-                        }
-                    }
-                },
-                GameEventCode::TN => {
-                    let mut new_team = TeamForGameEventCalculator::new();
-                    new_team.name = game_event.name.to_string();
-                    mut_self.teams.insert(game_event.team, new_team);
-                },
-                GameEventCode::QN => {
-                    // QN is used (1) during round initialization when the quizzer doesn't exist and (2) when 
-                    // the quizzer is being substituted.
-                    // QN game_event is going to need to check the team for current quizzer names; 
-                    // if name is not found, then create the quizzer and assign them to the seat; 
-                    // if they already exist, copy them to the seat specified and delete the quizzer from 
-                    // their previous seat
-
-                    let quizzer_idx: Option<i32> = mut_self
-                        .teams
-                        .get(&game_event.team)
-                        .and_then(|team| {
-                            team.quizzers
-                                .iter()
-                                .find(|(_, quizzer)| quizzer.name == game_event.name)
-                                .map(|(idx, _)| idx.clone())
-                        });
-
-                    match quizzer_idx {
-                        None => {
-                            let new_quizzer = QuizzerForGameEventCalculator::new(&game_event.name);
-                            mut_self
-                                .teams.get_mut(&game_event.team).unwrap()
-                                .quizzers.insert(game_event.quizzer, new_quizzer);
-                        }
-                        Some(idx) => {
-                            let team = mut_self
-                                .teams.get_mut(&game_event.team).unwrap();
-
-                            let quizzer = match team.quizzers.remove(&idx) {
-                                None => {
-                                    errors.push(format!(
-                                        "Tried to change quizzer's seat location for substitution but quizzer \
-                                        wasn't found at that seat. Team: '{}', Quizzer seat: '{}', Question: '{}'",
-                                        game_event.team, game_event.quizzer, game_event.question
-                                    ));
-                                    return Err(errors);
-                                }
-                                Some(q) => q,
-                            };
-
-                            team.quizzers.insert(game_event.quizzer, quizzer);
-                        }
-                    }
-                },
-                GameEventCode::SC => {
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .captain = (game_event.quizzer, true);
-                },
-                GameEventCode::SS => {
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .cocaptain = (game_event.quizzer, true);
-                },
-                GameEventCode::TC => {
-                    let original_quizzers_with_at_least_one_correct_tossup = match mut_self.teams.get(&game_event.team) {
-                        Some(team) => team.clone().quizzers_with_at_least_one_correct_tossup(),
-                        None => {
-                            errors.push(format!("Team not found: {}", game_event.team));
-                            return Err(errors);
-                        }
-                    };
-
-                    if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
-
-                        let tie_exists = {
-                            let mut scores: Vec<i32> = mut_self.teams.values().map(|t: &TeamForGameEventCalculator| t.score).collect();
-                            scores.sort();
-                            scores.windows(2).any(|w| w[0] == w[1])
-                        };
-                        if !tie_exists {
-                            errors.push("In the absence of a tied score after regulation questions, a TC event was found which is invalid.".to_string());
-                            return Err(errors);
-                        }
-
-                        let award = mut_self.options.point_award_for_correct_tossup;
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score += award;
-                        }
-                        mut_self = mut_self.update_team_rankings_using_competitive_ranking();
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score -= award;  // remove so that rankings show not tied but score still shows as tied
-                        }
-                        
+                match quizzer_idx {
+                    None => {
+                        let new_quizzer = QuizzerForGameEventCalculator::new(&game_event.name);
                         mut_self
                             .teams.get_mut(&game_event.team).unwrap()
-                            .quizzers.get_mut(&game_event.quizzer).unwrap()
-                            .correct_tossups
-                            .push(game_event.question);
-                        mut_self.current_question = game_event.question + 1;
-                        continue;
+                            .quizzers.insert(game_event.quizzer, new_quizzer);
+                    }
+                    Some(idx) => {
+                        let team = mut_self
+                            .teams.get_mut(&game_event.team).unwrap();
+
+                        let quizzer = match team.quizzers.remove(&idx) {
+                            None => {
+                                errors.push(format!(
+                                    "Tried to change quizzer's seat location for substitution but quizzer \
+                                    wasn't found at that seat. Team: '{}', Quizzer seat: '{}', Question: '{}'",
+                                    game_event.team, game_event.quizzer, game_event.question
+                                ));
+                                return Err(std::mem::take(errors));
+                            }
+                            Some(q) => q,
+                        };
+
+                        team.quizzers.insert(game_event.quizzer, quizzer);
+                    }
+                }
+            },
+            GameEventCode::SC => {
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .captain = (game_event.quizzer, true);
+            },
+            GameEventCode::SS => {
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .cocaptain = (game_event.quizzer, true);
+            },
+            GameEventCode::TC => {
+                let original_quizzers_with_at_least_one_correct_tossup = match mut_self.teams.get(&game_event.team) {
+                    Some(team) => team.clone().quizzers_with_at_least_one_correct_tossup(),
+                    None => {
+                        errors.push(format!("Team not found: {}", game_event.team));
+                        return Err(std::mem::take(errors));
+                    }
+                };
+
+                if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
+
+                    let tie_exists = {
+                        let mut scores: Vec<i32> = mut_self.teams.values().map(|t: &TeamForGameEventCalculator| t.score).collect();
+                        scores.sort();
+                        scores.windows(2).any(|w| w[0] == w[1])
+                    };
+                    if !tie_exists {
+                        errors.push("In the absence of a tied score after regulation questions, a TC event was found which is invalid.".to_string());
+                        return Err(std::mem::take(errors));
                     }
 
-                    // for quizzer:
+                    let award = mut_self.options.point_award_for_correct_tossup;
+                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                        team.score += award;
+                    }
+                    mut_self = mut_self.update_team_rankings_using_competitive_ranking();
+                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                        team.score -= award;  // remove so that rankings show not tied but score still shows as tied
+                    }
+                    
                     mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .quizzers.get_mut(&game_event.quizzer).unwrap()
                         .correct_tossups
                         .push(game_event.question);
-                    // QO will be handled by QO game_event; don't do anything for it here.
-
-                    // for team:
-                    let award = mut_self.options.point_award_for_correct_tossup;
-                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                        team.score += award;
-                    }
-                    // 3rd, 4th, and 5th person bonuses:
-                    let new_quizzers_with_at_least_one_correct_tossup = match mut_self.teams.get(&game_event.team) {
-                        Some(team) => team.clone().quizzers_with_at_least_one_correct_tossup(),
-                        None => {
-                            errors.push(format!("Team not found: {}", game_event.team));
-                            return Err(errors);
-                        }
-                    };
-                    let third_fourth_fifth_person_bonus_award_amount = mut_self.options.third_fourth_and_fifth_person_bonus_award_amount;
-                    let is_third_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 2 && new_quizzers_with_at_least_one_correct_tossup == 3;
-                    let is_fourth_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 3 && new_quizzers_with_at_least_one_correct_tossup == 4;
-                    let is_fifth_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 4 && new_quizzers_with_at_least_one_correct_tossup == 5;
-                    let is_third_fourth_or_fifth_person_bonus = is_third_person_bonus || is_fourth_person_bonus || is_fifth_person_bonus;
-                    if is_third_fourth_or_fifth_person_bonus {
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score += third_fourth_fifth_person_bonus_award_amount;
-                        }
-                    }
-
-                    // for game:
                     mut_self.current_question = game_event.question + 1;
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::TE => {
+                    return Ok(mut_self);
+                }
 
-                    if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .correct_tossups
+                    .push(game_event.question);
+                // QO will be handled by QO game_event; don't do anything for it here.
 
-                        let tie_exists = {
-                            let mut scores: Vec<i32> = mut_self.teams.values().map(|t: &TeamForGameEventCalculator| t.score).collect();
-                            scores.sort();
-                            scores.windows(2).any(|w| w[0] == w[1])
-                        };
-                        if !tie_exists {
-                            errors.push("In the absence of a tied score after regulation questions, a TE event was found which is invalid.".to_string());
-                            return Err(errors);
-                        }
+                // for team:
+                let award = mut_self.options.point_award_for_correct_tossup;
+                if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                    team.score += award;
+                }
+                // 3rd, 4th, and 5th person bonuses:
+                let new_quizzers_with_at_least_one_correct_tossup = match mut_self.teams.get(&game_event.team) {
+                    Some(team) => team.clone().quizzers_with_at_least_one_correct_tossup(),
+                    None => {
+                        errors.push(format!("Team not found: {}", game_event.team));
+                        return Err(std::mem::take(errors));
+                    }
+                };
+                let third_fourth_fifth_person_bonus_award_amount = mut_self.options.third_fourth_and_fifth_person_bonus_award_amount;
+                let is_third_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 2 && new_quizzers_with_at_least_one_correct_tossup == 3;
+                let is_fourth_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 3 && new_quizzers_with_at_least_one_correct_tossup == 4;
+                let is_fifth_person_bonus = original_quizzers_with_at_least_one_correct_tossup == 4 && new_quizzers_with_at_least_one_correct_tossup == 5;
+                let is_third_fourth_or_fifth_person_bonus = is_third_person_bonus || is_fourth_person_bonus || is_fifth_person_bonus;
+                if is_third_fourth_or_fifth_person_bonus {
+                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                        team.score += third_fourth_fifth_person_bonus_award_amount;
+                    }
+                }
 
-                        let award = mut_self.options.point_deduction_for_error_on_tossup;
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score -= award;
-                        }
-                        mut_self = mut_self.update_team_rankings_using_competitive_ranking();
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score += award;  // remove so that rankings show not tied but score still shows as tied
-                        }
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::TE => {
 
-                        mut_self
-                            .teams.get_mut(&game_event.team).unwrap()
-                            .quizzers.get_mut(&game_event.quizzer).unwrap()
-                            .errors_on_tossups
-                            .push(game_event.question);
-                        mut_self.current_question = game_event.question + 1;
-                        continue;
+                if mut_self.current_question > DEFAULT_QUESTIONS_PER_GAME {
+
+                    let tie_exists = {
+                        let mut scores: Vec<i32> = mut_self.teams.values().map(|t: &TeamForGameEventCalculator| t.score).collect();
+                        scores.sort();
+                        scores.windows(2).any(|w| w[0] == w[1])
+                    };
+                    if !tie_exists {
+                        errors.push("In the absence of a tied score after regulation questions, a TE event was found which is invalid.".to_string());
+                        return Err(std::mem::take(errors));
                     }
 
-                    // for quizzer:
+                    let award = mut_self.options.point_deduction_for_error_on_tossup;
+                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                        team.score -= award;
+                    }
+                    mut_self = mut_self.update_team_rankings_using_competitive_ranking();
+                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                        team.score += award;  // remove so that rankings show not tied but score still shows as tied
+                    }
+
                     mut_self
                         .teams.get_mut(&game_event.team).unwrap()
                         .quizzers.get_mut(&game_event.quizzer).unwrap()
                         .errors_on_tossups
                         .push(game_event.question);
-                    let quizzer_error_count = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .errors_on_tossups
-                        .iter().count();
-                    // EO will be handled by EO game_event; don't do anything for it here.
-                    
-                    // for team:
-                    let team_errors_cause_deduction = match mut_self.teams.get(&game_event.team) {
-                        Some(team) => team.clone().errors_result_in_team_point_deduction(),
-                        None => {
-                            errors.push(format!("Team not found: {}", game_event.team));
-                            return Err(errors);
-                        }
-                    };
-                    if game_event.question >= self.options.start_error_zone_deductions
-                        || team_errors_cause_deduction
-                        || quizzer_error_count >= mut_self.options.individual_error_begin_deduction_count as usize {
-                        let deduction = mut_self.options.point_deduction_for_error_on_tossup;
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score -= deduction;
-                        }
-                    }
-
-                    // for game:
-                    mut_self.current_question = game_event.question;
-
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::NJ => {
-                    // for quizzer:
-                    // for team:
-                    // for game:
                     mut_self.current_question = game_event.question + 1;
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::BC => {
-                    // for quizzer:
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .correct_bonuses
-                        .push(game_event.question);
+                    return Ok(mut_self);
+                }
 
-                    // for team:
-                    let award = mut_self.options.point_award_for_correct_bonus;
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .errors_on_tossups
+                    .push(game_event.question);
+                let quizzer_error_count = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .errors_on_tossups
+                    .iter().count();
+                // EO will be handled by EO game_event; don't do anything for it here.
+                
+                // for team:
+                let team_errors_cause_deduction = match mut_self.teams.get(&game_event.team) {
+                    Some(team) => team.clone().errors_result_in_team_point_deduction(),
+                    None => {
+                        errors.push(format!("Team not found: {}", game_event.team));
+                        return Err(std::mem::take(errors));
+                    }
+                };
+                if game_event.question >= options_at_entry.start_error_zone_deductions
+                    || team_errors_cause_deduction
+                    || quizzer_error_count >= mut_self.options.individual_error_begin_deduction_count as usize {
+                    let deduction = mut_self.options.point_deduction_for_error_on_tossup;
+                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                        team.score -= deduction;
+                    }
+                }
+
+                // for game:
+                mut_self.current_question = game_event.question;
+
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::NJ => {
+                // for quizzer:
+                // for team:
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::BC => {
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .correct_bonuses
+                    .push(game_event.question);
+
+                // for team:
+                let award = mut_self.options.point_award_for_correct_bonus;
+                if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                    team.score += award;
+                }
+
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::BE => {
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .errors_on_bonuses
+                    .push(game_event.question);
+
+                // for team: no change
+                
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::QO => {
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .question_quizzed_out_on = game_event.question;
+                // award points if no errors while quizzing-out (QO w/o):
+                let award = mut_self.options.point_award_for_quizzing_out;
+                let is_quiz_out_without_error = match mut_self.teams.get(&game_event.team) {
+                    Some(team) => team.quizzers[&game_event.quizzer].errors_on_tossups.iter().count() == 0,
+                    None => {
+                        errors.push(format!("Team not found: {}", game_event.team));
+                        return Err(std::mem::take(errors));
+                    }
+                };
+                println!["is_quiz_out_without_error: {}", is_quiz_out_without_error];
+                if is_quiz_out_without_error {
                     if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
                         team.score += award;
                     }
-
-                    // for game:
-                    mut_self.current_question = game_event.question + 1;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::BE => {
-                    // for quizzer:
+                }
+                
+                // for team:
+                // substitutions are handled by SB events; do not handle SBs here
+                let captain = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .captain;
+                let cocaptain = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .cocaptain;
+                if captain.0 == game_event.quizzer {
                     mut_self
                         .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .errors_on_bonuses
-                        .push(game_event.question);
-
-                    // for team: no change
-                    
-                    // for game:
-                    mut_self.current_question = game_event.question + 1;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::QO => {
-                    // for quizzer:
+                        .captain = (game_event.quizzer, false);
+                }
+                else if cocaptain.0 == game_event.quizzer {
                     mut_self
                         .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .question_quizzed_out_on = game_event.question;
-                    // award points if no errors while quizzing-out (QO w/o):
-                    let award = mut_self.options.point_award_for_quizzing_out;
-                    let is_quiz_out_without_error = match mut_self.teams.get(&game_event.team) {
-                        Some(team) => team.quizzers[&game_event.quizzer].errors_on_tossups.iter().count() == 0,
-                        None => {
-                            errors.push(format!("Team not found: {}", game_event.team));
-                            return Err(errors);
-                        }
-                    };
-                    println!["is_quiz_out_without_error: {}", is_quiz_out_without_error];
-                    if is_quiz_out_without_error {
-                        if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                            team.score += award;
-                        }
+                        .cocaptain = (game_event.quizzer, false);
+                }
+
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::EO => {
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .question_errored_out_on = game_event.question;
+
+                // for team:
+                // Error-outs do not accrue any deductions beyond the regular individual error deduction.
+                // Individual error point deduction starts on a certain number of errors received by the quizzer.
+                // It is normally on error number 3 that the deducation is received.
+
+                let captain_seat_idx = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .captain.0;
+                let cocaptain_seat_idx = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .cocaptain.0;
+                if captain_seat_idx == game_event.quizzer {
+                    mut_self
+                        .teams.get_mut(&game_event.team).unwrap()
+                        .captain = (game_event.quizzer, false);
+                }
+                else if cocaptain_seat_idx == game_event.quizzer {
+                    mut_self
+                        .teams.get_mut(&game_event.team).unwrap()
+                        .cocaptain = (game_event.quizzer, false);
+                }
+                
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::Cminus => {
+                // for quizzer:
+
+                // for team:
+                // not considered a individual or team error, however on 
+                // 2nd failed (overruled) challenge point deductions begin.
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .overruled_challenges.push(game_event.question);
+                let overruled_challenges_count = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .overruled_challenges.iter().count();
+                if overruled_challenges_count >= (mut_self.options.attempt_try_when_deductions_begin_for_overruled_challenges_by_a_team as usize) {
+                    mut_self
+                        .teams.get_mut(&game_event.team).unwrap()
+                        .score -= mut_self.options.overruled_challenge_point_deduction_amount;
+                }
+
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::Aplus => {
+                // need to mark invalid game events with type 'DE' so that they are no longer included in calculations
+                // for calculations makring past events as 'DE' would have already been done
+
+                // for quizzer:
+                // for team:
+                // for game:
+                mut_self.current_question = game_event.question;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::Aminus => {
+                // nothing happens; no change
+
+                // for quizzer:
+                // for team:
+                // for game:
+                mut_self.current_question = game_event.question + 1;
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::FC => {
+                // for quizzer:
+
+                // for team:
+                let is_for_coach = if game_event.quizzer == 5 { true } else { false };  // false = foul on team
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .team_and_coach_fouls_received.push((game_event.question, is_for_coach));
+                
+                if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                    if team.clone().count_of_all_fouls_received_by_the_team() >= mut_self.options.foul_count_where_team_point_deductions_begin {
+                        team.score -= mut_self.options.team_foul_deduction_amount;
                     }
-                    
-                    // for team:
-                    // substitutions are handled by SB events; do not handle SBs here
-                    let captain = mut_self
+                }
+
+                // for game:
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::Fminus => {
+                // for quizzer:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .fouls_received.push(game_event.question);
+                let quizzer_has_fouled_out = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.get_mut(&game_event.quizzer).unwrap()
+                    .fouls_received.iter().count() >= (DEFAULT_FOUL_OUT as usize);
+                if quizzer_has_fouled_out {
+                    let is_captain = mut_self
                         .teams.get_mut(&game_event.team).unwrap()
-                        .captain;
-                    let cocaptain = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .cocaptain;
-                    if captain.0 == game_event.quizzer {
+                        .captain.0 == game_event.quizzer;
+                    if is_captain {
                         mut_self
                             .teams.get_mut(&game_event.team).unwrap()
                             .captain = (game_event.quizzer, false);
                     }
-                    else if cocaptain.0 == game_event.quizzer {
-                        mut_self
+                    else {
+                        let is_cocaptain = mut_self
                             .teams.get_mut(&game_event.team).unwrap()
-                            .cocaptain = (game_event.quizzer, false);
-                    }
-
-                    // for game:
-                    mut_self.current_question = game_event.question + 1;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::EO => {
-                    // for quizzer:
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .question_errored_out_on = game_event.question;
-
-                    // for team:
-                    // Error-outs do not accrue any deductions beyond the regular individual error deduction.
-                    // Individual error point deduction starts on a certain number of errors received by the quizzer.
-                    // It is normally on error number 3 that the deducation is received.
-
-                    let captain_seat_idx = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .captain.0;
-                    let cocaptain_seat_idx = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .cocaptain.0;
-                    if captain_seat_idx == game_event.quizzer {
-                        mut_self
-                            .teams.get_mut(&game_event.team).unwrap()
-                            .captain = (game_event.quizzer, false);
-                    }
-                    else if cocaptain_seat_idx == game_event.quizzer {
-                        mut_self
-                            .teams.get_mut(&game_event.team).unwrap()
-                            .cocaptain = (game_event.quizzer, false);
-                    }
-                    
-                    // for game:
-                    mut_self.current_question = game_event.question + 1;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::Cminus => {
-                    // for quizzer:
-
-                    // for team:
-                    // not considered a individual or team error, however on 
-                    // 2nd failed (overruled) challenge point deductions begin.
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .overruled_challenges.push(game_event.question);
-                    let overruled_challenges_count = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .overruled_challenges.iter().count();
-                    if overruled_challenges_count >= (mut_self.options.attempt_try_when_deductions_begin_for_overruled_challenges_by_a_team as usize) {
-                        mut_self
-                            .teams.get_mut(&game_event.team).unwrap()
-                            .score -= mut_self.options.overruled_challenge_point_deduction_amount;
-                    }
-
-                    // for game:
-                    mut_self.current_question = game_event.question + 1;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::Aplus => {
-                    // need to mark invalid game events with type 'DE' so that they are no longer included in calculations
-                    // for calculations makring past events as 'DE' would have already been done
-
-                    // for quizzer:
-                    // for team:
-                    // for game:
-                    mut_self.current_question = game_event.question;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::Aminus => {
-                    // nothing happens; no change
-
-                    // for quizzer:
-                    // for team:
-                    // for game:
-                    mut_self.current_question = game_event.question + 1;
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::FC => {
-                    // for quizzer:
-
-                    // for team:
-                    let is_for_coach = if game_event.quizzer == 5 { true } else { false };  // false = foul on team
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .team_and_coach_fouls_received.push((game_event.question, is_for_coach));
-                    
-                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                        if team.clone().count_of_all_fouls_received_by_the_team() >= mut_self.options.foul_count_where_team_point_deductions_begin {
-                            team.score -= mut_self.options.team_foul_deduction_amount;
-                        }
-                    }
-
-                    // for game:
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::Fminus => {
-                    // for quizzer:
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .fouls_received.push(game_event.question);
-                    let quizzer_has_fouled_out = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.get_mut(&game_event.quizzer).unwrap()
-                        .fouls_received.iter().count() >= (DEFAULT_FOUL_OUT as usize);
-                    if quizzer_has_fouled_out {
-                        let is_captain = mut_self
-                            .teams.get_mut(&game_event.team).unwrap()
-                            .captain.0 == game_event.quizzer;
-                        if is_captain {
+                            .cocaptain.0 == game_event.quizzer;
+                        if is_cocaptain {
                             mut_self
                                 .teams.get_mut(&game_event.team).unwrap()
-                                .captain = (game_event.quizzer, false);
-                        }
-                        else {
-                            let is_cocaptain = mut_self
-                                .teams.get_mut(&game_event.team).unwrap()
-                                .cocaptain.0 == game_event.quizzer;
-                            if is_cocaptain {
-                                mut_self
-                                    .teams.get_mut(&game_event.team).unwrap()
-                                    .cocaptain = (game_event.quizzer, false);
-                            }
+                                .cocaptain = (game_event.quizzer, false);
                         }
                     }
+                }
 
-                    // for team:
-                    if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
-                        if team.clone().count_of_all_fouls_received_by_the_team() >= mut_self.options.foul_count_where_team_point_deductions_begin {
-                            team.score -= mut_self.options.team_foul_deduction_amount;
-                        }
+                // for team:
+                if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
+                    if team.clone().count_of_all_fouls_received_by_the_team() >= mut_self.options.foul_count_where_team_point_deductions_begin {
+                        team.score -= mut_self.options.team_foul_deduction_amount;
                     }
+                }
 
-                    // for game:
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::SB => {
-                    // for quizzer:
-                    let quizzer_option = mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .quizzers.remove(&game_event.quizzer);
-                    match quizzer_option {
-                        Some(quizzer) => {
-                            mut_self
-                                .teams.get_mut(&game_event.team).unwrap()
-                                .quizzers.insert(DEFAULT_INTERIM_SUBSTITUTION_SEAT, quizzer.clone());
-                        },
-                        None => {
-                            errors.push(format!["Tried to change quizzer's seat location for substitution but quizzer wasn't found at that seat. Team: '{}', Quizzer seat: '{}', Question: '{}'", game_event.team, game_event.quizzer, game_event.question]);
-                            return Err(errors);
-                        },
-                    }
+                // for game:
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::SB => {
+                // for quizzer:
+                let quizzer_option = mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .quizzers.remove(&game_event.quizzer);
+                match quizzer_option {
+                    Some(quizzer) => {
+                        mut_self
+                            .teams.get_mut(&game_event.team).unwrap()
+                            .quizzers.insert(DEFAULT_INTERIM_SUBSTITUTION_SEAT, quizzer.clone());
+                    },
+                    None => {
+                        errors.push(format!["Tried to change quizzer's seat location for substitution but quizzer wasn't found at that seat. Team: '{}', Quizzer seat: '{}', Question: '{}'", game_event.team, game_event.quizzer, game_event.question]);
+                        return Err(std::mem::take(errors));
+                    },
+                }
 
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .substitutions.push((game_event.question, game_event.quizzer));
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .substitutions.push((game_event.question, game_event.quizzer));
 
-                    // for team:
+                // for team:
 
-                    // for game:
+                // for game:
 
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::TO => {
-                    // for quizzer:
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::TO => {
+                // for quizzer:
 
-                    // for team:
-                    mut_self
-                        .teams.get_mut(&game_event.team).unwrap()
-                        .timeouts_taken.push(game_event.question);
+                // for team:
+                mut_self
+                    .teams.get_mut(&game_event.team).unwrap()
+                    .timeouts_taken.push(game_event.question);
 
-                    // for game:
-                    
-                    // if self.use_cache {
-                    //     let clone_of_mut_self = mut_self.clone();
-                    //     mut_self.cache.push(clone_of_mut_self);
-                    // }
-                },
-                GameEventCode::DE => {
-                    // do nothing/ignore these events (*they are now purely historical)
-                },
-            }
-        }
-
-        if errors.len() > 0 {
-            return Err(errors);
+                // for game:
+                
+                // if self.use_cache {
+                //     let clone_of_mut_self = mut_self.clone();
+                //     mut_self.cache.push(clone_of_mut_self);
+                // }
+            },
+            GameEventCode::DE => {
+                // do nothing/ignore these events (*they are now purely historical)
+            },
         }
 
         Ok(mut_self)
@@ -825,7 +854,7 @@ impl GameEventCalculator {
 
 /// A single team's outcome for one game, extracted from the score calculator.
 #[derive(Debug, Clone)]
-pub struct TeamGameResult {
+pub struct TeamGameInfo {
     pub team: i32,      // team index within the game (0/1/2)
     pub name: String,   // team name (from the TN event)
     pub score: i32,     // final score
@@ -838,7 +867,7 @@ pub struct TeamGameResult {
 pub fn calculate_team_results_for_game(
     game_id: Uuid,
     game_events: Vec<GameEvent>,
-) -> Result<Vec<TeamGameResult>, Vec<String>> {
+) -> Result<Vec<TeamGameInfo>, Vec<String>> {
     let calculator = GameEventCalculator::new(game_id, game_events);
     let calculated = calculator.calculate_current_game_scores_and_counts()?;
     // During overtime (questions past regulation) the calculator decides a winner and assigns
@@ -849,7 +878,7 @@ pub fn calculate_team_results_for_game(
     Ok(calculated
         .teams
         .iter()
-        .map(|(team_idx, team)| TeamGameResult {
+        .map(|(team_idx, team)| TeamGameInfo {
             team: *team_idx,
             name: team.name.clone(),
             score: team.score,
@@ -864,7 +893,7 @@ pub fn calculate_team_results_for_game(
 
 /// A single quizzer's individual results for one game, extracted from the calculator.
 #[derive(Debug, Clone)]
-pub struct QuizzerGameResult {
+pub struct QuizzerGameInfo {
     pub team_name: String,     // the quizzer's team name
     pub name: String,          // the quizzer's name
     pub score: i32,            // individual points: tossups + bonuses + quiz-out
@@ -879,7 +908,7 @@ pub struct QuizzerGameResult {
 pub fn calculate_quizzer_results_for_game(
     game_id: Uuid,
     game_events: Vec<GameEvent>,
-) -> Result<Vec<QuizzerGameResult>, Vec<String>> {
+) -> Result<Vec<QuizzerGameInfo>, Vec<String>> {
     let calculator = GameEventCalculator::new(game_id, game_events);
     let calculated = calculator.calculate_current_game_scores_and_counts()?;
 
@@ -900,7 +929,7 @@ pub fn calculate_quizzer_results_for_game(
                 quizzer.question_quizzed_out_on != -1 && quizzer.errors_on_tossups.is_empty();
             let quiz_out_pts = if quizzed_out_without_error { quiz_out_award } else { 0 };
 
-            results.push(QuizzerGameResult {
+            results.push(QuizzerGameInfo {
                 team_name: team.name.clone(),
                 name: quizzer.name.clone(),
                 score: correct * tossup_award + bonus_pts + quiz_out_pts,
