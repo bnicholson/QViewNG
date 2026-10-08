@@ -1,4 +1,4 @@
-use backend::{database, models::{equipmentregistration::EquipmentRegistration, tournament::{Tournament, TournamentBuilder}, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::{User, UserBuilder}}};
+use backend::{database, models::{equipmentregistration::EquipmentRegistration, room::Room, tournament::{Tournament, TournamentBuilder}, tournament_admin::{TournamentAdmin, TournamentAdminBuilder}, tournamentgroup::{TournamentGroup, TournamentGroupBuilder}, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::{User, UserBuilder}}};
 use chrono::{Duration, Local, Months, NaiveDate, TimeZone, Utc};
 use crate::fixtures::{divisions::{seed_division_with_name, seed_divisions_with_names}, equipmentregistrations::seed_1_equipmentregistration_for_each_equipment_type_with_minimum_required_dependencies, rooms::seed_rooms_with_names, rounds::seed_rounds_with_sched_start_times};
 
@@ -52,6 +52,42 @@ pub fn seed_tournaments_with_names(db: &mut database::Connection, tname_1: &str,
 
 pub fn seed_tournaments(db: &mut database::Connection) -> Vec<Tournament> {
     seed_tournaments_with_names(db, "Q2025", "Tour 2", "Tour 3")
+}
+
+/// One public tournament inside `/api/tournaments/today`'s +/-31-day window with three rooms, and
+/// one two months out to prove the window actually excludes.
+///
+/// Both are `is_public = true` because that endpoint filters `VisibilityFilter::Public`, while
+/// `TournamentBuilder` defaults to private — the reason the original version of this fixture could
+/// never have satisfied the test it was written for.
+pub fn arrange_today_max_100_works(db: &mut database::Connection) -> (Tournament, Vec<Room>, Tournament) {
+    let owner = UserBuilder::new_default("Today Max 100 Owner")
+        .set_hash_password("OwnerPwd123!")
+        .build_and_insert(db)
+        .unwrap();
+
+    let today = Local::now().date_naive();
+    let two_months_from_today: NaiveDate = today.checked_add_months(Months::new(2)).unwrap();
+
+    let tour_in_window = TournamentBuilder::new_default("Today Max 100 In Window")
+        .set_is_public(true)
+        .set_fromdate(today)
+        .set_todate(today)
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    let rooms = seed_rooms_with_names(db, tour_in_window.tid, "Room Alpha", "Room Beta", "Room Gamma");
+
+    let tour_out_of_window = TournamentBuilder::new_default("Today Max 100 Out Of Window")
+        .set_is_public(true)
+        .set_fromdate(two_months_from_today)
+        .set_todate(two_months_from_today)
+        .set_owner_id(owner.id)
+        .build_and_insert(db)
+        .unwrap();
+
+    (tour_in_window, rooms, tour_out_of_window)
 }
 
 /// Tournaments spread around today, for the `/api/tournaments/filter` date window.

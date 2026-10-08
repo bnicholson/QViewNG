@@ -41,6 +41,85 @@ struct VisibilityQuery {
     visibility: Option<String>,
 }
 
+/// The tournament list the QuizMachine client pulls during first-stage setup with the QView
+/// server: public tournaments in a window around today, each with its rooms.
+///
+/// Restored from commit a419373, which removed it without mention while consolidating the
+/// frontend's User-profile endpoints. Deliberately ungated — the C++ client calls it before it
+/// has any credentials, and it only ever returns tournaments already marked public.
+#[get("/today")]
+async fn read_today(
+    db: Data<Database>,
+    req: HttpRequest,
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    // use 1 month (31 days) as the base for obtaining tournaments from server, into the past and into the future
+    let days_before_and_after: i64 = 31;
+    let days_before_and_after_in_milliseconds: i64 = (days_before_and_after*24*3600)*1000;
+    let today = Utc::now();
+    let from_dt = today.timestamp_millis() - days_before_and_after_in_milliseconds;
+    let to_dt   = today.timestamp_millis() + days_before_and_after_in_milliseconds;
+
+    tracing::debug!("{} /api/tournaments/today {:?} {:?} {:?}",line!(), today, from_dt, to_dt);
+
+    let result_tournaments = models::tournament::read_between_dates(&mut db, from_dt, to_dt, models::tournament::VisibilityFilter::Public);
+
+    let internal_server_error_payload = EntityResponse::<String> {
+        code: 500,
+        message: "Internal Server Error".to_string(),
+        data: None
+    };
+
+    if !result_tournaments.is_ok() {
+        return HttpResponse::InternalServerError().json(internal_server_error_payload);
+    }
+
+    let mut tournaments = result_tournaments.unwrap();
+    let max_tournaments_to_send_in_response = 100;
+    while tournaments.len() > max_tournaments_to_send_in_response {
+        tournaments.remove(0);
+        tournaments.pop();
+    }
+
+    let mut tournaments_with_rooms = Vec::<TournamentWithRooms>::new();
+    let pagination_params_vals = PaginationParams {
+        page: 0,
+        page_size: 100,
+    };
+    for tournament in tournaments {
+        let rooms_result = models::room::read_all_rooms_of_tournament(&mut db, tournament.tid, &pagination_params_vals);
+        if !rooms_result.is_ok() {
+            let not_found_payload = EntityResponse::<Vec<String>> {
+                code: 404,
+                message: "Not Found".to_string(),
+                data: None
+            };
+            return HttpResponse::NotFound().json(not_found_payload);
+        }
+        let rooms = rooms_result.unwrap();
+
+        // Construct the object to be returned in the response
+        let tournament_with_rooms = TournamentWithRooms::new(
+            tournament.clone(),
+            rooms.clone()
+        );
+
+        tournaments_with_rooms.push(tournament_with_rooms);
+    }
+
+    let payload = EntityResponse::<Vec<TournamentWithRooms>> {
+        code: 200,
+        message: "OK".to_string(),
+        data: Some(tournaments_with_rooms)
+    };
+
+    return HttpResponse::Ok().json(payload);
+}
+
 #[get("filter")]
 async fn get_between_dates(
     db: Data<Database>,
@@ -1231,6 +1310,9 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(get_between_dates)
+        // Literal paths must be registered before `read`'s `/{id}`, or it shadows them and the
+        // request dies in the Uuid Path extractor.
+        .service(read_today)
         .service(read)
         .service(read_divisions)
         .service(read_division_rows)
