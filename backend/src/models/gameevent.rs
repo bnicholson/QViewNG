@@ -197,11 +197,13 @@ impl GameEventCalculator {
         let mut game_events = self.game_events.clone();
         game_events.sort();  // << VERY IMPORTANT
         for game_event in game_events.iter() {
-            if mut_self.teams.contains_key(&0) && mut_self.teams.contains_key(&1) {
-                println!["TOP of Calc: Question: {}, Event Code: {}, Left Team: {}, Right Team: {}", &game_event.question, &game_event.event, mut_self.teams[&0].score, mut_self.teams[&1].score];
-            }
-            else {
-                println!["TOP of Calc: Question = {}, EventNum = {}, Event = {}", game_event.question, game_event.eventnum, game_event.event];
+            if false {  // flip to 'true' for auditing/troubleshooting
+                if mut_self.teams.contains_key(&0) && mut_self.teams.contains_key(&1) {
+                    println!["TOP of Calc: Question: {}, Event Code: {}, Left Team: {}, Right Team: {}", &game_event.question, &game_event.event, mut_self.teams[&0].score, mut_self.teams[&1].score];
+                }
+                else {
+                    println!["TOP of Calc: Question = {}, EventNum = {}, Event = {}", game_event.question, game_event.eventnum, game_event.event];
+                }
             }
 
             mut_self = Self::calc_new_score_from_game_state(

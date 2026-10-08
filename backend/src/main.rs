@@ -46,12 +46,6 @@ async fn main() -> std::io::Result<()> {
     let host_and_port = format!("{host}:{port}");
 
     let db = Database::new("DATABASE_URL");
-
-    // Valkey cache. Built once and shared by every worker; `Cache` is cheap to clone and
-    // multiplexes over a single auto-reconnecting connection. If VALKEY_URL is unset or the
-    // server is unreachable, this returns a disabled cache and the app runs uncached rather
-    // than failing to start -- see backend/src/cache.rs.
-    let cache = Cache::from_env("VALKEY_URL").await;
     
     if false {
         let mut conn = db.get_connection().expect("Failed to get connection.");
@@ -75,6 +69,12 @@ async fn main() -> std::io::Result<()> {
 
         return Ok(());
     }
+
+    // Valkey cache. Built once and shared by every worker; `Cache` is cheap to clone and
+    // multiplexes over a single auto-reconnecting connection. If VALKEY_URL is unset or the
+    // server is unreachable, this returns a disabled cache and the app runs uncached rather
+    // than failing to start -- see backend/src/cache.rs.
+    let cache = Cache::from_env("VALKEY_URL").await;
     
     log::info!("Server listening on http://{host_and_port} ...");
 
