@@ -61,6 +61,7 @@ const PROFILE_ROOTS: Record<string, string> = {
 const SECTIONS: Record<string, string> = {
   overview: 'Overview',
   schedule: 'Schedule',
+  'live-games': 'LIVE Games',
   register: 'Registration',
   divisions: 'Divisions',
   'division-sessions': 'Sessions',
