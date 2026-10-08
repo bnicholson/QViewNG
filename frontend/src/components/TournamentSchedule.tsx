@@ -15,6 +15,8 @@ import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import Divider from '@mui/material/Divider'
@@ -39,6 +41,7 @@ import { GameAPI, type GameRowTS, type PersonGameRowTS } from '../features/GameA
 import { RoomAPI, type RoomTS } from '../features/RoomAPI'
 import { RoomGroupAPI, type RoomGroupTS } from '../features/RoomGroupAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
+import { TournamentAPI } from '../features/TournamentAPI'
 import { DivisionEditorDialog } from './DivisionEditorDialog'
 import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
@@ -74,6 +77,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
 
   const [mode, setMode] = useState<Mode>('read')
   const [error, setError] = useState<string | null>(null)
+  // The tournament's scheduling mode (persisted on the tournament, also editable in the Tournament
+  // editor). Normal mode keeps the Create/Edit section to Rounds and Games.
+  const [advanced, setAdvanced] = useState(false)
 
   // Row 1 — divisions
   const [divisions, setDivisions] = useState<DivisionTS[]>([])
@@ -145,6 +151,25 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => { loadDivisions() }, [loadDivisions])
+
+  useEffect(() => {
+    if (!tid) return
+    TournamentAPI.getById(tid)
+      .then(t => setAdvanced(t.use_advanced_scheduling ?? false))
+      .catch(() => { /* leave the default (Normal) if the tournament can't be loaded */ })
+  }, [tid])
+
+  // Flipping the toggle saves to the tournament, so the choice sticks for everyone who edits this
+  // schedule. The UI moves first and rolls back if the save fails.
+  const changeAdvanced = async (next: boolean) => {
+    setAdvanced(next)
+    try {
+      await TournamentAPI.updateScheduleMode(tid, next, accessToken)
+    } catch (e) {
+      setAdvanced(!next)
+      setError(e instanceof Error ? e.message : 'Failed to save the scheduling mode.')
+    }
+  }
 
   // Auto-select the first division as soon as divisions load (keeping any valid current choice), so
   // the cascade below fills in and the user lands on a populated schedule instead of empty dropdowns.
@@ -292,7 +317,13 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       ) : activeMode === 'conflicts' ? (
         <Alert severity="info">Scheduling conflict resolution is coming soon.</Alert>
       ) : activeMode === 'edit2' ? (
-        <DivisionTimePoolCompare tid={tid} divisions={divisions} canEdit={canEdit} />
+        <DivisionTimePoolCompare
+          tid={tid}
+          divisions={divisions}
+          canEdit={canEdit}
+          advanced={advanced}
+          onAdvancedChange={changeAdvanced}
+        />
       ) : (
         <Stack spacing={2}>
 
@@ -546,7 +577,14 @@ interface DivisionCompareData {
  * state, and every division's manager stays mounted (hidden when inactive), so switching tabs is
  * instant and the data stays cached for quick side-by-side comparison.
  */
-const DivisionTimePoolCompare = ({ tid, divisions, canEdit }: { tid: string; divisions: DivisionTS[]; canEdit: boolean }) => {
+const DivisionTimePoolCompare = ({ tid, divisions, canEdit, advanced, onAdvancedChange }: {
+  tid: string
+  divisions: DivisionTS[]
+  canEdit: boolean
+  /** The tournament's scheduling mode: Advanced exposes Sessions / Pool Groups / Pools, Normal doesn't. */
+  advanced: boolean
+  onAdvancedChange: (advanced: boolean) => void
+}) => {
   const navigate = useNavigate()
   const [active, setActive] = useState('')
   const [dataByDid, setDataByDid] = useState<Record<string, DivisionCompareData>>({})
@@ -582,13 +620,37 @@ const DivisionTimePoolCompare = ({ tid, divisions, canEdit }: { tid: string; div
   // Eagerly load every division once so all tabs are instant and stay cached for comparison.
   useEffect(() => { divisions.forEach(d => loadDivision(d.did)) }, [divisions, loadDivision])
 
+  // Mode picker — laid out like the "View" toggle inside the manager below. Shown above everything
+  // else because the mode is a property of the tournament, not of one division.
+  const modeToggle = (
+    <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>Mode:</Typography>
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={advanced ? 'advanced' : 'normal'}
+        onChange={(_e, v: string | null) => { if (v) onAdvancedChange(v === 'advanced') }}
+        disabled={!canEdit}
+      >
+        <ToggleButton value="normal">Normal</ToggleButton>
+        <ToggleButton value="advanced">Advanced</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
+  )
+
   if (divisions.length === 0) {
-    return <Alert severity="info">This tournament has no divisions yet.</Alert>
+    return (
+      <Stack spacing={0}>
+        {modeToggle}
+        <Alert severity="info">This tournament has no divisions yet.</Alert>
+      </Stack>
+    )
   }
 
   return (
     <Card variant="outlined">
       <CardContent>
+        {modeToggle}
         {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
         {/* One tab per division so schedules can be compared side by side. */}
         <Tabs value={active || false} onChange={(_e, v: string) => setActive(v)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 0 }}>
@@ -608,6 +670,7 @@ const DivisionTimePoolCompare = ({ tid, divisions, canEdit }: { tid: string; div
                   roundgroups={data.roundgroups}
                   canEdit={canEdit}
                   variant="timepool"
+                  advanced={advanced}
                   gamesByRound={data.gamesByRound}
                   onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
                   onRoundGroupsChanged={() => loadDivision(d.did)}

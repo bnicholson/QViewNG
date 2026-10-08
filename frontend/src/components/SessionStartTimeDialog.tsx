@@ -23,6 +23,12 @@ interface Props {
   defaultStart: string | null
   /** How many rounds will be re-timed (shown so the user knows the span this affects). */
   roundCount: number
+  /**
+   * Normal scheduling mode: word everything in terms of the rounds being re-timed rather than the
+   * session they belong to (sessions aren't a concept the user manages there). `sessionName` is
+   * then unused.
+   */
+  hideSessionWording?: boolean
   onCancel: VoidFunction
   /** Apply: the chosen start time (ISO) and the per-round duration (minutes) to space the rounds by. */
   onApply: (startTimeIso: string, durationMinutes: number) => void
@@ -34,7 +40,7 @@ interface Props {
  * tournament's default round duration and can be adjusted before applying.
  */
 export const SessionStartTimeDialog = (props: Props) => {
-  const { isOpen, tid, sessionName, defaultStart, roundCount, onCancel, onApply } = props
+  const { isOpen, tid, sessionName, defaultStart, roundCount, hideSessionWording = false, onCancel, onApply } = props
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
   const [durationMinutes, setDurationMinutes] = useState(30)
   const [tournamentDefault, setTournamentDefault] = useState<number | null>(null)
@@ -72,20 +78,22 @@ export const SessionStartTimeDialog = (props: Props) => {
       sx={{ '& .MuiDialog-container': { alignItems: 'flex-start' } }}
       slotProps={{ paper: { sx: { mt: 4 } } }}
     >
-      <DialogTitle>Edit Start Time — {sessionName}</DialogTitle>
+      <DialogTitle>{hideSessionWording ? 'Edit Start Times' : `Edit Start Time — ${sessionName}`}</DialogTitle>
       <DialogContent dividers>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Alert severity="info">
-            Applying this updates the start time of <strong>every round in this session</strong>: the first round
+            Applying this updates the start time of{' '}
+            <strong>{hideSessionWording ? 'every round in this schedule' : 'every round in this session'}</strong>: the first round
             starts at the time you choose, and each following round is spaced one round-duration after the previous
-            one — keeping the session on a consistent, evenly-spaced schedule. This re-times {roundCount} {roundCount === 1 ? 'round' : 'rounds'}.
+            one — keeping {hideSessionWording ? 'the schedule' : 'the session'} on a consistent, evenly-spaced schedule.
+            This re-times {roundCount} {roundCount === 1 ? 'round' : 'rounds'}.
           </Alert>
 
           {error && <Alert severity="error">{error}</Alert>}
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <Box>
-              <InputLabel>Session start (first round)</InputLabel>
+              <InputLabel>{hideSessionWording ? 'Start (first round)' : 'Session start (first round)'}</InputLabel>
               <DateTimePicker
                 enableAccessibleFieldDOMStructure={false}
                 value={startTime}
@@ -111,7 +119,7 @@ export const SessionStartTimeDialog = (props: Props) => {
             />
             <Typography variant="caption" color="text.secondary">
               {tournamentDefault != null
-                ? `Tournament default: ${tournamentDefault} min. Adjusting here only affects this session.`
+                ? `Tournament default: ${tournamentDefault} min. Adjusting here only affects ${hideSessionWording ? 'these rounds' : 'this session'}.`
                 : 'Spacing between consecutive rounds.'}
             </Typography>
           </Box>

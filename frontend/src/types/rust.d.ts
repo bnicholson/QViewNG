@@ -230,6 +230,8 @@ interface Tournament {
   use_gear_registration: boolean;
   use_volunteer_registration: boolean;
   default_round_duration: number;
+  /** Advanced scheduling mode: Sessions / Pool Groups / Pools are exposed in Schedule > Create/Edit. */
+  use_advanced_scheduling: boolean;
 }
 
 interface TournamentChangeset {
@@ -257,6 +259,7 @@ interface TournamentChangeset {
   use_gear_registration?: boolean;
   use_volunteer_registration?: boolean;
   default_round_duration?: number;
+  use_advanced_scheduling?: boolean;
 }
 
 interface FileInfo {

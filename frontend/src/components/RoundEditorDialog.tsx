@@ -56,6 +56,11 @@ interface Props {
   lockedDivisionId?: string;
   /** When set, the Division RoundGroup is fixed to this id and its dropdown is disabled (e.g. from a RoundGroup profile). */
   lockedRoundGroupId?: string;
+  /**
+   * Normal scheduling mode: hide the Division Session dropdown entirely (sessions aren't a concept
+   * the user manages there). `lockedRoundGroupId` must be supplied — it's where the round lands.
+   */
+  hideRoundGroupField?: boolean;
   /** When set, the dialog edits this existing round (name/time) instead of creating a new one. */
   round?: RoundTS | null;
   onCancel: VoidFunction;
@@ -63,7 +68,7 @@ interface Props {
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, round, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, hideRoundGroupField = false, round, onCancel, onSave } = props;
   const isEdit = !!round;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<RoundFormState>(emptyState);
@@ -130,7 +135,9 @@ export const RoundEditorDialog = (props: Props) => {
       return;
     }
     if (!form.roundgroup_id) {
-      setErrorMsg("Division session is required.");
+      setErrorMsg(hideRoundGroupField
+        ? "Couldn't work out where this round belongs. Close this and try again."
+        : "Division session is required.");
       setAlertOpened(true);
       return;
     }
@@ -249,6 +256,7 @@ export const RoundEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
+              {!hideRoundGroupField && (
               <Grid size={{ xs: 6 }}>
                 <InputLabel>Division Session (*required)</InputLabel>
                 <Select
@@ -267,6 +275,7 @@ export const RoundEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
+              )}
               <Grid size={{ xs: 6 }}>
                 <InputLabel>Scheduled Start Time (*required)</InputLabel>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>

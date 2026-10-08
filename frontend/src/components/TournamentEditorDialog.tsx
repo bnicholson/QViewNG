@@ -39,6 +39,8 @@ import AlertTitle from '@mui/material/AlertTitle'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import MDEditor from '@uiw/react-md-editor'
 
 const Transition = React.forwardRef(function Transition(
@@ -126,7 +128,8 @@ const tournamentEmptyState: TournamentChangesetTS = {
   use_team_registration: true,
   use_gear_registration: true,
   use_volunteer_registration: true,
-  default_round_duration: 30
+  default_round_duration: 30,
+  use_advanced_scheduling: false
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -224,6 +227,7 @@ export const TournamentEditorDialog = (props: Props) => {
       use_gear_registration: tournament.use_gear_registration,
       use_volunteer_registration: tournament.use_volunteer_registration,
       default_round_duration: tournament.default_round_duration,
+      use_advanced_scheduling: tournament.use_advanced_scheduling ?? false,
     };
     if (canViewPairingCode) {
       tournamentCS.pairing_code = tournament.pairing_code;
@@ -402,6 +406,31 @@ export const TournamentEditorDialog = (props: Props) => {
                     setTournament(state => ({ ...state, default_round_duration: Number.isNaN(n) ? 30 : Math.max(1, n) }));
                   }}
                 />
+              </Grid>
+            </Grid>
+          </ListItem>
+          <ListItem>
+            <Grid container>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Scheduling Mode sets which options Tournament &gt; Schedule &gt; Create / Edit shows. Normal
+                  keeps it to Rounds and Games; Advanced also exposes Sessions, Pool/Bracket Groups and Pools.
+                  It can also be switched from that section.
+                </Typography>
+                <InputLabel>Scheduling Mode</InputLabel>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  sx={{ mt: 0.5 }}
+                  value={(tournament.use_advanced_scheduling ?? false) ? 'advanced' : 'normal'}
+                  onChange={(_event, value) => {
+                    if (!value) return;
+                    setTournament(state => ({ ...state, use_advanced_scheduling: value === 'advanced' }));
+                  }}
+                >
+                  <ToggleButton value="normal">Normal</ToggleButton>
+                  <ToggleButton value="advanced">Advanced</ToggleButton>
+                </ToggleButtonGroup>
               </Grid>
             </Grid>
           </ListItem>

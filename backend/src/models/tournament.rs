@@ -38,6 +38,7 @@ pub struct TournamentBuilder {
     use_gear_registration: bool,
     use_volunteer_registration: bool,
     default_round_duration: i32,
+    use_advanced_scheduling: bool,
 }
 
 impl TournamentBuilder {
@@ -69,6 +70,7 @@ impl TournamentBuilder {
             use_gear_registration: true,
             use_volunteer_registration: true,
             default_round_duration: 30,
+            use_advanced_scheduling: false,
         }
     }
     pub fn new_default(tname: &str) -> Self {
@@ -100,11 +102,17 @@ impl TournamentBuilder {
             use_gear_registration: true,
             use_volunteer_registration: true,
             default_round_duration: 30,
+            use_advanced_scheduling: false,
         }
     }
 
     pub fn set_default_round_duration(mut self, minutes: i32) -> Self {
         self.default_round_duration = minutes;
+        self
+    }
+
+    pub fn set_use_advanced_scheduling(mut self, v: bool) -> Self {
+        self.use_advanced_scheduling = v;
         self
     }
 
@@ -293,6 +301,7 @@ impl TournamentBuilder {
                     use_gear_registration: self.use_gear_registration,
                     use_volunteer_registration: self.use_volunteer_registration,
                     default_round_duration: self.default_round_duration,
+                    use_advanced_scheduling: self.use_advanced_scheduling,
                 })
             }
         }
@@ -362,6 +371,9 @@ pub struct Tournament {
     pub use_volunteer_registration: bool,
     /// Default length of a round, in minutes; used by the schedule Auto-Schedule features.
     pub default_round_duration: i32,
+    /// Which scheduling UI the Schedule > Create/Edit section presents: Normal mode (false) manages
+    /// only Rounds and Games, Advanced mode (true) also exposes Sessions, Pool Groups and Pools.
+    pub use_advanced_scheduling: bool,
 }
 
 #[derive(
@@ -401,6 +413,7 @@ pub struct NewTournament {
     pub use_gear_registration: bool,
     pub use_volunteer_registration: bool,
     pub default_round_duration: i32,
+    pub use_advanced_scheduling: bool,
 }
 
 /// Payload accepted from the frontend for tournament creation (no owner_id — that is
@@ -442,6 +455,9 @@ pub struct NewTournamentPayload {
     // Default round length in minutes; defaults to 30 when omitted.
     #[serde(default = "default_round_duration_value")]
     pub default_round_duration: i32,
+    // Advanced scheduling (Sessions/Pool Groups/Pools visible); defaults to Normal mode when omitted.
+    #[serde(default)]
+    pub use_advanced_scheduling: bool,
 }
 
 fn default_true() -> bool { true }
@@ -476,6 +492,7 @@ pub struct TournamentChangeset {
     pub use_gear_registration: Option<bool>,
     pub use_volunteer_registration: Option<bool>,
     pub default_round_duration: Option<i32>,
+    pub use_advanced_scheduling: Option<bool>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewTournament) -> QueryResult<Tournament> {

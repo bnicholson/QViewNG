@@ -25,9 +25,9 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import dayjs from 'dayjs'
 import { RoundAPI, type RoundTS } from '../features/RoundAPI'
 import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
-import { type GameRowTS } from '../features/GameAPI'
+import { type GameRowTS, type GameTS } from '../features/GameAPI'
 import { GameAPI } from '../features/GameAPI'
-import { type PoolBracketTS } from '../features/PoolBracketAPI'
+import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { PoolBracketGroupAPI, type PoolBracketGroupTS } from '../features/PoolBracketGroupAPI'
 import { TeamAPI } from '../features/TeamAPI'
 import { PoolGroupsEditorDialog } from './PoolGroupsEditorDialog'
@@ -96,15 +96,24 @@ interface Props {
   onNavigateGame?: (gid: string) => void
   /** TimePool only: called after a game is added/edited/deleted so the parent can reload games. */
   onGamesChanged?: () => void
+  /**
+   * TimePool only. Advanced mode (default) exposes Sessions, Pool/Bracket Groups and Pools. In
+   * Normal mode the user manages Rounds and Games only: the rounds render as one flat chronological
+   * list, the View toggle and the Pool/Pool-Group filter rows are gone, and the session / pool
+   * groups / pools behind the schedule are created in the background and never named in the UI.
+   */
+  advanced?: boolean
   /** TimePool only: the division's pools/brackets, shown as editable chips above the sessions. */
   poolBrackets?: PoolBracketTS[]
   /** TimePool only: called after a pool/bracket is edited so the parent can reload it. */
   onPoolsChanged?: () => void
 }
 
-export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, onRoundGroupsChanged, variant = 'timing', gamesByRound, onNavigateGame, onGamesChanged, poolBrackets, onPoolsChanged }: Props) {
+export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, onRoundGroupsChanged, variant = 'timing', gamesByRound, onNavigateGame, onGamesChanged, advanced = true, poolBrackets, onPoolsChanged }: Props) {
   const { accessToken } = useAuth()
   const isTimePool = variant === 'timepool'
+  // Normal scheduling mode: Rounds and Games only, with sessions/pool groups/pools kept out of sight.
+  const normalMode = isTimePool && !advanced
   // TimePool: group the rounds/games either by their session (default) or by pool/bracket group.
   const [groupView, setGroupView] = useState<'sessions' | 'poolgroups'>('sessions')
   const [rounds, setRounds] = useState<RoundTS[]>([])
@@ -123,6 +132,11 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
   const [poolDialog, setPoolDialog] = useState<{ open: boolean; bracket: PoolBracketTS | null }>({ open: false, bracket: null })
   // "Edit Session Start Time" dialog — re-times all of a session's rounds from a chosen start.
   const [sessionTimeDialog, setSessionTimeDialog] = useState<{ open: boolean; session: RoundGroupTS | null }>({ open: false, session: null })
+  // Normal mode's equivalent: re-times every round in the division from a chosen start.
+  const [allRoundsTimeDialogOpen, setAllRoundsTimeDialogOpen] = useState(false)
+  // Normal mode: the pool a hand-made game is attached to, resolved (or created) just before the
+  // game dialog opens. Passed to the dialog, which hides the Pool/Bracket field entirely.
+  const [normalPoolId, setNormalPoolId] = useState('')
   // Confirmation prompt for the cascading round/session deletes.
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState)
   // Games are controlled directly by pool/room/team visibility. Pool GROUPS control their pools (a
@@ -232,7 +246,9 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     setConfirmDialog({
       isOpen: true,
       title: `Delete round "${round.name}"?`,
-      message: `Deleting this round means ${gamesPart}. If this empties a Pool/Bracket Group (no games left), that group and its pools are deleted too. This can't be undone.`,
+      message: normalMode
+        ? `Deleting this round means ${gamesPart}. This can't be undone.`
+        : `Deleting this round means ${gamesPart}. If this empties a Pool/Bracket Group (no games left), that group and its pools are deleted too. This can't be undone.`,
       onCancel: () => setConfirmDialog(confirmDialogDefaultState),
       onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleDelete(round) },
     })
@@ -252,10 +268,9 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
     })
   }
 
-  // Re-time a session's rounds: the first (chronological) round gets `startTimeIso`, and each later
-  // round is spaced `durationMinutes` after the one before it, keeping the session evenly scheduled.
-  const applySessionStartTime = async (session: RoundGroupTS, startTimeIso: string, durationMinutes: number) => {
-    const ordered = roundsBySession.get(session.roundgroup_id) ?? []  // already sorted chronologically
+  // Re-time a run of rounds: the first (chronological) one gets `startTimeIso`, and each later round
+  // is spaced `durationMinutes` after the one before it, keeping the run evenly scheduled.
+  const applyStartTimes = async (ordered: RoundTS[], startTimeIso: string, durationMinutes: number) => {
     try {
       for (let i = 0; i < ordered.length; i++) {
         const t = dayjs(startTimeIso).add(i * durationMinutes, 'minute').toISOString()
@@ -263,9 +278,13 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
       }
       loadRounds()
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'Failed to update the session start time.')
+      setNotice(e instanceof Error ? e.message : 'Failed to update the start times.')
     }
   }
+
+  // Advanced mode: re-time one session's rounds (already sorted chronologically).
+  const applySessionStartTime = (session: RoundGroupTS, startTimeIso: string, durationMinutes: number) =>
+    applyStartTimes(roundsBySession.get(session.roundgroup_id) ?? [], startTimeIso, durationMinutes)
 
   // Move a round to another session (persists immediately). Used by both drag-and-drop (timing) and
   // the up/down arrows (timepool). The round keeps its start time, so the overall sequence is preserved.
@@ -313,6 +332,76 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
       return a.name.localeCompare(b.name, undefined, { numeric: true })
     })
   }, [roundgroups, roundsBySession])
+
+  // ── Normal mode: the hidden infrastructure ───────────────────────────────────
+  // The user only ever creates Rounds and Games. A round still needs a session and a game still
+  // needs a pool, so both are resolved from whatever the division already has and otherwise created
+  // on the spot — silently, and never shown or named in the UI.
+
+  /** The session new rounds are added to: the one holding the latest round, else the first; else a new one. */
+  const resolveDefaultSession = async (): Promise<string> => {
+    const latest = [...rounds].sort(byStartThenName).at(-1)
+    if (latest) return latest.roundgroup_id
+    if (sortedSessions.length > 0) return sortedSessions[0].roundgroup_id
+    const created = await RoundGroupAPI.create({ did, name: 'Session 1' }, accessToken)
+    onRoundGroupsChanged()
+    return created.roundgroup_id
+  }
+
+  /** The pool a new game is attached to: the one this round's other games use, else the division's
+   *  first pool; else a fresh pool (and the group it has to live in). */
+  const resolveDefaultPool = async (round: RoundTS): Promise<string> => {
+    const fromRound = gamesByRound?.get(round.roundid)?.[0]?.poolBracketId
+    if (fromRound) return fromRound
+    const existing = (poolBrackets ?? []).find(pb => pb.type === 'pool') ?? (poolBrackets ?? [])[0]
+    if (existing) return existing.pool_bracket_id
+    const group = await PoolBracketGroupAPI.create({ divisionid: did, name: 'Pool Group 1' }, accessToken)
+    const pool = await PoolBracketAPI.create({
+      divisionid: did, name: 'Pool A', type: 'pool', poolbracketgroupid: group.poolbracketgroupid,
+    }, accessToken)
+    loadPoolGroups()
+    onPoolsChanged?.()
+    return pool.pool_bracket_id
+  }
+
+  /** Normal mode's top-level "Add Round" — resolves the session first, then opens the round dialog. */
+  const openAddRound = async () => {
+    try {
+      setRoundDialog({ open: true, sessionId: await resolveDefaultSession(), round: null })
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Failed to prepare a new round.')
+    }
+  }
+
+  /** Open the game dialog for a round. In Normal mode the pool is resolved (or created) first. */
+  const openGameDialog = async (round: RoundTS, sessionId: string, game: GameRowTS | null, poolBracketId?: string) => {
+    if (!normalMode) {
+      setGameDialog({ open: true, roundGroupId: sessionId, roundId: round.roundid, game, poolBracketId })
+      return
+    }
+    try {
+      const pool = poolBracketId ?? await resolveDefaultPool(round)
+      setNormalPoolId(pool)
+      setGameDialog({ open: true, roundGroupId: sessionId, roundId: round.roundid, game, poolBracketId: pool })
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Failed to prepare the game.')
+    }
+  }
+
+  /**
+   * Normal mode: a game's teams also join the pool behind it, since the user has no way to place
+   * them there themselves and pool standings read from those placements. Already-placed teams make
+   * the call fail harmlessly, so failures are ignored.
+   */
+  const placeGameTeamsInPool = async (game: GameTS, poolBracketId: string) => {
+    const teamIds = [game.leftteamid, game.centerteamid, game.rightteamid].filter((t): t is string => !!t)
+    await Promise.all(teamIds.map(t =>
+      TeamAPI.addToPoolBracket(poolBracketId, t, accessToken).catch(() => { /* already placed */ })
+    ))
+  }
+
+  // Normal mode shows every round in the division as one flat, chronological list.
+  const allRoundsSorted = useMemo(() => [...rounds].sort(byStartThenName), [rounds])
 
   // Distinct rooms and teams that appear in the division's games — drive the Rooms/Teams filter chips.
   const roomsInGames = useMemo(() => {
@@ -460,7 +549,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
               {isTimePool && (
                 <Tooltip title={createBlockedTooltip}>
                   <span>
-                    <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={() => setGameDialog({ open: true, roundGroupId: addGameSessionId, roundId: round.roundid, game: null })}>
+                    <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={() => openGameDialog(round, addGameSessionId, null)}>
                       Add Game
                     </Button>
                   </span>
@@ -491,7 +580,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
                 <Chip
                   key={g.gid}
                   variant="outlined"
-                  onClick={() => setGameDialog({ open: true, roundGroupId: addGameSessionId, roundId: round.roundid, game: g, poolBracketId })}
+                  onClick={() => openGameDialog(round, addGameSessionId, g, poolBracketId)}
                   sx={{
                     height: 'auto',
                     borderRadius: '8px',
@@ -530,7 +619,11 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
 
   return (
     <Box sx={{ textAlign: 'left' }}>
-      {isTimePool ? (
+      {normalMode ? (
+        <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
+          Build your schedule here: create the Rounds that make up your event's time, then add the Games played in each Round. Or use "Create Schedule" to generate a whole round-robin at once.
+        </Alert>
+      ) : isTimePool ? (
         <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
           This tab combines your schedule's time (Sessions and Rounds) with the games scheduled in each round. Use the up/down arrows at the top and bottom edges of a session to move its boundary round into the neighbouring session.
         </Alert>
@@ -547,15 +640,36 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         </>
       )}
 
-      {/* Auto-Schedule — sits just above the filters. */}
+      {/* Auto-Schedule — sits just above the filters. In Normal mode the per-session "Add Round" and
+          "Edit Session Start Time" buttons have nowhere to live (there are no session cards), so
+          their schedule-wide equivalents sit here beside it. */}
       {isTimePool && canEdit && (
-        <Box sx={{ mb: 1.5 }}>
+        <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Button variant="contained" disableElevation onClick={() => setAutoScheduleOpen(true)}>Create Schedule</Button>
+          {normalMode && (
+            <>
+              <Tooltip title={createBlockedTooltip}>
+                <span>
+                  <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={openAddRound}>
+                    Add Round
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title={rounds.length === 0 ? 'Add a round first to set a start time.' : ''}>
+                <span>
+                  <Button size="small" startIcon={<ScheduleIcon />} disabled={rounds.length === 0} onClick={() => setAllRoundsTimeDialogOpen(true)}>
+                    Edit Start Times
+                  </Button>
+                </span>
+              </Tooltip>
+            </>
+          )}
         </Box>
       )}
 
-      {/* View — group the schedule below by Session (default) or by Pool/Bracket Group. */}
-      {isTimePool && (
+      {/* View — group the schedule below by Session (default) or by Pool/Bracket Group. Normal mode
+          has only one way to read the schedule (a flat list of rounds), so there's nothing to pick. */}
+      {isTimePool && !normalMode && (
         <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>View:</Typography>
           <ToggleButtonGroup
@@ -591,7 +705,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
             </Box>
 
       {/* Pool groups — filter chips (like the rows below) plus an Edit chip that opens the editor. */}
-      {isTimePool && (poolGroups.length > 0 || canEdit) && (
+      {isTimePool && !normalMode && (poolGroups.length > 0 || canEdit) && (
         <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>Pool Groups:</Typography>
           {/* {canEdit && (
@@ -646,7 +760,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
       )}
 
       {/* Pools/brackets for the division — editable chips above the first session. */}
-      {isTimePool && poolBrackets && poolBrackets.length > 0 && (
+      {isTimePool && !normalMode && poolBrackets && poolBrackets.length > 0 && (
         <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>Pools:</Typography>
           {allToggleChip('pools', poolBrackets.map(pb => pb.pool_bracket_id), hiddenPoolIds, setHiddenPoolIds)}
@@ -748,13 +862,34 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
       <FormControlLabel
         sx={{ mt: 0.5 }}
         control={<Checkbox size="small" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />}
-        label={<Typography variant="body2">Show Sessions/Rounds When Empty</Typography>}
+        label={<Typography variant="body2">{normalMode ? 'Show Rounds When Empty' : 'Show Sessions/Rounds When Empty'}</Typography>}
       />
           </CardContent>
         </Card>
       )}
 
-      {groupView === 'sessions' && (sortedSessions.length === 0 ? (
+      {/* Normal mode — every round in the division as one flat, chronological list. No session
+          wrappers, no "Pool:" line on the game chips, and no drag-to-another-session. */}
+      {normalMode && (() => {
+        const displayRounds = showEmpty ? allRoundsSorted : allRoundsSorted.filter(r => gamesForRound(r.roundid).length > 0)
+        if (allRoundsSorted.length === 0) {
+          return <Typography variant="body2" color="text.secondary">No rounds yet. Use "Create Schedule" to build a whole schedule, or "Add Round" to start one round at a time.</Typography>
+        }
+        if (displayRounds.length === 0) {
+          return <Typography variant="body2" color="text.secondary">No rounds have a visible game. Clear the filters, or tick "Show Rounds When Empty".</Typography>
+        }
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {displayRounds.map(round => renderRoundCard(
+              round,
+              gamesForRound(round.roundid),
+              { showPoolLine: false, addGameSessionId: round.roundgroup_id, draggable: false },
+            ))}
+          </Box>
+        )
+      })()}
+
+      {!normalMode && groupView === 'sessions' && (sortedSessions.length === 0 ? (
         <Typography variant="body2" color="text.secondary">This division has no sessions yet.</Typography>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -859,7 +994,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
 
       {/* Pool/Bracket Group view — the same round cards grouped by pool/bracket group instead of
           session (poolbracketgroup -> poolbracket -> game -> round). Group cards are purple. */}
-      {groupView === 'poolgroups' && (sortedGroups.length === 0 ? (
+      {!normalMode && groupView === 'poolgroups' && (sortedGroups.length === 0 ? (
         <Typography variant="body2" color="text.secondary">This division has no pool/bracket groups yet.</Typography>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -923,6 +1058,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         tid={tid}
         lockedDivisionId={did}
         lockedRoundGroupId={roundDialog.sessionId || undefined}
+        hideRoundGroupField={normalMode}
         round={roundDialog.round}
         isOpen={roundDialog.open}
         onCancel={() => setRoundDialog({ open: false, sessionId: '', round: null })}
@@ -947,9 +1083,16 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
           lockedRoundId={gameDialog.game ? undefined : (gameDialog.roundId || undefined)}
           game={gameDialog.game}
           gamePoolBracketId={gameDialog.poolBracketId}
+          hideSessionAndPoolFields={normalMode}
+          defaultPoolBracketId={normalMode ? (normalPoolId || undefined) : undefined}
           isOpen={gameDialog.open}
           onCancel={closeGameDialog}
-          onSave={() => { closeGameDialog(); onGamesChanged?.() }}
+          onSave={async (game) => {
+            const pool = gameDialog.poolBracketId ?? normalPoolId
+            closeGameDialog()
+            if (normalMode && pool) await placeGameTeamsInPool(game, pool)
+            onGamesChanged?.()
+          }}
           // Editing an existing game: allow viewing its profile and deleting it from the dialog.
           onView={gameDialog.game && onNavigateGame ? () => onNavigateGame(gameDialog.game!.gid) : undefined}
           onDelete={gameDialog.game ? () => { const gid = gameDialog.game!.gid; closeGameDialog(); handleDeleteGame(gid) } : undefined}
@@ -960,6 +1103,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         <AutoSchedulePoolsDialog
           tid={tid}
           did={did}
+          advanced={advanced}
           totalTeams={divisionTeamCount}
           isOpen={autoScheduleOpen}
           onCancel={() => setAutoScheduleOpen(false)}
@@ -967,7 +1111,23 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         />
       )}
 
-      {isTimePool && (
+      {normalMode && (
+        <SessionStartTimeDialog
+          isOpen={allRoundsTimeDialogOpen}
+          tid={tid}
+          hideSessionWording
+          sessionName=""
+          defaultStart={allRoundsSorted.find(r => r.scheduled_start_time)?.scheduled_start_time ?? null}
+          roundCount={allRoundsSorted.length}
+          onCancel={() => setAllRoundsTimeDialogOpen(false)}
+          onApply={(startIso, dur) => {
+            setAllRoundsTimeDialogOpen(false)
+            applyStartTimes(allRoundsSorted, startIso, dur)
+          }}
+        />
+      )}
+
+      {isTimePool && !normalMode && (
         <PoolGroupsEditorDialog
           isOpen={poolGroupsDialogOpen}
           tid={tid}
@@ -978,7 +1138,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         />
       )}
 
-      {isTimePool && (
+      {isTimePool && !normalMode && (
         <SessionStartTimeDialog
           isOpen={sessionTimeDialog.open}
           tid={tid}
@@ -996,7 +1156,7 @@ export default function SessionRoundsManager({ tid, did, roundgroups, canEdit, o
         />
       )}
 
-      {isTimePool && (
+      {isTimePool && !normalMode && (
         <PoolBracketEditorDialog
           tid={tid}
           did={did}

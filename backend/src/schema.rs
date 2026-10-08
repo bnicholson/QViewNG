@@ -746,6 +746,7 @@ diesel::table! {
         use_gear_registration -> Bool,
         use_volunteer_registration -> Bool,
         default_round_duration -> Int4,
+        use_advanced_scheduling -> Bool,
     }
 }
 

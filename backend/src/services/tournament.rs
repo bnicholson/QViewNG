@@ -1130,6 +1130,7 @@ async fn create(
         use_gear_registration: payload.use_gear_registration,
         use_volunteer_registration: payload.use_volunteer_registration,
         default_round_duration: payload.default_round_duration,
+        use_advanced_scheduling: payload.use_advanced_scheduling,
     };
 
     let result : QueryResult<Tournament> = models::tournament::create(&mut db, &item);

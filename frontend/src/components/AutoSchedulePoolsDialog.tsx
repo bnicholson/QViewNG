@@ -37,6 +37,12 @@ interface Props {
   did: string
   /** Total number of teams currently in the division being scheduled. */
   totalTeams: number
+  /**
+   * Advanced mode (default) exposes the pool count, the team-shuffling option and the names of the
+   * sessions to be created. In Normal mode those are hidden and fixed at one pool / one pool group /
+   * one session per repeat — still created in the background, just never shown or named here.
+   */
+  advanced?: boolean
   onCancel: VoidFunction
   /** Called after a schedule is successfully created so the parent can reload its data. */
   onCreated?: () => void
@@ -79,7 +85,7 @@ function singleRoundRobinRounds(n: number): number {
 }
 
 export const AutoSchedulePoolsDialog = (props: Props) => {
-  const { isOpen, tid, did, totalTeams, onCancel, onCreated } = props
+  const { isOpen, tid, did, totalTeams, advanced = true, onCancel, onCreated } = props
   const { accessToken } = useAuth()
   const [scheduleType, setScheduleType] = useState<'round_robin' | 'brackets'>('round_robin')
   const [teamsPerGame, setTeamsPerGame] = useState<2 | 3 | 'mixed'>(2)
@@ -207,12 +213,14 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
     try {
       await ScheduleAPI.create({
         did,
+        // Normal mode: one pool holding every team, so there is no pool division to shuffle. The
+        // session names are generated, not entered — the user never sees them.
         session_names: sessionNames,
-        num_pools: numPools,
+        num_pools: advanced ? numPools : 1,
         round_duration_minutes: roundDurationMin,
         start_time: startTime ? startTime.toISOString() : null,
         room_slots: roomSlots,
-        shuffle_teams: shuffleTeams,
+        shuffle_teams: advanced ? shuffleTeams : false,
       }, accessToken)
       onCreated?.()
       onCancel()
@@ -261,13 +269,17 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               <ToggleButton value="mixed">Mixed</ToggleButton>
             </ToggleButtonGroup>
           </Box>
+          {advanced && (
+            <IncrementControl
+              label="# of Pools"
+              value={numPools}
+              onChange={setNumPools}
+            />
+          )}
           <IncrementControl
-            label="# of Pools"
-            value={numPools}
-            onChange={setNumPools}
-          />
-          <IncrementControl
-            label="# of Sessions / # of times each Team plays every other Team within their Pool"
+            label={advanced
+              ? '# of Sessions / # of times each Team plays every other Team within their Pool'
+              : '# of times each Team plays every other Team'}
             value={timesEachPlays}
             onChange={setTimesEachPlays}
           />
@@ -292,7 +304,7 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               <Typography variant="body1">{totalGames}</Typography>
             </Box>
           </Box>
-          {timesEachPlays > 1 && (
+          {advanced && timesEachPlays > 1 && (
             <FormControlLabel
               control={<Checkbox size="small" checked={shuffleTeams} onChange={(e) => setShuffleTeams(e.target.checked)} />}
               label={<Typography variant="body2">Shuffle Teams into New Pools for each Pool Group</Typography>}
@@ -373,9 +385,10 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
             </Box>
           </LocalizationProvider>
 
-          <Divider />
+          {advanced && <Divider />}
 
           {/* One session is created per "times each team plays"; each can be renamed here. */}
+          {advanced && (
           <Box>
             <InputLabel sx={{ whiteSpace: 'normal' }}>Sessions to create</InputLabel>
             <Typography variant="caption" color="text.secondary">
@@ -395,6 +408,7 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               ))}
             </Box>
           </Box>
+          )}
           </>
           )}
 

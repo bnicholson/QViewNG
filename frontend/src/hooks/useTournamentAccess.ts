@@ -13,6 +13,12 @@ import { AdminAPI } from '../features/AdminAPI';
 export interface TournamentAccess {
   /** Holder of `system:administer`, or the tournament's owner. */
   isOwnerOrSystemAdmin: boolean;
+  /**
+   * Holder of `system:administer` alone — the "super user". Separate from `isOwnerOrSystemAdmin`
+   * for the sections a tournament's own owner should not necessarily see, such as the Sessions and
+   * Pools sections that Normal-mode scheduling manages behind the scenes.
+   */
+  isSystemAdmin: boolean;
   /** `system:administer`, the owner, or one of this tournament's designated admins (via API). */
   canViewAdmins: boolean;
   /** Holder of `tournament:read_pairing_code`. */
@@ -49,8 +55,10 @@ export function useTournamentAccess(
     return () => { cancelled = true; };
   }, [tid, ownerId, session?.userId]);
 
+  const isSystemAdmin = session?.isSystemAdministrator ?? false;
+
   const isOwnerOrSystemAdmin =
-    (session?.isSystemAdministrator ?? false) ||
+    isSystemAdmin ||
     (session?.userId === ownerId);
 
   const canViewPairingCode =
@@ -66,5 +74,5 @@ export function useTournamentAccess(
   const canRead = (permission: string): boolean =>
     !session || session.can(permission);
 
-  return { isOwnerOrSystemAdmin, canViewAdmins, canViewPairingCode, canViewAuditColumns, canCreate, canRead };
+  return { isOwnerOrSystemAdmin, isSystemAdmin, canViewAdmins, canViewPairingCode, canViewAuditColumns, canCreate, canRead };
 }
