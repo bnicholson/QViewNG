@@ -78,6 +78,7 @@ function bracketColumns(
 export default function PoolBracketsTable({
   tid,
   did,
+  poolBracketGroupId,
   type,
   entityLabel,
   title,
@@ -90,6 +91,12 @@ export default function PoolBracketsTable({
   tid: string;
   /** When set, rows are scoped to this division; when omitted, to the whole tournament (`tid`). */
   did?: string;
+  /**
+   * When set, rows are scoped to this poolbracketgroup (narrower than `did`, which should also be
+   * given so a newly created pool/bracket lands in the right division). Anything created here joins
+   * this group.
+   */
+  poolBracketGroupId?: string;
   type: string;
   entityLabel: string;
   title: string;
@@ -111,9 +118,11 @@ export default function PoolBracketsTable({
 
   const loadBrackets = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = did
-      ? PoolBracketAPI.getRowsByDivision(did, type, p, ps)
-      : PoolBracketAPI.getRowsByTournament(tid, type, p, ps);
+    const request = poolBracketGroupId
+      ? PoolBracketAPI.getRowsByPoolBracketGroup(poolBracketGroupId, type, p, ps)
+      : did
+        ? PoolBracketAPI.getRowsByDivision(did, type, p, ps)
+        : PoolBracketAPI.getRowsByTournament(tid, type, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -123,11 +132,11 @@ export default function PoolBracketsTable({
       })
       .catch(() => console.error("Failed to load pool brackets"))
       .finally(() => setLoading(false));
-  }, [tid, did, type]);
+  }, [tid, did, poolBracketGroupId, type]);
 
   useEffect(() => {
     loadBrackets(0, pageSizeRef.current);
-  }, [tid, did, type]);
+  }, [tid, did, poolBracketGroupId, type]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadBrackets(newPage, pageSize);
@@ -157,7 +166,7 @@ export default function PoolBracketsTable({
       last_modified_date: row.last_modified_date,
       last_modified_userid: row.last_modified_user_id,
       name: row.name,
-      poolbracketgroupid: null,
+      poolbracketgroupid: poolBracketGroupId ?? null,
     });
     setEditorIsOpen(true);
   }, []);
@@ -172,7 +181,7 @@ export default function PoolBracketsTable({
     <>
       <DataTableTemplate<PoolBracketRowTS>
         loading={loading}
-        key={`${did ?? tid}-${type}`}
+        key={`${poolBracketGroupId ?? did ?? tid}-${type}`}
         entityLabel={entityLabel}
         title={title}
         createLabel={`Create ${entityLabel}`}
@@ -192,6 +201,7 @@ export default function PoolBracketsTable({
       <PoolBracketEditorDialog
         tid={tid}
         did={did}
+        poolBracketGroupId={poolBracketGroupId}
         type={type}
         entityLabel={entityLabel}
         bracket={editingBracket}

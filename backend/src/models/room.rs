@@ -581,18 +581,18 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
     Ok(monitor)
 }
 
-// ─── Rounds In Progress (public tickertape) ───────────────────────────────────
+// ─── Games in Progress (public tickertape) ───────────────────────────────────
 
 /// A room is dropped from the tickertape once its last check-in is older than this.
 ///
 /// The QuizMachine clients ping every few seconds while a round is running, so a room that
 /// has been quiet this long has packed up. Without a window the view would accumulate every
 /// room that ever pinged during the tournament.
-pub const ROUNDS_IN_PROGRESS_STALE_AFTER: chrono::Duration = chrono::Duration::minutes(30);
+pub const GAMES_IN_PROGRESS_STALE_AFTER: chrono::Duration = chrono::Duration::minutes(30);
 
 /// One team's live standing within a round in progress.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct RoundsInProgressTeam {
+pub struct GamesInProgressTeam {
     pub name: String,   // team name, from the game's TN event
     pub score: i32,     // live score as of the events recorded so far
 }
@@ -602,7 +602,7 @@ pub struct RoundsInProgressTeam {
 /// A `Vec` of teams rather than team1/score1/team2/score2/team3/score3 so that 2-team and
 /// 3-team rounds are both represented naturally.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct RoundsInProgressRow {
+pub struct GamesInProgressRow {
     pub roomid: Uuid,
     pub tournament: String,
     pub division: Option<String>,
@@ -611,10 +611,10 @@ pub struct RoundsInProgressRow {
     pub question: Option<i32>,                     // ping_question_number
     #[schema(value_type = Option<String>, format = DateTime)]
     pub check_in: Option<DateTime<Utc>>,           // ping_last_checkin_ts
-    pub teams: Vec<RoundsInProgressTeam>,          // empty when the game has no scoreable events yet
+    pub teams: Vec<GamesInProgressTeam>,          // empty when the game has no scoreable events yet
 }
 
-/// Builds the public "Rounds In Progress" tickertape for a tournament.
+/// Builds the public "Games in Progress" tickertape for a tournament.
 ///
 /// Reads the ping columns the pingmsg endpoint already maintains on `rooms` -- Postgres is the
 /// source of truth for where each room is -- and joins each row to the live score of the game
@@ -624,17 +624,17 @@ pub struct RoundsInProgressRow {
 /// reporting room, and no gameevents reads at all. A room whose game is not yet cached pays
 /// one event read plus one replay, and that result is then shared with the stats endpoints,
 /// which key off the same per-game entry.
-pub async fn read_rounds_in_progress_of_tournament(
+pub async fn read_games_in_progress_of_tournament(
     cache: &Cache,
     db: &mut database::Connection,
     tournament_id: Uuid,
-) -> QueryResult<Vec<RoundsInProgressRow>> {
+) -> QueryResult<Vec<GamesInProgressRow>> {
     let tournament_name = crate::models::tournament::read(db, tournament_id)?.tname;
 
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let all_rooms = read_all_rooms_of_tournament(db, tournament_id, &pagination)?;
 
-    let cutoff = Utc::now() - ROUNDS_IN_PROGRESS_STALE_AFTER;
+    let cutoff = Utc::now() - GAMES_IN_PROGRESS_STALE_AFTER;
 
     let mut rows = Vec::new();
     for room in all_rooms {
@@ -668,7 +668,7 @@ pub async fn read_rounds_in_progress_of_tournament(
                         results
                             .into_iter()
                             .filter(|r| !r.name.trim().is_empty())
-                            .map(|r| RoundsInProgressTeam { name: r.name, score: r.score })
+                            .map(|r| GamesInProgressTeam { name: r.name, score: r.score })
                             .collect()
                     }
                     None => Vec::new(),
@@ -677,7 +677,7 @@ pub async fn read_rounds_in_progress_of_tournament(
             None => Vec::new(),
         };
 
-        rows.push(RoundsInProgressRow {
+        rows.push(GamesInProgressRow {
             roomid: room.roomid,
             tournament: tournament_name.clone(),
             division,
@@ -700,16 +700,16 @@ pub async fn read_rounds_in_progress_of_tournament(
 }
 
 #[cfg(test)]
-mod rounds_in_progress_tests {
+mod games_in_progress_tests {
     use super::*;
 
-    /// Pins the JSON contract with the frontend's `RoundsInProgressRow` interface in
-    /// frontend/src/containers/RoundsInProgress.tsx. A silent rename here would leave the
+    /// Pins the JSON contract with the frontend's `GamesInProgressRow` interface in
+    /// frontend/src/containers/GamesInProgress.tsx. A silent rename here would leave the
     /// tickertape rendering blank cells rather than failing loudly, so the field names are
     /// asserted explicitly.
     #[test]
     fn row_json_matches_the_frontend_interface() {
-        let row = RoundsInProgressRow {
+        let row = GamesInProgressRow {
             roomid: Uuid::new_v4(),
             tournament: "Q2026".to_string(),
             division: Some("District Novice".to_string()),
@@ -718,8 +718,8 @@ mod rounds_in_progress_tests {
             question: Some(7),
             check_in: Some(Utc::now()),
             teams: vec![
-                RoundsInProgressTeam { name: "Red Team".to_string(), score: 120 },
-                RoundsInProgressTeam { name: "Blue Team".to_string(), score: 80 },
+                GamesInProgressTeam { name: "Red Team".to_string(), score: 120 },
+                GamesInProgressTeam { name: "Blue Team".to_string(), score: 80 },
             ],
         };
 
@@ -741,7 +741,7 @@ mod rounds_in_progress_tests {
 
         // An absent division/room/round must serialize as null, which the frontend renders
         // as an em dash -- not be omitted, which would read as undefined.
-        let sparse = RoundsInProgressRow {
+        let sparse = GamesInProgressRow {
             roomid: Uuid::new_v4(),
             tournament: "Q2026".to_string(),
             division: None,
@@ -758,10 +758,10 @@ mod rounds_in_progress_tests {
         assert![sparse_value["teams"].as_array().unwrap().is_empty()];
     }
 
-    /// The staleness window is what makes this "rounds in progress" rather than "every room
+    /// The staleness window is what makes this "games in progress" rather than "every room
     /// that ever pinged", so its value is worth pinning.
     #[test]
     fn the_staleness_window_is_thirty_minutes() {
-        assert_eq![ROUNDS_IN_PROGRESS_STALE_AFTER.num_minutes(), 30];
+        assert_eq![GAMES_IN_PROGRESS_STALE_AFTER.num_minutes(), 30];
     }
 }

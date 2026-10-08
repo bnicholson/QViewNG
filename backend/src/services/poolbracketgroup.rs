@@ -1,7 +1,7 @@
 use crate::services::common::{authorized_to_read};
-use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path}};
+use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, poolbracketgroup::{NewPoolBracketGroup, PoolBracketGroup, PoolBracketGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, poolbracketgroup::{NewPoolBracketGroup, PoolBracketGroup, PoolBracketGroupChangeset}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
 use diesel::QueryResult;
 use uuid::Uuid;
@@ -95,6 +95,39 @@ async fn read_poolbrackets(
     }
     match models::pool_bracket::read_all_of_poolbracketgroup(&mut conn, item_id.into_inner()) {
         Ok(items) => HttpResponse::Ok().json(items),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct PoolBracketRowsParams {
+    page: i64,
+    page_size: i64,
+    #[serde(rename = "type")]
+    type_: String,
+}
+
+/// Returns fully-formed pool-bracket data-table rows (bracket + division name + last-modified user
+/// name) for this group, filtered by `type`, in a single paginated call. Backs the Pools / Brackets
+/// sections of the poolbracketgroup profile.
+#[get("/{id}/pool-bracket-rows")]
+async fn read_pool_bracket_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PoolBracketRowsParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+    models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs poolbracketgroup:read.
+    if !authorized_to_read(&req, AppResource::PoolBracketGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let pagination = PaginationParams { page: params.page, page_size: params.page_size };
+    match models::pool_bracket::read_pool_bracket_rows_of_poolbracketgroup(&mut conn, item_id.into_inner(), &params.type_, &pagination) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
@@ -245,6 +278,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(index)
         .service(read)
         .service(read_poolbrackets)
+        .service(read_pool_bracket_rows)
         .service(create)
         .service(update)
         .service(purge)

@@ -16,14 +16,14 @@ import CircularProgress from '@mui/material/CircularProgress'
 // cache, so a short interval is cheap: a warm read does no gameevents queries at all.
 const POLL_MS = 15_000
 
-/** One team's live standing within a round in progress. Mirrors the backend's RoundsInProgressTeam. */
-export interface RoundsInProgressTeam {
+/** One team's live standing within a round in progress. Mirrors the backend's GamesInProgressTeam. */
+export interface GamesInProgressTeam {
   name: string
   score: number
 }
 
-/** One actively-reporting room. Mirrors the backend's RoundsInProgressRow. */
-export interface RoundsInProgressRow {
+/** One actively-reporting room. Mirrors the backend's GamesInProgressRow. */
+export interface GamesInProgressRow {
   roomid: string
   tournament: string
   division: string | null
@@ -31,13 +31,13 @@ export interface RoundsInProgressRow {
   round: string | null
   question: number | null
   check_in: string | null
-  teams: RoundsInProgressTeam[]
+  teams: GamesInProgressTeam[]
 }
 
-export const RoundsInProgressAPI = {
-  get: async (tid: string): Promise<RoundsInProgressRow[]> => {
-    const res = await fetch(`/api/tournaments/${tid}/roundsinprogress`)
-    if (!res.ok) throw new Error(`Failed to load rounds in progress (${res.status})`)
+export const GamesInProgressAPI = {
+  get: async (tid: string): Promise<GamesInProgressRow[]> => {
+    const res = await fetch(`/api/tournaments/${tid}/gamesinprogress`)
+    if (!res.ok) throw new Error(`Failed to load games in progress (${res.status})`)
     return res.json()
   },
 }
@@ -55,7 +55,7 @@ function sinceLabel(checkIn: string | null): string {
   return `${minutes}m ago`
 }
 
-export const RoundsInProgressTable = ({ rows }: { rows: RoundsInProgressRow[] }) => {
+export const GamesInProgressTable = ({ rows }: { rows: GamesInProgressRow[] }) => {
   if (rows.length === 0) {
     return (
       <Paper sx={{ width: '100%', p: 3 }}>
@@ -70,7 +70,7 @@ export const RoundsInProgressTable = ({ rows }: { rows: RoundsInProgressRow[] })
   return (
     <Paper sx={{ width: '100%', overflow: 'hidden' }}>
       <TableContainer>
-        <Table stickyHeader aria-label="rounds in progress">
+        <Table stickyHeader aria-label="games in progress">
           <TableHead>
             <TableRow>
               {['Division', 'Room', 'Round', 'Question'].map((label) => (
@@ -121,9 +121,9 @@ export const RoundsInProgressTable = ({ rows }: { rows: RoundsInProgressRow[] })
   )
 }
 
-export const RoundsInProgress = () => {
+export const GamesInProgress = () => {
   const { tid } = useParams()
-  const [rows, setRows] = useState<RoundsInProgressRow[]>([])
+  const [rows, setRows] = useState<GamesInProgressRow[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   // Re-renders on each poll so the "check-in" column ages even when the rows are unchanged.
@@ -137,7 +137,7 @@ export const RoundsInProgress = () => {
     let cancelled = false
 
     const load = () => {
-      RoundsInProgressAPI.get(tid)
+      GamesInProgressAPI.get(tid)
         .then((fetched) => {
           if (cancelled) return
           setRows(fetched)
@@ -161,22 +161,13 @@ export const RoundsInProgress = () => {
     }
   }, [tid])
 
-  // Reached via the tournament-less /rounds-in-progress path.
-  if (!tid) {
-    return (
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="h5">Rounds In Progress</Typography>
-        <Typography color="text.secondary" sx={{ mt: 2 }}>
-          Open this view from a tournament to see its rounds in progress.
-        </Typography>
-      </Box>
-    )
-  }
+  // Mounted only under /tournament/:tid/live-games, so a tid is always present.
+  if (!tid) return null
 
   return (
     <div>
       <Box sx={{ mt: 2 }}>
-        <Typography variant="h5">Rounds In Progress</Typography>
+        <Typography variant="h5">Games in Progress</Typography>
         {rows.length > 0 && (
           <Typography variant="subtitle1" color="text.secondary">
             {rows[0].tournament}
@@ -190,7 +181,7 @@ export const RoundsInProgress = () => {
           <Typography color="error">{error}</Typography>
         </Paper>
       )}
-      {!loading && !error && <RoundsInProgressTable rows={rows} />}
+      {!loading && !error && <GamesInProgressTable rows={rows} />}
     </div>
   )
 }

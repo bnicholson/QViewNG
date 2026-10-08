@@ -20,17 +20,16 @@ import { DivisionProfile } from "./pages/DivisionProfile"
 import { RoundGroupProfile } from "./pages/RoundGroupProfile"
 import { BuildingProfile } from "./pages/BuildingProfile"
 import { PoolBracketProfile } from "./pages/PoolBracketProfile"
+import { PoolBracketGroupProfile } from "./pages/PoolBracketGroupProfile"
 import { RoomProfile } from "./pages/RoomProfile";
 import { GameProfile } from "./pages/GameProfile";
 import { TeamProfile } from "./pages/TeamProfile";
 import { TDEditor } from "./containers/TDEditor";
-import { RoundsInProgress } from "./containers/RoundsInProgress";
 import { Files } from "./containers/Files";
 import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
 import { CRMProfile } from "./pages/CRMProfile";
 import { DevPage } from "./pages/DevPage";
-import { Divisions } from "./pages/DivisionPageOld";
 
 export default function QViewRoutes() {
     return (
@@ -93,6 +92,7 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/register/as-volunteer" element={<TournamentProfile childRoute="register/volunteer" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
             <Route path="/tournament/:tid/division-sessions" element={<TournamentProfile childRoute="division-sessions" />} />
+            <Route path="/tournament/:tid/pool-bracket-groups" element={<TournamentProfile childRoute="pool-bracket-groups" />} />
             <Route path="/tournament/:tid/pools" element={<TournamentProfile childRoute="pools" />} />
             <Route path="/tournament/:tid/brackets" element={<TournamentProfile childRoute="brackets" />} />
             <Route path="/tournament/:tid/buildings" element={<TournamentProfile childRoute="buildings" />} />
@@ -109,7 +109,6 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/tournament-groups" element={<TournamentProfile childRoute="tournament-groups" />} />
             <Route path="/tournament/:tid/stats-groups" element={<TournamentProfile childRoute="stats-groups" />} />
             <Route path="/tournament/:tid/room-monitor" element={<TournamentProfile childRoute="room-monitor" />} />
-            <Route path="/tournament/:tid/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/tournament-group/:tgid" element={<TournamentGroupProfile />} />
             <Route path="/tournament-group/:tgid/overview" element={<TournamentGroupProfile childRoute="overview" />} />
             <Route path="/tournament-group/:tgid/tournaments" element={<TournamentGroupProfile childRoute="tournaments" />} />
@@ -120,11 +119,11 @@ export default function QViewRoutes() {
             <Route path="/round/:roundid" element={<RoundProfile />} />
             <Route path="/round/:roundid/overview" element={<RoundProfile childRoute="overview" />} />
             <Route path="/round/:roundid/games" element={<RoundProfile childRoute="games" />} />
-            <Route path="/division/old" element={<Divisions />} />  // old version
             <Route path="/division/:did" element={<DivisionProfile />} />
             <Route path="/division/:did/overview" element={<DivisionProfile childRoute="overview" />} />
             <Route path="/division/:did/teams" element={<DivisionProfile childRoute="teams" />} />
             <Route path="/division/:did/sessions" element={<DivisionProfile childRoute="sessions" />} />
+            <Route path="/division/:did/pool-bracket-groups" element={<DivisionProfile childRoute="pool-bracket-groups" />} />
             <Route path="/division/:did/pools" element={<DivisionProfile childRoute="pools" />} />
             <Route path="/division/:did/brackets" element={<DivisionProfile childRoute="brackets" />} />
 
@@ -132,6 +131,11 @@ export default function QViewRoutes() {
             <Route path="/division-session/:sessionid/overview" element={<RoundGroupProfile childRoute="overview" />} />
             <Route path="/division-session/:sessionid/rounds" element={<RoundGroupProfile childRoute="rounds" />} />
             <Route path="/division-session/:sessionid/games" element={<RoundGroupProfile childRoute="games" />} />
+
+            <Route path="/pool-bracket-group/:groupid" element={<PoolBracketGroupProfile childRoute="overview" />} />
+            <Route path="/pool-bracket-group/:groupid/overview" element={<PoolBracketGroupProfile childRoute="overview" />} />
+            <Route path="/pool-bracket-group/:groupid/pools" element={<PoolBracketGroupProfile childRoute="pools" />} />
+            <Route path="/pool-bracket-group/:groupid/brackets" element={<PoolBracketGroupProfile childRoute="brackets" />} />
 
             <Route path="/pool-bracket/:bracketid" element={<PoolBracketProfile childRoute="overview" />} />
             <Route path="/pool-bracket/:bracketid/overview" element={<PoolBracketProfile childRoute="overview" />} />
@@ -147,7 +151,6 @@ export default function QViewRoutes() {
             <Route path="/game/:gid" element={<GameProfile />} />
             <Route path="/game/:gid/overview" element={<GameProfile childRoute="overview" />} />
             <Route path="/tdeditor" element={<TDEditor />} />
-            <Route path="/rounds-in-progress" element={<RoundsInProgress />} />
             <Route path="/files" element={<Files />} />
             <Route path="/swagger" element={<Swagger />} />
             <Route path="/dev" element={<DevPage />} />

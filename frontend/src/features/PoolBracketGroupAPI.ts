@@ -1,3 +1,5 @@
+import { type PoolBracketTS } from './PoolBracketAPI';
+
 export interface PoolBracketGroupTS {
   poolbracketgroupid: string;
   divisionid: string;
@@ -18,7 +20,36 @@ export interface PoolBracketGroupChangeset {
   name?: string;
 }
 
+/**
+ * One fully-formed row of the pool/bracket-groups data table: the group plus its parent division
+ * name and the display name of the user who last modified it, so the whole table is populated per page.
+ */
+export interface PoolBracketGroupRowTS {
+  poolbracketgroupid: string;
+  did: string;
+  division_name: string;
+  name: string;
+  created_date: string;
+  last_modified_date: string;
+  last_modified_user_name: string;
+  last_modified_user_id: string;
+}
+
+export interface PagedPoolBracketGroupRows {
+  count: number;
+  items: PoolBracketGroupRowTS[];
+}
+
 export const PoolBracketGroupAPI = {
+  /** One page of the division's enriched pool/bracket-group rows, plus total count. */
+  getRowsByDivision: async (did: string, page: number, size: number): Promise<PagedPoolBracketGroupRows> =>
+    (await fetch(`/api/divisions/${did}/poolbracketgroup-rows?page=${page}&page_size=${size}`)).json(),
+  /** One page of the tournament's enriched pool/bracket-group rows (across all divisions). */
+  getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedPoolBracketGroupRows> =>
+    (await fetch(`/api/tournaments/${tid}/poolbracketgroup-rows?page=${page}&page_size=${size}`)).json(),
+  /** Every pool and bracket belonging to one group (both types, unpaged). */
+  getPoolBrackets: async (id: string): Promise<PoolBracketTS[]> =>
+    (await fetch(`/api/poolbracketgroups/${id}/poolbrackets`)).json(),
   /** All poolbracketgroups in a division. */
   getByDivision: async (did: string): Promise<PoolBracketGroupTS[]> =>
     (await fetch(`/api/divisions/${did}/poolbracketgroups`)).json(),

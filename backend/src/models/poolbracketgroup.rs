@@ -1,4 +1,6 @@
 use crate::database;
+use crate::models::common::PaginationParams;
+use std::collections::HashMap;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult, AsChangeset, Insertable};
@@ -215,4 +217,130 @@ pub fn delete_if_no_games(db: &mut database::Connection, group_id: Uuid) -> Quer
 pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize> {
     use crate::schema::poolbracketgroups::dsl::*;
     diesel::delete(poolbracketgroups.filter(poolbracketgroupid.eq(item_id))).execute(db)
+}
+
+/// One fully-formed row of the poolbracketgroups data table: the group plus its division name and
+/// the display name of the user who last modified it, so the whole table is populated in one call.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct PoolBracketGroupRow {
+    pub poolbracketgroupid: Uuid,
+    pub did: Uuid,
+    pub division_name: String,
+    pub name: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_date: DateTime<Utc>,
+    #[schema(value_type = String, format = DateTime)]
+    pub last_modified_date: DateTime<Utc>,
+    pub last_modified_user_name: String,
+    pub last_modified_user_id: Uuid,
+}
+
+/// Assembles enriched rows from a page of groups, given the id→name mapping for their divisions.
+fn build_poolbracketgroup_rows(
+    db: &mut database::Connection,
+    group_list: Vec<PoolBracketGroup>,
+    division_name_by_id: &HashMap<Uuid, String>,
+) -> QueryResult<Vec<PoolBracketGroupRow>> {
+    let name_ids: Vec<Uuid> = group_list.iter().map(|g| g.last_modified_userid).collect();
+    let name_by_id: HashMap<Uuid, String> = crate::models::user::read_display_names(db, &name_ids)?;
+
+    Ok(group_list
+        .into_iter()
+        .map(|g| PoolBracketGroupRow {
+            poolbracketgroupid: g.poolbracketgroupid,
+            did: g.divisionid,
+            division_name: division_name_by_id.get(&g.divisionid).cloned().unwrap_or_default(),
+            name: g.name,
+            created_date: g.created_date,
+            last_modified_date: g.last_modified_date,
+            last_modified_user_name: name_by_id
+                .get(&g.last_modified_userid)
+                .cloned()
+                .unwrap_or_else(|| g.last_modified_userid.to_string()),
+            last_modified_user_id: g.last_modified_userid,
+        })
+        .collect())
+}
+
+/// Returns one page of poolbracketgroup-table rows for the division (enriched) and the total count.
+pub fn read_poolbracketgroup_rows_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PoolBracketGroupRow>, i64)> {
+    let dname_val: String = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(did.eq(division_id)).select(dname).first::<String>(db)?
+    };
+
+    let total: i64 = {
+        use crate::schema::poolbracketgroups::dsl::*;
+        poolbracketgroups
+            .filter(divisionid.eq(division_id))
+            .filter(del_fl.eq(false))
+            .count()
+            .get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let group_list: Vec<PoolBracketGroup> = {
+        use crate::schema::poolbracketgroups::dsl::*;
+        poolbracketgroups
+            .filter(divisionid.eq(division_id))
+            .filter(del_fl.eq(false))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<PoolBracketGroup>(db)?
+    };
+
+    let mut division_name_by_id = HashMap::new();
+    division_name_by_id.insert(division_id, dname_val);
+    let rows = build_poolbracketgroup_rows(db, group_list, &division_name_by_id)?;
+    Ok((rows, total))
+}
+
+/// Returns one page of poolbracketgroup-table rows for the whole tournament (enriched), across every
+/// division, plus the total count.
+pub fn read_poolbracketgroup_rows_of_tournament(
+    db: &mut database::Connection,
+    tournament_id: Uuid,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PoolBracketGroupRow>, i64)> {
+    let div_pairs: Vec<(Uuid, String)> = {
+        use crate::schema::divisions::dsl::*;
+        divisions.filter(tid.eq(tournament_id)).select((did, dname)).load::<(Uuid, String)>(db)?
+    };
+    let div_ids: Vec<Uuid> = div_pairs.iter().map(|(d, _)| *d).collect();
+    let division_name_by_id: HashMap<Uuid, String> = div_pairs.into_iter().collect();
+
+    if div_ids.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let total: i64 = {
+        use crate::schema::poolbracketgroups::dsl::*;
+        poolbracketgroups
+            .filter(divisionid.eq_any(&div_ids))
+            .filter(del_fl.eq(false))
+            .count()
+            .get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let group_list: Vec<PoolBracketGroup> = {
+        use crate::schema::poolbracketgroups::dsl::*;
+        poolbracketgroups
+            .filter(divisionid.eq_any(&div_ids))
+            .filter(del_fl.eq(false))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<PoolBracketGroup>(db)?
+    };
+
+    let rows = build_poolbracketgroup_rows(db, group_list, &division_name_by_id)?;
+    Ok((rows, total))
 }

@@ -419,3 +419,53 @@ pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize>
     use crate::schema::pool_brackets::dsl::*;
     diesel::delete(pool_brackets.filter(pool_bracket_id.eq(item_id))).execute(db)
 }
+
+/// Returns one page of pool-bracket-table rows for one poolbracketgroup (enriched), filtered to
+/// `type_val`, plus the total count for that type. Backs the Pools / Brackets sections of the
+/// poolbracketgroup profile.
+pub fn read_pool_bracket_rows_of_poolbracketgroup(
+    db: &mut database::Connection,
+    group_id: Uuid,
+    type_val: &str,
+    pagination: &PaginationParams,
+) -> QueryResult<(Vec<PoolBracketRow>, i64)> {
+    let total: i64 = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(poolbracketgroupid.eq(group_id))
+            .filter(type_.eq(type_val))
+            .filter(del_fl.eq(false))
+            .count()
+            .get_result(db)?
+    };
+
+    let page_size = pagination.page_size.min(PaginationParams::MAX_PAGE_SIZE as i64);
+    let offset_val = pagination.page * page_size;
+    let bracket_list: Vec<PoolBracket> = {
+        use crate::schema::pool_brackets::dsl::*;
+        pool_brackets
+            .filter(poolbracketgroupid.eq(group_id))
+            .filter(type_.eq(type_val))
+            .filter(del_fl.eq(false))
+            .order(created_date.asc())
+            .limit(page_size)
+            .offset(offset_val)
+            .load::<PoolBracket>(db)?
+    };
+
+    // A group belongs to one division, but read the names off the brackets so the rows stay correct
+    // even if a bracket is ever re-parented.
+    let division_ids: Vec<Uuid> = bracket_list.iter().map(|b| b.divisionid).collect();
+    let division_name_by_id: HashMap<Uuid, String> = {
+        use crate::schema::divisions::dsl::*;
+        divisions
+            .filter(did.eq_any(&division_ids))
+            .select((did, dname))
+            .load::<(Uuid, String)>(db)?
+            .into_iter()
+            .collect()
+    };
+
+    let rows = build_pool_bracket_rows(db, bracket_list, &division_name_by_id)?;
+    Ok((rows, total))
+}

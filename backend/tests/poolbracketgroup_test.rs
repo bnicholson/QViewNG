@@ -5,10 +5,10 @@ mod fixtures;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::database::Database;
-use backend::models::poolbracketgroup::{PoolBracketGroup, PoolBracketGroupBuilder};
-use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder};
+use backend::models::poolbracketgroup::{PoolBracketGroup, PoolBracketGroupBuilder, PoolBracketGroupRow};
+use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder, PoolBracketRow};
 use backend::routes::configure_routes;
-use backend::services::common::EntityResponse;
+use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
 use crate::common::{TEST_DB_URL, clean_database, make_token};
 
@@ -205,4 +205,85 @@ async fn delete_works_and_is_blocked_with_pools() {
         .to_request()).await;
     assert_eq!(ok.status(), StatusCode::OK);
     assert!(backend::models::poolbracketgroup::read(&mut conn, group.poolbracketgroupid).is_err());
+}
+
+/// The three data-table row endpoints that back the Pool/Bracket Groups sections and the group
+/// profile: rows for a division, rows for a whole tournament, and a group's pools/brackets by type.
+#[actix_web::test]
+async fn row_endpoints_work() {
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, division, owner, _admin_user, _unrelated_user) =
+        fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
+
+    let group = PoolBracketGroupBuilder::new(division.did)
+        .set_name("Group 1").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    let other_group = PoolBracketGroupBuilder::new(division.did)
+        .set_name("Group 2").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    // Group 1 holds one pool and one bracket; Group 2 holds nothing.
+    let pool = PoolBracketBuilder::new(division.did)
+        .set_name("Pool A").set_type("pool").set_poolbracketgroupid(group.poolbracketgroupid)
+        .set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    let bracket = PoolBracketBuilder::new(division.did)
+        .set_name("Bracket A").set_type("bracket").set_poolbracketgroupid(group.poolbracketgroupid)
+        .set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    // ── Division rows: both groups, enriched with the division name + last-modified user ──
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/divisions/{}/poolbracketgroup-rows?page=0&page_size=10", division.did))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let paged: PagedResponse<PoolBracketGroupRow> = test::read_body_json(resp).await;
+    assert_eq!(paged.count, 2);
+    assert_eq!(paged.items.len(), 2);
+    let first = paged.items.iter().find(|r| r.poolbracketgroupid == group.poolbracketgroupid).unwrap();
+    assert_eq!(first.did, division.did);
+    assert_eq!(first.division_name, division.dname);
+    assert_eq!(first.name, "Group 1");
+    assert!(!first.last_modified_user_name.is_empty());
+    assert_eq!(first.last_modified_user_id, owner.id);
+    assert!(paged.items.iter().any(|r| r.poolbracketgroupid == other_group.poolbracketgroupid));
+
+    // ── Tournament rows: the same groups, reached from the tournament instead ──
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/tournaments/{}/poolbracketgroup-rows?page=0&page_size=10", tournament.tid))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let paged: PagedResponse<PoolBracketGroupRow> = test::read_body_json(resp).await;
+    assert_eq!(paged.count, 2);
+    assert!(paged.items.iter().all(|r| r.division_name == division.dname));
+
+    // ── A group's pool rows: only its own pools, filtered by type ──
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/poolbracketgroups/{}/pool-bracket-rows?type=pool&page=0&page_size=10", group.poolbracketgroupid))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let paged: PagedResponse<PoolBracketRow> = test::read_body_json(resp).await;
+    assert_eq!(paged.count, 1);
+    assert_eq!(paged.items[0].pool_bracket_id, pool.pool_bracket_id);
+    assert_eq!(paged.items[0].division_name, division.dname);
+
+    // ── …and its bracket rows ──
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/poolbracketgroups/{}/pool-bracket-rows?type=bracket&page=0&page_size=10", group.poolbracketgroupid))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let paged: PagedResponse<PoolBracketRow> = test::read_body_json(resp).await;
+    assert_eq!(paged.count, 1);
+    assert_eq!(paged.items[0].pool_bracket_id, bracket.pool_bracket_id);
+
+    // ── The empty group has neither ──
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&format!("/api/poolbracketgroups/{}/pool-bracket-rows?type=pool&page=0&page_size=10", other_group.poolbracketgroupid))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let paged: PagedResponse<PoolBracketRow> = test::read_body_json(resp).await;
+    assert_eq!(paged.count, 0);
+    assert!(paged.items.is_empty());
 }

@@ -124,6 +124,26 @@ async fn read_pool_bracket_rows(
     }
 }
 
+/// Returns fully-formed poolbracketgroup data-table rows (group + division name + last-modified
+/// user name) for the division in a single paginated call.
+#[get("/{id}/poolbracketgroup-rows")]
+async fn read_poolbracketgroup_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    match models::poolbracketgroup::read_poolbracketgroup_rows_of_division(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/{id}/roundgroups")]
 async fn read_roundgroups(
     db: Data<Database>,
@@ -544,6 +564,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_roundgroups)
         .service(read_poolbracketgroups)
         .service(read_roundgroup_rows)
+        .service(read_poolbracketgroup_rows)
         .service(read_teams)
         .service(read_team_rows)
         .service(read_quizzer_rows)

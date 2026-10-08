@@ -17,6 +17,7 @@ import BuildingsTable from '../components/BuildingsTable'
 import RoundsTable from '../components/RoundsTable'
 import RoundGroupsTable from '../components/RoundGroupsTable'
 import PoolBracketsTable from '../components/PoolBracketsTable'
+import PoolBracketGroupsTable from '../components/PoolBracketGroupsTable'
 import TeamsTable from '../components/TeamsTable'
 import AdminsTable from '../components/AdminsTable'
 import QuizzersTable from '../components/QuizzersTable'
@@ -30,7 +31,7 @@ import { TournamentRegisterPage } from './TournamentRegisterPage'
 import { TournamentGearPage } from './TournamentGearPage'
 import TournamentGroupsTable from '../components/TournamentGroupsTable'
 import StatsGroupsPanel from '../components/StatsGroupsPanel'
-import { RoundsInProgress } from '../containers/RoundsInProgress'
+import { GamesInProgress } from '../containers/GamesInProgress'
 import { useAuth } from '../hooks/useAuth'
 
 export const TournamentProfile = (props: { childRoute?: string }) => {
@@ -177,6 +178,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'LIVE Games',   to: `/tournament/${tid}/live-games`,   requiredPermission: PERMISSION.ROOM_READ },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`,    requiredPermission: PERMISSION.DIVISION_READ },
     { kind: 'route', label: 'Division Sessions', to: `/tournament/${tid}/division-sessions`, requiredPermission: PERMISSION.ROUNDGROUP_READ, visible: showScheduleInternals },
+    { kind: 'route', label: 'Pool/Bracket Groups', to: `/tournament/${tid}/pool-bracket-groups`, requiredPermission: PERMISSION.POOLBRACKETGROUP_READ, visible: showScheduleInternals },
     { kind: 'route', label: 'Pools',        to: `/tournament/${tid}/pools`,        requiredPermission: PERMISSION.POOLBRACKET_READ, visible: showScheduleInternals },
     { kind: 'route', label: 'Brackets',     to: `/tournament/${tid}/brackets`,     requiredPermission: PERMISSION.POOLBRACKET_READ, visible: showScheduleInternals },
     { kind: 'route', label: 'Buildings',    to: `/tournament/${tid}/buildings`,    requiredPermission: PERMISSION.ROOMGROUP_READ },
@@ -220,10 +222,13 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'register/volunteer'&& (registrationIsOpen ? <TournamentRegisterPage tid={String(tournament?.tid)} tname={tournament!.tname} initialTab="as-volunteer" useTeamRegistration={useTeamRegistration} useGearRegistration={useGearRegistration} useVolunteerRegistration={useVolunteerRegistration} /> : registrationClosedNotice)}
           {props.childRoute === 'overview'          && <TournamentOverviewPage tournament={tournament!} isTournamentUpdate={canCreate(PERMISSION.TOURNAMENT_UPDATE)} canViewPairingCodeAndVisibility={canViewPairingCode} onEdit={() => setTournamentEditorIsOpen(true)} />}
           {props.childRoute === 'schedule'          && <TournamentSchedule tid={String(tournament?.tid)} canEdit={canEditSchedule} />}
-          {/* RoundsInProgress reads the tournament id from the route, so it needs no props. */}
-          {props.childRoute === 'live-games'        && <RoundsInProgress />}
+          {/* GamesInProgress reads the tournament id from the route, so it needs no props. */}
+          {props.childRoute === 'live-games'        && <GamesInProgress />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.DIVISION_CREATE)} showDeleteButton={canCreate(PERMISSION.DIVISION_DELETE)} showSensitiveColumns={isOwnerOrSystemAdmin} showAuditColumns={canViewAuditColumns}/>}
           {props.childRoute === 'division-sessions' && (showScheduleInternals ? <RoundGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.ROUNDGROUP_CREATE)} showEditButton={canCreate(PERMISSION.ROUNDGROUP_UPDATE)} showDeleteButton={canCreate(PERMISSION.ROUNDGROUP_DELETE)} showAuditColumns={canViewAuditColumns}/> : <Navigate to={`/tournament/${tid}/overview`} replace />)}
+          {props.childRoute === 'pool-bracket-groups' && (showScheduleInternals
+            ? <PoolBracketGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.POOLBRACKETGROUP_CREATE)} showEditButton={canCreate(PERMISSION.POOLBRACKETGROUP_UPDATE)} showDeleteButton={canCreate(PERMISSION.POOLBRACKETGROUP_DELETE)} showAuditColumns={canViewAuditColumns}/>
+            : <Navigate to={`/tournament/${tid}/overview`} replace />)}
           {props.childRoute === 'pools'             && (showScheduleInternals
             ? <PoolBracketsTable tid={String(tournament?.tid)} type="pool" entityLabel="Pool" title="Pools" showCreateButton={canCreate(PERMISSION.POOLBRACKET_CREATE)} showEditButton={canCreate(PERMISSION.POOLBRACKET_UPDATE)} showDeleteButton={canCreate(PERMISSION.POOLBRACKET_DELETE)} showAuditColumns={canViewAuditColumns}/>
             : <Navigate to={`/tournament/${tid}/overview`} replace />)}

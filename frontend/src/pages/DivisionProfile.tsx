@@ -14,6 +14,7 @@ import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
 import RoundGroupsTable from '../components/RoundGroupsTable'
 import PoolBracketsTable from '../components/PoolBracketsTable'
+import PoolBracketGroupsTable from '../components/PoolBracketGroupsTable'
 import GamesTable from '../components/GamesTable'
 import QuizzersTable from '../components/QuizzersTable'
 import { DivisionProfileOverviewPage } from './DivisionProfileOverviewPage'
@@ -56,6 +57,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
     ...(canRead(PERMISSION.TEAM_READ)        ? [{ kind: 'route' as const, label: 'Teams',    to: `/division/${did}/teams`    }] : []),
     ...(canRead(PERMISSION.USER_READ)        ? [{ kind: 'route' as const, label: 'Quizzers', to: `/division/${did}/quizzers` }] : []),
     ...(showScheduleInternals && canRead(PERMISSION.ROUNDGROUP_READ)  ? [{ kind: 'route' as const, label: 'Sessions', to: `/division/${did}/sessions` }] : []),
+    ...(showScheduleInternals && canRead(PERMISSION.POOLBRACKETGROUP_READ) ? [{ kind: 'route' as const, label: 'Pool/Bracket Groups', to: `/division/${did}/pool-bracket-groups` }] : []),
     ...(showScheduleInternals && canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Pools',    to: `/division/${did}/pools`    }] : []),
     ...(showScheduleInternals && canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Brackets', to: `/division/${did}/brackets` }] : []),
     ...(canRead(PERMISSION.ROUND_READ)       ? [{ kind: 'route' as const, label: 'Rounds',   to: `/division/${did}/rounds`   }] : []),
@@ -99,6 +101,16 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
               showDeleteButton={canCreate(PERMISSION.ROUNDGROUP_DELETE)}
               showAuditColumns={canViewAuditColumns}
               // In the Division profile every roundgroup is in this division, so the Division column is redundant.
+              hiddenColumns={['Division']} />
+          )}
+          {props.childRoute === 'pool-bracket-groups' && !showScheduleInternals && <Navigate to={`/division/${did}/overview`} replace />}
+          {props.childRoute === 'pool-bracket-groups' && showScheduleInternals && (
+            <PoolBracketGroupsTable tid={tournament.tid} did={did}
+              showCreateButton={canCreate(PERMISSION.POOLBRACKETGROUP_CREATE)}
+              showEditButton={canCreate(PERMISSION.POOLBRACKETGROUP_UPDATE)}
+              showDeleteButton={canCreate(PERMISSION.POOLBRACKETGROUP_DELETE)}
+              showAuditColumns={canViewAuditColumns}
+              // In the Division profile every group is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'pools' && !showScheduleInternals && <Navigate to={`/division/${did}/overview`} replace />}

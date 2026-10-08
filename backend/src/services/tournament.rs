@@ -811,6 +811,31 @@ async fn read_roundgroup_rows(
     }
 }
 
+/// Returns fully-formed poolbracketgroup rows (group + division name + last-modified user name)
+/// across every division in the tournament, in a single paginated call.
+#[get("/{id}/poolbracketgroup-rows")]
+async fn read_poolbracketgroup_rows(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Query(params): Query<PaginationParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs poolbracketgroup:read.
+    if !authorized_to_read(&req, AppResource::PoolBracketGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    match models::poolbracketgroup::read_poolbracketgroup_rows_of_tournament(&mut conn, item_id.into_inner(), &params) {
+        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 /// Returns fully-formed team data-table rows (team + division name + coach name) for the
 /// whole tournament in a single call, so the teams table needs only one request.
 #[get("/{id}/team-rows")]
@@ -919,14 +944,14 @@ async fn read_room_monitor(
     }
 }
 
-/// The public "Rounds In Progress" tickertape: every room in the tournament that is currently
+/// The public "Games in Progress" tickertape: every room in the tournament that is currently
 /// reporting, with the live score of the game it is running.
 ///
 /// Public by design -- this is the view a broadcast or a spectator screen points at. It
 /// carries no roster or contact data, only what is already on a scoreboard in the room.
 /// Contrast `/roommonitor`, which exposes client IPs and QM versions and stays restricted.
-#[get("/{id}/roundsinprogress")]
-async fn read_rounds_in_progress(
+#[get("/{id}/gamesinprogress")]
+async fn read_games_in_progress(
     db: Data<Database>,
     cache: Data<Cache>,
     tour_id: Path<Uuid>,
@@ -943,7 +968,7 @@ async fn read_rounds_in_progress(
     }
 
     let tid = tour_id.into_inner();
-    match models::room::read_rounds_in_progress_of_tournament(&cache, &mut conn, tid).await {
+    match models::room::read_games_in_progress_of_tournament(&cache, &mut conn, tid).await {
         Ok(rows) => HttpResponse::Ok().json(rows),
         Err(diesel::result::Error::NotFound) => HttpResponse::NotFound().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -1334,12 +1359,13 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_person_game_rows)
         .service(read_quizzer_rows)
         .service(read_roundgroup_rows)
+        .service(read_poolbracketgroup_rows)
         .service(read_pool_bracket_rows)
         .service(read_games)
         .service(read_game_rows)
         .service(read_game_statuses)
         .service(read_room_monitor)
-        .service(read_rounds_in_progress)
+        .service(read_games_in_progress)
         .service(import_gameevents_preview)
         .service(import_gameevents_commit)
         .service(read_admins)
