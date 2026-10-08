@@ -571,6 +571,143 @@ async fn get_all_games_of_room_works() {
 }
 
 #[actix_web::test]
+async fn get_all_games_detailed_of_room_works() {
+    // Restored alongside the endpoint (removed in a419373).
+
+    // Arrange:
+
+    clean_database();
+    let db = Database::new(TEST_DB_URL);
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (game_2, game_4) = fixtures::games::seed_get_games_of_room(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // The gate is the owning tournament's pairing code. TournamentBuilder::build generates a random
+    // one, so read back what the seed actually produced rather than assuming a fixed value.
+    let tournament = models::game::read_tournament_of_game(&mut conn, &game_2)
+        .expect("the seeded game's tournament");
+    let pairing_code = tournament.pairing_code.clone();
+
+    // ── Success: correct pairing_code returns games ───────────────────────────
+
+    let uri = format!(
+        "/api/rooms/{}/games-detailed?page={}&page_size={}&pairing_code={}",
+        game_2.roomid, PAGE_NUM, PAGE_SIZE, pairing_code
+    );
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: EntityResponse<Vec<RoomGame>> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 200);
+    assert_eq!(body.message, "OK");
+    let games = body.data.expect("data missing from success payload");
+    assert_eq!(games.len(), 2);
+
+    let game_2_item = games.iter().find(|g| g.gameid == game_2.gid).expect("game_2 missing from payload");
+    let game_4_item = games.iter().find(|g| g.gameid == game_4.gid).expect("game_4 missing from payload");
+
+    // game_2 is in the earlier round (Round 1), game_4 is in the later round (Round 2)
+    assert_eq!(game_2_item.seqnum, 1);
+    assert_eq!(game_4_item.seqnum, 2);
+    assert_eq!(games[0].gameid, game_2.gid);
+    assert_eq!(games[1].gameid, game_4.gid);
+
+    // Common fields for both games (same tournament + division). Games no longer carry a
+    // tournamentid/divisionid of their own, so both are resolved through the game's round.
+    let division = models::game::read_division_of_game(&mut conn, &game_2)
+        .expect("the seeded game's division");
+    for item in [game_2_item, game_4_item] {
+        assert_eq!(item.tname, "Tour 1");
+        assert_eq!(item.dname, "Div 1");
+        assert_eq!(item.tid, tournament.tid);
+        assert_eq!(item.did, division.did);
+        // No center team in this fixture
+        assert_eq!(item.centerteam.name, "");
+        assert!(item.centerteam.quizzers.is_empty());
+    }
+
+    // game_2: round 1, left=Team 3, right=Team 4
+    assert_eq!(game_2_item.roundid, game_2.roundid);
+    assert_eq!(game_2_item.roundname, "Round 1");
+    assert_eq!(game_2_item.leftteam.name, "Team 3");
+    assert_eq!(game_2_item.rightteam.name, "Team 4");
+    assert_eq!(game_2_item.leftteam.quizzers.len(), 2);
+    assert!(game_2_item.leftteam.quizzers.contains(&"QuizzerT3A Den".to_string()));
+    assert!(game_2_item.leftteam.quizzers.contains(&"QuizzerT3B Den".to_string()));
+    assert_eq!(game_2_item.rightteam.quizzers.len(), 2);
+    assert!(game_2_item.rightteam.quizzers.contains(&"QuizzerT4A Den".to_string()));
+    assert!(game_2_item.rightteam.quizzers.contains(&"QuizzerT4B Den".to_string()));
+
+    // game_4: round 2, left=Team 3, right=Team 2
+    assert_eq!(game_4_item.roundid, game_4.roundid);
+    assert_eq!(game_4_item.roundname, "Round 2");
+    assert_eq!(game_4_item.leftteam.name, "Team 3");
+    assert_eq!(game_4_item.rightteam.name, "Team 2");
+    assert_eq!(game_4_item.leftteam.quizzers.len(), 2);
+    assert!(game_4_item.leftteam.quizzers.contains(&"QuizzerT3A Den".to_string()));
+    assert!(game_4_item.leftteam.quizzers.contains(&"QuizzerT3B Den".to_string()));
+    assert_eq!(game_4_item.rightteam.quizzers.len(), 2);
+    assert!(game_4_item.rightteam.quizzers.contains(&"QuizzerT2A Den".to_string()));
+    assert!(game_4_item.rightteam.quizzers.contains(&"QuizzerT2B Den".to_string()));
+
+    // ── Fail: incorrect pairing_code returns 401 with an empty games payload ──
+
+    let bad_pc_uri = format!(
+        "/api/rooms/{}/games-detailed?page={}&page_size={}&pairing_code=WRONGCODE",
+        game_2.roomid, PAGE_NUM, PAGE_SIZE
+    );
+    let bad_pc_req = test::TestRequest::get()
+        .uri(&bad_pc_uri)
+        .to_request();
+    let bad_pc_resp = test::call_service(&app, bad_pc_req).await;
+    assert_eq!(bad_pc_resp.status(), StatusCode::UNAUTHORIZED);
+
+    let bad_pc_body: EntityResponse<Vec<RoomGame>> = test::read_body_json(bad_pc_resp).await;
+    assert_eq!(bad_pc_body.code, 401);
+    assert_eq!(bad_pc_body.message, "Unauthorized");
+    assert!(bad_pc_body.data.expect("data missing from unauthorized payload").is_empty());
+
+    // ── Fail: missing pairing_code query param fails to deserialize (400) ─────
+
+    let no_pc_uri = format!(
+        "/api/rooms/{}/games-detailed?page={}&page_size={}",
+        game_2.roomid, PAGE_NUM, PAGE_SIZE
+    );
+    let no_pc_req = test::TestRequest::get()
+        .uri(&no_pc_uri)
+        .to_request();
+    let no_pc_resp = test::call_service(&app, no_pc_req).await;
+    assert_eq!(no_pc_resp.status(), StatusCode::BAD_REQUEST);
+
+    // Check that ApiCalllog is recording API calls for this endpoint. The 400
+    // path short-circuits before the handler logs, so only the 200 + 401 calls
+    // make it into the log.
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    for record in apicalllog_records.iter() {
+        assert_eq!(record.method.as_str(), "GET");
+    }
+    assert!(apicalllog_records.iter().any(|r| r.uri == uri));
+    assert!(apicalllog_records.iter().any(|r| r.uri == bad_pc_uri));
+}
+
+#[actix_web::test]
 async fn get_all_equipmentregistrations_of_room_works() {
 
     // Arrange:

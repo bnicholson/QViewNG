@@ -103,6 +103,179 @@ async fn read_games(
 
 /// Returns fully-formed game data-table rows (game + division/room/team names, start time, and
 /// room sequence number) for the room in a single paginated call.
+/// Every game scheduled in a room, with each team's roster, ordered by the round's scheduled
+/// start time. This is what the QuizMachine client reads to populate a room's schedule.
+///
+/// Restored from commit a419373, which removed it without mention while consolidating the
+/// frontend's User-profile endpoints. The gate is the tournament's pairing code, passed as a query
+/// parameter — the client has no account, so there is no token to check.
+#[get("/{id}/games-detailed")]
+async fn read_games_detailed(
+    db: Data<Database>,
+    room_id: Path<Uuid>,
+    Query(params): Query<ReadGamesDetailedParams>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut db = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut db, &req);
+
+    let pagination_params = PaginationParams {
+        page: params.page,
+        page_size: params.page_size
+    };
+
+    let games_list = match models::game::read_all_games_of_room(&mut db, room_id.into_inner(), &pagination_params) {
+        Ok(g) => g,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+
+    if games_list.is_empty() {
+        return HttpResponse::Ok().json(EntityResponse::<Vec<RoomGame>> {
+            code: 200,
+            message: "OK".to_string(),
+            data: Some(Vec::<RoomGame>::new()),
+        });
+    }
+
+    let internal_server_error_payload = EntityResponse::<Vec<RoomGame>> {
+        code: 500,
+        message: "Internal Server Error".to_string(),
+        data: None
+    };
+
+    // Can assume all games for a given room belong to the same tournament. Games no longer carry
+    // a tournamentid (dropped in 2026-09-13-120000), so reach it through the game's round.
+    let tournament = match models::game::read_tournament_of_game(&mut db, &games_list[0]) {
+        Ok(t) => t,
+        Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
+    };
+
+    if tournament.pairing_code != params.pairing_code {
+        let unauthorized_payload = EntityResponse::<Vec<RoomGame>> {
+            code: 401,
+            message: "Unauthorized".to_string(),
+            data: Some(Vec::<RoomGame>::new())
+        };
+        return HttpResponse::Unauthorized().json(unauthorized_payload);
+    }
+
+    let mut rounds_cache: HashMap<Uuid, models::round::Round> = HashMap::new();
+    let mut divisions_cache: HashMap<Uuid, models::division::Division> = HashMap::new();
+    let mut teams_cache: HashMap<Uuid, models::team::Team> = HashMap::new();
+    let mut quizzers_cache: HashMap<Uuid, String> = HashMap::new();
+
+    let mut items: Vec<RoomGame> = Vec::with_capacity(games_list.len());
+
+    for g in games_list.into_iter() {
+        if !rounds_cache.contains_key(&g.roundid) {
+            match models::round::read(&mut db, g.roundid) {
+                Ok(r) => { rounds_cache.insert(g.roundid, r); },
+                Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
+            }
+        }
+        // Games no longer carry a divisionid (dropped in 2026-09-13-100000); a game's division is
+        // reached through its round, so this caches per round rather than per division.
+        if !divisions_cache.contains_key(&g.roundid) {
+            match models::game::read_division_of_game(&mut db, &g) {
+                Ok(d) => { divisions_cache.insert(g.roundid, d); },
+                Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
+            }
+        }
+
+        let mut team_ids: Vec<Uuid> = vec![g.leftteamid, g.rightteamid];
+        if let Some(ct) = g.centerteamid {
+            team_ids.push(ct);
+        }
+        for team_id in team_ids {
+            if !teams_cache.contains_key(&team_id) {
+                let team = match models::team::read(&mut db, team_id) {
+                    Ok(t) => t,
+                    Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
+                };
+                for qid in [
+                    team.quizzer_one_id,
+                    team.quizzer_two_id,
+                    team.quizzer_three_id,
+                    team.quizzer_four_id,
+                    team.quizzer_five_id,
+                    team.quizzer_six_id,
+                ].into_iter().flatten() {
+                    if !quizzers_cache.contains_key(&qid) {
+                        match models::user::read(&mut db, qid) {
+                            Ok(u) => { quizzers_cache.insert(qid, format!("{} {}", u.fname, u.lname)); },
+                            Err(_) => return HttpResponse::InternalServerError().json(internal_server_error_payload),
+                        }
+                    }
+                }
+                teams_cache.insert(team_id, team);
+            }
+        }
+
+        let build_team_payload = |team_id_opt: Option<Uuid>| -> RoomGameTeam {
+            match team_id_opt.and_then(|team_id| teams_cache.get(&team_id)) {
+                Some(team) => {
+                    let quizzers: Vec<String> = [
+                        team.quizzer_one_id,
+                        team.quizzer_two_id,
+                        team.quizzer_three_id,
+                        team.quizzer_four_id,
+                        team.quizzer_five_id,
+                        team.quizzer_six_id,
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|qid| quizzers_cache.get(&qid).cloned())
+                    .collect();
+                    RoomGameTeam { name: team.name.clone(), quizzers }
+                }
+                None => RoomGameTeam { name: String::new(), quizzers: Vec::new() },
+            }
+        };
+
+        let roundname = rounds_cache.get(&g.roundid).map(|r| r.name.clone()).unwrap_or_default();
+        let division = divisions_cache.get(&g.roundid);
+        let did = division.map(|d| d.did).unwrap_or_default();
+        let dname = division.map(|d| d.dname.clone()).unwrap_or_default();
+
+        items.push(RoomGame {
+            seqnum: 0,
+            gameid: g.gid,
+            roundid: g.roundid,
+            roundname,
+            did,
+            dname,
+            tid: tournament.tid,
+            tname: tournament.tname.clone(),
+            leftteam: build_team_payload(Some(g.leftteamid)),
+            centerteam: build_team_payload(g.centerteamid),
+            rightteam: build_team_payload(Some(g.rightteamid)),
+        });
+    }
+
+    // Order by the round's scheduled start time (earliest first). Games whose
+    // round has no scheduled start time sort last. Then assign seqnum starting at 1.
+    items.sort_by_key(|item| {
+        rounds_cache
+            .get(&item.roundid)
+            .and_then(|r| r.scheduled_start_time)
+            .map(|dt| (0i8, dt.timestamp_nanos_opt().unwrap_or(i64::MAX)))
+            .unwrap_or((1i8, i64::MAX))
+    });
+    for (idx, item) in items.iter_mut().enumerate() {
+        item.seqnum = (idx as i64) + 1;
+    }
+
+    let payload = EntityResponse::<Vec<RoomGame>> {
+        code: 200,
+        message: "OK".to_string(),
+        data: Some(items)
+    };
+
+    HttpResponse::Ok().json(payload)
+}
+
 #[get("/{id}/game-rows")]
 async fn read_game_rows(
     db: Data<Database>,
@@ -284,6 +457,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read)
         .service(read_games)
         .service(read_game_rows)
+        .service(read_games_detailed)
         .service(create)
         .service(update)
         .service(destroy);
