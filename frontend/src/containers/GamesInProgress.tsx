@@ -1,16 +1,10 @@
-import React from 'react'
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import CircularProgress from '@mui/material/CircularProgress'
+import { useTheme } from '@mui/material/styles'
+import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from '../components/DataTableTemplate'
 
 // How often the tickertape re-reads the backend. The backend serves this from the Valkey
 // cache, so a short interval is cheap: a warm read does no gameevents queries at all.
@@ -55,69 +49,73 @@ function sinceLabel(checkIn: string | null): string {
   return `${minutes}m ago`
 }
 
-export const GamesInProgressTable = ({ rows }: { rows: GamesInProgressRow[] }) => {
-  if (rows.length === 0) {
-    return (
-      <Paper sx={{ width: '100%', p: 3 }}>
-        <Typography color="text.secondary">
-          No rooms are currently reporting. Rounds appear here while the QuizMachine clients
-          are checking in, and drop off about 30 minutes after a room goes quiet.
-        </Typography>
-      </Paper>
-    )
-  }
+// Every column is centred, headers included (the template centres headers already).
+const columns: ColumnDef<GamesInProgressRow>[] = [
+  { header: 'Division', align: 'center', render: (r) => r.division ?? '—' },
+  { header: 'Room', align: 'center', render: (r) => r.room ?? '—' },
+  { header: 'Round', align: 'center', render: (r) => r.round ?? '—' },
+  { header: 'Question', align: 'center', render: (r) => r.question ?? '—' },
+  // A name and a score per team slot; slots a game doesn't fill stay blank.
+  ...TEAM_SLOTS.flatMap((slot): ColumnDef<GamesInProgressRow>[] => [
+    { header: `Team #${slot + 1}`, align: 'center', render: (r) => r.teams[slot]?.name ?? '' },
+    { header: 'Score', align: 'center', render: (r) => r.teams[slot]?.score ?? '' },
+  ]),
+  {
+    header: 'Check-in',
+    align: 'center',
+    render: (r) => <span style={{ color: '#6b7280' }}>{sinceLabel(r.check_in)}</span>,
+  },
+]
+
+/**
+ * The live tickertape as a read-only DataTableTemplate. There is no create or delete for anyone:
+ * these rows are derived from QuizMachine check-ins, not records a person edits.
+ */
+export const GamesInProgressTable = ({
+  rows,
+  loading,
+}: {
+  rows: GamesInProgressRow[]
+  loading: boolean
+}) => {
+  const theme = useTheme()
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+
+  // Re-polled every 15s, and rooms drop off as they go quiet — so a page that was valid a moment
+  // ago can now be past the end. Clamp rather than show an empty page.
+  const lastPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1)
+  const currentPage = Math.min(page, lastPage)
+  const pageRows = rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
 
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-      <TableContainer>
-        <Table stickyHeader aria-label="games in progress">
-          <TableHead>
-            <TableRow>
-              {['Division', 'Room', 'Round', 'Question'].map((label) => (
-                <TableCell key={label} sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
-                  {label}
-                </TableCell>
-              ))}
-              {TEAM_SLOTS.map((slot) => (
-                <React.Fragment key={slot}>
-                  <TableCell sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
-                    {`Team #${slot + 1}`}
-                  </TableCell>
-                  <TableCell align="right" sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
-                    Score
-                  </TableCell>
-                </React.Fragment>
-              ))}
-              <TableCell align="right" sx={{ backgroundColor: '#7aba7a', borderBottom: '2px solid black', fontSize: '1.1rem' }}>
-                Check-in
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow hover tabIndex={-1} key={row.roomid}>
-                <TableCell>{row.division ?? '—'}</TableCell>
-                <TableCell>{row.room ?? '—'}</TableCell>
-                <TableCell>{row.round ?? '—'}</TableCell>
-                <TableCell align="right">{row.question ?? '—'}</TableCell>
-                {TEAM_SLOTS.map((slot) => {
-                  const team = row.teams[slot]
-                  return (
-                    <React.Fragment key={slot}>
-                      <TableCell>{team ? team.name : ''}</TableCell>
-                      <TableCell align="right">{team ? team.score : ''}</TableCell>
-                    </React.Fragment>
-                  )
-                })}
-                <TableCell align="right" sx={{ color: 'text.secondary' }}>
-                  {sinceLabel(row.check_in)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
+    <>
+      <DataTableTemplate<GamesInProgressRow>
+        entityLabel="Game"
+        // The page renders its own heading above the table (see GamesInProgress).
+        hideHeader
+        // Match the global navbar, which is a default AppBar and so takes the theme's primary colour.
+        headerStyle={{ background: theme.palette.primary.main, color: theme.palette.primary.contrastText }}
+        showCreateButton={false}
+        showDeleteButton={false}
+        onDelete={async () => {}}
+        loading={loading}
+        columns={columns}
+        rows={pageRows}
+        totalCount={rows.length}
+        getId={(r) => r.roomid}
+        page={currentPage}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(0) }}
+      />
+      {!loading && rows.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+          No rooms are currently reporting. Rounds appear here while the QuizMachine clients are
+          checking in, and drop off about 30 minutes after a room goes quiet.
+        </Typography>
+      )}
+    </>
   )
 }
 
@@ -175,13 +173,13 @@ export const GamesInProgress = () => {
         )}
       </Box>
       <br />
-      {loading && <CircularProgress />}
-      {error && !loading && (
+      {error && !loading ? (
         <Paper sx={{ width: '100%', p: 3 }}>
           <Typography color="error">{error}</Typography>
         </Paper>
+      ) : (
+        <GamesInProgressTable rows={rows} loading={loading} />
       )}
-      {!loading && !error && <GamesInProgressTable rows={rows} />}
     </div>
   )
 }

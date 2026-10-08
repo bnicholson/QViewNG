@@ -238,6 +238,8 @@ export interface ColumnDef<T> {
   header: string;
   /** Renders the cell content for a given row */
   render: (row: T) => ReactNode;
+  /** Horizontal alignment of this column's cells. Omit to keep the default (left). */
+  align?: 'left' | 'center' | 'right';
 }
 
 export interface DataTableProps<T> {
@@ -281,6 +283,13 @@ export interface DataTableProps<T> {
   loading?: boolean;
   /** Extra controls rendered in the toolbar, right-aligned on the same line as the title. */
   headerActions?: ReactNode;
+  /**
+   * Omit the toolbar (title, row count, create button, headerActions) for a caller that renders
+   * its own heading above the table. Defaults to false.
+   */
+  hideHeader?: boolean;
+  /** Overrides the column-header row's background and text colour. Omit to keep the default. */
+  headerStyle?: { background?: string; color?: string };
 }
 
 export function DataTableTemplate<T>({
@@ -304,6 +313,8 @@ export function DataTableTemplate<T>({
   getRowStyle,
   loading = false,
   headerActions,
+  hideHeader = false,
+  headerStyle,
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
@@ -313,6 +324,7 @@ export function DataTableTemplate<T>({
   return (
     <div style={{ fontFamily: "inherit" }}>
       {/* ── Toolbar ── */}
+      {!hideHeader && (
       <div
         style={{
           display: "flex",
@@ -386,21 +398,23 @@ export function DataTableTemplate<T>({
         {headerActions}
         </div>
       </div>
+      )}
 
       {/* ── Table ── */}
       <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "60vh", borderRadius: 10, border: "1px solid #e5e7eb" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
-            <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
-              {columns.map((col) => (
+            <tr style={{ background: headerStyle?.background ?? "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
+              {/* Keyed by position, not label: a table may repeat a header (e.g. "Score" per team). */}
+              {columns.map((col, colIdx) => (
                 <th
-                  key={col.header}
+                  key={colIdx}
                   style={{
                     padding: `${cellPadY}px 14px`,
                     textAlign: "center",
                     fontWeight: 600,
                     fontSize: 12,
-                    color: "#6b7280",
+                    color: headerStyle?.color ?? "#6b7280",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     whiteSpace: "nowrap",
@@ -439,8 +453,8 @@ export function DataTableTemplate<T>({
                   onMouseEnter={(e) => (e.currentTarget.style.background = custom?.background ?? "#f0f7ff")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = rowBg)}
                 >
-                  {columns.map((col) => (
-                    <td key={col.header} style={{ padding: `${cellPadY}px 14px`, color: cellColor }}>
+                  {columns.map((col, colIdx) => (
+                    <td key={colIdx} style={{ padding: `${cellPadY}px 14px`, color: cellColor, textAlign: col.align }}>
                       {col.render(row)}
                     </td>
                   ))}
