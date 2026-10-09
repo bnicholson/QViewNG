@@ -13,6 +13,12 @@ pub(crate) const ACCESS_EXPIRY_HOURS: i64 = 1;
 pub(crate) const REFRESH_EXPIRY_DAYS: i64 = 30;
 pub(crate) const RESET_EXPIRY_HOURS: i64 = 24;
 
+/// bcrypt cost for every password the server stores. Integration tests build with the
+/// `fast-test-hash` feature (see Cargo.toml) to use bcrypt's minimum instead, because
+/// unoptimized cost-12 hashing takes ~1.6 s per user. Verifying reads the cost back out of the
+/// stored hash, so a hash made at either cost verifies normally.
+pub const PASSWORD_HASH_COST: u32 = if cfg!(feature = "fast-test-hash") { 4 } else { bcrypt::DEFAULT_COST };
+
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Claims {
     pub sub: String,

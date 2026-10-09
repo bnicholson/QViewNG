@@ -4,7 +4,7 @@ use crate::database;
 use crate::models::roster_coach::RosterCoach;
 use crate::models::roster_quizzer::RosterQuizzer;
 use crate::models::tournament_admin::TournamentAdmin;
-use bcrypt::{DEFAULT_COST, hash};
+use bcrypt::hash;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable,Identifiable};
 use serde::{Deserialize, Serialize};
@@ -191,7 +191,7 @@ pub struct UserChangeset {
 }
 
 fn get_hashed_pwd_version(item: NewUser) -> NewUser {
-    let hashed_pwd = hash(&item.hash_password, DEFAULT_COST).expect("Password hashing failed");
+    let hashed_pwd = hash(&item.hash_password, crate::auth::PASSWORD_HASH_COST).expect("Password hashing failed");
 
     NewUser {
         hash_password: hashed_pwd,

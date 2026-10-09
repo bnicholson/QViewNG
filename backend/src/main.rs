@@ -34,6 +34,13 @@ async fn main() -> std::io::Result<()> {
     // tell everyone we have logging running
     log::info!("Initialized log4rs");
 
+    // `cargo test` builds every target with the test-only feature, including this binary — so a
+    // `target/debug/backend` left behind by a test run would store weak password hashes. `cargo run`
+    // and release builds never enable it; say so loudly if it ever slips through.
+    if cfg!(feature = "fast-test-hash") {
+        log::warn!("Built with the test-only `fast-test-hash` feature: passwords are hashed at bcrypt's minimum cost. Do not use this build for real data.");
+    }
+
     // Grab the HOST:PORT the web server should run on.
     let host = match std::env::var("HOST") {
         Ok(h) => h,

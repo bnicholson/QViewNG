@@ -49,8 +49,27 @@ actix-web-httpauth = "0.8.2"
 strum = "0.28.0"
 strum_macros = "0.28.0"
 
+[features]
+# Test-only: drops the bcrypt cost for stored passwords to bcrypt's minimum (see
+# `auth::PASSWORD_HASH_COST`). Never enable this for a real build — it's switched on solely by the
+# self-referencing dev-dependency below, which Cargo applies to test builds only.
+fast-test-hash = []
+
 [dev-dependencies]
 jsonwebtoken = "9"
+# The crate depends on itself so that integration tests (and only they) build it with
+# `fast-test-hash`. Unoptimized cost-12 hashing takes ~1.6 s per user and was most of each test's
+# runtime.
+backend = { path = ".", features = ["fast-test-hash"] }
+
+# bcrypt is far too slow unoptimized (~1.6 s per cost-12 hash vs ~0.3 s optimized), which makes
+# logins on a local dev server sluggish. Optimizing just these crates keeps debug builds fast to
+# compile while hashing at a normal speed.
+[profile.dev.package.bcrypt]
+opt-level = 3
+
+[profile.dev.package.blowfish]
+opt-level = 3
 
 [print_schema]
 file = "src/schema.rs"

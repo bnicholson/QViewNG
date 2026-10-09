@@ -243,7 +243,7 @@ async fn reset_password(db: Data<Database>, Json(body): Json<ResetRequest>, req:
         Err(_) => return HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid or expired token"})),
     };
 
-    let hashed = match bcrypt::hash(&body.new_password, bcrypt::DEFAULT_COST) {
+    let hashed = match bcrypt::hash(&body.new_password, crate::auth::PASSWORD_HASH_COST) {
         Ok(h) => h,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
@@ -328,7 +328,7 @@ async fn change_password(db: Data<Database>, Json(body): Json<ChangePasswordRequ
         return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Current password is incorrect"}));
     }
 
-    let new_hash = match bcrypt::hash(&body.new_password, bcrypt::DEFAULT_COST) {
+    let new_hash = match bcrypt::hash(&body.new_password, crate::auth::PASSWORD_HASH_COST) {
         Ok(h) => h,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
