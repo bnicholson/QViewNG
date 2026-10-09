@@ -1,12 +1,14 @@
 #!/bin/bash
+set -e
 
-# Load .env.test file
-export $(cat ../.env.test | xargs)
+# Load .env.test (sourced, not `export $(cat … | xargs)`, so comments and quoted values work)
+set -a
+. ../.env.test
+set +a
 
-# Load PostgreSQL 16 binaries into PATH (mostly for access to initdb)
-# This was initially added for optimizing speed of integration tests by making DB in-memory
-# This may need to be changed based on your PGSQL version and configuration.
-export PATH="/usr/lib/postgresql/16/bin:$PATH"
+# Start the throwaway, RAM-backed test Postgres (see ../compose.test.yaml) and wait until it is
+# healthy. A no-op when it is already running.
+docker compose -f ../compose.test.yaml up -d --wait
 
 # Run tests (*only use one of these lines at a time based on your use case):
 # cargo test -- --test-threads=1  # for all integration tests; uses a single test DB synchronously (for now)

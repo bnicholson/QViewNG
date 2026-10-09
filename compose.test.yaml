@@ -1,0 +1,49 @@
+# Throwaway Postgres for the backend's integration tests. Standalone on purpose: it is not an
+# overlay of compose.yaml, so it can never end up in a deployment, and its own project name keeps
+# `up`/`down` here from touching the dev or production containers.
+#
+# Built for speed, not safety — every byte of it is disposable:
+#   tmpfs                   the data directory lives in RAM; stopping the container erases it
+#   fsync=off               never wait for the disk to confirm a write...
+#   synchronous_commit=off  ...or for a commit to reach the WAL...
+#   full_page_writes=off    ...or write whole pages for crash recovery (there is no recovery)
+#   max_connections=300     room for many tests running in parallel, each with its own pool
+#
+# The tests run their migrations against it on first use, so a fresh container needs no setup.
+#
+# backend/run-tests.sh starts it automatically. By hand:
+#   docker compose -f compose.test.yaml up -d --wait
+#   docker compose -f compose.test.yaml down
+#
+# Connect with: postgresql://postgres:qviewtest@127.0.0.1:5433/qviewtest
+# (a fixed, non-secret password is fine: the port is bound to this machine only, and nothing real
+# is ever stored here.)
+
+name: qviewng-test
+
+services:
+
+  postgres-test:
+    image: "postgres:18"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: qviewtest
+      POSTGRES_DB: qviewtest
+    command: >
+      postgres
+      -c fsync=off
+      -c synchronous_commit=off
+      -c full_page_writes=off
+      -c max_connections=300
+    tmpfs:
+      # postgres:18 keeps its data under /var/lib/postgresql/18/docker, so mounting the parent
+      # puts all of it in RAM. 1 GB is far more than the schema plus parallel test databases need.
+      - /var/lib/postgresql:rw,size=1g
+    ports:
+      # 5433, not 5432, so it can't collide with a dev Postgres on the default port.
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d qviewtest"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
