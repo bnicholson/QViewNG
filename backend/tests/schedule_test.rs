@@ -13,7 +13,7 @@ use backend::models::room::RoomBuilder;
 use backend::routes::configure_routes;
 use serde_json::json;
 use uuid::Uuid;
-use crate::common::{TEST_DB_URL, clean_database, make_token};
+use crate::common::{make_token, test_db};
 
 const PAGE: PaginationParams = PaginationParams { page: 0, page_size: 500 };
 
@@ -53,8 +53,7 @@ fn counts(conn: &mut Connection, did: Uuid) -> (usize, usize, usize, usize, usiz
 
 #[actix_web::test]
 async fn create_schedule_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // 4 teams, 1 pool, 1 session → a single round-robin: 3 rounds × 2 games = 6 games, 2 rooms needed.
@@ -95,8 +94,7 @@ async fn create_schedule_works() {
 
 #[actix_web::test]
 async fn create_schedule_multiple_sessions_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Two sessions, each its own pool group + "Pool A". Pool names are qualified by session so they
@@ -130,8 +128,7 @@ async fn create_schedule_multiple_sessions_works() {
 
 #[actix_web::test]
 async fn create_schedule_rolls_back_on_failure() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner_id, room_a, _room_b) = arrange(&mut conn, 4);
@@ -166,8 +163,7 @@ async fn create_schedule_rolls_back_on_failure() {
 
 #[actix_web::test]
 async fn create_schedule_requires_two_teams() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Only one team → nothing can be scheduled, and nothing is created.
@@ -199,8 +195,7 @@ async fn create_schedule_requires_two_teams() {
 
 #[actix_web::test]
 async fn deleting_round_cascades_games_and_deleting_session_cascades_empty_pool_group() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Build a real schedule via the endpoint: 4 teams, 1 pool, 1 session → 1 group, 1 pool, 3 rounds, 6 games.
@@ -243,8 +238,7 @@ async fn deleting_round_cascades_games_and_deleting_session_cascades_empty_pool_
 
 #[actix_web::test]
 async fn deleting_one_session_leaves_other_sessions_intact() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Two sessions, each 1 pool of 4 teams → 2 groups, 2 pools, 6 rounds, 12 games total.

@@ -4,7 +4,6 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::database::Database;
 use backend::database::seed_data::system_default_data::insert_system_default_data;
 use backend::models::division::DivisionBuilder;
 use backend::models::role::{self, AppRole};
@@ -15,7 +14,7 @@ use backend::models::tournament::TournamentBuilder;
 use backend::models::user::{User, UserBuilder};
 use backend::models::users_roles::UsersRolesBuilder;
 use backend::routes::configure_routes;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// A tournament manager's eligible-quizzer list = their "My Quizzers" (roster quizzers) plus every
 /// participant of the tournaments they manage — and nothing from tournaments they don't manage.
@@ -24,8 +23,7 @@ async fn eligible_quizzers_for_manager_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     insert_system_default_data(&mut conn); // seeds the default roles (incl. tournament_manager)
@@ -94,8 +92,7 @@ async fn eligible_quizzers_for_member_is_my_quizzers_only() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     insert_system_default_data(&mut conn);

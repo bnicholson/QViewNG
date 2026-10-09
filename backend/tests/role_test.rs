@@ -10,7 +10,7 @@ use backend::{
     services::common::{EntityResponse, PagedResponse},
 };
 use serde_json::json;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,8 +33,7 @@ use crate::common::{TEST_DB_URL, clean_database};
 
 #[actix_web::test]
 async fn create_role_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let created = models::role::create(&mut conn, backend::models::role::NewRole { name: "admin".to_string(), description: Some("Full access".to_string()) }).expect("create failed");
@@ -45,15 +44,14 @@ async fn create_role_works() {
 
 #[actix_web::test]
 async fn get_all_roles_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     fixtures::roles::seed_roles(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -84,8 +82,7 @@ async fn get_all_roles_works() {
 
 #[actix_web::test]
 async fn update_role_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let role = fixtures::roles::seed_role(&mut conn, "viewer");
@@ -99,8 +96,7 @@ async fn update_role_works() {
 
 #[actix_web::test]
 async fn delete_role_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let role = fixtures::roles::seed_role(&mut conn, "temp-role");
@@ -115,8 +111,7 @@ async fn delete_role_works() {
 
 #[actix_web::test]
 async fn get_role_permissions_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let role = fixtures::roles::seed_role(&mut conn, "admin");
@@ -139,8 +134,7 @@ async fn get_role_permissions_works() {
 
 #[actix_web::test]
 async fn remove_permission_from_role_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let role = fixtures::roles::seed_role(&mut conn, "editor");

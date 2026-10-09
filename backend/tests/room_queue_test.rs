@@ -7,7 +7,6 @@ mod fixtures;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
 use backend::cache::Cache;
-use backend::database::Database;
 use backend::models::{self, permission::AppSpecialPermission, room_queue_clear};
 use backend::routes::configure_routes;
 use uuid::Uuid;
@@ -75,8 +74,7 @@ fn stored(conn: &mut backend::database::Connection, gid: Uuid, question: i32, ev
 #[actix_web::test]
 async fn a_valid_signed_event_is_stored_and_acknowledged() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -97,8 +95,7 @@ async fn a_valid_signed_event_is_stored_and_acknowledged() {
 #[actix_web::test]
 async fn an_event_for_an_unknown_game_is_acknowledged_and_quarantined() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (_game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -128,8 +125,7 @@ async fn an_event_for_an_unknown_game_is_acknowledged_and_quarantined() {
 #[actix_web::test]
 async fn a_bad_checksum_is_still_refused_and_writes_nothing() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -149,8 +145,7 @@ async fn a_bad_checksum_is_still_refused_and_writes_nothing() {
 #[actix_web::test]
 async fn a_malformed_number_is_refused_rather_than_panicking() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -171,8 +166,7 @@ async fn a_malformed_number_is_refused_rather_than_panicking() {
 #[actix_web::test]
 async fn clear_pending_sets_events_aside_then_resends_until_they_are_back() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -236,8 +230,7 @@ async fn clear_pending_sets_events_aside_then_resends_until_they_are_back() {
 #[actix_web::test]
 async fn clearing_requires_permission_and_one_runs_per_room() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (_game, _tournament, _division, _round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -270,8 +263,7 @@ async fn clearing_requires_permission_and_one_runs_per_room() {
 #[actix_web::test]
 async fn the_quarantine_list_is_for_monitor_staff_only() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (_game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -297,8 +289,7 @@ async fn the_quarantine_list_is_for_monitor_staff_only() {
 #[actix_web::test]
 async fn the_monitor_reports_a_stalled_queue_the_quarantine_count_and_the_clear() {
     use_test_gameevent_psk();
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (game, tournament, division, round, room, ..) =
         fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
@@ -354,8 +345,7 @@ async fn the_monitor_reports_a_stalled_queue_the_quarantine_count_and_the_clear(
 /// `request-resend` had no permission check at all.
 #[actix_web::test]
 async fn request_resend_now_requires_permission() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (game, ..) = fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
     let operator = fixtures::users::seed_user(&mut conn);

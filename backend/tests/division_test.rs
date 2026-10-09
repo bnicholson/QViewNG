@@ -4,7 +4,7 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, division::DivisionBuilder, game::Game}, services::common::PagedResponse};
+use backend::{models::{self, apicalllog::ApiCalllog, division::DivisionBuilder, game::Game}, services::common::PagedResponse};
 use backend::models::{division::Division,round::Round,team::Team};
 use backend::models::statsgroup::StatsGroup;
 use backend::models::game_statsgroup::GameStatsGroup;
@@ -13,15 +13,14 @@ use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, owner, admin_user, unrelated_user) =
@@ -168,8 +167,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
@@ -235,8 +233,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let parent_tournament = fixtures::tournaments::seed_tournament(&mut conn,"Test Tour");
@@ -282,8 +279,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, division, owner, admin_user, unrelated_user) =
@@ -415,8 +411,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division_1, division_2, owner, admin_user, unrelated_user) =
@@ -529,8 +524,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Div Tour");
@@ -560,8 +554,7 @@ async fn get_all_rounds_of_division_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let division = fixtures::divisions::seed_get_rounds_by_division(&mut conn);
@@ -614,8 +607,7 @@ async fn get_all_pool_brackets_of_division_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let division = fixtures::divisions::seed_get_pool_brackets_by_division(&mut conn);
@@ -661,8 +653,7 @@ async fn get_pool_bracket_rows_of_division_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let division = fixtures::divisions::seed_get_pool_bracket_rows_by_division(&mut conn);
@@ -706,8 +697,7 @@ async fn get_all_roundgroups_of_division_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let division = fixtures::divisions::seed_get_roundgroups_by_division(&mut conn);
@@ -741,8 +731,7 @@ async fn get_roundgroup_rows_of_division_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let division = fixtures::divisions::seed_get_roundgroups_by_division(&mut conn);
@@ -776,8 +765,7 @@ async fn get_all_teams_of_division_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let team: Team = fixtures::divisions::seed_get_teams_by_division(&mut conn);
@@ -830,8 +818,7 @@ async fn get_all_games_of_division_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (division_id, game_1_of_div_2, game_2_of_div_2 ) = fixtures::games::seed_get_games_of_division(&mut conn);

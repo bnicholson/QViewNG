@@ -4,12 +4,12 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
+use backend::{models::{self, apicalllog::ApiCalllog}};
 use backend::models::powerstrip::PowerStrip;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 
 /// Gear endpoints require `equipment:{create,update,delete}` (one `equipment` resource covers
 /// every gear table). Tests authenticate with all three.
@@ -28,8 +28,7 @@ async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::powerstrips::arrange_create_works_integration_test(&mut conn);
@@ -79,8 +78,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let _seed = fixtures::powerstrips::arrange_get_all_works_integration_test(&mut conn);
@@ -96,8 +94,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let powerstrip = 
@@ -113,8 +110,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let original_powerstrip = 
@@ -178,8 +174,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let powerstrip = fixtures::powerstrips::arrange_delete_works_integration_test(&mut conn);

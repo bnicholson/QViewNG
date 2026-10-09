@@ -1,10 +1,10 @@
 pub mod seed_data;
 pub mod clean_db;
 
-use std::time::{Instant,Duration};
+use std::any::Any;
+use std::sync::Arc;
 use diesel::r2d2::{self, ConnectionManager, PoolError, PooledConnection};
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use pgtemp::PgTempDB;
+use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 
 type DbCon = diesel::PgConnection;
 // type DbCon = diesel::SqliteConnection;
@@ -18,7 +18,10 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 /// wrapper function for a database pool
 pub struct Database {
     pub pool: Pool,
-    _temp_db: Option<std::sync::Arc<PgTempDB>>,
+    /// Anything that must live exactly as long as this database handle and all its clones — the
+    /// integration tests park a guard here that drops their per-test database when the last
+    /// clone goes away. Declared after `pool` so the pool is released first.
+    _keepalive: Option<Arc<dyn Any + Send + Sync>>,
 }
 
 impl Database {
@@ -29,50 +32,6 @@ impl Database {
 
     pub fn new_single_threaded(db_url_env_var_name: &str) -> Database {
         Self::new_with_pool_size(&db_url_env_var_name, true)
-    }
-
-    pub async fn new_prepared_in_memory_db() -> Database {
-        
-        let pool_size = 10;
-
-        let temp_db = PgTempDB::async_new().await;
-
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        let url = temp_db.connection_uri();
-
-        let manager = ConnectionManager::<DbCon>::new(url);
-
-        let database_pool = Pool::builder()
-            .max_size(pool_size)
-            .connection_timeout(std::time::Duration::from_secs(5))
-            .build(manager)
-            .unwrap();
-
-        let start = Instant::now();
-        let max_wait = Duration::from_secs(5);
-
-        let mut conn = loop {
-            match database_pool.get() {
-                Ok(c) => break c,
-                Err(e) => {
-                    if start.elapsed() > max_wait {
-                        panic!("Timed out waiting for temp Postgres to be ready: {e}");
-                    }
-                    eprintln!("Waiting for DB ({}s elapsed): {}", start.elapsed().as_secs(), e);
-                    tokio::time::sleep(Duration::from_millis(200)).await;
-                    continue;
-                }
-            }
-        };
-
-        conn.run_pending_migrations(MIGRATIONS)
-            .expect("Migrations failed");
-
-        Database {
-            pool: database_pool,
-            _temp_db: Some(std::sync::Arc::new(temp_db)),  // keep the temp DB alive
-        }
     }
 
     pub fn new_with_pool_size(db_url_env_var_name: &str, single_threaded: bool) -> Database {
@@ -90,8 +49,32 @@ impl Database {
 
         Database {
             pool: database_pool,
-            _temp_db: None
+            _keepalive: None
         }
+    }
+
+    /// A pool for `database_url` itself (rather than an env var naming it) that opens connections
+    /// lazily: one up front, more only as they're needed, up to `max_size`. `new` instead blocks
+    /// until all of its connections are open, which suits the long-lived server but makes every
+    /// short-lived integration-test database pay for ten connections it rarely uses.
+    pub fn from_url(database_url: &str, max_size: u32) -> Database {
+        let database_pool = Pool::builder()
+            .max_size(max_size)
+            .min_idle(Some(1))
+            .connection_timeout(std::time::Duration::from_secs(5))
+            .build(ConnectionManager::<DbCon>::new(database_url))
+            .unwrap();
+
+        Database {
+            pool: database_pool,
+            _keepalive: None
+        }
+    }
+
+    /// Ties `keepalive` to this handle and every clone of it: it's dropped only once the last one is.
+    pub fn with_keepalive(mut self, keepalive: Arc<dyn Any + Send + Sync>) -> Database {
+        self._keepalive = Some(keepalive);
+        self
     }
 
     /// get a [`Connection`] to a database

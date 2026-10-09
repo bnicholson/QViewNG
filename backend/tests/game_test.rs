@@ -4,21 +4,20 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, gameevent::GameEvent, statsgroup::StatsGroup}, services::common::PagedResponse};
+use backend::{models::{self, apicalllog::ApiCalllog, gameevent::GameEvent, statsgroup::StatsGroup}, services::common::PagedResponse};
 use backend::models::game::Game;
 use diesel::prelude::*;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db, reset_test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, cj_id, poolbracket_id) =
@@ -141,8 +140,7 @@ async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game
 
     // Arrange 1:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let app = test::init_service(
         App::new()
@@ -170,7 +168,7 @@ async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game
 
     // Arrange 2:
 
-    clean_database();
+    reset_test_db(&mut conn);
 
     let (payload_two, owner_id_two) = fixtures::games::duplicate_team_in_game_case_two_payload(&mut conn);
     let token_two = make_token(owner_id_two, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
@@ -191,7 +189,7 @@ async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game
 
     // Arrange 3:
 
-    clean_database();
+    reset_test_db(&mut conn);
 
     let (payload_three, owner_id_three) = fixtures::games::duplicate_team_in_game_case_three_payload(&mut conn);
     let token_three = make_token(owner_id_three, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
@@ -216,8 +214,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     fixtures::games::seed_games(&mut conn);
@@ -260,8 +257,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let games: Vec<Game> = fixtures::games::seed_games(&mut conn);
@@ -306,8 +302,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, game, owner, admin_user, unrelated_user) =
@@ -425,8 +420,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, game_1, game_2, owner, admin_user, unrelated_user) =
@@ -539,8 +533,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (game, _, _, _, _, _, _, _, _, _) =
@@ -570,8 +563,7 @@ async fn get_all_statsgroups_of_game_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (game, statsgroup_1, statsgroup_2) = 
@@ -587,8 +579,7 @@ async fn get_gameevents_of_game_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (game, gameevent_1, gameevent_2) = fixtures::games::arrange_get_gameevents_of_game_works_integration_test(&mut conn);
@@ -647,8 +638,7 @@ async fn create_threeteam_game_requires_room_support() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, owner, _admin_user, _unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, _cj_id, poolbracket_id) =
@@ -719,8 +709,7 @@ async fn update_into_non_supporting_room_rejects_threeteam_game() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, owner, _admin_user, _unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, _cj_id, poolbracket_id) =

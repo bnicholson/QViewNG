@@ -2,14 +2,13 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::database::Database;
 use backend::models::team::TeamRow;
 use backend::models::user::UserBuilder;
 use backend::models::tournament::TournamentBuilder;
 use backend::models::division::DivisionBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Seeds one tournament → one division → three teams and returns (tid, did).
 /// `fixtures::teams::seed_teams` creates: "Team 1" (coach Tiffany), "Come Get Some" (coach
@@ -56,8 +55,7 @@ fn assert_full_page(body: &PagedResponse<TeamRow>) {
 #[actix_web::test]
 async fn tournament_team_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (tid, _did) = seed(&mut conn);
 
@@ -96,8 +94,7 @@ async fn tournament_team_rows_returns_enriched_sorted_paginated_rows() {
 #[actix_web::test]
 async fn division_team_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (_tid, did) = seed(&mut conn);
 

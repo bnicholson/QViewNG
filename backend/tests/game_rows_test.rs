@@ -2,12 +2,11 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::database::Database;
 use backend::models::game::{GameRow, PersonGameRow};
 use backend::models::user::User;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Asserts a page of game rows is enriched: names and the room sequence number are present.
 fn assert_enriched(rows: &[GameRow]) {
@@ -27,8 +26,7 @@ fn contains_both(rows: &[GameRow], gid_1: uuid::Uuid, gid_2: uuid::Uuid) {
 
 #[actix_web::test]
 async fn tournament_game_rows_returns_enriched_paginated_rows() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (tid, g1, g2) = fixtures::games::seed_get_games_of_tournament(&mut conn);
 
@@ -59,8 +57,7 @@ async fn tournament_game_rows_returns_enriched_paginated_rows() {
 
 #[actix_web::test]
 async fn division_game_rows_returns_enriched_paginated_rows() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (division_id, g1, g2) = fixtures::games::seed_get_games_of_division(&mut conn);
 
@@ -89,8 +86,7 @@ async fn division_game_rows_returns_enriched_paginated_rows() {
 
 #[actix_web::test]
 async fn round_game_rows_returns_enriched_paginated_rows() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (g1, g2) = fixtures::games::seed_get_games_of_round(&mut conn);
 
@@ -119,8 +115,7 @@ async fn round_game_rows_returns_enriched_paginated_rows() {
 
 #[actix_web::test]
 async fn room_game_rows_returns_enriched_paginated_rows() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (g1, g2) = fixtures::games::seed_get_games_of_room(&mut conn);
 
@@ -149,8 +144,7 @@ async fn room_game_rows_returns_enriched_paginated_rows() {
 
 #[actix_web::test]
 async fn team_game_rows_returns_only_that_teams_games() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let s = fixtures::games::seed_person_and_team_games(&mut conn);
 
@@ -172,8 +166,7 @@ async fn team_game_rows_returns_only_that_teams_games() {
 
 #[actix_web::test]
 async fn person_game_rows_returns_games_for_every_role() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let s = fixtures::games::seed_person_and_team_games(&mut conn);
 
@@ -219,8 +212,7 @@ async fn person_game_rows_returns_games_for_every_role() {
 
 #[actix_web::test]
 async fn tournament_persons_lists_people_of_every_role() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let s = fixtures::games::seed_person_and_team_games(&mut conn);
 
@@ -248,8 +240,7 @@ async fn tournament_persons_lists_people_of_every_role() {
 
 #[actix_web::test]
 async fn tournament_persons_can_be_filtered_by_role() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let s = fixtures::games::seed_person_and_team_games(&mut conn);
 

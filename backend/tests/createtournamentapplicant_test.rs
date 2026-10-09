@@ -4,19 +4,18 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, create_tournament_applicant::CreateTournamentApplicant, role::AppRole}, services::common::PagedResponse};
+use backend::{models::{self, apicalllog::ApiCalllog, create_tournament_applicant::CreateTournamentApplicant, role::AppRole}, services::common::PagedResponse};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (payload, user) = fixtures::create_tournament_applicants::arrange_create_works_integration_test(&mut conn);
@@ -64,8 +63,7 @@ async fn get_all_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     fixtures::create_tournament_applicants::arrange_get_all_works_integration_test(&mut conn);
@@ -104,8 +102,7 @@ async fn get_by_id_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let item = fixtures::create_tournament_applicants::arrange_get_by_id_works_integration_test(&mut conn);
@@ -120,8 +117,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (item, user) = fixtures::create_tournament_applicants::arrange_update_works_integration_test(&mut conn);
@@ -180,8 +176,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let item = fixtures::create_tournament_applicants::arrange_delete_works_integration_test(&mut conn);
@@ -209,14 +204,7 @@ async fn delete_works() {
     let get_req = test::TestRequest::get()
         .uri(&uri)
         .to_request();
-    let get_resp = test::call_service(
-        &test::init_service(
-            App::new()
-                .app_data(web::Data::new(Database::new(TEST_DB_URL)))
-                .configure(configure_routes)
-        ).await,
-        get_req
-    ).await;
+    let get_resp = test::call_service(&app, get_req).await;
     assert_eq!(get_resp.status(), StatusCode::NOT_FOUND);
 
     let apicalllog_records: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();

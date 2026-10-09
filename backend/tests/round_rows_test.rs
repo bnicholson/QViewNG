@@ -3,14 +3,13 @@ mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
 use chrono::{TimeZone, Utc};
-use backend::database::Database;
 use backend::models::round::{RoundRow, RoundBuilder};
 use backend::models::user::UserBuilder;
 use backend::models::tournament::TournamentBuilder;
 use backend::models::division::DivisionBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Seeds one tournament → one division → three rounds with distinct scheduled start times, so
 /// the endpoint's ordering (by scheduled_start_time, not name) is observable. Returns (tid, did).
@@ -72,8 +71,7 @@ fn assert_full_page(body: &PagedResponse<RoundRow>) {
 #[actix_web::test]
 async fn tournament_round_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (tid, _did) = seed(&mut conn);
 
@@ -112,8 +110,7 @@ async fn tournament_round_rows_returns_enriched_sorted_paginated_rows() {
 #[actix_web::test]
 async fn division_round_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (_tid, did) = seed(&mut conn);
 
@@ -151,8 +148,7 @@ async fn division_round_rows_returns_enriched_sorted_paginated_rows() {
 
 #[actix_web::test]
 async fn roundgroup_round_rows_returns_enriched_rows() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let owner = UserBuilder::new_default("Sess Owner").set_hash_password("OwnerPwd123!").build_and_insert(&mut conn).unwrap();

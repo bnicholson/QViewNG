@@ -4,7 +4,6 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::database::Database;
 use backend::models::roundgroup::RoundGroupBuilder;
 use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder, PoolBracketRow};
 use backend::models::team::TeamBuilder;
@@ -13,15 +12,14 @@ use backend::models::game::GameRow;
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, admin_user, unrelated_user) =
@@ -115,8 +113,7 @@ async fn get_team_rows_of_pool_bracket_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
@@ -146,8 +143,7 @@ async fn get_game_rows_of_pool_bracket_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let bracket_id = fixtures::pool_brackets::seed_pool_bracket_profile(&mut conn);
@@ -173,8 +169,7 @@ async fn add_and_remove_team_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -265,8 +260,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -336,8 +330,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -404,8 +397,7 @@ async fn delete_soft_deletes_and_purge_removes() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =

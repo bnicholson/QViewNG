@@ -1,12 +1,11 @@
 mod common;
 
-use backend::database::Database;
 use backend::database::seed_data::seed_one::insert_seed_data_one;
 use backend::database::seed_data::system_default_data::insert_system_default_data;
 use backend::models::{self, common::PaginationParams};
 use diesel::prelude::*;
 use uuid::Uuid;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Seeds a whole tournament with game events and checks that the generator broke every tie.
 ///
@@ -20,8 +19,7 @@ use crate::common::{TEST_DB_URL, clean_database};
 #[test]
 #[ignore = "seeds a full tournament; takes several minutes"]
 fn seeded_games_never_end_tied() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("connect");
 
     insert_system_default_data(&mut conn);
@@ -81,8 +79,7 @@ fn seeded_games_never_end_tied() {
 #[test]
 #[ignore = "seeds a full tournament; takes several minutes"]
 fn experienced_division_runs_three_pools_of_double_round_robins() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("connect");
 
     insert_system_default_data(&mut conn);

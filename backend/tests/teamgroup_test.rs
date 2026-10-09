@@ -2,14 +2,13 @@
 mod common;
 mod fixtures;
 
-use backend::database::Database;
 use backend::models::division::DivisionBuilder;
 use backend::models::roundgroup::RoundGroupBuilder;
 use backend::models::pool_bracket::PoolBracketBuilder;
 use backend::models::teamgroup;
 use backend::models::tournament::TournamentBuilder;
 use backend::models::user::UserBuilder;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// teamgroups has no HTTP service, so its soft-delete/purge is exercised at the model level:
 /// `delete` hides the row (del_fl = true) and `purge` removes it permanently.
@@ -18,8 +17,7 @@ async fn delete_soft_deletes_and_purge_removes() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let owner = UserBuilder::new_default("TG Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();

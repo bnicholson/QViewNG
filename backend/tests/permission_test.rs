@@ -10,7 +10,7 @@ use backend::{
     services::common::{EntityResponse, PagedResponse},
 };
 use serde_json::json;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 #[derive(serde::Deserialize)]
 struct RolesAndPermissions {
@@ -22,8 +22,7 @@ struct RolesAndPermissions {
 
 #[actix_web::test]
 async fn create_permission_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let created = models::permission::create(&mut conn, backend::models::permission::NewPermission { name: "post:create".to_string(), resource: Some("post".to_string()), action: Some("create".to_string()) }).expect("create failed");
@@ -34,8 +33,7 @@ async fn create_permission_works() {
 
 #[actix_web::test]
 async fn get_all_permissions_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     fixtures::permissions::seed_permissions(&mut conn);
@@ -48,8 +46,7 @@ async fn get_all_permissions_works() {
 
 #[actix_web::test]
 async fn get_permissions_filtered_by_resource_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     fixtures::permissions::seed_permissions(&mut conn);
@@ -65,8 +62,7 @@ async fn get_permissions_filtered_by_resource_works() {
 
 #[actix_web::test]
 async fn update_permission_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let perm = fixtures::permissions::seed_permission(&mut conn, "post:read", "post", "read");
@@ -80,8 +76,7 @@ async fn update_permission_works() {
 
 #[actix_web::test]
 async fn delete_permission_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let perm = fixtures::permissions::seed_permission(&mut conn, "temp:perm", "temp", "perm");
@@ -94,8 +89,7 @@ async fn delete_permission_works() {
 
 #[actix_web::test]
 async fn get_user_roles_and_permissions_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     insert_system_default_data(&mut conn);
@@ -109,7 +103,7 @@ async fn get_user_roles_and_permissions_works() {
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -136,15 +130,14 @@ async fn get_user_roles_and_permissions_works() {
 
 #[actix_web::test]
 async fn get_user_roles_and_permissions_empty_for_user_with_no_roles() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = fixtures::users::seed_user(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 

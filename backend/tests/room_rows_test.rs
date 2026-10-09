@@ -2,13 +2,12 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::database::Database;
 use backend::models::room::{RoomRow, RoomBuilder};
 use backend::models::user::UserBuilder;
 use backend::models::tournament::TournamentBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Display name produced by `read_display_names` for a user built with
 /// `UserBuilder::new_default(fname)` (which sets mname="Maurice", lname="Den").
@@ -54,8 +53,7 @@ fn seed(conn: &mut backend::database::Connection) -> uuid::Uuid {
 #[actix_web::test]
 async fn tournament_room_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let tid = seed(&mut conn);
 
@@ -103,8 +101,7 @@ async fn tournament_room_rows_returns_enriched_sorted_paginated_rows() {
 #[actix_web::test]
 async fn tournament_room_rows_empty_tournament_returns_zero() {
     // Arrange — a tournament with no rooms.
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let owner = UserBuilder::new_default("Lonely Owner")
         .set_hash_password("OwnerPwd123!")

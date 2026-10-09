@@ -4,21 +4,20 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, tournament::Tournament, tournamentgroup_tournament::TournamentGroupTournament}};
+use backend::{models::{self, apicalllog::ApiCalllog, tournament::Tournament, tournamentgroup_tournament::TournamentGroupTournament}};
 use backend::models::tournamentgroup::{TournamentGroup, NewTournamentGroupPayload};
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
 use diesel::prelude::*;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = backend::models::user::UserBuilder::new_default("Group Creator")
@@ -75,8 +74,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (tg_1, tg_2) = fixtures::tournamentgroups::arrange_get_all_works_intergration_test(&mut conn);
@@ -144,8 +142,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let tg_2 = fixtures::tournamentgroups::arrange_get_by_id_works_integration_test(&mut conn);
@@ -188,8 +185,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let tournamentgroup = fixtures::tournamentgroups::arrange_update_works_integration_test(&mut conn);
@@ -248,8 +244,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let tournamentgroup = fixtures::tournamentgroups::arrange_delete_works_integration_test(&mut conn);
@@ -301,8 +296,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let group = fixtures::tournamentgroups::arrange_delete_works_integration_test(&mut conn);
@@ -331,8 +325,7 @@ async fn get_all_tournaments_of_tournamentgroup_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (tg, tour_1, tour_2) = fixtures::tournamentgroups::arrange_get_all_tournaments_of_tournamentgroup_works_integration_test(&mut conn);
@@ -388,8 +381,7 @@ async fn add_tournament_to_tournamentgroup_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::tournamentgroups::arrange_add_tournament_to_tournamentgroup_works_integration_test(&mut conn);
@@ -436,8 +428,7 @@ async fn remove_tournament_from_tournamentgroup_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tg, tour) = 

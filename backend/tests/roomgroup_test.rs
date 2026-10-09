@@ -2,7 +2,6 @@ mod common;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::database::Database;
 use backend::models::roomgroup::{self, RoomGroup, RoomGroupBuilder, RoomGroupRow};
 use backend::models::room::{RoomBuilder, RoomRow};
 use backend::models::tournament::TournamentBuilder;
@@ -10,14 +9,13 @@ use backend::models::user::UserBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
-use crate::common::{TEST_DB_URL, clean_database, make_token};
+use crate::common::{make_token, test_db};
 
 /// POST /api/roomgroups: a user with `roomgroup:create` may create one under a tournament (type defaults
 /// to "building"); missing permission, unauthenticated, and a bad tournament are rejected.
 #[actix_web::test]
 async fn create_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let user = UserBuilder::new_default("RG Creator").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
@@ -70,8 +68,7 @@ async fn create_works() {
 /// GET /api/roomgroups/{id} and GET /api/roomgroups (index) return roomgroups.
 #[actix_web::test]
 async fn read_and_index_work() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let user = UserBuilder::new_default("RG Reader").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
@@ -99,8 +96,7 @@ async fn read_and_index_work() {
 /// PUT /api/roomgroups/{id}: a user with `roomgroup:update` may rename it; others are rejected.
 #[actix_web::test]
 async fn update_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let user = UserBuilder::new_default("RG Editor").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
@@ -136,8 +132,7 @@ async fn update_works() {
 /// DELETE /api/roomgroups/{id}: a user with `roomgroup:delete` soft-deletes it (hidden from reads).
 #[actix_web::test]
 async fn delete_soft_deletes() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let user = UserBuilder::new_default("RG Deleter").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
@@ -161,8 +156,7 @@ async fn delete_soft_deletes() {
 /// only those (roomgroups are tournament-scoped now).
 #[actix_web::test]
 async fn tournament_roomgroups_lookup_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let owner = UserBuilder::new_default("RG Tour Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
@@ -191,8 +185,7 @@ async fn tournament_roomgroups_lookup_works() {
 /// (with the last-modifier's display name), paginated.
 #[actix_web::test]
 async fn tournament_roomgroup_rows_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let owner = UserBuilder::new_default("RG Rows Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Rows Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
@@ -219,8 +212,7 @@ async fn tournament_roomgroup_rows_works() {
 /// GET /api/roomgroups/{id}/room-rows returns the enriched rooms in that building, and only those.
 #[actix_web::test]
 async fn roomgroup_room_rows_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let owner = UserBuilder::new_default("RG Room Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("RG Room Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();

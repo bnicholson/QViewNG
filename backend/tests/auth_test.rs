@@ -3,16 +3,15 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog}, routes::configure_routes};
-use crate::common::{TEST_DB_URL, clean_database};
+use backend::{models::{self, apicalllog::ApiCalllog}, routes::configure_routes};
+use crate::common::{test_db};
 
 #[actix_web::test]
 async fn login_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Create a user with a known password; UserBuilder/create will hash it
@@ -65,8 +64,7 @@ async fn login_with_wrong_password_fails() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let plain_password = "CorrectHorseBattery!1";
@@ -117,8 +115,7 @@ async fn register_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let app = test::init_service(
@@ -162,8 +159,7 @@ async fn logout_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let plain_password = "LogoutTest!1";
@@ -229,8 +225,7 @@ async fn refresh_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let plain_password = "RefreshTest!1";
@@ -300,8 +295,7 @@ async fn forgot_password_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = backend::models::user::UserBuilder::new("Forgot")
@@ -357,8 +351,7 @@ async fn forgot_password_requires_matching_username_and_email() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = backend::models::user::UserBuilder::new("Forgot")
@@ -402,8 +395,7 @@ async fn reset_password_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = backend::models::user::UserBuilder::new("Reset")
@@ -459,8 +451,7 @@ async fn change_password_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let plain_password = "ChangeMe!OldPwd1";

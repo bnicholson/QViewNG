@@ -2,8 +2,8 @@
 mod common;
 mod fixtures;
 
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, computer::Computer, equipment::Equipment, equipment_dbo::EquipmentDbo, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use backend::{models::{self, apicalllog::ApiCalllog, computer::Computer, equipment::Equipment, equipment_dbo::EquipmentDbo, equipmentregistration::EquipmentRegistration, extensioncord::ExtensionCord, interfacebox::InterfaceBox, jumppad::JumpPad, microphonerecorder::MicrophoneRecorder, monitor::Monitor, powerstrip::PowerStrip, projector::Projector}, routes::configure_routes};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 use actix_web::{App, test, web::{self}};
 use actix_http::StatusCode;
 
@@ -14,8 +14,7 @@ async fn get_by_id_works() {
 
     // Arrange All:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (computer, jumppad, interfacebox, monitor, microphonerecorder, 
@@ -218,8 +217,7 @@ async fn get_all_equipmentregistrations_of_equipment_piece_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (computer, er_1, er_2) = 
@@ -276,8 +274,7 @@ async fn get_all_equipment_of_set_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (equipment_set, equipment_id_1, equipment_id_2) =

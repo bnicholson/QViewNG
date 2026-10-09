@@ -3,17 +3,16 @@ mod common;
 mod fixtures;
 
 use actix_http::StatusCode;
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog}, routes::configure_routes};
+use backend::{models::{self, apicalllog::ApiCalllog}, routes::configure_routes};
 use actix_web::{App, test, web::{self}};
-use crate::common::{TEST_DB_URL, clean_database, make_token};
+use crate::common::{make_token, test_db};
 
 #[actix_web::test]
 async fn create_and_read_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     // Assumes apicallog model is being used for the create tournament endpoint:

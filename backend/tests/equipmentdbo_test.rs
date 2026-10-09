@@ -2,8 +2,8 @@
 mod common;
 mod fixtures;
 
-use backend::{database::Database, models::{self, common::PaginationParams, equipment_dbo::{EquipmentDbo, EquipmentDboChangeset}}};
-use crate::common::{PAGE_SIZE, TEST_DB_URL, clean_database};
+use backend::{models::{self, common::PaginationParams, equipment_dbo::{EquipmentDbo, EquipmentDboChangeset}}};
+use crate::common::{PAGE_SIZE, test_db};
 use diesel::prelude::*;
 
 #[actix_web::test]
@@ -11,8 +11,7 @@ async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::equipment_dbos::arrange_create_works_integration_test(&mut conn);
@@ -47,8 +46,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (equipment_computer_1, equipment_computer_2) = 
@@ -92,8 +90,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let equipment = 
@@ -116,8 +113,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let original_equipment = 
@@ -146,8 +142,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let computer = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);
@@ -177,8 +172,7 @@ async fn delete_soft_deletes_keeps_component_and_purge_removes_both() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let computer = fixtures::equipment_dbos::arrange_delete_works_integration_test(&mut conn);

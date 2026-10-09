@@ -4,21 +4,20 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, roster_coach::RosterCoach, roster_quizzer::RosterQuizzer, user::User}};
+use backend::{models::{self, apicalllog::ApiCalllog, roster_coach::RosterCoach, roster_quizzer::RosterQuizzer, user::User}};
 use backend::models::roster::Roster;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use diesel::prelude::*;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 
 #[actix_web::test]
 async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     fixtures::rosters::arrange_get_all_works_integration_test(&mut conn);
@@ -34,8 +33,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let roster = 
@@ -78,8 +76,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let roster = 
@@ -137,8 +134,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let roster = fixtures::rosters::arrange_delete_works_integration_test(&mut conn);
@@ -193,8 +189,7 @@ async fn delete_by_non_owner_is_rejected() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let roster = fixtures::rosters::arrange_delete_works_integration_test(&mut conn);
@@ -236,8 +231,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let roster = fixtures::rosters::arrange_delete_works_integration_test(&mut conn);
@@ -266,8 +260,7 @@ async fn add_coach_to_roster_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let new_roster_coach = 
@@ -315,8 +308,7 @@ async fn get_all_coaches_of_roster_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (roster, user_1, user_2) = 
@@ -373,8 +365,7 @@ async fn remove_coach_from_roster_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_, _, roster_coach) = 
@@ -430,8 +421,7 @@ async fn add_quizzer_to_roster_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (roster, quizzer) = 
@@ -478,8 +468,7 @@ async fn get_all_quizzers_of_roster_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (roster, quizzer_1, quizzer_2) = 
@@ -536,8 +525,7 @@ async fn remove_quizzer_from_roster_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_, _, roster_quizzer) = 

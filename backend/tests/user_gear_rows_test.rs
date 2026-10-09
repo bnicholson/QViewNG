@@ -2,14 +2,13 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::database::Database;
 use backend::models::user::UserBuilder;
 use backend::models::equipmentset::EquipmentSetBuilder;
 use backend::models::computer::ComputerBuilder;
 use backend::models::equipment_dbo::UserGearRow;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 fn display_name(fname: &str) -> String { format!("{} Maurice Den", fname) }
 
@@ -27,8 +26,7 @@ fn seed(conn: &mut backend::database::Connection) -> uuid::Uuid {
 
 #[actix_web::test]
 async fn user_gear_rows_returns_enriched_paginated_rows() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let uid = seed(&mut conn);
 

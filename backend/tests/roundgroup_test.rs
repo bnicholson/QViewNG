@@ -4,22 +4,20 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::database::Database;
 use backend::models::roundgroup::{RoundGroup, RoundGroupBuilder};
 use backend::models::pool_bracket::{PoolBracketBuilder, PoolBracketRow};
 use backend::models::game::GameRow;
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, division, owner, admin_user, unrelated_user) =
@@ -126,8 +124,7 @@ async fn read_and_index_work() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, _unrelated_user) =
@@ -168,8 +165,7 @@ async fn get_game_rows_of_roundgroup_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Seeds a division with one roundgroup, one pool bracket, and two games in a round of that roundgroup.
@@ -199,8 +195,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -264,8 +259,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -326,8 +320,7 @@ async fn delete_soft_deletes_and_purge_removes() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -385,8 +378,7 @@ async fn delete_soft_deletes_and_purge_removes() {
 /// DELETE /api/roundgroups/{id} now cascades: the session and all of its rounds are deleted together.
 #[actix_web::test]
 async fn delete_roundgroup_cascades_its_rounds() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, _unrelated_user) =

@@ -3,9 +3,8 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::database::Database;
 use backend::routes::configure_routes;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 // Mirrors the handler's encoder (RFC 3986 unreserved kept; everything else -> %XX).
 fn percent_encode(s: &str) -> String {
@@ -41,8 +40,7 @@ async fn pingmsg_records_checkin_and_resend() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (game, tournament, division, round, room, _, _, _, _, _) =
@@ -116,8 +114,7 @@ async fn request_resend_endpoint_flags_game_then_ping_returns_command() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (game, tournament, division, round, room, _, _, _, _, _) =

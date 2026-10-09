@@ -4,18 +4,16 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::database::Database;
 use backend::models::poolbracketgroup::{PoolBracketGroup, PoolBracketGroupBuilder, PoolBracketGroupRow};
 use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder, PoolBracketRow};
 use backend::routes::configure_routes;
 use backend::services::common::{EntityResponse, PagedResponse};
 use serde_json::json;
-use crate::common::{TEST_DB_URL, clean_database, make_token};
+use crate::common::{make_token, test_db};
 
 #[actix_web::test]
 async fn create_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, admin_user, unrelated_user) =
@@ -70,8 +68,7 @@ async fn create_works() {
 
 #[actix_web::test]
 async fn read_index_and_list_by_division_work() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, _unrelated_user) =
@@ -108,8 +105,7 @@ async fn read_index_and_list_by_division_work() {
 
 #[actix_web::test]
 async fn list_poolbrackets_of_group_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, _unrelated_user) =
@@ -136,8 +132,7 @@ async fn list_poolbrackets_of_group_works() {
 
 #[actix_web::test]
 async fn update_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, unrelated_user) =
@@ -171,8 +166,7 @@ async fn update_works() {
 
 #[actix_web::test]
 async fn delete_works_and_is_blocked_with_pools() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, division, owner, _admin_user, _unrelated_user) =
@@ -211,8 +205,7 @@ async fn delete_works_and_is_blocked_with_pools() {
 /// profile: rows for a division, rows for a whole tournament, and a group's pools/brackets by type.
 #[actix_web::test]
 async fn row_endpoints_work() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (tournament, division, owner, _admin_user, _unrelated_user) =

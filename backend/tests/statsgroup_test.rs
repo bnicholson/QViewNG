@@ -5,13 +5,13 @@ mod fixtures;
 use backend::models::permission::AppSpecialPermission;
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, game_statsgroup::GameStatsGroup}};
+use backend::{models::{self, apicalllog::ApiCalllog, game::Game, game_statsgroup::GameStatsGroup}};
 use backend::models::statsgroup::StatsGroup;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use diesel::prelude::*;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 
 // The stats view endpoints (games/teamstats/individualstats) are restricted to holders of
 // `system:administer`, the tournament owner, and its admins. Tests authenticate with that
@@ -30,8 +30,7 @@ async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::statsgroups::arrange_create_works_integration_test(&mut conn);
@@ -45,8 +44,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     fixtures::statsgroups::arrange_get_all_works_integration_test(&mut conn);
@@ -62,8 +60,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let statsgroup = 
@@ -79,8 +76,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let statsgroup = fixtures::statsgroups::arrange_delete_works_integration_test(&mut conn);
@@ -94,8 +90,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_delete_works_integration_test(&mut conn);
@@ -124,8 +119,7 @@ async fn add_game_to_statsgroup_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (statsgroup, game, new_gsg) = fixtures::statsgroups::arrange_add_game_to_statsgroup_works_integration_test(&mut conn);
@@ -139,8 +133,7 @@ async fn get_all_games_of_statsgroup_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (statsgroup, game_1, game_2) = 
@@ -198,8 +191,7 @@ async fn remove_game_from_statsgroup_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (statsgroup, game, _) = 
@@ -214,8 +206,7 @@ async fn team_stats_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
@@ -283,8 +274,7 @@ async fn individual_stats_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     // Reuses the same example game: Red #1 answers 4 tossups (80 pts), Blue #1
@@ -365,15 +355,14 @@ struct TieBreakerSettingBody {
 /// GET /api/statsgroups/{id}/tiebreaker-rules starts at the documented default order.
 #[actix_web::test]
 async fn tiebreaker_rules_default_to_the_documented_order() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -396,15 +385,14 @@ async fn tiebreaker_rules_default_to_the_documented_order() {
 /// PUT replaces the order, and an unchecked criterion keeps its slot across a round trip.
 #[actix_web::test]
 async fn tiebreaker_rules_can_be_reordered_and_disabled() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -447,15 +435,14 @@ async fn tiebreaker_rules_can_be_reordered_and_disabled() {
 /// Saving the rules changes a stats group, so it needs `statsgroup:update`.
 #[actix_web::test]
 async fn saving_tiebreaker_rules_requires_statsgroup_update() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -489,15 +476,14 @@ async fn saving_tiebreaker_rules_requires_statsgroup_update() {
 /// criterion's number in the configured sequence.
 #[actix_web::test]
 async fn team_stats_explain_the_rule_that_set_each_rank() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -534,15 +520,14 @@ async fn team_stats_explain_the_rule_that_set_each_rank() {
 /// Reordering the criteria reorders the standings on the next read.
 #[actix_web::test]
 async fn reordering_the_rules_reorders_the_standings() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 

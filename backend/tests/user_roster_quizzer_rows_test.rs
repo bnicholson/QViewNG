@@ -2,14 +2,13 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::database::Database;
 use backend::models::user::UserBuilder;
 use backend::models::roster::{UserRosterQuizzerRow, RosterBuilder};
 use backend::models::roster_coach::RosterCoachBuilder;
 use backend::models::roster_quizzer::RosterQuizzerBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Seeds a coach with two rosters they created and three quizzers; one quizzer is on both rosters,
 /// so the aggregate must de-duplicate. Additionally, a second coach owns a third roster (with a
@@ -49,8 +48,7 @@ fn seed(conn: &mut backend::database::Connection) -> uuid::Uuid {
 
 #[actix_web::test]
 async fn user_roster_quizzer_rows_returns_distinct_paginated_quizzers() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let coach_id = seed(&mut conn);
 

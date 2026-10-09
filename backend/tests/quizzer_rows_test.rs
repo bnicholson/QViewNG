@@ -2,14 +2,13 @@ mod common;
 mod fixtures;
 
 use actix_web::{test, App, web, http::StatusCode};
-use backend::database::Database;
 use backend::models::team::QuizzerRow;
 use backend::models::user::UserBuilder;
 use backend::models::tournament::TournamentBuilder;
 use backend::models::division::DivisionBuilder;
 use backend::routes::configure_routes;
 use backend::services::common::PagedResponse;
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 /// Seeds one tournament → one division → three teams (with 0, 2, and 6 quizzers = 8 distinct
 /// quizzers) and returns (tid, did).
@@ -37,8 +36,7 @@ fn expected_sorted_fnames() -> Vec<&'static str> {
 #[actix_web::test]
 async fn tournament_quizzer_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (tid, _did) = seed(&mut conn);
 
@@ -85,8 +83,7 @@ async fn tournament_quizzer_rows_returns_enriched_sorted_paginated_rows() {
 #[actix_web::test]
 async fn division_quizzer_rows_returns_enriched_sorted_paginated_rows() {
     // Arrange
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     let (_tid, did) = seed(&mut conn);
 

@@ -4,20 +4,19 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, equipmentset::EquipmentSet, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
+use backend::{models::{self, apicalllog::ApiCalllog, equipmentset::EquipmentSet, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use diesel::prelude::*;
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let unhashed_pwd = "FamouslySecure!23";
@@ -70,8 +69,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     fixtures::users::seed_users(&mut conn);
@@ -127,8 +125,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let users: Vec<User> = fixtures::users::seed_users(&mut conn);
@@ -171,8 +168,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let user: User = fixtures::users::seed_user(&mut conn);
@@ -232,8 +228,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let user: User = fixtures::users::seed_user(&mut conn);
@@ -291,8 +286,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user: User = fixtures::users::seed_user(&mut conn);
@@ -323,8 +317,7 @@ async fn get_all_games_where_user_is_quizmaster_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (qm_id, _, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
@@ -339,8 +332,7 @@ async fn get_all_games_where_user_is_contentjudge_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (_, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
@@ -355,8 +347,7 @@ async fn get_all_tournaments_where_user_is_admin_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (admin, tour_1_id, tour_2_id) = fixtures::users::seed_get_tournaments_where_user_is_admin(&mut conn);
@@ -371,8 +362,7 @@ async fn get_all_teams_where_user_is_coach_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (coach, team_1, team_2) = 
@@ -388,8 +378,7 @@ async fn get_all_teams_where_user_is_quizzer_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (quizzer, team_1, team_2, team_3, team_4, team_5, team_6) = 
@@ -405,8 +394,7 @@ async fn create_roster_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::rosters::arrange_create_works_integration_test(&mut conn);
@@ -469,8 +457,7 @@ async fn get_all_rosters_of_coach_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (coach_2, _, roster_3, roster_4) = 
@@ -527,8 +514,7 @@ async fn get_all_rosters_of_quizzer_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_, quizzer_2, roster_3, roster_4) =
@@ -544,8 +530,7 @@ async fn get_all_equipmentsets_of_owner_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (owner, set_1, set_2) =

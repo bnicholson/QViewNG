@@ -4,22 +4,21 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog, game::Game, round::RoundBuilder}, services::common::PagedResponse};
+use backend::{models::{self, apicalllog::ApiCalllog, game::Game, round::RoundBuilder}, services::common::PagedResponse};
 use backend::models::round::Round;
 use diesel::prelude::*;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database, make_token};
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db};
 
 #[actix_web::test]
 async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_, division, owner, admin_user, unrelated_user) =
@@ -150,8 +149,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let tournament = fixtures::tournaments::seed_tournament(&mut conn,"Test Tour");
@@ -206,8 +204,7 @@ async fn get_by_id_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let tournament = fixtures::tournaments::seed_tournament(&mut conn,"Test Tour");
@@ -254,8 +251,7 @@ async fn update_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_, division, round, owner, admin_user, unrelated_user) =
@@ -377,8 +373,7 @@ async fn delete_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_tournament, _division, round_1, round_2, owner, admin_user, unrelated_user) =
@@ -491,8 +486,7 @@ async fn delete_soft_deletes_and_purge_removes_row() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Round Tour");
@@ -523,8 +517,7 @@ async fn get_all_games_of_round_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (game_1_of_round_2, game_2_of_round_2 ) = fixtures::games::seed_get_games_of_round(&mut conn);
@@ -579,8 +572,7 @@ async fn get_all_games_of_round_works() {
 /// division (this is what the schedule's drag-and-drop persists).
 #[actix_web::test]
 async fn move_round_to_another_session_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (_, division, round, owner, _admin_user, _unrelated_user) =
@@ -606,8 +598,7 @@ async fn move_round_to_another_session_works() {
 /// DELETE /api/rounds/{id} now cascades: the round and its game(s) are deleted together.
 #[actix_web::test]
 async fn delete_round_cascades_its_games() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let (game, tour, _division, round, _room, _t1, _t2, _c1, _c2, _qm) =

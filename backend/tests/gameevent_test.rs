@@ -4,11 +4,11 @@ mod fixtures;
 
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::{database::Database, models::{self, apicalllog::ApiCalllog}};
+use backend::{models::{self, apicalllog::ApiCalllog}};
 use backend::models::gameevent::GameEvent;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
-use crate::common::{PAGE_NUM, PAGE_SIZE, TEST_DB_URL, clean_database};
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
 
 // NOTE: `GET /api/gameevents` (list) and `POST /api/gameevents` (create) are commented out in
 // `services/gameevent.rs` and are not registered by its `endpoints()`. The only live route is the
@@ -21,8 +21,7 @@ async fn create_works() {
 
     // Arrange:
 
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let payload = fixtures::gameevents::arrange_create_works_integration_test(&mut conn);
@@ -70,8 +69,7 @@ async fn get_all_works() {
 
     // Arrange:
     
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
     
     let (gameevent_1, gameevent_2) = fixtures::gameevents::arrange_get_all_works_integration_test(&mut conn);

@@ -9,7 +9,7 @@ use backend::{
     routes::configure_routes,
     services::common::EntityResponse,
 };
-use crate::common::{TEST_DB_URL, clean_database};
+use crate::common::{test_db};
 
 // ── POST /api/usersroles/users/{user_id}/roles/{role_id} ────────────────────
 
@@ -19,8 +19,7 @@ use crate::common::{TEST_DB_URL, clean_database};
 
 #[actix_web::test]
 async fn get_users_for_role_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let users = fixtures::users::seed_users(&mut conn);
@@ -45,8 +44,7 @@ async fn get_users_for_role_works() {
 
 #[actix_web::test]
 async fn revoke_role_from_user_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user = fixtures::users::seed_user(&mut conn);
@@ -58,7 +56,7 @@ async fn revoke_role_from_user_works() {
 
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(Database::new(TEST_DB_URL)))
+            .app_data(web::Data::new(db.clone()))
             .configure(configure_routes)
     ).await;
 
@@ -77,8 +75,7 @@ async fn revoke_role_from_user_works() {
 
 #[actix_web::test]
 async fn revoke_all_roles_from_user_works() {
-    clean_database();
-    let db = Database::new(TEST_DB_URL);
+    let db = test_db();
     let mut conn = db.get_connection().expect("Failed to get connection.");
 
     let user  = fixtures::users::seed_user(&mut conn);
