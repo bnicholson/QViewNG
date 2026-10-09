@@ -186,6 +186,8 @@ pub struct Room {
     pub roomgroupid: Option<Uuid>,
     /// Whether this room may host 3-team games (games with a center team).
     pub supports_threeteam_games: bool,
+    /// When the client's pending count last stopped going down; None while nothing is pending.
+    pub ping_pending_stalled_since: Option<DateTime<Utc>>,
 }
 
 #[derive(
@@ -431,6 +433,97 @@ pub fn purge(db: &mut database::Connection, item_id: Uuid) -> QueryResult<usize>
     diesel::delete(rooms.filter(roomid.eq(item_id))).execute(db)
 }
 
+// ─── Stuck-queue detection ────────────────────────────────────────────────────
+
+/// How long a room's pending count must go without falling before the room counts as stuck —
+/// three of the Server Monitor's 30-second refreshes.
+pub const PENDING_STALL_THRESHOLD: chrono::Duration = chrono::Duration::seconds(90);
+
+/// A room only counts as stuck while it is still checking in; otherwise it is just offline.
+pub const REPORTING_WITHIN: chrono::Duration = chrono::Duration::minutes(2);
+
+/// The next value of `ping_pending_stalled_since`, given the previous ping and this one.
+///
+/// The clock starts when something becomes pending and restarts whenever the count falls —
+/// a falling count is a queue draining, which is healthy. It keeps running while the count holds
+/// or rises, which is what a queue stuck at its head looks like: a live game keeps adding events
+/// behind the one that will not go. Nothing pending clears it.
+pub fn next_pending_stalled_since(
+    previous_pending: Option<i32>,
+    previous_since: Option<DateTime<Utc>>,
+    pending: Option<i32>,
+    now: DateTime<Utc>,
+) -> Option<DateTime<Utc>> {
+    match pending {
+        Some(p) if p > 0 => match previous_pending {
+            Some(prev) if prev > 0 && p >= prev => previous_since.or(Some(now)),
+            _ => Some(now),
+        },
+        _ => None,
+    }
+}
+
+/// Whether the room's client looks stuck: still checking in, something pending, and the count
+/// has not fallen for `PENDING_STALL_THRESHOLD`.
+pub fn is_pending_stalled(room: &Room, now: DateTime<Utc>) -> bool {
+    let reporting = room.ping_last_checkin_ts.map_or(false, |c| now - c <= REPORTING_WITHIN);
+    let pending = room.ping_jobspending.unwrap_or(0) > 0;
+    let stalled = room.ping_pending_stalled_since.map_or(false, |s| now - s >= PENDING_STALL_THRESHOLD);
+    reporting && pending && stalled
+}
+
+/// Sets (or clears) `ping_pending_stalled_since`. Separate from `RoomChangeset`, whose `None`
+/// means "leave unchanged" and so cannot write a NULL.
+pub fn set_pending_stalled_since(
+    db: &mut database::Connection,
+    room_id: Uuid,
+    since: Option<DateTime<Utc>>,
+) -> QueryResult<usize> {
+    use crate::schema::rooms::dsl::*;
+    diesel::update(rooms.filter(roomid.eq(room_id)))
+        .set(ping_pending_stalled_since.eq(since))
+        .execute(db)
+}
+
+/// Resolves a room by the tournament and room names a QuizMachine client sends — the same
+/// identification its pings use.
+pub fn find_id_by_names(db: &mut database::Connection, tournament_name: &str, room_name: &str) -> Option<Uuid> {
+    let tid: Uuid = {
+        use crate::schema::tournaments::dsl as t;
+        t::tournaments.filter(t::tname.eq(tournament_name)).select(t::tid).first(db).ok()?
+    };
+    find_by_name_in_tournament(db, room_name, tid).ok().map(|r| r.roomid)
+}
+
+#[cfg(test)]
+mod pending_stall_tests {
+    use super::*;
+
+    #[test]
+    fn the_clock_starts_when_something_becomes_pending() {
+        let now = Utc::now();
+        assert_eq!(next_pending_stalled_since(Some(0), None, Some(3), now), Some(now));
+        assert_eq!(next_pending_stalled_since(None, None, Some(1), now), Some(now));
+    }
+
+    #[test]
+    fn the_clock_keeps_running_while_the_count_holds_or_rises() {
+        let since = Utc::now() - chrono::Duration::seconds(40);
+        let now = Utc::now();
+        assert_eq!(next_pending_stalled_since(Some(3), Some(since), Some(3), now), Some(since));
+        assert_eq!(next_pending_stalled_since(Some(3), Some(since), Some(5), now), Some(since));
+    }
+
+    #[test]
+    fn a_falling_count_restarts_the_clock_and_nothing_pending_clears_it() {
+        let since = Utc::now() - chrono::Duration::seconds(40);
+        let now = Utc::now();
+        assert_eq!(next_pending_stalled_since(Some(5), Some(since), Some(2), now), Some(now));
+        assert_eq!(next_pending_stalled_since(Some(5), Some(since), Some(0), now), None);
+        assert_eq!(next_pending_stalled_since(Some(5), Some(since), None, now), None);
+    }
+}
+
 // ─── Room Monitor (per-room live ping + resend status for a tournament) ────────
 
 /// One row of the Room Monitor: a room's latest ping data plus the referenced
@@ -451,6 +544,12 @@ pub struct RoomMonitorRow {
     pub game_in_progress: bool,            // referenced game has started (gameplay) but is not finished
     pub data_incomplete: bool,             // retrieved events have a gap in questions or sub-events
     pub resend_sent: bool,                 // a resend command for this game has been picked up by the room (resend_request_sent_ts set)
+    // Room-level queue state; filled on the room's main row only (0/false/None on extra game rows).
+    pub is_room_row: bool,                 // the room's main row (its current game), which carries the room-level state
+    pub quarantine_count: i64,             // events acknowledged to the client but set aside, not applied
+    pub pending_stalled: bool,             // the client looks stuck — see `is_pending_stalled`
+    pub clear_status: Option<String>,      // the in-flight or recently finished Clear Pending + Resend
+    pub clear_cleared_count: i64,          // how many events that clear set aside
 }
 
 // Event codes that make up round initialization (no gameplay yet).
@@ -482,9 +581,18 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let all_rooms = read_all_rooms_of_tournament(db, tournament_id, &pagination)?;
 
+    let now = Utc::now();
     let mut monitor = Vec::with_capacity(all_rooms.len());
     for room in all_rooms {
         let game = referenced_game(db, &room);
+        let quarantine_count = crate::models::gameevent_quarantine::count_of_room(db, room.roomid).unwrap_or(0);
+        let clear = crate::models::room_queue_clear::latest_to_show_for_room(db, room.roomid).ok().flatten();
+        let clear_cleared_count = match &clear {
+            Some(c) => crate::models::gameevent_quarantine::read_cleared_of_clear(db, c.room_clear_id)
+                .map(|rows| rows.len() as i64)
+                .unwrap_or(0),
+            None => 0,
+        };
         let resend = game.as_ref().and_then(|g| g.resend_gameevents_response.clone());
 
         // Started = at least one non-initialization (gameplay) event.
@@ -534,6 +642,11 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
             game_in_progress,
             data_incomplete,
             resend_sent: game.as_ref().map_or(false, |g| g.resend_request_sent_ts.is_some()),
+            is_room_row: true,
+            quarantine_count,
+            pending_stalled: is_pending_stalled(&room, now),
+            clear_status: clear.as_ref().map(|c| c.status.clone()),
+            clear_cleared_count,
         });
 
         // While a room is currently reporting (recent check-in), also surface any of its OTHER
@@ -574,6 +687,11 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                     game_in_progress: false,         // an extra (non-current) game isn't the in-progress one
                     data_incomplete: true,           // it has gaps — that's why it's surfaced
                     resend_sent: g.resend_request_sent_ts.is_some(),
+                    is_room_row: false,
+                    quarantine_count: 0,             // room-level state lives on the room's main row
+                    pending_stalled: false,
+                    clear_status: None,
+                    clear_cleared_count: 0,
                 });
             }
         }

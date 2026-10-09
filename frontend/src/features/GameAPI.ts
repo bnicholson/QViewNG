@@ -129,8 +129,12 @@ export const GameAPI = {
   get: async (page: number, size: number): Promise<PagedGames> =>
     (await fetch(`/api/games?page=${page}&page_size=${size}`)).json(),
   // Flag a game so the next ping from its room returns a "resend all events" command.
-  requestResend: async (id: string): Promise<void> => {
-    const res = await fetch(`/api/games/${id}/request-resend`, { method: 'POST' });
+  // Needs `game:update` and Server Monitor access, so it must carry the caller's token.
+  requestResend: async (id: string, accessToken?: string): Promise<void> => {
+    const res = await fetch(`/api/games/${id}/request-resend`, {
+      method: 'POST',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    });
     if (!res.ok) throw new Error(`Failed to request resend (${res.status})`);
   },
   getById: async (id: string): Promise<GameTS> => {

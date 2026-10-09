@@ -2,6 +2,7 @@ use actix_http::ws::OpCode;
 use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post, put, Result, web::{Data, Json, Path, Query}};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use chrono::Utc;
 use std::collections::HashMap;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{PolicyContext, UserContext, room::RoomPolicyResource}}, models::common::ReadGamesDetailedParams};
 use crate::database::Database;
@@ -451,6 +452,116 @@ async fn destroy(
     }
 }
 
+// ─── Server Monitor: quarantine and Clear Pending + Resend ─────────────────────
+
+/// Server Monitor operations on a room. The caller must be signed in, hold `permission`, and be
+/// someone the Server Monitor is shown to: a system administrator, the tournament's owner, or one
+/// of its admins. Quarantined events carry raw client requests, so this is not public.
+fn authorize_monitor_operation(
+    conn: &mut crate::database::Connection,
+    req: &HttpRequest,
+    room: &Room,
+    permission: &str,
+) -> core::result::Result<UserContext, HttpResponse> {
+    let ctx = match req.extensions().get::<UserContext>().cloned() {
+        Some(c) => c,
+        None => return Err(HttpResponse::Unauthorized().finish()),
+    };
+    if !ctx.can(permission) || !crate::auth::can_view_tournament_restricted_section(conn, room.tid, Some(&ctx)) {
+        return Err(HttpResponse::Forbidden().finish());
+    }
+    Ok(ctx)
+}
+
+/// The events the server acknowledged to this room's client but did not apply, newest first.
+#[get("/{id}/quarantine")]
+async fn read_quarantine(db: Data<Database>, room_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+    models::apicalllog::create(&mut conn, &req);
+
+    let room = match models::room::read(&mut conn, room_id.into_inner()) {
+        Ok(r) => r,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let read_permission = format!("{}:{}", AppResource::RoomMonitor.as_str(), AppAction::Read.as_str());
+    if let Err(resp) = authorize_monitor_operation(&mut conn, &req, &room, &read_permission) {
+        return resp;
+    }
+    match models::gameevent_quarantine::read_all_of_room(&mut conn, room.roomid) {
+        Ok(rows) => HttpResponse::Ok().json(rows),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Starts a Clear Pending + Resend for the room. It discards nothing: every event acknowledged
+/// while clearing is kept in the quarantine and the affected games are then resent in full.
+#[post("/{id}/clear-pending")]
+async fn start_clear_pending(db: Data<Database>, room_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+    models::apicalllog::create(&mut conn, &req);
+
+    let room = match models::room::read(&mut conn, room_id.into_inner()) {
+        Ok(r) => r,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let update_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Update.as_str());
+    let ctx = match authorize_monitor_operation(&mut conn, &req, &room, &update_permission) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    match models::room_queue_clear::start(&mut conn, room.roomid, ctx.user_id) {
+        Ok(clear) => HttpResponse::Created().json(clear),
+        // The partial unique index allows one clear in flight per room.
+        Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _)) => {
+            HttpResponse::Conflict().json(json!({ "error": "This room already has a Clear Pending + Resend in progress." }))
+        }
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Stops a clear that is still acknowledging events. Anything it already set aside is still owed
+/// back, so in that case it moves straight on to resending rather than ending.
+#[delete("/{id}/clear-pending")]
+async fn cancel_clear_pending(db: Data<Database>, room_id: Path<Uuid>, req: HttpRequest) -> HttpResponse {
+    let mut conn = db.get_connection().expect("Failed to get connection");
+    models::apicalllog::create(&mut conn, &req);
+
+    let room = match models::room::read(&mut conn, room_id.into_inner()) {
+        Ok(r) => r,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let update_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Update.as_str());
+    let ctx = match authorize_monitor_operation(&mut conn, &req, &room, &update_permission) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let clear = match models::room_queue_clear::active_for_room(&mut conn, room.roomid) {
+        Ok(Some(c)) => c,
+        Ok(None) => return HttpResponse::NotFound().json(json!({ "error": "This room has no Clear Pending + Resend in progress." })),
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    if clear.status != models::room_queue_clear::STATUS_CLEARING {
+        return HttpResponse::Conflict().json(json!({
+            "error": "The room's events are already being resent; that cannot be cancelled without losing them."
+        }));
+    }
+
+    let set_aside = models::gameevent_quarantine::read_cleared_of_clear(&mut conn, clear.room_clear_id)
+        .map(|rows| rows.len())
+        .unwrap_or(0);
+    let result = if set_aside > 0 {
+        models::room_queue_clear::mark_resending(&mut conn, clear.room_clear_id, Utc::now(), room.ping_game_id)
+    } else {
+        models::room_queue_clear::finish(&mut conn, clear.room_clear_id, models::room_queue_clear::STATUS_CANCELLED, Some(ctx.user_id))
+    };
+    match result {
+        Ok(updated) => HttpResponse::Ok().json(updated),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
@@ -458,6 +569,9 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_games)
         .service(read_game_rows)
         .service(read_games_detailed)
+        .service(read_quarantine)
+        .service(start_clear_pending)
+        .service(cancel_clear_pending)
         .service(create)
         .service(update)
         .service(destroy);

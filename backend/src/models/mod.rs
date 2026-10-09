@@ -43,3 +43,5 @@ pub mod role;
 pub mod permission;
 pub mod role_permission;
 pub mod users_roles;pub mod create_tournament_applicant;
+pub mod gameevent_quarantine;
+pub mod room_queue_clear;

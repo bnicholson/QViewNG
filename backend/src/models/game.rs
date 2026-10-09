@@ -511,6 +511,17 @@ fn divisions_by_pool_brackets(
 }
 
 /// The division a game belongs to, via game -> pool_bracket -> division.
+/// Whether a games row with this id exists at all, soft-deleted or not — exactly what the
+/// gameevents foreign key requires. Event ingest uses this to tell an event for a game the server
+/// does not have (which would fail on every retry) from one it can store.
+///
+/// A query error is returned rather than read as "missing": a transient failure must not get a
+/// valid event quarantined.
+pub fn row_exists(db: &mut database::Connection, game_id: Uuid) -> QueryResult<bool> {
+    use crate::schema::games::dsl::*;
+    diesel::select(diesel::dsl::exists(games.filter(gid.eq(game_id)))).get_result(db)
+}
+
 pub fn read_division_of_game(db: &mut database::Connection, game: &Game) -> QueryResult<crate::models::division::Division> {
     let division_id: Uuid = {
         use crate::schema::pool_brackets::dsl::*;

@@ -165,6 +165,33 @@ diesel::table! {
 }
 
 diesel::table! {
+    gameevent_quarantine (quarantine_id) {
+        quarantine_id -> Int8,
+        created_at -> Timestamptz,
+        kind -> Text,
+        reason -> Text,
+        roomid -> Nullable<Uuid>,
+        room_clear_id -> Nullable<Int8>,
+        gid_raw -> Text,
+        gid -> Nullable<Uuid>,
+        tournament -> Text,
+        division -> Text,
+        room -> Text,
+        round -> Text,
+        question -> Int4,
+        eventnum -> Int4,
+        event -> Text,
+        name -> Text,
+        team -> Int4,
+        quizzer -> Int4,
+        parm1 -> Text,
+        parm2 -> Text,
+        clientkey -> Text,
+        query_string -> Text,
+    }
+}
+
+diesel::table! {
     gameeventlogs (evid) {
         evid -> Int8,
         created_at -> Timestamptz,
@@ -452,6 +479,23 @@ diesel::table! {
 }
 
 diesel::table! {
+    room_queue_clears (room_clear_id) {
+        room_clear_id -> Int8,
+        roomid -> Uuid,
+        status -> Text,
+        requested_by -> Uuid,
+        requested_at -> Timestamptz,
+        clear_until -> Timestamptz,
+        drained_at -> Nullable<Timestamptz>,
+        resend_game_id -> Nullable<Uuid>,
+        resend_last_sent_at -> Nullable<Timestamptz>,
+        resend_attempts -> Int4,
+        finished_at -> Nullable<Timestamptz>,
+        finished_by -> Nullable<Uuid>,
+    }
+}
+
+diesel::table! {
     roomgroups (roomgroupid) {
         roomgroupid -> Uuid,
         tournamentid -> Uuid,
@@ -501,6 +545,7 @@ diesel::table! {
         del_fl -> Bool,
         roomgroupid -> Nullable<Uuid>,
         supports_threeteam_games -> Bool,
+        ping_pending_stalled_since -> Nullable<Timestamptz>,
     }
 }
 
@@ -820,6 +865,8 @@ diesel::joinable!(equipmentregistrations -> equipment (equipmentid));
 diesel::joinable!(equipmentregistrations -> rooms (roomid));
 diesel::joinable!(equipmentregistrations -> tournaments (tournamentid));
 diesel::joinable!(equipmentsets -> users (equipmentownerid));
+diesel::joinable!(gameevent_quarantine -> room_queue_clears (room_clear_id));
+diesel::joinable!(gameevent_quarantine -> rooms (roomid));
 diesel::joinable!(gameevents -> games (gid));
 diesel::joinable!(games -> pool_brackets (poolbracket_id));
 diesel::joinable!(games -> rounds (roundid));
@@ -832,6 +879,7 @@ diesel::joinable!(pool_brackets -> teamgroups (team_group_id));
 diesel::joinable!(poolbracketgroups -> divisions (divisionid));
 diesel::joinable!(roles_permissions -> permissions (permission_id));
 diesel::joinable!(roles_permissions -> roles (role_id));
+diesel::joinable!(room_queue_clears -> rooms (roomid));
 diesel::joinable!(roomgroups -> tournaments (tournamentid));
 diesel::joinable!(rooms -> roomgroups (roomgroupid));
 diesel::joinable!(rooms -> tournaments (tid));
@@ -867,6 +915,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     equipmentregistrations,
     equipmentsets,
     extensioncords,
+    gameevent_quarantine,
     gameeventlogs,
     gameevents,
     games,
@@ -884,6 +933,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     questionsandanswers,
     roles,
     roles_permissions,
+    room_queue_clears,
     roomgroups,
     rooms,
     rosters,

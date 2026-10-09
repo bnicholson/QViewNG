@@ -9,6 +9,7 @@ use base64::{self, Engine};
 use sha3::{Sha3_512, Digest};
 use diesel::result::Error as DBError;
 use crate::models::gameeventlog;
+use crate::models::{gameevent_quarantine, room_queue_clear};
 // use crate::models::gameevent::{self,GameEvent};
 use crate::models::game::{self,GameChangeset};
 use crate::cache::Cache;
@@ -107,17 +108,28 @@ pub async fn write(
             },
             "qn" => { // Question #
                 qn_str = pair.1.replace("+"," ");
-                let qn = pair.1.trim().parse().unwrap(); 
-                gameeventlog_entry.question = qn;
-                gameevent_entry.question = qn;
-                field_count += 1;
+                // A malformed number leaves the field uncounted, so the request fails the field
+                // count with a 400 rather than panicking the handler (which leaves the client
+                // with no response at all, to retry forever).
+                match pair.1.trim().parse::<i32>() {
+                    Ok(qn) => {
+                        gameeventlog_entry.question = qn;
+                        gameevent_entry.question = qn;
+                        field_count += 1;
+                    }
+                    Err(_) => log::error!("{} {} Malformed 'qn' (question number): {:?}", module_path!(), line!(), pair.1),
+                }
             },
             "e" => { // event number
                 e_str = pair.1.replace("+"," ");
-                let e = pair.1.trim().parse().unwrap();
-                gameeventlog_entry.eventnum = e;
-                gameevent_entry.eventnum = e;
-                field_count +=1;
+                match pair.1.trim().parse::<i32>() {
+                    Ok(e) => {
+                        gameeventlog_entry.eventnum = e;
+                        gameevent_entry.eventnum = e;
+                        field_count += 1;
+                    }
+                    Err(_) => log::error!("{} {} Malformed 'e' (event number): {:?}", module_path!(), line!(), pair.1),
+                }
             },
             "n" => { // quizzer or team name
                 let tmp = pair.1.replace("+"," ");
@@ -127,17 +139,25 @@ pub async fn write(
             },
             "t" => { // team # (0-2)
                 t_str = pair.1.replace("+"," ");
-                let t = pair.1.trim().parse().unwrap();
-                gameevent_entry.team = t;
-                gameeventlog_entry.team = t;
-                field_count +=1;
+                match pair.1.trim().parse::<i32>() {
+                    Ok(t) => {
+                        gameevent_entry.team = t;
+                        gameeventlog_entry.team = t;
+                        field_count += 1;
+                    }
+                    Err(_) => log::error!("{} {} Malformed 't' (team number): {:?}", module_path!(), line!(), pair.1),
+                }
             },
             "q" => { // quizzer # (0-4)
-                q_str = pair.1.replace("+"," "); 
-                let q = pair.1.trim().parse().unwrap();
-                gameevent_entry.quizzer = q;
-                gameeventlog_entry.quizzer = q;
-                field_count +=1;
+                q_str = pair.1.replace("+"," ");
+                match pair.1.trim().parse::<i32>() {
+                    Ok(q) => {
+                        gameevent_entry.quizzer = q;
+                        gameeventlog_entry.quizzer = q;
+                        field_count += 1;
+                    }
+                    Err(_) => log::error!("{} {} Malformed 'q' (quizzer number): {:?}", module_path!(), line!(), pair.1),
+                }
             }, 
             "ec" => { // Event type/class (TC, BE, QT, ...
                 gameevent_entry.event = pair.1.to_string();
@@ -158,12 +178,16 @@ pub async fn write(
                 field_count += 1;
             }, 
             "ts" => { // timestamp from the client
-                println!("TS Input = {:?}",pair.1);
-                let secs : i64 = pair.1.trim().parse().unwrap();
-                ts = Utc.timestamp_opt(secs,0).unwrap();
-                gameevent_entry.clientts = ts;
-                gameeventlog_entry.ts = pair.1.to_string();
-                field_count += 1;
+                // Out-of-range seconds are as malformed as non-numeric ones; neither may panic.
+                match pair.1.trim().parse::<i64>().ok().and_then(|secs| Utc.timestamp_opt(secs, 0).single()) {
+                    Some(parsed) => {
+                        ts = parsed;
+                        gameevent_entry.clientts = ts;
+                        gameeventlog_entry.ts = pair.1.to_string();
+                        field_count += 1;
+                    }
+                    None => log::error!("{} {} Malformed 'ts' (client timestamp): {:?}", module_path!(), line!(), pair.1),
+                }
             }, 
             "md5" => {  // md5 hashsum
                 let tmp = pair.1.replace("+"," ");
@@ -194,7 +218,25 @@ pub async fn write(
         }
     }
 
-    // Check to make sure we got all the parameters
+    let gameevent_psk = gameevent_psk();
+
+    // A room whose queue an operator is clearing: acknowledge the event without applying it and
+    // set it aside, so the client's queue drains. This comes before every check on purpose — the
+    // event holding the queue up is, by definition, one the checks below would refuse.
+    if let Some(clear) = clearing_room_for(mdb, &gameeventlog_entry) {
+        let reason = "Acknowledged and set aside while this room's pending queue was being cleared; \
+                      it is recovered when the room resends the game.";
+        match quarantine_event(mdb, gameevent_quarantine::KIND_CLEARED, reason, Some(clear.roomid),
+                               Some(clear.room_clear_id), &gameeventlog_entry, req.query_string()) {
+            Ok(_) => return Ok(acknowledged(&gameeventlog_entry.nonce, &gameevent_psk)),
+            // Could not record it, so do not claim to have it: the client keeps it and retries.
+            Err(e) => log::error!("{} {} Could not set aside a cleared event: {:?}", module_path!(), line!(), e),
+        }
+    }
+
+    // Check to make sure we got all the parameters. A request that fails this or the checksum
+    // below cannot be verified as coming from a client, so it is refused rather than quarantined:
+    // acknowledging it would let anyone write rows and obtain signed responses.
     let content = "bad parameters";
     if field_count != 20 {
         log::error!("{} {} write() to return 400 BadRequest. Number of field_counted = {}", module_path!(), line!(), field_count);
@@ -211,16 +253,6 @@ pub async fn write(
     // the following code calculates and checks the sha3-512 sum of all the GET parameters.
     // we had issues with the network (firewalls, app firewalls, etc) corrupting or 
     // giving false 200s.  This avoids that.
-    // Grab the HOST:PORT the web server should run on.
-    let gameevent_psk = match std::env::var("GAMEEVENT_PSK") {
-        Ok(gameevent_psk) => {
-            gameevent_psk
-        },
-        Err(e) => {
-            log::error!("{:?} {:?} Invalid QUIZEVENT_PSK",module_path!(),line!());
-            "this won't work but fail".to_string()
-        }
-    };
 
     sha3_512_hasher.update(&&gameeventlog_entry.nonce);
     sha3_512_hasher.update(&gameevent_psk);
@@ -270,6 +302,13 @@ pub async fn write(
         },
         Err(e) => {
             log::error!("{} {} Eventlog write failure: {}",module_path!(),line!(),e);
+            if !is_transient(&e) {
+                // e.g. a value too long for its column: it would fail on every retry.
+                let reason = format!("Could not be logged: {}", e);
+                if let Some(ack) = reject_to_quarantine(mdb, &reason, &gameeventlog_entry, req.query_string(), &gameevent_psk) {
+                    return Ok(ack);
+                }
+            }
             let error_content = format!("Eventlog write failure {}", e);
             return Ok(
                 HttpResponse::BadRequest()
@@ -279,11 +318,41 @@ pub async fn write(
         }
     }
 
+    // An event for a game the server does not have fails the gameevents foreign key on every
+    // retry — a deleted or purged game, or a database re-seeded under a running client.
+    // Only a definite "no": if the check itself fails, carry on and let the insert decide.
+    if let Ok(false) = game::row_exists(mdb, gameevent_entry.gid) {
+        let reason = format!(
+            "Game {} does not exist on the server (deleted, purged, or the database was re-seeded).",
+            gameevent_entry.gid
+        );
+        if let Some(ack) = reject_to_quarantine(mdb, &reason, &gameeventlog_entry, req.query_string(), &gameevent_psk) {
+            return Ok(ack);
+        }
+    }
+
     // now let's write an entry in the quizzes event table
     // Handle errors while we create the entry - this is a database insert or update
     match gameevent::create_update_game_event(mdb, &gameevent_entry) {
         Ok(output) => {
             log::info!("Inserted/Updated a GameEvent: {:?}",output)
+        },
+        // Written by a concurrent copy of this same event (the upsert checks before it writes, so
+        // two arriving together can both try to insert). The event is stored: that is success.
+        Err(DBError::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _)) => {
+            log::info!("{} {} GameEvent already written by a concurrent request: {:?}", module_path!(), line!(), gameevent_entry);
+        },
+        Err(err) if !is_transient(&err) => {
+            log::error!("{} {} GameEvent write failure (quarantining): {:?} {:?}", module_path!(), line!(), err, gameevent_entry);
+            let reason = format!("Could not be stored: {}", err);
+            if let Some(ack) = reject_to_quarantine(mdb, &reason, &gameeventlog_entry, req.query_string(), &gameevent_psk) {
+                return Ok(ack);
+            }
+            return Ok(
+                HttpResponse::BadRequest()
+                    .content_type("text/html; charset=utf-8")
+                    .body(format!("GameEvent write failure {}", err))
+            )
         },
         Err(err) => {
             let error_content = format!("GameEvent write failure {}", err);
@@ -346,20 +415,115 @@ pub async fn write(
     }
     cache.invalidate(&stale_keys).await;
 
-    let mut sha3_512_hasher_for_response_header = Sha3_512::new();
-    sha3_512_hasher_for_response_header.update(&gameeventlog_entry.nonce);
-    sha3_512_hasher_for_response_header.update(&gameevent_psk);
-    let rslt_for_response_header = sha3_512_hasher_for_response_header.finalize();
-    // base64-encode the raw digest bytes into a String suitable for a header value
-    let sha3_512_sum_for_response_header = base64::engine::general_purpose::STANDARD.encode(rslt_for_response_header);
+    Ok(acknowledged(&gameeventlog_entry.nonce, &gameevent_psk))
+}
 
-    log::debug!("{}:{} Generated sha3-512 sum for response header = {}", module_path!(), line!(), &sha3_512_sum_for_response_header);
-    Ok(
-        HttpResponse::Ok()
-            .content_type("text/html; charset=utf-8")
-            .insert_header(("sha3512sum", sha3_512_sum_for_response_header))
-            .body("Inserted/Updated")
+/// The pre-shared key that signs requests and responses.
+fn gameevent_psk() -> String {
+    std::env::var("GAMEEVENT_PSK").unwrap_or_else(|_| {
+        log::error!("{:?} {:?} Invalid GAMEEVENT_PSK", module_path!(), line!());
+        "this won't work but fail".to_string()
+    })
+}
+
+/// The response that tells the client its event arrived, so it drops the event from its queue.
+///
+/// Every path that acknowledges an event uses this — applied, quarantined, or set aside while
+/// clearing — so the client cannot tell them apart and treats each as a success.
+fn acknowledged(nonce: &str, psk: &str) -> HttpResponse {
+    let mut hasher = Sha3_512::new();
+    hasher.update(nonce);
+    hasher.update(psk);
+    // base64-encode the raw digest bytes into a String suitable for a header value
+    let sum = base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
+    log::debug!("{}:{} Generated sha3-512 sum for response header = {}", module_path!(), line!(), &sum);
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .insert_header(("sha3512sum", sum))
+        .body("Inserted/Updated")
+}
+
+/// Failures the next retry may not hit: the connection or transaction, not the event. These are
+/// still refused so the client retries; everything else would fail on every retry and is
+/// quarantined instead.
+fn is_transient(err: &DBError) -> bool {
+    use diesel::result::DatabaseErrorKind as K;
+    matches!(
+        err,
+        DBError::DatabaseError(K::SerializationFailure | K::ReadOnlyTransaction | K::ClosedConnection | K::UnableToSendCommand, _)
+            | DBError::BrokenTransactionManager
+            | DBError::AlreadyInTransaction
+            | DBError::NotInTransaction
     )
+}
+
+/// The clear acknowledging events for this event's room right now, if any.
+fn clearing_room_for(
+    db: &mut database::Connection,
+    log: &gameeventlog::GameEventlogChangeset,
+) -> Option<room_queue_clear::RoomQueueClear> {
+    // Almost always false, which spares every other event resolving its room.
+    if !room_queue_clear::any_clearing_now(db).unwrap_or(false) {
+        return None;
+    }
+    let room_id = models::room::find_id_by_names(db, &log.tournament, &log.room)?;
+    room_queue_clear::clearing_now_for_room(db, room_id).ok().flatten()
+}
+
+fn quarantine_event(
+    db: &mut database::Connection,
+    kind: &str,
+    reason: &str,
+    room_id: Option<Uuid>,
+    clear_id: Option<i64>,
+    log: &gameeventlog::GameEventlogChangeset,
+    query_string: &str,
+) -> QueryResult<gameevent_quarantine::QuarantinedGameEvent> {
+    gameevent_quarantine::create(db, &gameevent_quarantine::NewQuarantinedGameEvent {
+        kind: kind.to_string(),
+        reason: reason.to_string(),
+        roomid: room_id,
+        room_clear_id: clear_id,
+        gid_raw: log.gid.clone(),
+        gid: Uuid::parse_str(log.gid.trim()).ok(),
+        tournament: log.tournament.clone(),
+        division: log.division.clone(),
+        room: log.room.clone(),
+        round: log.round.clone(),
+        question: log.question,
+        eventnum: log.eventnum,
+        event: log.event.clone(),
+        name: log.name.clone(),
+        team: log.team,
+        quizzer: log.quizzer,
+        parm1: log.parm1.clone(),
+        parm2: log.parm2.clone(),
+        clientkey: log.clientkey.clone(),
+        query_string: query_string.to_string(),
+    })
+}
+
+/// Quarantines a verified event the server would refuse on every retry, and returns the
+/// acknowledgement to send. None if it could not be recorded — then the caller refuses it as
+/// before, so the client keeps the event rather than the server claiming one it does not have.
+fn reject_to_quarantine(
+    db: &mut database::Connection,
+    reason: &str,
+    log: &gameeventlog::GameEventlogChangeset,
+    query_string: &str,
+    psk: &str,
+) -> Option<HttpResponse> {
+    let room_id = models::room::find_id_by_names(db, &log.tournament, &log.room);
+    match quarantine_event(db, gameevent_quarantine::KIND_REJECTED, reason, room_id, None, log, query_string) {
+        Ok(_) => {
+            log::warn!("{} {} Quarantined game event ({}): {:?}", module_path!(), line!(), reason, log);
+            Some(acknowledged(&log.nonce, psk))
+        }
+        Err(e) => {
+            log::error!("{} {} Could not quarantine game event: {:?}", module_path!(), line!(), e);
+            None
+        }
+    }
 }
 
 fn print_type_of<T>(_: &T) {

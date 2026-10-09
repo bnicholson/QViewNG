@@ -116,7 +116,28 @@ async fn request_resend(
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 
-    match models::game::request_gameevents_resend(&mut conn, item_id.into_inner()) {
+    // A resend makes the room's client send a whole game again, so it is limited to people who can
+    // update games and are shown the Server Monitor: a system administrator, the tournament's
+    // owner, or one of its admins. (It previously had no check at all.)
+    let game_id = item_id.into_inner();
+    let ctx = match req.extensions().get::<UserContext>().cloned() {
+        Some(c) => c,
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+    let tournament = match models::game::read(&mut conn, game_id)
+        .and_then(|g| models::game::read_tournament_of_game(&mut conn, &g))
+    {
+        Ok(t) => t,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let update_permission = format!("{}:{}", AppResource::Game.as_str(), AppAction::Update.as_str());
+    if !ctx.can(&update_permission)
+        || !crate::auth::can_view_tournament_restricted_section(&mut conn, tournament.tid, Some(&ctx))
+    {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    match models::game::request_gameevents_resend(&mut conn, game_id) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }

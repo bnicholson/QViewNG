@@ -8,7 +8,9 @@ use std::line;
 use crate::models::apicalllog;
 use crate::models::game;
 use crate::models::game::GameChangeset;
-use crate::database::Database;
+use crate::database::{self, Database};
+use crate::models::{gameevent_quarantine, room_queue_clear::{self, ClearAction}};
+use std::collections::HashSet;
 
 // fn print_type_of<T>(_: &T) {
 //     println!("{}", std::any::type_name::<T>())
@@ -24,6 +26,123 @@ fn percent_encode(s: &str) -> String {
         }
     }
     out
+}
+
+/// The Resend command for one game, as the client expects it on its own line.
+fn resend_line(conn: &mut database::Connection, tournament_name: &str, room_name: &str, g: &game::Game) -> String {
+    let div_name = crate::models::game::read_division_of_game(conn, g).map(|d| d.dname).unwrap_or_default();
+    let round_name = crate::models::round::read(conn, g.roundid).map(|r| r.name).unwrap_or_default();
+    format!(
+        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}&gameid={}",
+        percent_encode(tournament_name),
+        percent_encode(&div_name),
+        percent_encode(room_name),
+        percent_encode(&round_name),
+        g.gid,
+    )
+}
+
+/// The events a clear set aside that can come back and have not yet.
+///
+/// An event can come back only if it names a game the server has and a real question (>= 1);
+/// anything else stays in the quarantine for an operator. It has come back once it is in
+/// `gameevents`, or once it was quarantined again as rejected after the queue drained — it
+/// arrived, and was set aside with a reason.
+fn outstanding(
+    conn: &mut database::Connection,
+    clear: &room_queue_clear::RoomQueueClear,
+    cleared: &[gameevent_quarantine::QuarantinedGameEvent],
+) -> Vec<gameevent_quarantine::QuarantinedGameEvent> {
+    let since = clear.drained_at.unwrap_or(clear.requested_at);
+    let mut out = Vec::new();
+    for e in cleared {
+        let Some(gid) = e.gid else { continue };
+        if e.question < 1 {
+            continue; // cannot come back
+        }
+        match game::row_exists(conn, gid) {
+            Ok(false) => continue, // cannot come back
+            Ok(true) => {}
+            // Unsure, so keep waiting: an error must never let a clear finish early.
+            Err(_) => { out.push(e.clone()); continue; }
+        }
+        let stored = crate::models::gameevent::exists(conn, gid, e.question, e.eventnum);
+        let rejected_again =
+            gameevent_quarantine::rejected_since(conn, gid, e.question, e.eventnum, since).unwrap_or(false);
+        if !(stored || rejected_again) {
+            out.push(e.clone());
+        }
+    }
+    out
+}
+
+/// Moves the room's Clear Pending + Resend along, appending any Resend lines to the response.
+///
+/// See `room_queue_clear::decide` for the rules; this applies them. A ping that reports the
+/// queue drained both starts the resend and sends it, so the room is asked in that same response.
+#[allow(clippy::too_many_arguments)]
+fn advance_room_clear(
+    conn: &mut database::Connection,
+    room_id: Uuid,
+    jobs_pending: Option<i32>,
+    current_game: Option<Uuid>,
+    tournament_name: &str,
+    room_name: &str,
+    now: DateTime<Utc>,
+    emitted: &mut HashSet<Uuid>,
+    body: &mut String,
+) {
+    let Ok(Some(mut clear)) = room_queue_clear::active_for_room(conn, room_id) else { return };
+
+    // At most two steps per ping: StartResending, then the first SendResend.
+    for _ in 0..2 {
+        let cleared = gameevent_quarantine::read_cleared_of_clear(conn, clear.room_clear_id).unwrap_or_default();
+        let still_out = outstanding(conn, &clear, &cleared);
+        let action = room_queue_clear::decide(&clear, jobs_pending, cleared.len(), still_out.is_empty(), now);
+        log::info!("{} {} Room {} clear {} ({}): {:?}", module_path!(), line!(), room_id, clear.room_clear_id, clear.status, action);
+
+        match action {
+            ClearAction::Wait => return,
+            ClearAction::Finish(status) => {
+                let _ = room_queue_clear::finish(conn, clear.room_clear_id, status, None);
+                return;
+            }
+            ClearAction::StartResending => match room_queue_clear::mark_resending(conn, clear.room_clear_id, now, current_game) {
+                Ok(updated) => clear = updated, // then send, in this same response
+                Err(e) => {
+                    log::error!("{} {} Could not start resending for clear {}: {:?}", module_path!(), line!(), clear.room_clear_id, e);
+                    return;
+                }
+            },
+            ClearAction::SendResend => {
+                // First time: every game the clear set events aside for, plus the game the room is
+                // on. After that: only the games still missing something.
+                let mut games: Vec<Uuid> = if clear.resend_attempts == 0 {
+                    cleared.iter().filter_map(|e| e.gid).collect()
+                } else {
+                    still_out.iter().filter_map(|e| e.gid).collect()
+                };
+                if clear.resend_attempts == 0 {
+                    games.extend(clear.resend_game_id);
+                }
+                let mut seen = HashSet::new();
+                games.retain(|g| seen.insert(*g));
+
+                for gid in games {
+                    if emitted.contains(&gid) {
+                        continue;
+                    }
+                    if let Ok(g) = game::read(conn, gid) {
+                        body.push_str(&resend_line(conn, tournament_name, room_name, &g));
+                        body.push('\n');
+                        emitted.insert(gid);
+                    }
+                }
+                let _ = room_queue_clear::record_resend_sent(conn, clear.room_clear_id, now);
+                return;
+            }
+        }
+    }
 }
 
 #[get("")]
@@ -104,7 +223,22 @@ async fn index(
             room_changes.ping_last_checkin_ts = Some(Utc::now());
             let _ = crate::models::room::update(&mut conn, room.roomid, &room_changes, room.last_modified_user);
 
-            let _ = &game; // the current game is captured on the room above; resend is handled per-game below
+            // Whether the room's queue is stuck is judged here, from consecutive pings, rather
+            // than in each browser watching the Server Monitor. `room` still holds the previous
+            // ping, which is what the comparison needs.
+            let now = Utc::now();
+            let stalled_since = crate::models::room::next_pending_stalled_since(
+                room.ping_jobspending,
+                room.ping_pending_stalled_since,
+                room_changes.ping_jobspending,
+                now,
+            );
+            if stalled_since != room.ping_pending_stalled_since {
+                let _ = crate::models::room::set_pending_stalled_since(&mut conn, room.roomid, stalled_since);
+            }
+
+            // Games a resend line has gone out for in this response, so no game is asked twice.
+            let mut emitted: HashSet<Uuid> = HashSet::new();
 
             // Process resend state for EVERY game in this room that has an active resend
             // request or a stored resend response — not just the current ping game. This lets
@@ -142,22 +276,10 @@ async fn index(
                     // Incomplete + a fresh resend request not yet sent: issue the command once for
                     // THIS game's division/round (which may differ from the current ping), then
                     // stamp resend_request_sent_ts so future pings won't repeat it.
-                    let div_name = crate::models::game::read_division_of_game(&mut conn, &g)
-                        .map(|d| d.dname)
-                        .unwrap_or_default();
-                    let round_name = crate::models::round::read(&mut conn, g.roundid)
-                        .map(|r| r.name)
-                        .unwrap_or_default();
-                    let resend_line = format!(
-                        "quizzes?cmd=Resend&tournament={}&division={}&room={}&round={}&gameid={}",
-                        percent_encode(&tn),
-                        percent_encode(&div_name),
-                        percent_encode(&rm),
-                        percent_encode(&round_name),
-                        g.gid,
-                    );
+                    let resend_line = resend_line(&mut conn, &tn, &rm, &g);
                     body.push_str(&resend_line);
                     body.push('\n');
+                    emitted.insert(g.gid);
 
                     let mut changes = GameChangeset::empty();
                     changes.resend_gameevents_response = Some(resend_line);
@@ -165,6 +287,18 @@ async fn index(
                     let _ = game::update(&mut conn, g.gid, &changes, g.last_modified_user);
                 }
             }
+
+            advance_room_clear(
+                &mut conn,
+                room.roomid,
+                room_changes.ping_jobspending,
+                game.as_ref().map(|g| g.gid),
+                &tn,
+                &rm,
+                now,
+                &mut emitted,
+                &mut body,
+            );
         }
     }
 

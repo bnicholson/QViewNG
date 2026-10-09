@@ -47,6 +47,46 @@ export interface RoomMonitorRowTS {
   game_in_progress: boolean;
   data_incomplete: boolean;
   resend_sent: boolean;
+  /** The room's main row (its current game), which carries the room-level state below. */
+  is_room_row: boolean;
+  // Room-level queue state (filled on the room's main row only).
+  /** Events acknowledged to the client but set aside, not applied. */
+  quarantine_count: number;
+  /** The client looks stuck: pending above zero and not falling for 90 seconds. Decided server-side. */
+  pending_stalled: boolean;
+  /** The in-flight or recently finished Clear Pending + Resend, if any. */
+  clear_status: ClearStatus | null;
+  /** How many events that clear set aside. */
+  clear_cleared_count: number;
+}
+
+export type ClearStatus = 'clearing' | 'resending' | 'complete' | 'unconfirmed' | 'cancelled' | 'expired';
+
+/** An event the server acknowledged to a room's client but did not apply. */
+export interface QuarantinedGameEventTS {
+  quarantine_id: number;
+  created_at: string;
+  /** 'rejected': failed a check it would fail on every retry. 'cleared': set aside while clearing. */
+  kind: 'rejected' | 'cleared';
+  reason: string;
+  roomid: string | null;
+  room_clear_id: number | null;
+  gid_raw: string;
+  gid: string | null;
+  tournament: string;
+  division: string;
+  room: string;
+  round: string;
+  question: number;
+  eventnum: number;
+  event: string;
+  name: string;
+  team: number;
+  quizzer: number;
+  parm1: string;
+  parm2: string;
+  clientkey: string;
+  query_string: string;
 }
 
 /** Enriched room row: the room plus the display name of the user who last modified it. */
@@ -66,7 +106,35 @@ export interface PagedRoomRows {
   items: RoomRowTS[];
 }
 
+const bearer = (accessToken?: string): Record<string, string> =>
+  accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
+/** Reads the server's `{ error }` message when it sent one. */
+async function failure(res: Response, fallback: string): Promise<Error> {
+  try {
+    const body = await res.json();
+    if (body && typeof body.error === 'string') return new Error(body.error);
+  } catch { /* no JSON body */ }
+  return new Error(`${fallback} (${res.status})`);
+}
+
 export const RoomAPI = {
+  /** The room's quarantined events, newest first. Server Monitor staff only. */
+  getQuarantine: async (roomid: string, accessToken?: string): Promise<QuarantinedGameEventTS[]> => {
+    const res = await fetch(`/api/rooms/${roomid}/quarantine`, { headers: bearer(accessToken) });
+    if (!res.ok) throw await failure(res, 'Failed to load quarantined events');
+    return res.json();
+  },
+  /** Starts a Clear Pending + Resend for the room. */
+  startClearPending: async (roomid: string, accessToken?: string): Promise<void> => {
+    const res = await fetch(`/api/rooms/${roomid}/clear-pending`, { method: 'POST', headers: bearer(accessToken) });
+    if (!res.ok) throw await failure(res, 'Failed to start Clear Pending + Resend');
+  },
+  /** Stops a clear that is still acknowledging events. */
+  cancelClearPending: async (roomid: string, accessToken?: string): Promise<void> => {
+    const res = await fetch(`/api/rooms/${roomid}/clear-pending`, { method: 'DELETE', headers: bearer(accessToken) });
+    if (!res.ok) throw await failure(res, 'Failed to cancel Clear Pending + Resend');
+  },
   /** One page of the tournament's enriched room rows (+ last-modified user name), plus total count. */
   getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoomRows> =>
     (await fetch(`/api/tournaments/${tid}/room-rows?page=${page}&page_size=${size}`)).json(),

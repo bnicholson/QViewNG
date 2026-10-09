@@ -135,8 +135,16 @@ async fn request_resend_endpoint_flags_game_then_ping_returns_command() {
 
     // Act 1 — click "Resend": POST the request-resend endpoint.
 
+    // Requesting a resend now needs `game:update` and Server Monitor access; a system
+    // administrator has both.
+    let admin_token = common::make_token(
+        uuid::Uuid::new_v4(),
+        vec![],
+        vec![backend::models::permission::AppSpecialPermission::SystemAdminister.as_str().to_string()],
+    );
     let resend_req = test::TestRequest::post()
         .uri(&format!("/api/games/{}/request-resend", game.gid))
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
         .to_request();
     let resend_resp = test::call_service(&app, resend_req).await;
 

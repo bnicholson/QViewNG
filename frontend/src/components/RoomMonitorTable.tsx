@@ -5,6 +5,7 @@ import { GameAPI } from '../features/GameAPI';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '@mui/material';
 import { isLate, statusMessages, resendButtonStyle, resendButtonDisabledStyle } from '../utils/roomMonitorStatus';
+import { QuarantineButton, QuarantineDialog, ClearStatusChip, ClearPendingButton, ClearPendingDialog } from './RoomQueueDialogs';
 
 const POLL_MS = 30_000;                 // refresh the monitor every 30 seconds
 
@@ -79,7 +80,8 @@ function isAlert(r: RoomMonitorRowTS, now: number): boolean {
   return isLate(r, now) || r.data_incomplete;
 }
 
-export default function RoomMonitorTable({ tid }: { tid: string }) {
+// canClear: whether the user may start/cancel a Clear Pending + Resend (game:update for this tournament).
+export default function RoomMonitorTable({ tid, canClear = false }: { tid: string; canClear?: boolean }) {
   const { accessToken, refresh } = useAuth();
   const [rows, setRows] = useState<RoomMonitorRowTS[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +96,14 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
   // picked up by the room. Lets us show "received" on that poll and "failed" on later ones.
   const pollSeqRef = useRef(0);
   const [sentSeenAt, setSentSeenAt] = useState<Map<string, number>>(new Map());
+  // Bumped after an action so the monitor reloads at once instead of on the next poll.
+  const [reloadKey, setReloadKey] = useState(0);
+  // The room whose quarantine dialog is open.
+  const [quarantineRoom, setQuarantineRoom] = useState<RoomMonitorRowTS | null>(null);
+  // The room whose Clear Pending + Resend dialog is open, and that dialog's request state.
+  const [clearRoom, setClearRoom] = useState<RoomMonitorRowTS | null>(null);
+  const [clearBusy, setClearBusy] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
 
   useEffect(() => {
     // The endpoint is auth-gated (owner/admin/super user). On a fresh page load the
@@ -154,7 +164,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
       clearInterval(poll);
       clearInterval(tick);
     };
-  }, [tid, accessToken]);
+  }, [tid, accessToken, reloadKey]);
 
   // requesting/requested are keyed by game id, since a room can now have several rows (its
   // current game plus other games of that room whose data has gaps).
@@ -164,7 +174,7 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     setRequesting((prev) => new Set(prev).add(gid));
     try {
       console.log(`Resend update request sent to server for game ${gid} (room ${r.room ?? r.roomid}) at ${new Date().toLocaleString()}.`);
-      await GameAPI.requestResend(gid);
+      await GameAPI.requestResend(gid, accessToken);
       setRequested((prev) => new Set(prev).add(gid));
     } catch {
       alert('Failed to request resend.');
@@ -177,13 +187,80 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
     }
   };
 
+  const handleStartClear = async () => {
+    if (!clearRoom) return;
+    setClearBusy(true);
+    setClearError(null);
+    try {
+      await RoomAPI.startClearPending(clearRoom.roomid, accessToken);
+      setClearRoom(null);
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      setClearError((e as Error).message);
+    } finally {
+      setClearBusy(false);
+    }
+  };
+
+  const handleCancelClear = async (r: RoomMonitorRowTS) => {
+    if (!window.confirm(`Stop clearing ${r.room ?? 'this room'}? Anything already set aside will still be asked for.`)) return;
+    try {
+      await RoomAPI.cancelClearPending(r.roomid, accessToken);
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setReloadKey((k) => k + 1);
+    }
+  };
+
+  // Pending count, plus — on the room's main row — the clear's progress or, when the room looks
+  // stuck, the button that starts one.
+  const renderPending = (r: RoomMonitorRowTS) => {
+    if (!r.is_room_row) return orDash(r.pending);
+    let control: React.ReactNode = null;
+    if (r.clear_status) {
+      control = (
+        <>
+          <ClearStatusChip status={r.clear_status} setAside={r.clear_cleared_count} />
+          {r.clear_status === 'clearing' && canClear && (
+            <button style={resendButtonStyle} onClick={() => handleCancelClear(r)}>Cancel</button>
+          )}
+        </>
+      );
+    }
+    // A finished clear's outcome is shown for a while; if the room is stuck again, offer another.
+    const active = r.clear_status === 'clearing' || r.clear_status === 'resending';
+    if (r.pending_stalled && !active) {
+      control = (
+        <>
+          {control}
+          {canClear
+            ? <ClearPendingButton onClick={() => { setClearError(null); setClearRoom(r); }} />
+            : <span style={{ fontSize: 12, fontWeight: 600 }} title="Pending has not fallen for 90 seconds">Stuck</span>}
+        </>
+      );
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+        <span>{orDash(r.pending)}</span>
+        {control}
+      </div>
+    );
+  };
+
   const columns: ColumnDef<RoomMonitorRowTS>[] = [
     { header: 'Check In',     render: (r) => formatDateTime(r.check_in) },
     { header: 'Room',         render: (r) => orDash(r.room)             },
     { header: 'Round',        render: (r) => orDash(r.round)            },
     { header: 'Question',     render: (r) => orDash(r.question)         },
     { header: 'QMVersion',    render: (r) => orDash(r.qm_version)       },
-    { header: 'Pending',      render: (r) => orDash(r.pending)          },
+    { header: 'Pending',      render: renderPending                     },
+    {
+      header: 'Quarantine',
+      render: (r) => r.is_room_row
+        ? <QuarantineButton count={r.quarantine_count} onClick={() => setQuarantineRoom(r)} />
+        : null,
+    },
     {
       header: 'Status-Error',
       render: (r) => statusMessages(r, Date.now()).map((m, i) => <div key={i}>{m}</div>),
@@ -266,6 +343,23 @@ export default function RoomMonitorTable({ tid }: { tid: string }) {
         onPageSizeChange={() => { }}
         onDelete={async () => { }}
         getRowStyle={(r) => (isAlert(r, Date.now()) ? { background: '#c0392b', color: '#ffffff' } : undefined)}
+      />
+      {quarantineRoom && (
+        <QuarantineDialog
+          roomid={quarantineRoom.roomid}
+          roomName={quarantineRoom.room ?? 'Room'}
+          isOpen
+          onClose={() => setQuarantineRoom(null)}
+        />
+      )}
+      <ClearPendingDialog
+        roomName={clearRoom?.room ?? 'Room'}
+        pending={clearRoom?.pending ?? null}
+        isOpen={!!clearRoom}
+        busy={clearBusy}
+        error={clearError}
+        onCancel={() => setClearRoom(null)}
+        onConfirm={handleStartClear}
       />
     </>
   );
