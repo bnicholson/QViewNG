@@ -1,0 +1,761 @@
+use crate::fixtures;
+use actix_http::StatusCode;
+use actix_web::{App, test, web::{self,Bytes}};
+use backend::{models::{self, apicalllog::ApiCalllog, gameevent::GameEvent, statsgroup::StatsGroup}, services::common::PagedResponse};
+use backend::models::game::Game;
+use diesel::prelude::*;
+use backend::routes::configure_routes;
+use backend::services::common::EntityResponse;
+use serde_json::json;
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db, reset_test_db};
+
+#[actix_web::test]
+async fn create_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner, admin_user, unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, cj_id, poolbracket_id) =
+        fixtures::games::arrange_game_create_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = "/api/games";
+
+    // ── Success: tournament owner with game:create ───────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    let mut owner_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    owner_payload.poolbracket_id = poolbracket_id;
+    // Owner and admin both create a game in the same room/round, so give each a distinct clientkey to
+    // stay clear of the games (org, roomid, roundid, clientkey) unique key.
+    owner_payload.clientkey = "owner-create".to_string();
+    let owner_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
+        .to_request();
+
+    let owner_resp = test::call_service(&app, owner_req).await;
+
+    assert_eq!(owner_resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Game> = test::read_body_json(owner_resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let game = body.data.unwrap();
+    let room = backend::models::room::read(&mut conn, room_id).expect("Room should exist");
+    // Division is derived via game -> pool_bracket -> roundgroup -> division.
+    assert_eq!(backend::models::game::read_division_of_game(&mut conn, &game).unwrap().did, did);
+    assert_eq!(game.quizmasterid, room.quizmaster_id.expect("Room should have a quizmaster"));
+    assert_eq!(game.contentjudgeid, room.contentjudge_id);
+    assert_eq!(game.leftteamid, left_team_id);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+
+    // ── Success: tournament admin with game:create ───────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    let mut admin_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    admin_payload.poolbracket_id = poolbracket_id;
+    let admin_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::CREATED);
+
+    // ── Fail: has game:create but is neither owner nor tournament admin ───────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    let mut unrelated_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    unrelated_payload.poolbracket_id = poolbracket_id;
+    let unrelated_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&unrelated_payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no game:create permission at all ────────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["game:read".to_string()],
+    );
+
+    let mut no_perm_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    no_perm_payload.poolbracket_id = poolbracket_id;
+    let no_perm_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&no_perm_payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[actix_web::test]
+async fn create_game_endpoint_errors_when_team_is_found_more_than_once_in_a_game() {
+
+    // Arrange 1:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let (payload_one, owner_id_one) = fixtures::games::duplicate_team_in_game_case_one_payload(&mut conn);
+    let token_one = make_token(owner_id_one, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
+
+    let uri_1 = "/api/games";
+    let req_one = test::TestRequest::post()
+        .uri(&uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", token_one)))
+        .set_json(&payload_one)
+        .to_request();
+
+    // Act 1:
+
+    let resp_one = test::call_service(&app, req_one).await;
+    
+    // Assert 1:
+    
+    assert_eq!(resp_one.status(), StatusCode::BAD_REQUEST);
+
+    // Arrange 2:
+
+    reset_test_db(&mut conn);
+
+    let (payload_two, owner_id_two) = fixtures::games::duplicate_team_in_game_case_two_payload(&mut conn);
+    let token_two = make_token(owner_id_two, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
+
+    let req_two = test::TestRequest::post()
+        .uri("/api/games")
+        .insert_header(("Authorization", format!("Bearer {}", token_two)))
+        .set_json(&payload_two)
+        .to_request();
+
+    // Act 2:
+
+    let resp_two = test::call_service(&app, req_two).await;
+    
+    // Assert 2:
+    
+    assert_eq!(resp_two.status(), StatusCode::BAD_REQUEST);
+
+    // Arrange 3:
+
+    reset_test_db(&mut conn);
+
+    let (payload_three, owner_id_three) = fixtures::games::duplicate_team_in_game_case_three_payload(&mut conn);
+    let token_three = make_token(owner_id_three, vec!["tournament_manager".to_string()], vec!["game:create".to_string()]);
+
+    let req_three = test::TestRequest::post()
+        .uri("/api/games")
+        .insert_header(("Authorization", format!("Bearer {}", token_three)))
+        .set_json(&payload_three)
+        .to_request();
+
+    // Act 3:
+
+    let resp_three = test::call_service(&app, req_three).await;
+    
+    // Assert 3:
+    
+    assert_eq!(resp_three.status(), StatusCode::BAD_REQUEST);
+}
+
+#[actix_web::test]
+async fn get_all_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    fixtures::games::seed_games(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/games?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: PagedResponse<Game> = test::read_body_json(resp).await;
+
+    assert_eq!(body.items.len(), 2);
+    assert_eq!(body.count, 2);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_by_id_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let games: Vec<Game> = fixtures::games::seed_games(&mut conn);
+    let game_of_interest_idx = 0;
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/games/{}", &games[game_of_interest_idx].gid);
+    println!("Games Get by ID URI: {}", &uri);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    assert_eq!(resp.status(), StatusCode::OK);
+    
+    let game: Game = test::read_body_json(resp).await;
+    assert_eq!(game.gid, games[game_of_interest_idx].gid);
+    assert_eq!(game.rightteamid, games[game_of_interest_idx].rightteamid);
+    assert_eq!(game.centerteamid.unwrap(), games[game_of_interest_idx].centerteamid.unwrap());
+    assert_eq!(game.leftteamid, games[game_of_interest_idx].leftteamid);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn update_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, game, owner, admin_user, unrelated_user) =
+        fixtures::games::arrange_game_update_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let put_uri = format!("/api/games/{}", game.gid);
+
+    // ── Success: tournament owner with game:update ────────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    let owner_payload = json!({ "org": "Owner Updated Org" });
+    let owner_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .set_json(&owner_payload)
+        .to_request();
+
+    let owner_resp = test::call_service(&app, owner_req).await;
+
+    assert_eq!(owner_resp.status(), StatusCode::OK);
+
+    let owner_resp_body: EntityResponse<Game> = test::read_body_json(owner_resp).await;
+    assert_eq!(owner_resp_body.code, 200);
+    assert_eq!(owner_resp_body.message, "");
+
+    let updated_game = owner_resp_body.data.unwrap();
+    // tournamentid is no longer stored on the game; derive it via the pool bracket chain.
+    assert_eq!(
+        backend::models::game::read_tournament_of_game(&mut conn, &updated_game).unwrap().tid,
+        tournament.tid
+    );
+    assert_eq!(updated_game.gid, game.gid);
+    assert_eq!(updated_game.org.as_str(), "Owner Updated Org");
+    assert_ne!(updated_game.created_at, updated_game.updated_at);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
+
+    // ── Success: tournament admin with game:update ────────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    let admin_payload = json!({ "org": "Admin Updated Org" });
+    let admin_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(&admin_payload)
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    // ── Fail: has game:update but is neither owner nor tournament admin ────────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    let unrelated_payload = json!({ "org": "Unauthorized Update" });
+    let unrelated_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .set_json(&unrelated_payload)
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: no game:update permission at all ────────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["game:read".to_string()],
+    );
+
+    let no_perm_payload = json!({ "org": "No Permission Update" });
+    let no_perm_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .set_json(&no_perm_payload)
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[actix_web::test]
+async fn delete_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_tournament, game_1, game_2, owner, admin_user, unrelated_user) =
+        fixtures::games::arrange_game_delete_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let delete_uri_1 = format!("/api/games/{}", game_1.gid);
+    let delete_uri_2 = format!("/api/games/{}", game_2.gid);
+
+    // ── Fail: has game:delete but is neither owner nor tournament admin ────────
+
+    let unrelated_token = make_token(
+        unrelated_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:delete".to_string()],
+    );
+
+    let unrelated_req = test::TestRequest::delete()
+        .uri(&delete_uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
+        .to_request();
+
+    let unrelated_resp = test::call_service(&app, unrelated_req).await;
+
+    assert_eq!(unrelated_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri_1);
+
+    // ── Fail: no game:delete permission at all ────────────────────────────────
+
+    let no_perm_token = make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["game:read".to_string()],
+    );
+
+    let no_perm_req = test::TestRequest::delete()
+        .uri(&delete_uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", no_perm_token)))
+        .to_request();
+
+    let no_perm_resp = test::call_service(&app, no_perm_req).await;
+
+    assert_eq!(no_perm_resp.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Success: tournament owner with game:delete ────────────────────────────
+
+    let owner_token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:delete".to_string()],
+    );
+
+    let owner_req = test::TestRequest::delete()
+        .uri(&delete_uri_1)
+        .insert_header(("Authorization", format!("Bearer {}", owner_token)))
+        .to_request();
+
+    let owner_resp = test::call_service(&app, owner_req).await;
+
+    assert_eq!(owner_resp.status(), StatusCode::OK);
+
+    let owner_resp_body_bytes: Bytes = test::read_body(owner_resp).await;
+    let owner_resp_body_string = String::from_utf8(owner_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&owner_resp_body_string, "");
+
+    let get_by_id_req_1 = test::TestRequest::get()
+        .uri(&delete_uri_1)
+        .to_request();
+    let get_by_id_resp_1 = test::call_service(&app, get_by_id_req_1).await;
+    assert_eq!(get_by_id_resp_1.status(), StatusCode::NOT_FOUND);
+
+    // ── Success: tournament admin with game:delete ────────────────────────────
+
+    let admin_token = make_token(
+        admin_user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:delete".to_string()],
+    );
+
+    let admin_req = test::TestRequest::delete()
+        .uri(&delete_uri_2)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+
+    let admin_resp = test::call_service(&app, admin_req).await;
+
+    assert_eq!(admin_resp.status(), StatusCode::OK);
+
+    let get_by_id_req_2 = test::TestRequest::get()
+        .uri(&delete_uri_2)
+        .to_request();
+    let get_by_id_resp_2 = test::call_service(&app, get_by_id_req_2).await;
+    assert_eq!(get_by_id_resp_2.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (game, _, _, _, _, _, _, _, _, _) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::game::delete(&mut conn, game.gid).unwrap();
+    assert_eq!(affected, 1);
+    assert!(models::game::read(&mut conn, game.gid).is_err());
+
+    // The underlying row still exists with del_fl = true (raw query that ignores the flag).
+    use backend::schema::games::dsl as g;
+    let raw_count: i64 = g::games.filter(g::gid.eq(game.gid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = g::games.filter(g::gid.eq(game.gid)).select(g::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::game::purge(&mut conn, game.gid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = g::games.filter(g::gid.eq(game.gid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
+}
+
+#[actix_web::test]
+async fn get_all_statsgroups_of_game_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (game, statsgroup_1, statsgroup_2) = 
+        fixtures::games::arrange_get_all_statsgroups_of_game_works_integration_test(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::statsgroup::read_all_statsgroups_of_game(&mut conn, game.gid, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn get_gameevents_of_game_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (game, gameevent_1, gameevent_2) = fixtures::games::arrange_get_gameevents_of_game_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/games/{}/gameevents?page={}&page_size={}", game.gid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<GameEvent> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut gameevent_1_interest_idx = 10;
+    let mut gameevent_2_interest_idx = 10;
+    for idx in 0..len {
+        if body[idx].name == gameevent_1.name {
+            gameevent_1_interest_idx = idx;
+            continue;
+        }
+        if body[idx].name == gameevent_2.name {
+            gameevent_2_interest_idx = idx;
+            continue;
+        }
+    }
+    assert_ne!(gameevent_1_interest_idx, 10);
+    assert_ne!(gameevent_2_interest_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn create_threeteam_game_requires_room_support() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner, _admin_user, _unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, _cj_id, poolbracket_id) =
+        fixtures::games::arrange_game_create_works_integration_test(&mut conn);
+
+    // `room_id` from the fixture supports 3-team games; make a second room that does not
+    // (RoomBuilder::new_default defaults supports_threeteam_games to false).
+    let no_3t_room = backend::models::room::RoomBuilder::new_default("No 3-Team Room", tournament.tid)
+        .set_quizmaster_id(Some(qm_id))
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = "/api/games";
+    let token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:create".to_string()],
+    );
+
+    // ── Fail: a 3-team game (center team present) in a room that does not support them ──
+
+    let mut blocked_payload = fixtures::games::get_game_payload(tournament.tid, did, no_3t_room.roomid, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    blocked_payload.poolbracket_id = poolbracket_id;
+    blocked_payload.clientkey = "blocked-3team".to_string();
+    let blocked_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&blocked_payload)
+        .to_request();
+    let blocked_resp = test::call_service(&app, blocked_req).await;
+    assert_eq!(blocked_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // ── Success: the same 3-team game in a room that supports them ──
+
+    let mut allowed_3team_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    allowed_3team_payload.poolbracket_id = poolbracket_id;
+    allowed_3team_payload.clientkey = "allowed-3team".to_string();
+    let allowed_3team_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&allowed_3team_payload)
+        .to_request();
+    let allowed_3team_resp = test::call_service(&app, allowed_3team_req).await;
+    assert_eq!(allowed_3team_resp.status(), StatusCode::CREATED);
+
+    // ── Success: a 2-team game (no center team) is fine in a non-supporting room ──
+
+    let mut two_team_payload = fixtures::games::get_game_payload(tournament.tid, did, no_3t_room.roomid, round_id, left_team_id, None, right_team_id, qm_id);
+    two_team_payload.poolbracket_id = poolbracket_id;
+    two_team_payload.clientkey = "allowed-2team".to_string();
+    let two_team_req = test::TestRequest::post()
+        .uri(uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&two_team_payload)
+        .to_request();
+    let two_team_resp = test::call_service(&app, two_team_req).await;
+    assert_eq!(two_team_resp.status(), StatusCode::CREATED);
+}
+
+#[actix_web::test]
+async fn update_into_non_supporting_room_rejects_threeteam_game() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner, _admin_user, _unrelated_user, round_id, room_id, did, left_team_id, center_team_id, right_team_id, qm_id, _cj_id, poolbracket_id) =
+        fixtures::games::arrange_game_create_works_integration_test(&mut conn);
+
+    // A 3-team game inserted (via the model, which does not validate) in the supporting room.
+    let mut game_payload = fixtures::games::get_game_payload(tournament.tid, did, room_id, round_id, left_team_id, Some(center_team_id), right_team_id, qm_id);
+    game_payload.poolbracket_id = poolbracket_id;
+    let game = backend::models::game::create(&mut conn, &game_payload).unwrap();
+
+    // A room that does not support 3-team games.
+    let no_3t_room = backend::models::room::RoomBuilder::new_default("No 3-Team Room", tournament.tid)
+        .set_quizmaster_id(Some(qm_id))
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let put_uri = format!("/api/games/{}", game.gid);
+    let token = make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["game:update".to_string()],
+    );
+
+    // ── Fail: moving the 3-team game into a non-supporting room ──
+
+    let blocked_payload = json!({ "roomid": no_3t_room.roomid });
+    let blocked_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&blocked_payload)
+        .to_request();
+    let blocked_resp = test::call_service(&app, blocked_req).await;
+    assert_eq!(blocked_resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // ── Success: an unrelated update (still in the supporting room) is fine ──
+
+    let ok_payload = json!({ "org": "Updated Org" });
+    let ok_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&ok_payload)
+        .to_request();
+    let ok_resp = test::call_service(&app, ok_req).await;
+    assert_eq!(ok_resp.status(), StatusCode::OK);
+}
+

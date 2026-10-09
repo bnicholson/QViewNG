@@ -1,0 +1,238 @@
+use actix_http::StatusCode;
+use actix_web::{App, test, web};
+use backend::models::roomgroup::{self, RoomGroup, RoomGroupBuilder, RoomGroupRow};
+use backend::models::room::{RoomBuilder, RoomRow};
+use backend::models::tournament::TournamentBuilder;
+use backend::models::user::UserBuilder;
+use backend::routes::configure_routes;
+use backend::services::common::{EntityResponse, PagedResponse};
+use serde_json::json;
+use crate::common::{make_token, test_db};
+
+/// POST /api/roomgroups: a user with `roomgroup:create` may create one under a tournament (type defaults
+/// to "building"); missing permission, unauthenticated, and a bad tournament are rejected.
+#[actix_web::test]
+async fn create_works() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let user = UserBuilder::new_default("RG Creator").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    // ── Success: user with roomgroup:create (type omitted → defaults to "building") ──
+    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["roomgroup:create".to_string()]);
+    let req = test::TestRequest::post()
+        .uri("/api/roomgroups")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(json!({ "tournamentid": tournament.tid, "name": "Main Hall", "notes": "The big one" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body: EntityResponse<RoomGroup> = test::read_body_json(resp).await;
+    let rg = body.data.unwrap();
+    assert_eq!(rg.tournamentid, tournament.tid);
+    assert_eq!(rg.name, "Main Hall");
+    assert_eq!(rg.type_, "building");
+    assert_eq!(rg.notes, "The big one");
+    assert_eq!(rg.creator_userid, user.id);
+    assert!(!rg.del_fl);
+
+    // ── Fail: authenticated but lacks roomgroup:create ──
+    let no_perm = make_token(user.id, vec!["member".to_string()], vec!["roomgroup:read".to_string()]);
+    let req = test::TestRequest::post()
+        .uri("/api/roomgroups")
+        .insert_header(("Authorization", format!("Bearer {}", no_perm)))
+        .set_json(json!({ "tournamentid": tournament.tid, "name": "Nope" }))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: unauthenticated ──
+    let req = test::TestRequest::post()
+        .uri("/api/roomgroups")
+        .set_json(json!({ "tournamentid": tournament.tid, "name": "Nope" }))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Fail: tournament does not exist ──
+    let req = test::TestRequest::post()
+        .uri("/api/roomgroups")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(json!({ "tournamentid": uuid::Uuid::new_v4(), "name": "Orphan" }))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+/// GET /api/roomgroups/{id} and GET /api/roomgroups (index) return roomgroups.
+#[actix_web::test]
+async fn read_and_index_work() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let user = UserBuilder::new_default("RG Reader").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
+    let rg = RoomGroupBuilder::new(tournament.tid).set_name("Hall A").set_creator_userid(user.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get().uri(&format!("/api/roomgroups/{}", rg.roomgroupid)).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let got: RoomGroup = test::read_body_json(resp).await;
+    assert_eq!(got.roomgroupid, rg.roomgroupid);
+    assert_eq!(got.tournamentid, tournament.tid);
+    assert_eq!(got.name, "Hall A");
+    assert_eq!(got.type_, "building");
+
+    let req = test::TestRequest::get().uri("/api/roomgroups?page=0&page_size=10").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let paged: PagedResponse<RoomGroup> = test::read_body_json(resp).await;
+    assert_eq!(paged.count, 1);
+    assert_eq!(paged.items[0].name, "Hall A");
+}
+
+/// PUT /api/roomgroups/{id}: a user with `roomgroup:update` may rename it; others are rejected.
+#[actix_web::test]
+async fn update_works() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let user = UserBuilder::new_default("RG Editor").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
+    let rg = RoomGroupBuilder::new(tournament.tid).set_name("Old Name").set_creator_userid(user.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    // ── Fail: lacks roomgroup:update ──
+    let no_perm = make_token(user.id, vec!["member".to_string()], vec!["roomgroup:read".to_string()]);
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/roomgroups/{}", rg.roomgroupid))
+        .insert_header(("Authorization", format!("Bearer {}", no_perm)))
+        .set_json(json!({ "name": "Hacked" }))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), StatusCode::UNAUTHORIZED);
+
+    // ── Success: roomgroup:update ──
+    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["roomgroup:update".to_string()]);
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/roomgroups/{}", rg.roomgroupid))
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(json!({ "name": "New Name", "notes": "updated" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let reread = roomgroup::read(&mut conn, rg.roomgroupid).unwrap();
+    assert_eq!(reread.name, "New Name");
+    assert_eq!(reread.notes, "updated");
+    assert_eq!(reread.last_modified_userid, user.id);
+}
+
+/// DELETE /api/roomgroups/{id}: a user with `roomgroup:delete` soft-deletes it (hidden from reads).
+#[actix_web::test]
+async fn delete_soft_deletes() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let user = UserBuilder::new_default("RG Deleter").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(user.id).build_and_insert(&mut conn).unwrap();
+    let rg = RoomGroupBuilder::new(tournament.tid).set_name("Doomed").set_creator_userid(user.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let token = make_token(user.id, vec!["tournament_manager".to_string()], vec!["roomgroup:delete".to_string()]);
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/roomgroups/{}", rg.roomgroupid))
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    assert!(roomgroup::read(&mut conn, rg.roomgroupid).is_err(), "soft-deleted roomgroup is hidden from read");
+    assert!(roomgroup::read_including_deleted(&mut conn, rg.roomgroupid).unwrap().del_fl, "row remains with del_fl = true");
+}
+
+/// GET /api/tournaments/{tid}/roomgroups returns the roomgroups belonging to that tournament, and
+/// only those (roomgroups are tournament-scoped now).
+#[actix_web::test]
+async fn tournament_roomgroups_lookup_works() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let owner = UserBuilder::new_default("RG Tour Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let other = TournamentBuilder::new_default("Other Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+
+    RoomGroupBuilder::new(tournament.tid).set_name("Building A").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    RoomGroupBuilder::new(tournament.tid).set_name("Building B").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    // A roomgroup under a different tournament must be excluded.
+    RoomGroupBuilder::new(other.tid).set_name("Other Building").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/tournaments/{}/roomgroups", tournament.tid))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let items: Vec<RoomGroup> = test::read_body_json(resp).await;
+    assert_eq!(items.len(), 2, "both of this tournament's roomgroups, ordered by name");
+    let names: Vec<&str> = items.iter().map(|rg| rg.name.as_str()).collect();
+    assert_eq!(names, vec!["Building A", "Building B"]);
+    assert!(items.iter().all(|rg| rg.tournamentid == tournament.tid));
+}
+
+/// GET /api/tournaments/{tid}/roomgroup-rows returns the tournament's enriched Buildings rows
+/// (with the last-modifier's display name), paginated.
+#[actix_web::test]
+async fn tournament_roomgroup_rows_works() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let owner = UserBuilder::new_default("RG Rows Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Rows Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    RoomGroupBuilder::new(tournament.tid).set_name("Building A").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    RoomGroupBuilder::new(tournament.tid).set_name("Building B").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/tournaments/{}/roomgroup-rows?page=0&page_size=100", tournament.tid))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: PagedResponse<RoomGroupRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 2);
+    let names: Vec<&str> = body.items.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(names, vec!["Building A", "Building B"]);
+    for row in &body.items {
+        assert_eq!(row.last_modified_user_id, owner.id);
+        assert!(!row.last_modified_user_name.is_empty(), "row is enriched with the modifier's name");
+    }
+}
+
+/// GET /api/roomgroups/{id}/room-rows returns the enriched rooms in that building, and only those.
+#[actix_web::test]
+async fn roomgroup_room_rows_works() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let owner = UserBuilder::new_default("RG Room Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = TournamentBuilder::new_default("RG Room Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let building = RoomGroupBuilder::new(tournament.tid).set_name("Building A").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    // Two rooms in the building, one room with no building (must be excluded).
+    RoomBuilder::new_default("Room 1", tournament.tid).set_clientkey(Some("rr-k1".to_string()))
+        .set_roomgroupid(Some(building.roomgroupid)).build_and_insert(&mut conn).unwrap();
+    RoomBuilder::new_default("Room 2", tournament.tid).set_clientkey(Some("rr-k2".to_string()))
+        .set_roomgroupid(Some(building.roomgroupid)).build_and_insert(&mut conn).unwrap();
+    RoomBuilder::new_default("Room 3", tournament.tid).set_clientkey(Some("rr-k3".to_string()))
+        .build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(App::new().app_data(web::Data::new(db)).configure(configure_routes)).await;
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/roomgroups/{}/room-rows?page=0&page_size=100", building.roomgroupid))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: PagedResponse<RoomRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 2, "only the building's two rooms");
+    let names: Vec<&str> = body.items.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(names, vec!["Room 1", "Room 2"]);
+}

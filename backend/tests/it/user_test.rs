@@ -1,0 +1,583 @@
+use crate::fixtures;
+use actix_http::StatusCode;
+use actix_web::{App, test, web::{self,Bytes}};
+use backend::{models::{self, apicalllog::ApiCalllog, equipmentset::EquipmentSet, game::Game, roster::Roster, team::Team, tournament::Tournament, user::User}, services::common::PagedResponse};
+use backend::routes::configure_routes;
+use backend::services::common::EntityResponse;
+use diesel::prelude::*;
+use serde_json::json;
+use crate::common::{PAGE_NUM, PAGE_SIZE, test_db};
+
+#[actix_web::test]
+async fn create_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let unhashed_pwd = "FamouslySecure!23";
+    let payload = fixtures::users::get_user_payload(unhashed_pwd);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = "/api/users";
+    let req = test::TestRequest::post()
+        .uri(&uri)
+        .set_json(&payload)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<User> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+    
+    let user = body.data.unwrap();
+    assert_ne!(user.id.to_string().as_str(), "");
+    assert_eq!(user.fname.as_str(), "Test User 3276");
+    assert_eq!(user.mname.as_str(), "Maurice");
+    assert!(user.activated);
+
+    // let pwd_is_valid = verify(unhashed_pwd, &user.hash_password).expect("Password verification failed");
+    // assert!(pwd_is_valid);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    fixtures::users::seed_users(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/users?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: PagedResponse<User> = test::read_body_json(resp).await;
+
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
+
+    let mut user_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body.items[idx].fname == "Test User 9078" {
+            user_or_interest_idx = idx;
+            break;
+        }
+    }
+
+    let user_or_interest = &body.items[user_or_interest_idx];
+    assert_ne!(user_or_interest.id.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
+    assert_eq!(user_or_interest.mname, "Eugene");
+    assert_eq!(user_or_interest.username, Some("edbashful".to_string()));
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+
+#[actix_web::test]
+async fn get_by_id_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let users: Vec<User> = fixtures::users::seed_users(&mut conn);
+    let user_of_interest_idx = 0;
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/users/{}", &users[user_of_interest_idx].id);
+    let req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+    
+    let user: User = test::read_body_json(resp).await;
+    assert_eq!(user.fname, users[user_of_interest_idx].fname);
+    assert_eq!(user.username, users[user_of_interest_idx].username);
+    assert_eq!(user.lname, users[user_of_interest_idx].lname);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn update_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let user: User = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let new_fname = "Test User NEW".to_string();
+    let new_mname = "Flemming".to_string();
+    let new_activated = false;
+
+    let put_payload = json!({
+        "fname": new_fname,
+        "mname": new_mname,
+        "activated": new_activated
+    });
+    
+    let put_uri = format!("/api/users/{}", user.id);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .set_json(&put_payload)
+        .to_request();
+
+    // Act:
+    
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+    
+    assert_eq!(put_resp.status(), StatusCode::OK);
+
+    let put_resp_body: EntityResponse<User> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
+
+    let new_user = put_resp_body.data.unwrap();
+    assert_eq!(new_user.id, user.id);
+    assert_eq!(new_user.fname.as_str(), new_fname);
+    assert_eq!(new_user.mname.as_str(), new_mname);
+    assert_eq!(new_user.activated, new_activated);
+    assert_ne!(new_user.created_at, new_user.updated_at);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri, put_uri);
+}
+
+#[actix_web::test]
+async fn delete_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let user: User = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let delete_uri = format!("/api/users/{}", user.id);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
+
+    // Act:
+    
+    let delete_resp = test::call_service(&app, delete_req).await;
+
+    // Assert:
+    
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
+
+
+    let get_by_id_uri = format!("/api/users/{}", user.id);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
+
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+
+    // Soft delete: the user is still readable (so their name keeps resolving in data tables and
+    // references) but is now flagged deactivated (del_fl = true); the profile view is gated on
+    // this flag in the UI, not by hiding the row.
+    assert_eq!(get_by_id_resp.status(), StatusCode::OK);
+    let get_by_id_body: serde_json::Value =
+        serde_json::from_slice(&test::read_body(get_by_id_resp).await).unwrap();
+    assert_eq!(get_by_id_body["del_fl"], serde_json::Value::Bool(true));
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri, delete_uri);
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user: User = fixtures::users::seed_user(&mut conn);
+
+    // Act + Assert: delete() is a soft delete — the row stays readable (name still resolves) but
+    // is flagged del_fl = true.
+    let affected = models::user::delete(&mut conn, user.id).unwrap();
+    assert_eq!(affected, 1);
+    let read_back = models::user::read(&mut conn, user.id).unwrap();
+    assert!(read_back.del_fl);
+
+    // The underlying row still exists with del_fl = true.
+    use backend::schema::users::dsl as u;
+    let raw_count: i64 = u::users.filter(u::id.eq(user.id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = u::users.filter(u::id.eq(user.id)).select(u::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::user::purge(&mut conn, user.id).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = u::users.filter(u::id.eq(user.id)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
+}
+
+#[actix_web::test]
+async fn get_all_games_where_user_is_quizmaster_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (qm_id, _, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::game::read_all_games_where_user_is_quizmaster(&mut conn, qm_id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn get_all_games_where_user_is_contentjudge_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (_, contenjudge_id, game_1, game_3) = fixtures::games::seed_get_games_where_user_is_quizmaster_or_contentjudge(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::game::read_all_games_where_user_is_contentjudge(&mut conn, contenjudge_id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn get_all_tournaments_where_user_is_admin_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (admin, tour_1_id, tour_2_id) = fixtures::users::seed_get_tournaments_where_user_is_admin(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::tournament::read_all_tournaments_where_user_is_admin(&mut conn, admin.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn get_all_teams_where_user_is_coach_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (coach, team_1, team_2) = 
+        fixtures::users::arrange_get_all_teams_where_user_is_coach_works_integration_test(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::team::read_all_teams_where_user_is_coach(&mut conn, coach.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn get_all_teams_where_user_is_quizzer_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (quizzer, team_1, team_2, team_3, team_4, team_5, team_6) = 
+        fixtures::users::arrange_get_all_teams_where_user_is_quizzer_works_integration_test(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::team::read_all_teams_where_user_is_quizzer(&mut conn, quizzer.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn create_roster_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let payload = fixtures::rosters::arrange_create_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/users/{}/rosters", payload.created_by_userid);
+    let req = test::TestRequest::post()
+        .uri(&uri)
+        .set_json(&payload)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Roster> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let roster = body.data.unwrap();
+    assert_ne!(roster.rosterid, uuid::Uuid::nil());
+    assert_eq!(roster.name.as_str(), "Test Roster 2317");
+    assert_eq!(roster.description.unwrap().as_str(), "Roster for integration test create.");
+
+
+    // test also that the coach was added to the roster via record inserted in the rosters_coaches table:
+
+    let get_coaches_uri = format!("/api/rosters/{}/coaches?page={}&page_size={}", roster.rosterid, PAGE_NUM, PAGE_SIZE);
+    let get_coaches_req = test::TestRequest::get()
+        .uri(&get_coaches_uri)
+        .to_request();
+
+    let get_coaches_resp = test::call_service(&app, get_coaches_req).await;
+
+    assert_eq!(get_coaches_resp.status(), StatusCode::OK);
+
+    let body: Vec<User> = test::read_body_json(get_coaches_resp).await;
+    assert_eq!(body.len(), 1);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_rosters_of_coach_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (coach_2, _, roster_3, roster_4) = 
+        fixtures::users::arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/users/{}/rosters-of-coach?page={}&page_size={}", coach_2.id, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Roster> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut roster_1_idx = 10;
+    let mut roster_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].rosterid == roster_3.rosterid {
+            roster_1_idx = idx;
+        }
+        if body[idx].rosterid == roster_4.rosterid {
+            roster_2_idx = idx;
+        }
+    }
+    assert_ne!(roster_1_idx, 10);
+    assert_ne!(roster_2_idx, 10);
+    
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_rosters_of_quizzer_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (_, quizzer_2, roster_3, roster_4) =
+        fixtures::users::arrange_get_all_rosters_of_coach_or_quizzer_works_integration_test(&mut conn);
+
+    let pagination = backend::models::common::PaginationParams { page: PAGE_NUM, page_size: PAGE_SIZE };
+    let result = models::roster::read_all_rosters_containing_quizzer(&mut conn, quizzer_2.id, &pagination).expect("read failed");
+    assert!(!result.is_empty());
+}
+
+#[actix_web::test]
+async fn get_all_equipmentsets_of_owner_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (owner, set_1, set_2) =
+        fixtures::users::arrange_get_all_equipmentsets_of_owner_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/users/{}/equipmentsets", owner.id);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<EquipmentSet> = test::read_body_json(resp).await;
+
+    // Only the owner's 2 sets should be returned (not the other owner's set)
+    assert_eq!(body.len(), 2);
+
+    let mut set_1_idx = 10;
+    let mut set_2_idx = 10;
+    for idx in 0..body.len() {
+        if body[idx].id == set_1.id {
+            set_1_idx = idx;
+        }
+        if body[idx].id == set_2.id {
+            set_2_idx = idx;
+        }
+    }
+    assert_ne!(set_1_idx, 10);
+    assert_ne!(set_2_idx, 10);
+
+    // All returned sets belong to the queried owner
+    assert_eq!(body[set_1_idx].equipmentownerid, owner.id);
+    assert_eq!(body[set_2_idx].equipmentownerid, owner.id);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}

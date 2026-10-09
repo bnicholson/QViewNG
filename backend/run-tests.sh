@@ -10,6 +10,7 @@ set +a
 # healthy. A no-op when it is already running.
 docker compose -f ../compose.test.yaml up -d --wait
 
-# Run tests (*only use one of these lines at a time based on your use case):
-# cargo test -- --test-threads=1  # for all integration tests; uses a single test DB synchronously (for now)
-cargo test --test game_test -- --test-threads=1  # for single integration test file; uses a single test DB synchronously (for now)
+# Run tests (*only use one of these lines at a time based on your use case). All integration tests
+# live in one test binary, `it` (tests/it/); each file is a module, so filter by module name.
+# cargo test --test it  # all integration tests
+cargo test --test it game_test::  # one file's integration tests

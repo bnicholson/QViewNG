@@ -1,0 +1,1711 @@
+use crate::fixtures;
+use crate::common;
+use actix_web::{test, App, web::{self,Bytes}, http::StatusCode};
+use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
+use backend::{database::seed_data::system_default_data::insert_system_default_data, models::{self, apicalllog::ApiCalllog, equipmentregistration::EquipmentRegistration, game::Game, permission::AppSpecialPermission, role::AppRole, room::Room, round::Round, team::TeamWithCoach, tournament_admin::{TournamentAdmin, TournamentAdminChangeset}, tournamentgroup::TournamentGroup, user::User}, routes::configure_routes, services::{common::{EntityResponse, PagedResponse}, tournament::TournamentWithRooms}};
+use backend::models::{division::Division, tournament::Tournament};
+use diesel::prelude::*;
+use serde_json::json;
+use crate::common::{PAGE_NUM, PAGE_SIZE, make_token, test_db};
+
+#[actix_web::test]
+async fn get_all_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    fixtures::tournaments::seed_tournaments(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments?page={}&page_size={}", PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: PagedResponse<Tournament> = test::read_body_json(resp).await;
+
+    let len = 3;
+
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
+
+    let mut tour_or_interest_idx = 10;
+    for idx in 0..len {
+        if body.items[idx].tname == "Tour 2" {
+            tour_or_interest_idx = idx;
+            break;
+        }
+    }
+
+    let tour_of_interest = &body.items[tour_or_interest_idx];
+    assert_eq!(tour_of_interest.organization,"Nazarene");
+    assert_ne!(tour_of_interest.tid.to_string().as_str(),"");  // "ne" in "assert_ne!" means Not Equal
+    assert_eq!(tour_of_interest.breadcrumb,"/test/bread/crumb");
+    assert_eq!(tour_of_interest.fromdate, NaiveDate::from_ymd_opt(2025, 5, 23).unwrap());
+    assert_eq!(tour_of_interest.todate, NaiveDate::from_ymd_opt(2025, 5, 27).unwrap());
+    assert_eq!(tour_of_interest.venue,"Olivet Nazarene University");
+    assert_eq!(tour_of_interest.city,"Bourbonnais");
+    assert_eq!(tour_of_interest.state,"Central USA");
+    assert_eq!(tour_of_interest.country,"USA");
+    assert_eq!(tour_of_interest.contact,"Jason Morton");
+    assert_eq!(tour_of_interest.contactemail,"jasonmorton@fakeemail.com");
+    assert_eq!(tour_of_interest.is_public,false);
+    assert_eq!(tour_of_interest.shortinfo,"NYI International quiz meet of 2025.");
+    assert_eq!(tour_of_interest.info,"If I wanted a longer description I would have provided it here.");
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_by_id_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournaments = fixtures::tournaments::seed_tournaments(&mut conn);
+    let user = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/tournaments/{}", &tournaments[0].tid);
+
+    // Act + Assert: an unauthenticated request gets the tournament without pairing_code.
+
+    let anon_req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .to_request();
+
+    let anon_resp = test::call_service(&app, anon_req).await;
+    assert_eq!(anon_resp.status(), StatusCode::OK);
+
+    let anon_body: serde_json::Value = test::read_body_json(anon_resp).await;
+    assert_eq!(anon_body.get("tname").and_then(|v| v.as_str()), Some("Q2025"));
+    assert_eq!(
+        anon_body.get("tid").and_then(|v| v.as_str()),
+        Some(tournaments[0].tid.to_string().as_str())
+    );
+    assert_eq!(anon_body.get("organization").and_then(|v| v.as_str()), Some("Nazarene"));
+    assert!(
+        anon_body.get("pairing_code").is_none(),
+        "pairing_code must be hidden from unauthenticated callers"
+    );
+
+    // Act + Assert: a `member`-only request also gets the tournament without pairing_code.
+
+    let member_token = common::make_token(
+        user.id,
+        vec!["member".to_string()],
+        vec!["tournament:read".to_string()],
+    );
+    let member_req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .insert_header(("Authorization", format!("Bearer {}", member_token)))
+        .to_request();
+
+    let member_resp = test::call_service(&app, member_req).await;
+    assert_eq!(member_resp.status(), StatusCode::OK);
+
+    let member_body: serde_json::Value = test::read_body_json(member_resp).await;
+    assert!(
+        member_body.get("pairing_code").is_none(),
+        "pairing_code must be hidden from `member` callers"
+    );
+
+    // Act + Assert: a role name alone no longer reveals pairing_code — only a permission does.
+
+    let role_only_token = common::make_token(
+        user.id,
+        vec![
+            AppRole::TournamentManager.as_str().to_string(),
+            AppRole::TournamentAdmin.as_str().to_string(),
+            AppRole::SuperUser.as_str().to_string(),
+        ],
+        vec!["tournament:read".to_string()],
+    );
+    let role_only_req = test::TestRequest::get()
+        .uri(uri.as_str())
+        .insert_header(("Authorization", format!("Bearer {}", role_only_token)))
+        .to_request();
+
+    let role_only_resp = test::call_service(&app, role_only_req).await;
+    assert_eq!(role_only_resp.status(), StatusCode::OK);
+
+    let role_only_body: serde_json::Value = test::read_body_json(role_only_resp).await;
+    assert!(
+        role_only_body.get("pairing_code").is_none(),
+        "pairing_code must be hidden from a caller holding only role names"
+    );
+
+    // Act + Assert: `tournament:read_pairing_code` reveals it, and so does `system:administer`.
+
+    for permission in [
+        AppSpecialPermission::TournamentReadPairingCode.as_str(),
+        AppSpecialPermission::SystemAdminister.as_str(),
+    ] {
+        let privileged_token = common::make_token(
+            user.id,
+            vec![],
+            vec!["tournament:read".to_string(), permission.to_string()],
+        );
+        let privileged_req = test::TestRequest::get()
+            .uri(uri.as_str())
+            .insert_header(("Authorization", format!("Bearer {}", privileged_token)))
+            .to_request();
+
+        let privileged_resp = test::call_service(&app, privileged_req).await;
+        assert_eq!(privileged_resp.status(), StatusCode::OK);
+
+        let privileged_body: serde_json::Value = test::read_body_json(privileged_resp).await;
+        assert_eq!(
+            privileged_body.get("pairing_code").and_then(|v| v.as_str()),
+            Some(tournaments[0].pairing_code.as_str()),
+            "{} must receive pairing_code in the response",
+            permission
+        );
+    }
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    // 1 anon + 1 member + 1 roles-only + 2 permitted = 5 calls
+    assert_eq!(apicalllog_records.iter().count(), 5);
+    assert!(apicalllog_records.iter().all(|r| r.method.as_str() == "GET"));
+    assert!(apicalllog_records.iter().all(|r| r.uri.as_str() == uri));
+}
+
+#[actix_web::test]
+async fn get_today_works() {
+    // Restored alongside the endpoint (removed in a419373). Ungated on purpose: the QuizMachine
+    // client calls this before it holds any credentials, so the request carries no auth.
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tour_in_window, rooms, _tour_out_of_window) =
+        fixtures::tournaments::arrange_today_max_100_works(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = "/api/tournaments/today";
+    let req = test::TestRequest::get()
+        .uri(uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: EntityResponse<Vec<TournamentWithRooms>> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 200);
+    assert_eq!(body.message, "OK");
+    let tournaments_with_rooms = body.data.expect("data missing from read_today payload");
+
+    assert_eq!(tournaments_with_rooms.len(), 1);
+    assert_eq!(tournaments_with_rooms[0].tournament.tid, tour_in_window.tid);
+    assert_eq!(tournaments_with_rooms[0].tournament.tname, "Today Max 100 In Window");
+    assert_eq!(tournaments_with_rooms[0].rooms.len(), 3);
+
+    let mut room_alpha_idx = 10;
+    for idx in 0..3 {
+        if tournaments_with_rooms[0].rooms[idx].name == "Room Alpha" {
+            room_alpha_idx = idx;
+        }
+    }
+    assert_ne!(room_alpha_idx, 10);
+    assert_eq!(tournaments_with_rooms[0].rooms[room_alpha_idx].tid, tour_in_window.tid);
+    assert_eq!(tournaments_with_rooms[0].rooms[room_alpha_idx].roomid, rooms[0].roomid);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), uri);
+}
+
+#[actix_web::test]
+async fn get_all_in_date_range_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    fixtures::tournaments::seed_tournaments_for_get_all_in_date_range(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    // Act:
+    let today: NaiveDate = Local::now().date_naive();
+    let sub_ten_days: NaiveDate = today - Duration::days(10);
+    let add_ten_days: NaiveDate = today + Duration::days(10);
+    let sub_ten_days_millis: i64 = sub_ten_days.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis();
+    let add_ten_days_millis: i64 = add_ten_days.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis();
+    let uri = format!("/api/tournaments/filter?from_date={}&to_date={}", sub_ten_days_millis, add_ten_days_millis);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.iter().count(), 3);
+
+    let sub_8_days_from_today: NaiveDate = today - Duration::days(8);
+    let add_8_days_to_today: NaiveDate = today + Duration::days(8);
+    let add_12_days_to_today: NaiveDate = today + Duration::days(12);  // outside of range
+
+    let mut today_tour_idx = 10;
+    let mut sub_8_tour_idx = 10;
+    let mut add_8_tour_idx = 10;
+    for idx in 0..3 {
+        if body[idx].fromdate == today {
+            today_tour_idx = idx;
+        }
+        else if body[idx].fromdate == sub_8_days_from_today {
+            sub_8_tour_idx = idx;
+        }
+        else {
+            add_8_tour_idx = idx;
+        }
+    }
+
+    assert_eq!(body[today_tour_idx].tname, "Today Exactly");
+    assert_eq!(body[today_tour_idx].fromdate, today);
+    assert_eq!(body[today_tour_idx].todate, today);
+    
+    assert_eq!(body[sub_8_tour_idx].tname, "eight days past exactly");
+    assert_eq!(body[sub_8_tour_idx].fromdate, sub_8_days_from_today);
+    assert_eq!(body[sub_8_tour_idx].todate, sub_8_days_from_today);
+    
+    assert_eq!(body[add_8_tour_idx].tname, "eight to twelve days future");
+    assert_eq!(body[add_8_tour_idx].fromdate, add_8_days_to_today);
+    assert_eq!(body[add_8_tour_idx].todate, add_12_days_to_today);
+
+    // The same window with `visibility=all` also picks up the private tournament inside it.
+    let all_uri = format!(
+        "/api/tournaments/filter?from_date={}&to_date={}&visibility=all",
+        sub_ten_days_millis, add_ten_days_millis
+    );
+    let all_resp = test::call_service(&app, test::TestRequest::get().uri(&all_uri).to_request()).await;
+    assert_eq!(all_resp.status(), StatusCode::OK);
+    let all_body: Vec<Tournament> = test::read_body_json(all_resp).await;
+    assert_eq!(all_body.iter().count(), 4);
+    assert!(all_body.iter().any(|t| t.tname == "today exactly but private"));
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    // 1 default-visibility call + 1 visibility=all call.
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert!(apicalllog_records.iter().all(|r| r.method.as_str() == "GET"));
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+    assert_eq!(apicalllog_records.last().unwrap().uri, all_uri);
+}
+
+/// The game-event import endpoints rewrite games' recorded events, so both the preview and the
+/// commit require `game:update`. An empty CSV is enough: the gate runs before any parsing.
+#[actix_web::test]
+async fn gameevents_import_requires_game_update() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Import Gate Tour");
+    let user = fixtures::users::seed_user(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .configure(configure_routes)
+    ).await;
+
+    let body = json!({ "csv": "" });
+
+    for endpoint in ["preview", "commit"] {
+        let uri = format!("/api/tournaments/{}/gameevents/import/{}", tournament.tid, endpoint);
+
+        // Unauthenticated: rejected.
+        let anon = test::TestRequest::post().uri(&uri).set_json(&body).to_request();
+        assert_eq!(
+            test::call_service(&app, anon).await.status(),
+            StatusCode::FORBIDDEN,
+            "{} must reject an unauthenticated caller", endpoint
+        );
+
+        // Authenticated but without game:update: rejected.
+        let read_only = common::make_token(user.id, vec![], vec!["game:read".to_string()]);
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {}", read_only)))
+            .set_json(&body)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, req).await.status(),
+            StatusCode::FORBIDDEN,
+            "{} must reject a caller without game:update", endpoint
+        );
+
+        // With game:update: allowed through the gate.
+        let permitted = common::make_token(user.id, vec![], vec!["game:update".to_string()]);
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {}", permitted)))
+            .set_json(&body)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, req).await.status(),
+            StatusCode::OK,
+            "{} must allow a caller holding game:update", endpoint
+        );
+
+        // `system:administer` bypasses it, as everywhere else.
+        let admin = common::make_token(
+            user.id,
+            vec![],
+            vec![AppSpecialPermission::SystemAdminister.as_str().to_string()],
+        );
+        let req = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("Authorization", format!("Bearer {}", admin)))
+            .set_json(&body)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, req).await.status(),
+            StatusCode::OK,
+            "{} must allow a system administrator", endpoint
+        );
+    }
+}
+
+fn tournament_create_payload() -> serde_json::Value {
+    serde_json::json!({
+        "organization": "Nazarene",
+        "tname": "Test Tour",
+        "breadcrumb": "/test/post",
+        "fromdate": "2025-05-23",
+        "todate": "2025-05-27",
+        "venue": "Vancouver University",
+        "city": "Vancouver",
+        "state": "North America",
+        "country": "Canada",
+        "contact": "primemin",
+        "contactemail": "primemin@fakeemail.com",
+        "shortinfo": "Winter Olympics",
+        "info": "Shawn White did excellent in the halfpipe.",
+        "is_public": true
+    })
+}
+
+#[actix_web::test]
+async fn create_with_tournament_create_permission_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // A real user is required because the endpoint sets owner_id = user_ctx.user_id,
+    // which is a FK to users.id.
+    let user = fixtures::users::seed_user(&mut conn);
+    let token = common::make_token(
+        user.id,
+        vec!["tournament_manager".to_string()],
+        vec!["tournament:create".to_string()],
+    );
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&tournament_create_payload())
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournament = body.data.unwrap();
+    assert_ne!(tournament.tid.to_string().as_str(), "");
+    assert_eq!(tournament.organization.as_str(), "Nazarene");
+    assert_eq!(tournament.tname.as_str(), "Test Tour");
+    assert_eq!(tournament.owner_id, user.id);
+    // The registration-type flags default to true when the create payload omits them.
+    assert!(tournament.use_team_registration);
+    assert!(tournament.use_gear_registration);
+    assert!(tournament.use_volunteer_registration);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let logs: Vec<ApiCalllog> = models::apicalllog::read_all(&mut conn).unwrap();
+    assert_eq!(logs.iter().count(), 1);
+    assert_eq!(logs.first().unwrap().method.as_str(), "POST");
+    assert_eq!(logs.first().unwrap().uri.as_str(), "/api/tournaments");
+}
+
+#[actix_web::test]
+async fn create_as_system_administrator_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user = fixtures::users::seed_user(&mut conn);
+    // `system:administer` alone, with no tournament:create — the bypass must carry the request.
+    let token = common::make_token(
+        user.id,
+        vec![],
+        vec![AppSpecialPermission::SystemAdminister.as_str().to_string()],
+    );
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&tournament_create_payload())
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<Tournament> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    let tournament = body.data.unwrap();
+    assert_eq!(tournament.owner_id, user.id);
+}
+
+#[actix_web::test]
+async fn create_with_insufficient_permissions_returns_401() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let user = fixtures::users::seed_user(&mut conn);
+    // member role with only read access — no tournament:create permission.
+    let token = common::make_token(
+        user.id,
+        vec!["member".to_string()],
+        vec!["tournament:read".to_string()],
+    );
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/tournaments")
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&tournament_create_payload())
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[actix_web::test]
+async fn update_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner) = fixtures::tournaments::arrange_update_works_integration_test(&mut conn);
+    let token = common::make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["tournament:update".to_string()],
+    );
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let new_venue = "Albatross Academy".to_string();
+    let new_todate = NaiveDate::from_ymd_opt(2025, 5, 30).unwrap();
+    let new_info = "Sadly, Shawn White is retired from pro snowboarding now.".to_string();
+
+    let put_payload = json!({
+        "venue": &new_venue,
+        "todate": new_todate,
+        "info": &new_info
+    });
+
+    let put_uri = format!("/api/tournaments/{}", &tournament.tid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&put_payload)
+        .to_request();
+
+    // Act:
+    
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+    
+    assert_eq!(put_resp.status(), StatusCode::OK);
+
+    let put_resp_body: EntityResponse<Tournament> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    assert_eq!(put_resp_body.message, "");
+
+    let new_tournament = put_resp_body.data.unwrap();
+    assert_eq!(new_tournament.tid, tournament.tid);
+    assert_eq!(new_tournament.organization.as_str(), "Nazarene");
+    assert_eq!(new_tournament.tname.as_str(), "Test Tour");
+    assert_eq!(new_tournament.venue.as_str(), new_venue);
+    assert_eq!(new_tournament.todate, new_todate);
+    assert_eq!(new_tournament.info.as_str(), new_info);
+    assert_ne!(new_tournament.created_at, new_tournament.updated_at);
+    // A partial update that omits the registration-type flags leaves them unchanged (still true).
+    assert!(new_tournament.use_team_registration);
+    assert!(new_tournament.use_gear_registration);
+    assert!(new_tournament.use_volunteer_registration);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "PUT");
+    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), format!("/api/tournaments/{}", tournament.tid));
+
+    // A member without tournament:update permission should be rejected:
+    let member_token = common::make_token(
+        owner.id,
+        vec!["member".to_string()],
+        vec!["tournament:read".to_string()],
+    );
+    let unauthorized_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", member_token)))
+        .set_json(&put_payload)
+        .to_request();
+    let unauthorized_resp = test::call_service(&app, unauthorized_req).await;
+    assert_eq!(unauthorized_resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[actix_web::test]
+async fn update_registration_type_flags_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, owner) = fixtures::tournaments::arrange_update_works_integration_test(&mut conn);
+    // A freshly-created tournament offers all three registration types by default.
+    assert!(tournament.use_team_registration);
+    assert!(tournament.use_gear_registration);
+    assert!(tournament.use_volunteer_registration);
+
+    let token = common::make_token(
+        owner.id,
+        vec!["tournament_manager".to_string()],
+        vec!["tournament:update".to_string()],
+    );
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // Turn every registration type off.
+    let put_payload = json!({
+        "use_team_registration": false,
+        "use_gear_registration": false,
+        "use_volunteer_registration": false
+    });
+    let put_uri = format!("/api/tournaments/{}", &tournament.tid);
+    let put_req = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&put_payload)
+        .to_request();
+
+    // Act:
+
+    let put_resp = test::call_service(&app, put_req).await;
+
+    // Assert:
+
+    assert_eq!(put_resp.status(), StatusCode::OK);
+    let put_resp_body: EntityResponse<Tournament> = test::read_body_json(put_resp).await;
+    assert_eq!(put_resp_body.code, 200);
+    let updated = put_resp_body.data.unwrap();
+    assert!(!updated.use_team_registration);
+    assert!(!updated.use_gear_registration);
+    assert!(!updated.use_volunteer_registration);
+
+    // Re-enabling only one type leaves the other two off.
+    let put_payload_2 = json!({ "use_gear_registration": true });
+    let put_req_2 = test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(&put_payload_2)
+        .to_request();
+    let put_resp_2 = test::call_service(&app, put_req_2).await;
+    assert_eq!(put_resp_2.status(), StatusCode::OK);
+    let updated_2: EntityResponse<Tournament> = test::read_body_json(put_resp_2).await;
+    let updated_2 = updated_2.data.unwrap();
+    assert!(!updated_2.use_team_registration);
+    assert!(updated_2.use_gear_registration);
+    assert!(!updated_2.use_volunteer_registration);
+}
+
+#[actix_web::test]
+async fn delete_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let delete_uri = format!("/api/tournaments/{}", tournament.tid);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .to_request();
+
+    // Act:
+    
+    let delete_resp = test::call_service(&app, delete_req).await;
+
+    // Assert:
+    
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
+
+
+    let get_by_id_uri = format!("/api/tournaments/{}", tournament.tid);
+    let get_by_id_req = test::TestRequest::get()
+        .uri(&get_by_id_uri)
+        .to_request();
+
+    let get_by_id_resp = test::call_service(&app, get_by_id_req).await;
+
+    assert_eq!(get_by_id_resp.status(), StatusCode::NOT_FOUND);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records.first().unwrap().uri.as_str(), format!("/api/tournaments/{}", tournament.tid));
+}
+
+#[actix_web::test]
+async fn delete_soft_deletes_and_purge_removes_row() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "SoftDelete Tour");
+
+    // Act + Assert: delete() is a soft delete — the row is hidden from reads but still present.
+    let affected = models::tournament::delete(&mut conn, tournament.tid).unwrap();
+    assert_eq!(affected, 1);
+
+    // Reads exclude the soft-deleted tournament.
+    assert!(models::tournament::read(&mut conn, tournament.tid).is_err());
+
+    // The underlying row still exists with del_fl = true (verified with a raw query that ignores the flag).
+    use backend::schema::tournaments::dsl as t;
+    let raw_count: i64 = t::tournaments.filter(t::tid.eq(tournament.tid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count, 1);
+    let flag: bool = t::tournaments.filter(t::tid.eq(tournament.tid)).select(t::del_fl).first(&mut conn).unwrap();
+    assert!(flag);
+
+    // Act + Assert: purge() permanently removes the row.
+    let purged = models::tournament::purge(&mut conn, tournament.tid).unwrap();
+    assert_eq!(purged, 1);
+    let raw_count_after: i64 = t::tournaments.filter(t::tid.eq(tournament.tid)).count().get_result(&mut conn).unwrap();
+    assert_eq!(raw_count_after, 0);
+}
+
+#[actix_web::test]
+async fn get_all_divisions_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+
+    let tournament = fixtures::tournaments::seed_get_divisions_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/divisions?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Division> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 3);
+
+    let mut div_1_idx = 10;
+    let mut div_2_idx = 10;
+    let mut div_3_idx = 10;
+    for idx in 0..3 {
+        if body[idx].dname == "Test Div 9" {
+            div_1_idx = idx;
+        }
+        if body[idx].dname == "Test Div 2" {
+            div_2_idx = idx;
+        }
+        if body[idx].dname == "Test Div 7" {
+            div_3_idx = idx;
+        }
+    }
+    assert_ne!(div_1_idx, 10);
+    assert_ne!(div_2_idx, 10);
+    assert_ne!(div_3_idx, 10);
+    // overkill, but thorough:
+    assert_eq!(body[div_1_idx].dname, "Test Div 9");
+    assert_eq!(body[div_2_idx].dname, "Test Div 2");
+    assert_eq!(body[div_3_idx].dname, "Test Div 7");
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn add_admin_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    insert_system_default_data(&mut conn);
+
+    let (tournament, user_to_become_admin, payload) =
+        fixtures::tournaments_admins::get_tour_admin_payload_singular(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    // Adding a tournament admin now requires `tournamentadmin:create`.
+    let admin_token = common::make_token(
+        user_to_become_admin.id,
+        vec![],
+        vec!["tournamentadmin:create".to_string(), "tournamentadmin:delete".to_string(),
+             "tournamentadmin:read".to_string()],
+    );
+    let uri = format!("/api/tournaments/{}/admins", tournament.tid);
+    let req = test::TestRequest::post()
+        .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .set_json(payload)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let body: EntityResponse<TournamentAdmin> = test::read_body_json(resp).await;
+    assert_eq!(body.code, 201);
+    assert_eq!(body.message, "");
+
+    let tournament_admin = body.data.unwrap();
+    assert_eq!(tournament_admin.tournamentid, tournament.tid);
+    assert_eq!(tournament_admin.adminid, user_to_become_admin.id);
+    assert_eq!(tournament_admin.role_description.unwrap().as_str(), "default role (test id 334)");
+
+    // Assert that the user was assigned the TournamentAdmin role:
+    let tournament_admin_role = models::role::read_by_name(&mut conn, AppRole::TournamentAdmin.as_str())
+        .expect("TournamentAdmin role should exist");
+    let user_roles = models::users_roles::read_all_for_user(&mut conn, user_to_become_admin.id)
+        .expect("Should be able to read user roles");
+    assert!(
+        user_roles.iter().any(|ur| ur.role_id == tournament_admin_role.id),
+        "User should have been assigned the TournamentAdmin role"
+    );
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "POST");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_admins_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (tour, admin_1, admin_2) = 
+        fixtures::tournaments::arrange_get_all_admins_of_tournament_works_integration_test(&mut conn);
+    
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/admins?page={}&page_size={}", tour.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<User> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 2);
+
+    let mut admin_1_idx = 10;
+    let mut admin_2_idx = 10;
+    for idx in 0..2 {
+        if body[idx].id == admin_1.adminid {
+            admin_1_idx = idx;
+        }
+        if body[idx].id == admin_2.adminid {
+            admin_2_idx = idx;
+        }
+    }
+    assert_ne!(admin_1_idx, 10);
+    assert_ne!(admin_2_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records[0].method.as_str(), "GET");
+    assert_eq!(apicalllog_records[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn update_admin_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tour, user, _) = 
+        fixtures::tournaments_admins::arrange_update_admin_works_integration_test(&mut conn);
+
+    let changeset = TournamentAdminChangeset { role_description: "diffrnt role".to_string(), access_lvl: 1 };
+    let updated = models::tournament_admin::update(&mut conn, tour.tid, user.id, &changeset).expect("update failed");
+    assert_eq!(updated.access_lvl, 1);
+}
+
+#[actix_web::test]
+async fn delete_admin_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, user, _) = 
+        fixtures::tournaments::arrange_delete_admin_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    // Removing a tournament admin now requires `tournamentadmin:delete`.
+    let admin_token = common::make_token(
+        user.id,
+        vec![],
+        vec!["tournamentadmin:delete".to_string(), "tournamentadmin:read".to_string()],
+    );
+    let delete_uri = format!("/api/tournaments/{}/admins/{}", tournament.tid, user.id);
+    let delete_req = test::TestRequest::delete()
+        .uri(&delete_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+
+    // Act:
+    
+    let delete_resp = test::call_service(&app, delete_req).await;
+
+    // Assert:
+    
+    assert_eq!(delete_resp.status(), StatusCode::OK);
+
+    let delete_resp_body_bytes: Bytes = test::read_body(delete_resp).await;
+    let delete_resp_body_string = String::from_utf8(delete_resp_body_bytes.to_vec()).unwrap();
+    assert_eq!(&delete_resp_body_string, "");
+
+
+    let get_admins_uri = format!("/api/tournaments/{}/admins?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let get_admins_req = test::TestRequest::get()
+        .uri(&get_admins_uri)
+        .insert_header(("Authorization", format!("Bearer {}", admin_token)))
+        .to_request();
+
+    let get_admins_resp = test::call_service(&app, get_admins_req).await;
+
+    assert_eq!(get_admins_resp.status(), StatusCode::OK);
+
+    let body: Vec<User> = test::read_body_json(get_admins_resp).await;
+    assert_eq!(body.len(), 0);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 2);
+    assert_eq!(apicalllog_records[0].method.as_str(), "DELETE");
+    assert_eq!(apicalllog_records[0].uri, delete_uri);
+}
+
+#[actix_web::test]
+async fn get_all_rooms_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournament = fixtures::tournaments::seed_get_rooms_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/rooms?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    
+    // Assert:
+    
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Vec<Room> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 3);
+
+    let mut room_or_interest_idx = 10;
+    for idx in 0..3 {
+        if body[idx].name == "Test Room 2" {
+            room_or_interest_idx = idx;
+            break;
+        }
+    }
+
+    let room_of_interest = &body[room_or_interest_idx];
+    assert_eq!(room_of_interest.tid, tournament.tid);
+    assert_eq!(room_of_interest.building.as_str(), "Bldng 2");
+    assert_eq!(room_of_interest.comments.as_str(), "I thought I recognized this place.");
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records[0].method.as_str(), "GET");
+    assert_eq!(apicalllog_records[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_rounds_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let tournament = fixtures::tournaments::seed_get_rounds_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/rounds?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<Round> = test::read_body_json(resp).await;
+
+    assert_eq!(body.len(), 6);
+
+    let mut round_1_idx = 10;
+    let mut round_2_idx = 10;
+    let mut round_3_idx = 10;
+    let mut round_4_idx = 10;
+    let mut round_5_idx = 10;
+    let mut round_6_idx = 10;
+    for idx in 0..6 {
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2058, 5, 23, 00, 00, 0).unwrap() {
+            round_1_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2059, 5, 23, 00, 00, 0).unwrap() {
+            round_2_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2060, 5, 23, 00, 00, 0).unwrap() {
+            round_3_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2061, 5, 23, 00, 00, 0).unwrap() {
+            round_4_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2062, 5, 23, 00, 00, 0).unwrap() {
+            round_5_idx = idx;
+        }
+        if body[idx].scheduled_start_time.unwrap() == Utc.with_ymd_and_hms(2063, 5, 23, 00, 00, 0).unwrap() {
+            round_6_idx = idx;
+        }
+    }
+
+    // Tour 2 Div 1 Rounds:
+    assert_ne!(round_1_idx, 10);
+    assert_ne!(round_2_idx, 10);
+    assert_ne!(round_3_idx, 10);
+
+    // Tour 2 Div 2 Rounds:
+    assert_ne!(round_4_idx, 10);
+    assert_ne!(round_5_idx, 10);
+    assert_ne!(round_6_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records[0].method.as_str(), "GET");
+    assert_eq!(apicalllog_records[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_games_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (tour_2_id, game_1_of_tour_2, game_2_of_tour_2 ) = fixtures::games::seed_get_games_of_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/games?page={}&page_size={}", tour_2_id, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: PagedResponse<Game> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.items.len(), len);
+    assert_eq!(body.count, len as i64);
+
+    let mut game_1_idx = 10;
+    let mut game_2_idx = 10;
+    for idx in 0..len {
+        if body.items[idx].gid == game_1_of_tour_2.gid {
+            game_1_idx = idx;
+        }
+        if body.items[idx].gid == game_2_of_tour_2.gid {
+            game_2_idx = idx;
+        }
+    }
+    assert_ne!(game_1_idx, 10);
+    assert_ne!(game_2_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records[0].method.as_str(), "GET");
+    assert_eq!(apicalllog_records[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_tournamentgroups_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (tour, tg_1, tg_2) = fixtures::tournaments::arrange_get_all_tournamentgroups_of_tournament_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/tournamentgroups?page={}&page_size={}", tour.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<TournamentGroup> = test::read_body_json(resp).await;
+
+    let len = 2;
+
+    assert_eq!(body.len(), len);
+
+    let mut tourgroup_1_idx = 10;
+    let mut tourgroup_2_idx = 10;
+    for idx in 0..len {
+        if body[idx].tgid == tg_1.tgid {
+            tourgroup_1_idx = idx;
+        }
+        if body[idx].tgid == tg_2.tgid {
+            tourgroup_2_idx = idx;
+        }
+    }
+    assert_ne!(tourgroup_1_idx, 10);
+    assert_ne!(tourgroup_2_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records[0].method.as_str(), "GET");
+    assert_eq!(apicalllog_records[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_equipmentregistrations_of_tournament_works() {
+
+    // Arrange:
+    
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    
+    let (tour, er_computer, er_jumppad, er_interfacebox, er_monitor, er_microphonerecorder, er_projector, er_powerstrip, er_extensioncord) = 
+        fixtures::tournaments::arrange_get_all_equipmentregistrations_of_tournament_works_integration_test(&mut conn);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+    
+    let uri = format!("/api/tournaments/{}/equipmentregistrations?page={}&page_size={}", tour.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+    
+    // Act:
+    
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Assert:
+
+    let body: Vec<EquipmentRegistration> = test::read_body_json(resp).await;
+
+    let len = 8;
+
+    assert_eq!(body.len(), len);
+
+    let mut equipmentregistration_1_idx = 10;
+    let mut equipmentregistration_2_idx = 10;
+    let mut equipmentregistration_3_idx = 10;
+    let mut equipmentregistration_4_idx = 10;
+    let mut equipmentregistration_5_idx = 10;
+    let mut equipmentregistration_6_idx = 10;
+    let mut equipmentregistration_7_idx = 10;
+    let mut equipmentregistration_8_idx = 10;
+    for idx in 0..len {
+        if body[idx].id == er_computer.id {
+            equipmentregistration_1_idx = idx;
+        }
+        if body[idx].id == er_jumppad.id {
+            equipmentregistration_2_idx = idx;
+        }
+        if body[idx].id == er_interfacebox.id {
+            equipmentregistration_3_idx = idx;
+        }
+        if body[idx].id == er_monitor.id {
+            equipmentregistration_4_idx = idx;
+        }
+        if body[idx].id == er_microphonerecorder.id {
+            equipmentregistration_5_idx = idx;
+        }
+        if body[idx].id == er_projector.id {
+            equipmentregistration_6_idx = idx;
+        }
+        if body[idx].id == er_powerstrip.id {
+            equipmentregistration_7_idx = idx;
+        }
+        if body[idx].id == er_extensioncord.id {
+            equipmentregistration_8_idx = idx;
+        }
+    }
+    assert_ne!(equipmentregistration_1_idx, 10);
+    assert_ne!(equipmentregistration_2_idx, 10);
+    assert_ne!(equipmentregistration_3_idx, 10);
+    assert_ne!(equipmentregistration_4_idx, 10);
+    assert_ne!(equipmentregistration_5_idx, 10);
+    assert_ne!(equipmentregistration_6_idx, 10);
+    assert_ne!(equipmentregistration_7_idx, 10);
+    assert_ne!(equipmentregistration_8_idx, 10);
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records[0].method.as_str(), "GET");
+    assert_eq!(apicalllog_records[0].uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_teams_of_tournament_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+
+    fixtures::teams::seed_teams(&mut conn, division.did);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/tournaments/{}/teams?page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: PagedResponse<TeamWithCoach> = test::read_body_json(resp).await;
+
+    assert_eq!(body.items.len(), 3);
+    assert_eq!(body.count, 3);
+
+    let mut team_of_interest_idx = 10;
+    for idx in 0..3 {
+        if body.items[idx].name == "Luke Found a Frog" {
+            team_of_interest_idx = idx;
+            break;
+        }
+    }
+    assert_ne!(team_of_interest_idx, 10);
+    assert_eq!(body.items[team_of_interest_idx].did, division.did);
+    assert_eq!(body.items[team_of_interest_idx].coach_name, "Kimberly Maurice Den");
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+#[actix_web::test]
+async fn get_all_quizzers_of_tournament_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let tournament = fixtures::tournaments::seed_tournament(&mut conn, "Test Tour");
+    let division = fixtures::divisions::seed_division(&mut conn, tournament.tid);
+
+    // seed_teams creates 3 teams: Team 1 (0 quizzers), Come Get Some (2), Luke Found a Frog (6)
+    fixtures::teams::seed_teams(&mut conn, division.did);
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/tournaments/{}/quizzers", tournament.tid);
+    let req = test::TestRequest::get()
+        .uri(&uri)
+        .to_request();
+
+    // Act:
+
+    let resp = test::call_service(&app, req).await;
+
+    // Assert:
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: PagedResponse<User> = test::read_body_json(resp).await;
+
+    assert_eq!(body.count, 8);
+    assert_eq!(body.items.len(), 8);
+
+    // Verify a specific quizzer is present
+    let tyler = body.items.iter().find(|u| u.fname == "Tyler");
+    assert!(tyler.is_some());
+    assert_eq!(tyler.unwrap().lname, "Den");
+
+    // Check that ApiCalllog is recording API calls for this endpoint:
+    let apicalllog_get_result = models::apicalllog::read_all(&mut conn);
+    assert!(apicalllog_get_result.is_ok());
+    let apicalllog_records: Vec<ApiCalllog> = apicalllog_get_result.unwrap();
+    assert_eq!(apicalllog_records.iter().count(), 1);
+    assert_eq!(apicalllog_records.first().unwrap().method.as_str(), "GET");
+    assert_eq!(apicalllog_records.first().unwrap().uri, uri);
+}
+
+
+#[actix_web::test]
+async fn get_roundgroup_rows_of_tournament_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // One tournament with two divisions: "Session Div" (3 roundgroups) + "Other Div" (1 roundgroup).
+    let division = fixtures::divisions::seed_get_roundgroups_by_division(&mut conn);
+    let tid = division.tid;
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let uri = format!("/api/tournaments/{}/roundgroup-rows?page={}&page_size={}", tid, PAGE_NUM, PAGE_SIZE);
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&uri).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // All four roundgroups across both divisions of the tournament.
+    let body: PagedResponse<backend::models::roundgroup::RoundGroupRow> = test::read_body_json(resp).await;
+    assert_eq!(body.count, 4);
+    assert_eq!(body.items.len(), 4);
+    let names: Vec<&str> = body.items.iter().map(|s| s.name.as_str()).collect();
+    assert!(names.contains(&"Pool Play"));
+    assert!(names.contains(&"Bracket Play"));
+    assert!(names.contains(&"Finals"));
+    assert!(names.contains(&"Other Session"));
+    // Enriched with the correct division name for each roundgroup.
+    let other = body.items.iter().find(|s| s.name == "Other Session").unwrap();
+    assert_eq!(other.division_name, "Other Div");
+}
+
+#[actix_web::test]
+async fn get_pool_bracket_rows_of_tournament_works() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // Two divisions: Div A (2 pools + 1 bracket), Div B (1 pool + 1 bracket).
+    let tournament = fixtures::divisions::seed_get_pool_bracket_rows_by_tournament(&mut conn);
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    // type=pool → the three pools across both divisions.
+    let pool_uri = format!("/api/tournaments/{}/pool-bracket-rows?type=pool&page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let pool_resp = test::call_service(&app, test::TestRequest::get().uri(&pool_uri).to_request()).await;
+    assert_eq!(pool_resp.status(), StatusCode::OK);
+    let pool_body: PagedResponse<backend::models::pool_bracket::PoolBracketRow> = test::read_body_json(pool_resp).await;
+    assert_eq!(pool_body.count, 3);
+    let pool_names: Vec<&str> = pool_body.items.iter().map(|b| b.name.as_str()).collect();
+    assert!(pool_names.contains(&"Pool A1"));
+    assert!(pool_names.contains(&"Pool A2"));
+    assert!(pool_names.contains(&"Pool B1"));
+    // Rows are enriched with the correct division name for each bracket's division.
+    let b1 = pool_body.items.iter().find(|b| b.name == "Pool B1").unwrap();
+    assert_eq!(b1.division_name, "Div B");
+
+    // type=bracket → the two brackets across both divisions.
+    let bracket_uri = format!("/api/tournaments/{}/pool-bracket-rows?type=bracket&page={}&page_size={}", tournament.tid, PAGE_NUM, PAGE_SIZE);
+    let bracket_resp = test::call_service(&app, test::TestRequest::get().uri(&bracket_uri).to_request()).await;
+    assert_eq!(bracket_resp.status(), StatusCode::OK);
+    let bracket_body: PagedResponse<backend::models::pool_bracket::PoolBracketRow> = test::read_body_json(bracket_resp).await;
+    assert_eq!(bracket_body.count, 2);
+    let names: Vec<&str> = bracket_body.items.iter().map(|b| b.name.as_str()).collect();
+    assert!(names.contains(&"Bracket A1"));
+    assert!(names.contains(&"Bracket B1"));
+    assert!(!names.contains(&"Pool A1"));
+}
+
+#[actix_web::test]
+async fn my_teams_returns_only_the_users_teams_enriched() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let owner = backend::models::user::UserBuilder::new_default("Coach A").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let other = backend::models::user::UserBuilder::new_default("Coach B").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let quizzer = backend::models::user::UserBuilder::new_default("Quinn").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+
+    let tournament = backend::models::tournament::TournamentBuilder::new_default("Reg Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let division = backend::models::division::DivisionBuilder::new_default("D1", tournament.tid).build_and_insert(&mut conn).unwrap();
+
+    // One team coached by the logged-in user, one by someone else — only the former should return.
+    backend::models::team::TeamBuilder::new_default(division.did)
+        .set_name("My Team").set_coachid(owner.id).set_quizzer_one_id(quizzer.id)
+        .build_and_insert(&mut conn).unwrap();
+    backend::models::team::TeamBuilder::new_default(division.did)
+        .set_name("Other Team").set_coachid(other.id).set_quizzer_one_id(quizzer.id)
+        .build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let token = make_token(owner.id, vec!["member".to_string()], vec!["team:read".to_string()]);
+    let uri = format!("/api/tournaments/{}/my-teams", tournament.tid);
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let rows: Vec<backend::models::team::MyTeamRow> = test::read_body_json(resp).await;
+    assert_eq!(rows.len(), 1, "only the logged-in user's team should be returned");
+    assert_eq!(rows[0].team.name, "My Team");
+    assert_eq!(rows[0].division_name, "D1");
+}
+
+#[actix_web::test]
+async fn my_gear_registration_and_bulk_register_work() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let owner = backend::models::user::UserBuilder::new_default("Gear Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
+    let tournament = backend::models::tournament::TournamentBuilder::new_default("Gear Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let set = backend::models::equipmentset::EquipmentSetBuilder::new_default(owner.id).set_name("My Set").build_and_insert(&mut conn).unwrap();
+    let c1 = backend::models::computer::ComputerBuilder::new_default(set.id).build_and_insert(&mut conn).unwrap();
+    let c2 = backend::models::computer::ComputerBuilder::new_default(set.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new().app_data(web::Data::new(db)).configure(configure_routes)
+    ).await;
+
+    let token = make_token(owner.id, vec!["member".to_string()],
+        vec!["equipment:read".to_string(), "equipment:create".to_string()]);
+
+    // ── Aggregate before registering: one set, two items, no registrations. ──
+    let get_uri = format!("/api/tournaments/{}/my-gear-registration", tournament.tid);
+    let resp = test::call_service(&app, test::TestRequest::get()
+        .uri(&get_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let sets: Vec<backend::models::equipmentset::GearSetWithItems> = test::read_body_json(resp).await;
+    assert_eq!(sets.len(), 1);
+    assert_eq!(sets[0].items.len(), 2);
+    assert!(sets[0].items.iter().all(|i| i.registration.is_none()), "nothing registered yet");
+
+    // ── Bulk register both pieces in one call. ──
+    let post_uri = format!("/api/tournaments/{}/gear-registrations", tournament.tid);
+    let post_resp = test::call_service(&app, test::TestRequest::post()
+        .uri(&post_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(serde_json::json!({ "equipment_ids": [c1.equipmentid, c2.equipmentid] }))
+        .to_request()).await;
+    assert_eq!(post_resp.status(), StatusCode::CREATED);
+    let created: Vec<backend::models::equipmentregistration::EquipmentRegistration> = test::read_body_json(post_resp).await;
+    assert_eq!(created.len(), 2);
+
+    // ── Aggregate after registering: both items now registered. ──
+    let resp2 = test::call_service(&app, test::TestRequest::get()
+        .uri(&get_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .to_request()).await;
+    let sets2: Vec<backend::models::equipmentset::GearSetWithItems> = test::read_body_json(resp2).await;
+    assert!(sets2[0].items.iter().all(|i| i.registration.is_some()), "both items should be registered");
+
+    // ── Re-registering is idempotent: no new rows created. ──
+    let post_again = test::call_service(&app, test::TestRequest::post()
+        .uri(&post_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(serde_json::json!({ "equipment_ids": [c1.equipmentid, c2.equipmentid] }))
+        .to_request()).await;
+    assert_eq!(post_again.status(), StatusCode::CREATED);
+    let created_again: Vec<backend::models::equipmentregistration::EquipmentRegistration> = test::read_body_json(post_again).await;
+    assert_eq!(created_again.len(), 0, "already-registered pieces are skipped");
+}
