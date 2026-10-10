@@ -388,6 +388,14 @@ async fn update(
 
     tracing::debug!("{} Room model update {:?} {:?}", line!(), room_id, item);
 
+    // A room can only be placed in a building of its own tournament.
+    if let Some(Some(group_id)) = item.roomgroupid {
+        match models::roomgroup::read(&mut conn, group_id) {
+            Ok(group) if group.tournamentid == room.tid => {}
+            _ => return Ok(HttpResponse::BadRequest().body("The building is not part of this room's tournament.")),
+        }
+    }
+
     // log this api call
     models::apicalllog::create(&mut conn, &req);
 

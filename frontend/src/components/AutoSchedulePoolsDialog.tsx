@@ -183,12 +183,14 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
   // Rooms needed per round equals the concurrent games per round.
   const roomsNeeded = gamesPerRound
   // Rooms still selectable (not already assigned to a slot), name-sorted numerically so "Room 10"
-  // follows "Room 9" rather than "Room 1".
+  // follows "Room 9" rather than "Room 1". A 3-team-only schedule can only use rooms that support
+  // 3-team games.
   const availableRooms = useMemo(
     () => rooms
       .filter(r => !roomSlots.includes(r.roomid))
+      .filter(r => teamsPerGame !== 3 || r.supports_threeteam_games)
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
-    [rooms, roomSlots],
+    [rooms, roomSlots, teamsPerGame],
   )
   const roomName = (roomid: string) => rooms.find(r => r.roomid === roomid)?.name ?? roomid
   const slotsFilled = roomSlots.length === roomsNeeded
@@ -261,7 +263,12 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               exclusive
               size="small"
               value={teamsPerGame}
-              onChange={(_e, v) => { if (v) setTeamsPerGame(v) }}
+              onChange={(_e, v) => {
+                if (!v) return
+                setTeamsPerGame(v)
+                // Switching to 3-team only drops any already-assigned room that can't host 3 teams.
+                if (v === 3) setRoomSlots(s => s.filter(rid => rooms.find(r => r.roomid === rid)?.supports_threeteam_games))
+              }}
               sx={{ mt: 0.5 }}
             >
               <ToggleButton value={2}>2-Team Only</ToggleButton>

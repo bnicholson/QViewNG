@@ -5,7 +5,7 @@ use crate::models::common::PaginationParams;
 use diesel::prelude::*;
 use diesel::*;
 use diesel::{QueryResult,AsChangeset,Insertable};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{Utc,DateTime};
@@ -213,8 +213,20 @@ pub struct NewRoom {
     pub supports_threeteam_games: bool,
 }
 
+/// Deserializes an optional nullable field so that:
+/// - key absent in JSON  → `None`           → Diesel skips the column
+/// - key present, `null` → `Some(None)`     → Diesel sets the column to NULL
+/// - key present, value  → `Some(Some(v))`  → Diesel sets the column to v
+fn deserialize_optional_option<'de, T, D>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Ok(Some(Option::deserialize(d)?))
+}
+
 // #[tsync::tsync]
-#[derive(Debug, Serialize, Deserialize, Clone, Insertable, AsChangeset)]
+#[derive(Debug, Serialize, Deserialize, Clone, AsChangeset)]
 #[diesel(table_name = crate::schema::rooms)]
 #[diesel(primary_key(roomid))]
 pub struct RoomChangeset {
@@ -222,8 +234,11 @@ pub struct RoomChangeset {
     pub building: Option<String>,               // What is the building this room is in
     pub comments: Option<String>,               // Any comments about the room
     pub clientkey: Option<String>,
-    pub quizmaster_id: Option<Uuid>,            // optional quizmaster assigned to this room
-    pub contentjudge_id: Option<Uuid>,          // optional content judge assigned to this room
+    // Officials and building: absent = unchanged, null = cleared (see deserialize_optional_option).
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub quizmaster_id: Option<Option<Uuid>>,    // optional quizmaster assigned to this room
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub contentjudge_id: Option<Option<Uuid>>,  // optional content judge assigned to this room
     pub ping_question_number: Option<i32>,      // latest question number reported by the room's client
     pub ping_qm_version: Option<String>,        // latest QuizMachine version reported by the room's client
     pub ping_client_ts: Option<DateTime<Utc>>,  // latest client timestamp reported by the room's client
@@ -234,6 +249,8 @@ pub struct RoomChangeset {
     pub ping_host_ip: Option<String>,           // latest host/IP reported by the room's client
     pub ping_last_checkin_ts: Option<DateTime<Utc>>, // timestamp of the last check-in (ping) from the room's client
     pub supports_threeteam_games: Option<bool>, // whether this room may host 3-team games
+    #[serde(default, deserialize_with = "deserialize_optional_option")]
+    pub roomgroupid: Option<Option<Uuid>>,      // the building (roomgroup) this room is in
 }
 
 impl RoomChangeset {
@@ -255,6 +272,7 @@ impl RoomChangeset {
             ping_host_ip: None,
             ping_last_checkin_ts: None,
             supports_threeteam_games: None,
+            roomgroupid: None,
         }
     }
 }

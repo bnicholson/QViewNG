@@ -712,3 +712,66 @@ async fn get_all_equipmentregistrations_of_room_works() {
     assert!(!result.is_empty());
     let _ = (er_1, er_2);
 }
+
+#[actix_web::test]
+async fn update_assigns_and_clears_the_building_and_officials() {
+
+    // Arrange:
+
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    let (tournament, room, owner, _admin_user, unrelated_user) =
+        fixtures::rooms::arrange_room_update_works_integration_test(&mut conn);
+    let building = models::roomgroup::RoomGroupBuilder::new(tournament.tid)
+        .set_name("Hall A").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+    let other_tournament = backend::models::tournament::TournamentBuilder::new_default("Other Tour")
+        .set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
+    let foreign_building = models::roomgroup::RoomGroupBuilder::new(other_tournament.tid)
+        .set_name("Elsewhere").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db))
+            .configure(configure_routes)
+    ).await;
+
+    let put_uri = format!("/api/rooms/{}", room.roomid);
+    let token = make_token(owner.id, vec!["tournament_manager".to_string()], vec!["room:update".to_string()]);
+    let put = |body: serde_json::Value| test::TestRequest::put()
+        .uri(&put_uri)
+        .insert_header(("Authorization", format!("Bearer {}", token)))
+        .set_json(body)
+        .to_request();
+
+    // Act + Assert: assign a building and a quizmaster.
+
+    let resp = test::call_service(&app, put(json!({ "roomgroupid": building.roomgroupid, "quizmaster_id": unrelated_user.id }))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let updated: EntityResponse<Room> = test::read_body_json(resp).await;
+    let updated = updated.data.unwrap();
+    assert_eq!(updated.roomgroupid, Some(building.roomgroupid));
+    assert_eq!(updated.quizmaster_id, Some(unrelated_user.id));
+
+    // A change that omits them leaves them alone.
+
+    let resp = test::call_service(&app, put(json!({ "comments": "unchanged officials" }))).await;
+    let updated: EntityResponse<Room> = test::read_body_json(resp).await;
+    let updated = updated.data.unwrap();
+    assert_eq!(updated.roomgroupid, Some(building.roomgroupid));
+    assert_eq!(updated.quizmaster_id, Some(unrelated_user.id));
+
+    // A building of another tournament is refused.
+
+    let resp = test::call_service(&app, put(json!({ "roomgroupid": foreign_building.roomgroupid }))).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    // null clears them.
+
+    let resp = test::call_service(&app, put(json!({ "roomgroupid": null, "quizmaster_id": null }))).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let updated: EntityResponse<Room> = test::read_body_json(resp).await;
+    let updated = updated.data.unwrap();
+    assert_eq!(updated.roomgroupid, None);
+    assert_eq!(updated.quizmaster_id, None);
+}

@@ -313,7 +313,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
       {activeMode === 'read' ? (
-        <ScheduleReadView tid={tid} />
+        <ScheduleReadView tid={tid} advanced={advanced} />
       ) : activeMode === 'conflicts' ? (
         <Alert severity="info">Scheduling conflict resolution is coming soon.</Alert>
       ) : activeMode === 'edit2' ? (
@@ -791,9 +791,11 @@ type ReadFilter = { kind: '' | 'room' | 'person' | 'team' | 'division'; id: stri
  * Division→RoundGroup→Pool drill-down; the matching filters appear below it. Room/Person/Team show a
  * single list of matching games (sorted by scheduled start time on the backend, paged via infinite
  * scroll); the Person filter labels each game with the user's role in it. The Division drill-down
- * instead shows the chosen pool/bracket's read-only card (teams + Rooms × Rounds matrix).
+ * instead shows the chosen pool/bracket's read-only card (teams + Rooms × Rounds matrix). In Normal
+ * scheduling mode, sessions and pools/brackets are hidden: picking a Division shows one card with
+ * every round of every session across all of the division's pools/brackets.
  */
-const ScheduleReadView = ({ tid }: { tid: string }) => {
+const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean }) => {
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
 
@@ -825,7 +827,8 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
   const [dvGames, setDvGames] = useState<GameRowTS[]>([])
 
   // Exactly one filter is active at a time; results are paged in as the user scrolls.
-  const [filter, setFilter] = useState<ReadFilter>({ kind: '', id: '' })
+  // Defaults to Person, so a visitor only has to pick someone from the list.
+  const [filter, setFilter] = useState<ReadFilter>({ kind: 'person', id: '' })
   const [games, setGames] = useState<GameRowTS[]>([])          // room/team results
   const [personGames, setPersonGames] = useState<PersonGameRowTS[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -960,10 +963,32 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
 
   // Division drill-down: once a specific pool/bracket is chosen, load its teams + games for the card.
   useEffect(() => {
+    if (!advanced) return   // Normal mode loads the whole division instead (below)
     if (!dvBracket) { setDvTeams([]); setDvGames([]); return }
     TeamAPI.getRowsByPoolBracket(dvBracket, PAGE, SIZE).then(r => setDvTeams(r.items)).catch(() => setError('Failed to load teams.'))
     GameAPI.getRowsByPoolBracket(dvBracket, PAGE, SIZE).then(r => setDvGames(r.items)).catch(() => setError('Failed to load games.'))
-  }, [dvBracket])
+  }, [dvBracket, advanced])
+
+  // Normal mode: the card shows every round of every session, so combine the teams and games of all
+  // of the division's pools/brackets. A team placed in several of them is listed once.
+  useEffect(() => {
+    if (advanced) return
+    if (dvBrackets.length === 0) { setDvTeams([]); setDvGames([]); return }
+    let cancelled = false
+    Promise.all(dvBrackets.map(b => Promise.all([
+      TeamAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE),
+      GameAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE),
+    ])))
+      .then(results => {
+        if (cancelled) return
+        const teamsById = new Map<string, TeamRowTS>()
+        results.forEach(([t]) => t.items.forEach(team => { if (!teamsById.has(team.teamid)) teamsById.set(team.teamid, team) }))
+        setDvTeams([...teamsById.values()])
+        setDvGames(results.flatMap(([, g]) => g.items))
+      })
+      .catch(() => { if (!cancelled) setError('Failed to load the division\'s schedule.') })
+    return () => { cancelled = true }
+  }, [dvBrackets, advanced])
 
   // The "Building" dropdown narrows the Room dropdown's options; "All" shows every room. Changing it
   // blanks the current Room selection.
@@ -985,11 +1010,11 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
     if (filter.kind === 'division' && !dvDivision && divisions.length === 1) setDvDivision(divisions[0].did)
   }, [filter.kind, dvDivision, divisions])
   useEffect(() => {
-    if (filter.kind === 'division' && dvDivision && !dvRoundGroup && dvRoundGroups.length === 1) setDvRoundGroup(dvRoundGroups[0].roundgroup_id)
-  }, [filter.kind, dvDivision, dvRoundGroup, dvRoundGroups])
+    if (advanced && filter.kind === 'division' && dvDivision && !dvRoundGroup && dvRoundGroups.length === 1) setDvRoundGroup(dvRoundGroups[0].roundgroup_id)
+  }, [advanced, filter.kind, dvDivision, dvRoundGroup, dvRoundGroups])
   useEffect(() => {
-    if (filter.kind === 'division' && dvRoundGroup && !dvBracket && dvRoundGroupBrackets.length === 1) setDvBracket(dvRoundGroupBrackets[0].pool_bracket_id)
-  }, [filter.kind, dvRoundGroup, dvBracket, dvRoundGroupBrackets])
+    if (advanced && filter.kind === 'division' && dvRoundGroup && !dvBracket && dvRoundGroupBrackets.length === 1) setDvBracket(dvRoundGroupBrackets[0].pool_bracket_id)
+  }, [advanced, filter.kind, dvRoundGroup, dvBracket, dvRoundGroupBrackets])
 
   const personLabel = (u: UserTS) => [u.fname, u.mname, u.lname].filter(Boolean).join(' ')
   const goGame = (gid: string) => navigate(`/game/${gid}/overview`)
@@ -1027,7 +1052,7 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
             <MenuItem value="person">Person</MenuItem>
             <MenuItem value="team">Team</MenuItem>
             <MenuItem value="room">Room</MenuItem>
-            <MenuItem value="division">Division | Session | Pool/Bracket</MenuItem>
+            <MenuItem value="division">{advanced ? 'Division | Session | Pool/Bracket' : 'Division'}</MenuItem>
           </Select>
         </FormControl>
 
@@ -1040,18 +1065,23 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
                 {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 240 }} disabled={!dvDivision}>
-              <InputLabel>Session</InputLabel>
-              <Select label="Session" value={dvRoundGroup} onChange={(e: SelectChangeEvent) => onDvRoundGroupChange(e.target.value)}>
-                {dvRoundGroups.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 240 }} disabled={!dvRoundGroup}>
-              <InputLabel>Pool/Bracket</InputLabel>
-              <Select label="Pool/Bracket" value={dvBracket} onChange={(e: SelectChangeEvent) => onDvBracketChange(e.target.value)}>
-                {dvRoundGroupBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
-              </Select>
-            </FormControl>
+            {/* Normal mode hides sessions and pools/brackets; the division alone picks the card. */}
+            {advanced && (
+              <>
+                <FormControl size="small" sx={{ minWidth: 240 }} disabled={!dvDivision}>
+                  <InputLabel>Session</InputLabel>
+                  <Select label="Session" value={dvRoundGroup} onChange={(e: SelectChangeEvent) => onDvRoundGroupChange(e.target.value)}>
+                    {dvRoundGroups.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 240 }} disabled={!dvRoundGroup}>
+                  <InputLabel>Pool/Bracket</InputLabel>
+                  <Select label="Pool/Bracket" value={dvBracket} onChange={(e: SelectChangeEvent) => onDvBracketChange(e.target.value)}>
+                    {dvRoundGroupBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </>
+            )}
           </>
         )}
 
@@ -1131,13 +1161,15 @@ const ScheduleReadView = ({ tid }: { tid: string }) => {
       {/* Results: for the Division drill-down, a read-only pool/bracket card; otherwise a count
           header, the game cards, and an infinite-scroll sentinel + loading note. */}
       {filter.kind === 'division' ? (
-        dvBracket
+        (advanced ? dvBracket : dvDivision)
           ? <PoolDetail teams={dvTeams} games={dvGames} canEdit={false} onRemoveTeam={() => {}} onNavigateGame={goGame} />
-          : <Typography variant="body2" color="text.secondary">Pick a division, session, and pool/bracket to see its card.</Typography>
+          : <Typography variant="body2" color="text.secondary">
+              {advanced ? 'Pick a division, session, and pool/bracket to see its card.' : 'Pick a division to see its rounds.'}
+            </Typography>
       ) : !filter.kind ? (
         <Typography variant="body2" color="text.secondary">Choose what to filter by above.</Typography>
       ) : !filter.id ? (
-        <Typography variant="body2" color="text.secondary">Pick a {filter.kind} to see its games.</Typography>
+        <Typography variant="body2" color="text.secondary">Pick a {filter.kind} to see {filter.kind === 'person' ? 'their' : 'its'} games.</Typography>
       ) : loading && loadedCount === 0 ? (
         <Typography variant="body2" color="text.secondary">Loading…</Typography>
       ) : (
