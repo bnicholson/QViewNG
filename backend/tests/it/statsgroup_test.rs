@@ -5,6 +5,7 @@ use actix_http::StatusCode;
 use actix_web::{App, test, web::{self,Bytes}};
 use backend::{models::{self, apicalllog::ApiCalllog, game::Game, game_statsgroup::GameStatsGroup}};
 use backend::models::statsgroup::StatsGroup;
+use backend::cache::Cache;
 use backend::routes::configure_routes;
 use backend::services::common::EntityResponse;
 use diesel::prelude::*;
@@ -140,6 +141,7 @@ async fn get_all_games_of_statsgroup_works() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
     
@@ -212,6 +214,7 @@ async fn team_stats_works() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
@@ -282,6 +285,7 @@ async fn individual_stats_works() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
@@ -361,6 +365,7 @@ async fn tiebreaker_rules_default_to_the_documented_order() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
@@ -391,6 +396,7 @@ async fn tiebreaker_rules_can_be_reordered_and_disabled() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
@@ -441,6 +447,7 @@ async fn saving_tiebreaker_rules_requires_statsgroup_update() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
@@ -482,6 +489,7 @@ async fn team_stats_explain_the_rule_that_set_each_rank() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
@@ -526,6 +534,7 @@ async fn reordering_the_rules_reorders_the_standings() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
             .configure(configure_routes)
     ).await;
 
