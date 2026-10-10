@@ -79,23 +79,26 @@ impl Drop for DropTestDatabase {
 }
 
 /// Makes sure the template for the current migrations exists, building it if not, and returns its
-/// name. Runs once per test process; the advisory lock makes concurrent processes take turns.
+/// name. Runs once per test process — and nextest runs every test in its own process, so the usual
+/// case (template already built) takes no lock: only building one makes processes take turns.
 fn ensure_template() -> String {
     let template = format!("qview_tpl_{}", migrations_fingerprint());
     let mut admin = admin_connection();
 
-    sql_query(format!("SELECT pg_advisory_lock({TEMPLATE_LOCK_KEY})"))
-        .execute(&mut admin)
-        .expect("Failed to take the template lock");
-
     if !database_exists(&mut admin, &template) {
-        build_template(&mut admin, &template);
+        sql_query(format!("SELECT pg_advisory_lock({TEMPLATE_LOCK_KEY})"))
+            .execute(&mut admin)
+            .expect("Failed to take the template lock");
+        // Another process may have built it while this one waited for the lock.
+        if !database_exists(&mut admin, &template) {
+            build_template(&mut admin, &template);
+            drop_old_templates(&mut admin, &template);
+        }
+        sql_query(format!("SELECT pg_advisory_unlock({TEMPLATE_LOCK_KEY})"))
+            .execute(&mut admin)
+            .expect("Failed to release the template lock");
     }
-    sweep_stale_databases(&mut admin, &template);
-
-    sql_query(format!("SELECT pg_advisory_unlock({TEMPLATE_LOCK_KEY})"))
-        .execute(&mut admin)
-        .expect("Failed to release the template lock");
+    sweep_abandoned_test_databases(&mut admin);
 
     template
 }
@@ -122,33 +125,45 @@ fn build_template(admin: &mut PgConnection, template: &str) {
     exec(admin, &format!(r#"ALTER DATABASE "{template}" WITH IS_TEMPLATE true ALLOW_CONNECTIONS false"#));
 }
 
-/// Drops templates built from older migration sets, and test databases left by crashed runs.
-fn sweep_stale_databases(admin: &mut PgConnection, current_template: &str) {
+/// Drops templates built from older migration sets. Called under the template lock, right after a
+/// new template is built.
+fn drop_old_templates(admin: &mut PgConnection, current_template: &str) {
+    for name in database_names(admin, r"qview\_tpl\_%") {
+        if name != current_template {
+            // A template must be demoted before it can be dropped.
+            exec(admin, &format!(r#"ALTER DATABASE "{name}" WITH IS_TEMPLATE false"#));
+            exec(admin, &format!(r#"DROP DATABASE IF EXISTS "{name}" WITH (FORCE)"#));
+        }
+    }
+}
+
+/// Drops test databases a run left behind — a test process killed by a timeout never gets to drop
+/// its own. Best effort and lock-free: two processes may race to drop the same one, so failures
+/// are ignored.
+fn sweep_abandoned_test_databases(admin: &mut PgConnection) {
+    let now = unix_now();
+    for name in database_names(admin, r"qtest\_%") {
+        let created = name.split('_').nth(1).and_then(|s| s.parse::<u64>().ok());
+        if created.is_some_and(|created| now.saturating_sub(created) > STALE_TEST_DB_SECS) {
+            let _ = sql_query(format!(r#"DROP DATABASE IF EXISTS "{name}" WITH (FORCE)"#)).execute(admin);
+        }
+    }
+}
+
+/// Names of the databases matching the `LIKE` pattern.
+fn database_names(admin: &mut PgConnection, like: &str) -> Vec<String> {
     #[derive(QueryableByName)]
     struct Name {
         #[diesel(sql_type = diesel::sql_types::Text)]
         datname: String,
     }
-    let names: Vec<Name> = sql_query(
-        r"SELECT datname::text AS datname FROM pg_database WHERE datname LIKE 'qview\_tpl\_%' OR datname LIKE 'qtest\_%'",
-    )
-    .load(admin)
-    .expect("Failed to list test databases");
-
-    let now = unix_now();
-    for Name { datname } in names {
-        if datname.starts_with("qview_tpl_") {
-            if datname != current_template {
-                // A template must be demoted before it can be dropped.
-                exec(admin, &format!(r#"ALTER DATABASE "{datname}" WITH IS_TEMPLATE false"#));
-                exec(admin, &format!(r#"DROP DATABASE IF EXISTS "{datname}" WITH (FORCE)"#));
-            }
-        } else if let Some(created) = datname.split('_').nth(1).and_then(|s| s.parse::<u64>().ok()) {
-            if now.saturating_sub(created) > STALE_TEST_DB_SECS {
-                exec(admin, &format!(r#"DROP DATABASE IF EXISTS "{datname}" WITH (FORCE)"#));
-            }
-        }
-    }
+    sql_query("SELECT datname::text AS datname FROM pg_database WHERE datname LIKE $1")
+        .bind::<diesel::sql_types::Text, _>(like)
+        .load::<Name>(admin)
+        .expect("Failed to list test databases")
+        .into_iter()
+        .map(|n| n.datname)
+        .collect()
 }
 
 /// A short hash of every migration file, so editing, adding or removing any migration builds a
@@ -233,13 +248,18 @@ pub fn make_token(user_id: Uuid, roles: Vec<String>, permissions: Vec<String>) -
 /// The pre-shared key the tests sign game events with.
 pub const TEST_GAMEEVENT_PSK: &str = "test-gameevent-psk";
 
-/// Points the server at `TEST_GAMEEVENT_PSK`. The server reads `GAMEEVENT_PSK` per request, so this
-/// must run before any signed request is sent.
+/// Checks the server will verify against `TEST_GAMEEVENT_PSK`. The server reads `GAMEEVENT_PSK`
+/// from the environment on every request, and tests run in parallel, so the value comes from
+/// .env.test (loaded before the tests start) rather than being set here: changing the environment
+/// while other test threads may be reading it is a data race.
 pub fn use_test_gameevent_psk() {
-    // SAFETY: edition 2024 marks set_var unsafe because another thread could read the environment
-    // concurrently. Integration tests run with --test-threads=1, and this only ever writes the
-    // same value.
-    unsafe { std::env::set_var("GAMEEVENT_PSK", TEST_GAMEEVENT_PSK) };
+    match std::env::var("GAMEEVENT_PSK") {
+        Ok(psk) if psk == TEST_GAMEEVENT_PSK => {}
+        other => panic!(
+            "GAMEEVENT_PSK must be {TEST_GAMEEVENT_PSK:?} for the game-event tests (got {other:?}). \
+             Add `GAMEEVENT_PSK='{TEST_GAMEEVENT_PSK}'` to .env.test, which backend/run-tests.sh loads."
+        ),
+    }
 }
 
 /// One game event's fields, as a QuizMachine client would send them.

@@ -71,5 +71,13 @@ opt-level = 3
 [profile.dev.package.blowfish]
 opt-level = 3
 
+# Same reasoning for sha3 (game-event request signing, and the integration tests' migration
+# fingerprint, which every test process computes): unoptimized it hashes ~1 KB/ms.
+[profile.dev.package.sha3]
+opt-level = 3
+
+[profile.dev.package.keccak]
+opt-level = 3
+
 [print_schema]
 file = "src/schema.rs"

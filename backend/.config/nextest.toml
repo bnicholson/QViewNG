@@ -1,0 +1,25 @@
+# cargo-nextest settings (https://nexte.st). Nextest runs every test as its own process, in
+# parallel across all test binaries — safe here because each integration test gets its own
+# database (tests/it/common/mod.rs) and nothing else is shared between tests.
+#
+# Run via ../run-tests.sh, which loads .env.test and starts the test Postgres first.
+
+[profile.default]
+# One test process per CPU.
+test-threads = "num-cpus"
+# Report every failure rather than stopping at the first.
+fail-fast = false
+# Retry a failing test once. A test that passes only on a retry is reported as FLAKY, not
+# silently counted as a pass, so flakiness stays visible.
+retries = 1
+# Flag a test as slow after 15 s and kill it after 60 s (4 periods), so a hung test can't stall
+# the run. Every integration test takes well under a second.
+slow-timeout = { period = "15s", terminate-after = 4 }
+# Print a failure's output as it happens and again in the summary at the end.
+failure-output = "immediate-final"
+
+# The seed-data tests (ignored by default; run with --run-ignored only) seed a whole tournament
+# and take several minutes. Give them room instead of killing them at 60 s.
+[[profile.default.overrides]]
+filter = 'test(/^seed_data_test::/)'
+slow-timeout = { period = "60s", terminate-after = 20 }
