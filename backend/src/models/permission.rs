@@ -133,11 +133,15 @@ impl AppSpecialPermission {
 /// tree queries grouped by resource.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
+/// # use backend::models::permission::PermissionBuilder;
+/// # fn example(mut conn: backend::database::Connection) -> diesel::QueryResult<()> {
 /// let perm = PermissionBuilder::new("post:create")
 ///     .resource("post")
 ///     .action("create")
 ///     .build_and_insert(&mut conn)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct PermissionBuilder {
     name: String,

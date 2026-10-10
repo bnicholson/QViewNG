@@ -12,11 +12,16 @@ use uuid::Uuid;
 /// Combine with `RoleBuilder` / `RolePermissionBuilder` to compose
 /// a full RBAC tree in code:
 ///
-/// ```rust
+/// ```no_run
+/// # use backend::models::users_roles::UsersRolesBuilder;
+/// # use uuid::Uuid;
+/// # fn example(mut conn: backend::database::Connection, user_id: Uuid, admin_role_id: Uuid, editor_role_id: Uuid) -> diesel::QueryResult<()> {
 /// UsersRolesBuilder::new(user_id)
 ///     .assign(admin_role_id)
 ///     .assign(editor_role_id)
 ///     .build_and_insert(&mut conn)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct UsersRolesBuilder {
     user_id: Uuid,

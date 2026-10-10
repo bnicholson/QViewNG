@@ -42,12 +42,16 @@ impl AppRole {
 /// permission IDs that will be associated via `roles_permissions` on insert.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
+/// # use backend::models::role::RoleBuilder;
+/// # fn example(mut conn: backend::database::Connection, read_perm_id: uuid::Uuid, write_perm_id: uuid::Uuid) -> diesel::QueryResult<()> {
 /// let role = RoleBuilder::new("admin")
 ///     .description("Full administrator access")
 ///     .with_permission(read_perm_id)
 ///     .with_permission(write_perm_id)
 ///     .build_and_insert(&mut conn)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct RoleBuilder {
     name: String,

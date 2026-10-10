@@ -4,38 +4,14 @@ use crate::schema::{
 };
 use chrono::Utc;
 use diesel::prelude::*;
-use diesel_migrations::{embed_migrations, EmbeddedMigrations};  // , MigrationHarness};
 
-// use pgtemp::PgTempDB;
-
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
-
-pub const TEST_DB_URL: &str = "TEST_DATABASE_URL";
-
-pub const PAGE_NUM: i64 = 0;
-pub const PAGE_SIZE: i64 = 10;
-
-// pub fn establish_test_connection() -> PgConnection {
-//     let database_url = std::env::var("TEST_DATABASE_URL")
-//         .expect("TEST_DATABASE_URL must be set");
-    
-//     let mut conn = PgConnection::establish(&database_url)
-//         .expect("Failed to connect to test database");
-    
-//     conn.run_pending_migrations(MIGRATIONS)
-//         .expect("Failed to run migrations");
-    
-//     conn
-// }
-
+/// Empties every table, children first so foreign keys never block a delete. The integration tests
+/// run this once on their template database (tests/it/common/mod.rs) and by `reset_test_db` for the
+/// few tests that start over mid-test.
 pub fn clean_database(conn: &mut database::Connection) {
 
     let start_time_for_db_purge = Utc::now();
     println!("Starting DB Purge");
-
-    // establish_test_connection();  // mostly for running pending migrations
-    // let db = Database::new(TEST_DB_URL);
-    // let mut conn = db.get_connection().expect("Failed to get connection.");
 
     diesel::delete(team_teamgroups::table)
         .execute(conn)
@@ -206,18 +182,3 @@ pub fn clean_database(conn: &mut database::Connection) {
     let duration_for_db_purge = end_time_for_db_purge.naive_utc() - start_time_for_db_purge.naive_utc();
     println!("Done. DB Purging Time Duration: {}\n", duration_for_db_purge);
 }
-
-// pub fn prepare_database() -> {
-
-//     let db = PgTempDB::async_new().await;
-
-//     let url = db.connection_uri();
-    
-//     let mut conn = PgConnection::establish(&url)
-//         .expect("Failed to connect to test database");
-    
-//     conn.run_pending_migrations(MIGRATIONS)
-//         .expect("Failed to run migrations");
-
-//     db
-// }

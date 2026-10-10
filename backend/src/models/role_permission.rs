@@ -12,7 +12,10 @@ use uuid::Uuid;
 /// Combine multiple `RolePermissionBuilder` values (one per role) to
 /// assemble a complete permission tree across all roles:
 ///
-/// ```rust
+/// ```no_run
+/// # use backend::models::role_permission::RolePermissionBuilder;
+/// # use uuid::Uuid;
+/// # fn example(mut conn: backend::database::Connection, editor_id: Uuid, viewer_id: Uuid, read_id: Uuid, write_id: Uuid) -> diesel::QueryResult<()> {
 /// // Grant read + write to editor, read-only to viewer
 /// RolePermissionBuilder::new(editor_id)
 ///     .add(read_id).add(write_id)
@@ -21,6 +24,8 @@ use uuid::Uuid;
 /// RolePermissionBuilder::new(viewer_id)
 ///     .add(read_id)
 ///     .build_and_insert(&mut conn)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct RolePermissionBuilder {
     role_id: Uuid,
