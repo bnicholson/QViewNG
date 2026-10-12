@@ -47,6 +47,12 @@ export interface RoomMonitorRowTS {
   game_in_progress: boolean;
   data_incomplete: boolean;
   resend_sent: boolean;
+  /**
+   * Where this game's resend request stands, decided server-side: asked for but not yet picked up
+   * by the room, picked up within the last 30 seconds, or picked up longer ago with the data still
+   * incomplete. Null when there is no request, or the data is whole again.
+   */
+  resend_status: 'requested' | 'received' | 'failed' | null;
   /** The room's main row (its current game), which carries the room-level state below. */
   is_room_row: boolean;
   // Room-level queue state (filled on the room's main row only).

@@ -138,7 +138,10 @@ async fn request_resend(
     }
 
     match models::game::request_gameevents_resend(&mut conn, game_id) {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => {
+            crate::live::tournament_changed(&req, tournament.tid);
+            HttpResponse::Ok().finish()
+        }
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }

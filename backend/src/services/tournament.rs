@@ -975,6 +975,83 @@ async fn read_games_in_progress(
     }
 }
 
+/// Live Games in Progress: the same rows as `/gamesinprogress`, pushed as Server-Sent Events
+/// whenever a game event, a ping or an operator action changes them. See `crate::live`.
+///
+/// Public, like the tickertape it feeds. Answers 503 when the app runs without a live hub, so
+/// the page falls back to polling.
+#[get("/{id}/gamesinprogress/stream")]
+async fn stream_games_in_progress(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs room:read.
+    if !authorized_to_read(&req, AppResource::Room) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let tid = tour_id.into_inner();
+    if models::tournament::read(&mut conn, tid).is_err() {
+        return HttpResponse::NotFound().finish();
+    }
+    let Some(hub) = req.app_data::<Data<crate::live::LiveHub>>() else {
+        return HttpResponse::ServiceUnavailable().finish();
+    };
+    crate::live::stream_response(hub, crate::live::Topic::GamesInProgress(tid), None)
+}
+
+/// Live Server Monitor: the same rows as `/roommonitor`, pushed as Server-Sent Events. See
+/// `crate::live`.
+///
+/// Gated exactly like `/roommonitor`. Permissions are checked once, when the stream opens, so
+/// the stream ends when the caller's access token expires: the page refreshes its token and
+/// reconnects, and a viewer whose access was revoked is refused then.
+#[get("/{id}/roommonitor/stream")]
+async fn stream_room_monitor(
+    db: Data<Database>,
+    tour_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    if !authorized_to_read(&req, AppResource::RoomMonitor) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let tid = tour_id.into_inner();
+
+    // Restricted to super users, the tournament owner, and tournament admins.
+    let user_ctx = req.extensions().get::<UserContext>().cloned();
+    if !crate::auth::can_view_tournament_restricted_section(&mut conn, tid, user_ctx.as_ref()) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    // The middleware has already verified the token; read its expiry to end the stream on time.
+    let expires_at = req.headers()
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .and_then(crate::auth::verify_access_token)
+        .and_then(|claims| chrono::DateTime::from_timestamp(claims.exp as i64, 0));
+    let Some(expires_at) = expires_at else {
+        return HttpResponse::Forbidden().finish();
+    };
+
+    let Some(hub) = req.app_data::<Data<crate::live::LiveHub>>() else {
+        return HttpResponse::ServiceUnavailable().finish();
+    };
+    crate::live::stream_response(hub, crate::live::Topic::RoomMonitor(tid), Some(expires_at))
+}
+
 #[get("/{id}/gamestatuses")]
 async fn read_game_statuses(
     db: Data<Database>,
@@ -1366,6 +1443,8 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_game_statuses)
         .service(read_room_monitor)
         .service(read_games_in_progress)
+        .service(stream_room_monitor)
+        .service(stream_games_in_progress)
         .service(import_gameevents_preview)
         .service(import_gameevents_commit)
         .service(read_admins)

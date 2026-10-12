@@ -1,69 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DataTableTemplate, type ColumnDef } from './DataTableTemplate';
 import { RoomAPI, type RoomMonitorRowTS } from '../features/RoomAPI';
 import { GameAPI } from '../features/GameAPI';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '@mui/material';
+import { useLiveFeed } from '../hooks/useLiveFeed';
+import { LiveIndicator } from './LiveIndicator';
 import { isLate, statusMessages, resendButtonStyle, resendButtonDisabledStyle } from '../utils/roomMonitorStatus';
 import { QuarantineButton, QuarantineDialog, ClearStatusChip, ClearPendingButton, ClearPendingDialog } from './RoomQueueDialogs';
 
-const POLL_MS = 30_000;                 // refresh the monitor every 30 seconds
+// The monitor is pushed live by the server (see useLiveFeed). This is how often it re-reads the
+// backend instead while the live connection is unavailable.
+const POLL_MS = 30_000;
 
-// A countdown "pie" that drains over `durationMs` and refills whenever `resetKey` changes
-// (i.e. when a server response arrives). Runs its own animation frame loop so only this
-// small SVG re-renders, not the whole table.
-function CountdownPie({ resetKey, durationMs, size = 20 }: { resetKey: number; durationMs: number; size?: number }) {
-  const [remaining, setRemaining] = useState(1); // fraction left, 1 → full, 0 → empty
-  const startRef = useRef<number>(performance.now());
-  const theme = useTheme();
+// How often the table re-renders between updates, so time-based highlighting ("late") stays current.
+const TICK_MS = 5_000;
 
-  // Refill and restart the cycle each time a response comes back.
-  useEffect(() => {
-    startRef.current = performance.now();
-    setRemaining(1);
-  }, [resetKey]);
-
-  // Smoothly drain the pie.
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const elapsed = performance.now() - startRef.current;
-      setRemaining(Math.max(0, 1 - elapsed / durationMs));
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [durationMs]);
-
-  const c = size / 2;
-  const r = size / 2;
-  // Wedge path for the remaining fraction. The empty portion grows clockwise from the top
-  // (12 o'clock), so the filled wedge runs clockwise from its moving edge back up to the top.
-  let wedge = '';
-  if (remaining > 0 && remaining < 1) {
-    const angle = remaining * 360;
-    const rad = (deg: number) => (deg * Math.PI) / 180;
-    const startDeg = -90 + (360 - angle); // moving edge — sweeps clockwise from the top
-    const x1 = c + r * Math.cos(rad(startDeg));
-    const y1 = c + r * Math.sin(rad(startDeg));
-    const x2 = c + r * Math.cos(rad(-90)); // fixed edge at the top
-    const y2 = c + r * Math.sin(rad(-90));
-    const largeArc = angle > 180 ? 1 : 0;
-    wedge = `M ${c} ${c} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-  }
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-label="Time until next refresh">
-      {/* Track */}
-      <circle cx={c} cy={c} r={r} fill="#e5e7eb" />
-      {/* Remaining time */}
-      {remaining >= 1
-        ? <circle cx={c} cy={c} r={r} fill={theme.palette.primary.main}/>  // "#2563eb" />
-        : wedge && <path d={wedge} fill={theme.palette.primary.main}/>  // "#2563eb" />}
-      }
-    </svg>
-  );
-}
+// The Resend column's note for each server-decided resend state (see `resend_status` in the backend).
+const RESEND_NOTICES: Record<NonNullable<RoomMonitorRowTS['resend_status']>, string> = {
+  requested: 'Requested — awaiting next ping',
+  received: 'Resend request received by room.',
+  failed: 'Room failed to resend game events. Please issue another resend request.',
+};
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
@@ -83,21 +40,23 @@ function isAlert(r: RoomMonitorRowTS, now: number): boolean {
 // canClear: whether the user may start/cancel a Clear Pending + Resend (game:update for this tournament).
 export default function RoomMonitorTable({ tid, canClear = false }: { tid: string; canClear?: boolean }) {
   const { accessToken, refresh } = useAuth();
-  const [rows, setRows] = useState<RoomMonitorRowTS[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Bumped each time a server response arrives; drives the countdown pie's refill.
-  const [refreshCount, setRefreshCount] = useState(0);
-  // A ticking value so the "late" evaluation re-renders even between polls.
+  // Live rows. The stream needs a token, so it opens once one is available, and reopens with each
+  // refreshed token; the server ends it when the token it opened with expires.
+  const { data, status, error } = useLiveFeed<RoomMonitorRowTS[]>({
+    url: accessToken ? `/api/tournaments/${tid}/roommonitor/stream` : null,
+    token: accessToken,
+    poll: () => RoomAPI.getMonitorByTournament(tid, accessToken),
+    pollIntervalMs: POLL_MS,
+    onExpired: refresh,
+  });
+  // Guard against a non-array payload so a bad/error response can't crash the render.
+  const rows = Array.isArray(data) ? data : [];
+  const loading = data === null && status !== 'error';
+  // A ticking value so the "late" evaluation re-renders even between updates.
   const [, setTick] = useState(0);
-  // Games whose resend request is in flight, and those requested but not yet picked up by the room.
+  // Games whose resend request is in flight. Everything after that (requested, received, failed)
+  // is decided by the server and arrives with the rows.
   const [requesting, setRequesting] = useState<Set<string>>(new Set());
-  const [requested, setRequested] = useState<Set<string>>(new Set());
-  // Poll sequence number, and — per game — the poll at which its resend was first seen as
-  // picked up by the room. Lets us show "received" on that poll and "failed" on later ones.
-  const pollSeqRef = useRef(0);
-  const [sentSeenAt, setSentSeenAt] = useState<Map<string, number>>(new Map());
-  // Bumped after an action so the monitor reloads at once instead of on the next poll.
-  const [reloadKey, setReloadKey] = useState(0);
   // The room whose quarantine dialog is open.
   const [quarantineRoom, setQuarantineRoom] = useState<RoomMonitorRowTS | null>(null);
   // The room whose Clear Pending + Resend dialog is open, and that dialog's request state.
@@ -106,76 +65,30 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
   const [clearError, setClearError] = useState<string | null>(null);
 
   useEffect(() => {
-    // The endpoint is auth-gated (owner/admin/super user). On a fresh page load the
-    // access token is repopulated asynchronously, so wait for it before fetching —
-    // otherwise the first requests fire without a token and get a 403.
+    // The stream is auth-gated (owner/admin/super user). On a fresh page load the access token is
+    // repopulated asynchronously; rather than wait indefinitely, actively seed it from the
+    // refresh cookie. When it lands, the live feed opens.
     if (!accessToken) {
-      // The endpoint is auth-gated. Rather than wait indefinitely, actively seed the token
-      // from the refresh cookie; when it lands, this effect re-runs (accessToken dep) and polls.
       console.log('Room Monitor: no access token yet — seeding it from the refresh session.');
       refresh();
-      return;
     }
-    let cancelled = false;
-    const load = () => {
-      console.log(`Room Monitor: fetch request sent to server for tournament ${tid} at ${new Date().toLocaleString()}.`);
-      RoomAPI.getMonitorByTournament(tid, accessToken)
-        .then((result) => {
-          if (cancelled) return;
-          // Guard against a non-array payload so a bad/error response can't crash the render.
-          const rowsArr = Array.isArray(result) ? result : [];
-          setRows(rowsArr);
+  }, [accessToken, refresh]);
 
-          pollSeqRef.current += 1;
-          const seq = pollSeqRef.current;
+  useEffect(() => {
+    const tick = setInterval(() => setTick((t) => t + 1), TICK_MS);
+    return () => clearInterval(tick);
+  }, []);
 
-          // Once the room has picked up a resend (resend_sent), drop its "awaiting" note.
-          setRequested((prev) => {
-            const next = new Set(prev);
-            for (const r of rowsArr) if (r.game_id && r.resend_sent) next.delete(r.game_id);
-            return next;
-          });
-          // Record the poll at which each game's resend was first seen as sent (and still
-          // incomplete); clear it once the game is no longer sent+incomplete.
-          setSentSeenAt((prev) => {
-            const next = new Map(prev);
-            for (const r of rowsArr) {
-              if (!r.game_id) continue;
-              if (r.resend_sent && r.data_incomplete) {
-                if (!next.has(r.game_id)) next.set(r.game_id, seq);
-              } else {
-                next.delete(r.game_id);
-              }
-            }
-            return next;
-          });
-
-          // Response is back — refill the countdown pie.
-          setRefreshCount(seq);
-        })
-        .catch(() => { if (!cancelled) console.error('Failed to load room monitor data'); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    };
-    load();
-    const poll = setInterval(load, POLL_MS);
-    const tick = setInterval(() => setTick((t) => t + 1), POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(poll);
-      clearInterval(tick);
-    };
-  }, [tid, accessToken, reloadKey]);
-
-  // requesting/requested are keyed by game id, since a room can now have several rows (its
-  // current game plus other games of that room whose data has gaps).
+  // requesting is keyed by game id, since a room can now have several rows (its current game
+  // plus other games of that room whose data has gaps).
   const handleResend = async (r: RoomMonitorRowTS) => {
     if (!r.game_id) return;
     const gid = r.game_id;
     setRequesting((prev) => new Set(prev).add(gid));
     try {
       console.log(`Resend update request sent to server for game ${gid} (room ${r.room ?? r.roomid}) at ${new Date().toLocaleString()}.`);
+      // The server pushes the game's new "requested" state to every open monitor.
       await GameAPI.requestResend(gid, accessToken);
-      setRequested((prev) => new Set(prev).add(gid));
     } catch {
       alert('Failed to request resend.');
     } finally {
@@ -192,9 +105,9 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
     setClearBusy(true);
     setClearError(null);
     try {
+      // The clear's new state arrives with the next live update.
       await RoomAPI.startClearPending(clearRoom.roomid, accessToken);
       setClearRoom(null);
-      setReloadKey((k) => k + 1);
     } catch (e) {
       setClearError((e as Error).message);
     } finally {
@@ -208,8 +121,6 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
       await RoomAPI.cancelClearPending(r.roomid, accessToken);
     } catch (e) {
       alert((e as Error).message);
-    } finally {
-      setReloadKey((k) => k + 1);
     }
   };
 
@@ -270,7 +181,6 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
       render: (r) => {
         const gid = r.game_id;
         const requestingThis = !!gid && requesting.has(gid);
-        const awaiting = !!gid && requested.has(gid);
         // Only actionable when the round data is incomplete (a resend is warranted).
         const disabled = !gid || requestingThis || !r.data_incomplete;
         const title = !gid
@@ -279,16 +189,7 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
             ? 'Round data is complete — no resend needed'
             : 'Resend all events on the next ping';
 
-        // Notice progression: after clicking, "awaiting" persists until the room picks up the
-        // request; on the poll it's picked up, "received"; on later polls still incomplete, "failed".
-        let notice: string | null = null;
-        if (awaiting) {
-          notice = 'Requested — awaiting next ping';
-        } else if (gid && r.resend_sent && r.data_incomplete) {
-          notice = sentSeenAt.get(gid) === pollSeqRef.current
-            ? 'Resend request received by room.'
-            : 'Room failed to resend game events. Please issue another resend request.';
-        }
+        const notice = r.resend_status ? RESEND_NOTICES[r.resend_status] : null;
 
         return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
@@ -324,8 +225,9 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: '#6b7280' }}>Next refresh</span>
-        <CountdownPie resetKey={refreshCount} durationMs={POLL_MS} />
+        {error && status === 'error'
+          ? <span style={{ fontSize: 12, color: '#c0392b' }}>{error}</span>
+          : <LiveIndicator status={status} pollIntervalMs={POLL_MS} />}
       </div>
       <DataTableTemplate<RoomMonitorRowTS>
         loading={loading}

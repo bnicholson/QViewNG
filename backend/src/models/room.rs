@@ -562,12 +562,45 @@ pub struct RoomMonitorRow {
     pub game_in_progress: bool,            // referenced game has started (gameplay) but is not finished
     pub data_incomplete: bool,             // retrieved events have a gap in questions or sub-events
     pub resend_sent: bool,                 // a resend command for this game has been picked up by the room (resend_request_sent_ts set)
+    pub resend_status: Option<String>,     // "requested" | "received" | "failed" -- see `resend_status`
     // Room-level queue state; filled on the room's main row only (0/false/None on extra game rows).
     pub is_room_row: bool,                 // the room's main row (its current game), which carries the room-level state
     pub quarantine_count: i64,             // events acknowledged to the client but set aside, not applied
     pub pending_stalled: bool,             // the client looks stuck — see `is_pending_stalled`
     pub clear_status: Option<String>,      // the in-flight or recently finished Clear Pending + Resend
     pub clear_cleared_count: i64,          // how many events that clear set aside
+}
+
+/// How long after a room picks up a resend its missing events may take to arrive before the
+/// resend counts as failed. The Server Monitor used to judge this from its own 30-second polls;
+/// it is decided here now, so every viewer sees the same answer however often updates arrive.
+pub const RESEND_RECEIVED_GRACE: chrono::Duration = chrono::Duration::seconds(30);
+
+/// Where a game's resend request stands, for the Server Monitor's Resend column.
+///
+/// * `requested` -- asked for, and the room has not picked the request up on a ping yet
+/// * `received` -- the room picked it up within the last [`RESEND_RECEIVED_GRACE`]
+/// * `failed` -- the room picked it up longer ago than that and the data still has gaps
+///
+/// `None` once the data is whole again, which is what a resend is for: a request for a game with
+/// no gaps is never sent to the room, so it is not shown as waiting either.
+///
+/// Takes the game's `resend_gameevents_request_ts` and `resend_request_sent_ts`.
+pub fn resend_status(
+    requested: Option<DateTime<Utc>>,
+    sent: Option<DateTime<Utc>>,
+    data_incomplete: bool,
+    now: DateTime<Utc>,
+) -> Option<&'static str> {
+    if !data_incomplete {
+        return None;
+    }
+    match (requested, sent) {
+        (_, Some(sent)) if now - sent < RESEND_RECEIVED_GRACE => Some("received"),
+        (_, Some(_)) => Some("failed"),
+        (Some(_), None) => Some("requested"),
+        (None, None) => None,
+    }
 }
 
 // Event codes that make up round initialization (no gameplay yet).
@@ -660,6 +693,9 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
             game_in_progress,
             data_incomplete,
             resend_sent: game.as_ref().map_or(false, |g| g.resend_request_sent_ts.is_some()),
+            resend_status: game.as_ref().and_then(|g| {
+                resend_status(g.resend_gameevents_request_ts, g.resend_request_sent_ts, data_incomplete, now)
+            }).map(str::to_string),
             is_room_row: true,
             quarantine_count,
             pending_stalled: is_pending_stalled(&room, now),
@@ -705,6 +741,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                     game_in_progress: false,         // an extra (non-current) game isn't the in-progress one
                     data_incomplete: true,           // it has gaps — that's why it's surfaced
                     resend_sent: g.resend_request_sent_ts.is_some(),
+                    resend_status: resend_status(g.resend_gameevents_request_ts, g.resend_request_sent_ts, true, now).map(str::to_string),
                     is_room_row: false,
                     quarantine_count: 0,             // room-level state lives on the room's main row
                     pending_stalled: false,
@@ -833,6 +870,39 @@ pub async fn read_games_in_progress_of_tournament(
     });
 
     Ok(rows)
+}
+
+#[cfg(test)]
+mod resend_status_tests {
+    use super::*;
+
+    #[test]
+    fn a_request_the_room_has_not_picked_up_is_requested() {
+        let now = Utc::now();
+        assert_eq!(resend_status(Some(now), None, true, now), Some("requested"));
+    }
+
+    #[test]
+    fn a_picked_up_resend_is_received_until_the_grace_period_passes_then_failed() {
+        let now = Utc::now();
+        let sent = now - chrono::Duration::seconds(5);
+        assert_eq!(resend_status(Some(sent), Some(sent), true, now), Some("received"));
+
+        let later = sent + RESEND_RECEIVED_GRACE;
+        assert_eq!(resend_status(Some(sent), Some(sent), true, later), Some("failed"));
+    }
+
+    #[test]
+    fn whole_data_shows_no_resend_state_at_all() {
+        let now = Utc::now();
+        assert_eq!(resend_status(Some(now), None, false, now), None);
+        assert_eq!(resend_status(Some(now), Some(now - chrono::Duration::hours(1)), false, now), None);
+    }
+
+    #[test]
+    fn a_game_never_asked_to_resend_has_no_resend_state() {
+        assert_eq!(resend_status(None, None, true, Utc::now()), None);
+    }
 }
 
 #[cfg(test)]
