@@ -299,6 +299,10 @@ async fn index(
                 &mut emitted,
                 &mut body,
             );
+
+            // Last, after every write above: the question, check-in, pending count, stalled flag,
+            // resend and clear state all show on the live pages.
+            crate::live::tournament_changed(&req, tid);
         }
     }
 

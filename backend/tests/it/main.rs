@@ -28,6 +28,7 @@ mod game_rows_test;
 mod game_test;
 mod gameevent_test;
 mod interfacebox_test;
+mod live_test;
 mod jumppad_test;
 mod microphonerecorder_test;
 mod monitor_test;

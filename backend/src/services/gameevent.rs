@@ -563,13 +563,22 @@ async fn index(
     // log this api call
     models::apicalllog::create(&mut db, &req);
 
-    match write(&mut db, &cache, req).await {
+    match write(&mut db, &cache, req.clone()).await {
         Ok(response) => {
             // write() succeeded at the Result level; it may still carry a non-2xx
             // status (e.g. a validation BadRequest). Log those but pass them through
             // so the client sees the real status and body.
             if !response.status().is_success() {
                 log::error!("{} {} write() returned a non-OK response: {}", module_path!(), line!(), response.status());
+            } else {
+                // Every acknowledged event changed something a live page shows: an applied one the
+                // scores, a quarantined or set-aside one the Server Monitor's quarantine count.
+                // Notifying here, once, covers each of write()'s acknowledging paths.
+                let tournament_name = qstring::QString::from(req.query_string())
+                    .get("tn")
+                    .unwrap_or("")
+                    .replace("+", " ");
+                crate::live::tournament_named_changed(&req, &mut db, &tournament_name);
             }
             return response;
         }

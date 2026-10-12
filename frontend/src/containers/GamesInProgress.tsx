@@ -5,10 +5,16 @@ import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import { useTheme } from '@mui/material/styles'
 import { DataTableTemplate, DEFAULT_PAGE_SIZE, type ColumnDef } from '../components/DataTableTemplate'
+import { LiveIndicator } from '../components/LiveIndicator'
+import { useLiveFeed } from '../hooks/useLiveFeed'
 
-// How often the tickertape re-reads the backend. The backend serves this from the Valkey
-// cache, so a short interval is cheap: a warm read does no gameevents queries at all.
+// The tickertape is pushed live by the server (see useLiveFeed). This is how often it re-reads
+// the backend instead while the live connection is unavailable. The backend serves this from the
+// Valkey cache, so a short interval is cheap: a warm read does no gameevents queries at all.
 const POLL_MS = 15_000
+
+// How often the "Check-in" column re-renders so its ages stay current between updates.
+const TICK_MS = 5_000
 
 /** One team's live standing within a round in progress. Mirrors the backend's GamesInProgressTeam. */
 export interface GamesInProgressTeam {
@@ -82,7 +88,7 @@ export const GamesInProgressTable = ({
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  // Re-polled every 15s, and rooms drop off as they go quiet — so a page that was valid a moment
+  // Updated live, and rooms drop off as they go quiet — so a page that was valid a moment
   // ago can now be past the end. Clamp rather than show an empty page.
   const lastPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1)
   const currentPage = Math.min(page, lastPage)
@@ -121,43 +127,20 @@ export const GamesInProgressTable = ({
 
 export const GamesInProgress = () => {
   const { tid } = useParams()
-  const [rows, setRows] = useState<GamesInProgressRow[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
-  // Re-renders on each poll so the "check-in" column ages even when the rows are unchanged.
+  const { data, status, error } = useLiveFeed<GamesInProgressRow[]>({
+    url: tid ? `/api/tournaments/${tid}/gamesinprogress/stream` : null,
+    poll: () => GamesInProgressAPI.get(tid ?? ''),
+    pollIntervalMs: POLL_MS,
+  })
+  const rows = data ?? []
+  const loading = data === null && !error
+  // Re-renders between updates so the "check-in" column ages even when the rows are unchanged.
   const [, setTick] = useState<number>(0)
 
   useEffect(() => {
-    if (!tid) {
-      setLoading(false)
-      return
-    }
-    let cancelled = false
-
-    const load = () => {
-      GamesInProgressAPI.get(tid)
-        .then((fetched) => {
-          if (cancelled) return
-          setRows(fetched)
-          setError(null)
-          setLoading(false)
-        })
-        .catch((e: Error) => {
-          if (cancelled) return
-          setError(e.message)
-          setLoading(false)
-        })
-    }
-
-    load()
-    const poll = setInterval(load, POLL_MS)
-    const tick = setInterval(() => setTick((t) => t + 1), POLL_MS)
-    return () => {
-      cancelled = true
-      clearInterval(poll)
-      clearInterval(tick)
-    }
-  }, [tid])
+    const tick = setInterval(() => setTick((t) => t + 1), TICK_MS)
+    return () => clearInterval(tick)
+  }, [])
 
   // Mounted only under /tournament/:tid/live-games, so a tid is always present.
   if (!tid) return null
@@ -165,7 +148,10 @@ export const GamesInProgress = () => {
   return (
     <div>
       <Box sx={{ mt: 2 }}>
-        <Typography variant="h5">Games in Progress</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h5">Games in Progress</Typography>
+          <LiveIndicator status={status} pollIntervalMs={POLL_MS} />
+        </Box>
         {rows.length > 0 && (
           <Typography variant="subtitle1" color="text.secondary">
             {rows[0].tournament}
@@ -173,7 +159,8 @@ export const GamesInProgress = () => {
         )}
       </Box>
       <br />
-      {error && !loading ? (
+      {/* A failed refresh keeps showing the last rows; only a refusal, or having nothing, shows the error. */}
+      {error && (status === 'error' || data === null) ? (
         <Paper sx={{ width: '100%', p: 3 }}>
           <Typography color="error">{error}</Typography>
         </Paper>

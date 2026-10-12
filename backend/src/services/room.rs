@@ -519,7 +519,10 @@ async fn start_clear_pending(db: Data<Database>, room_id: Path<Uuid>, req: HttpR
     };
 
     match models::room_queue_clear::start(&mut conn, room.roomid, ctx.user_id) {
-        Ok(clear) => HttpResponse::Created().json(clear),
+        Ok(clear) => {
+            crate::live::tournament_changed(&req, room.tid);
+            HttpResponse::Created().json(clear)
+        }
         // The partial unique index allows one clear in flight per room.
         Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _)) => {
             HttpResponse::Conflict().json(json!({ "error": "This room already has a Clear Pending + Resend in progress." }))
@@ -565,7 +568,10 @@ async fn cancel_clear_pending(db: Data<Database>, room_id: Path<Uuid>, req: Http
         models::room_queue_clear::finish(&mut conn, clear.room_clear_id, models::room_queue_clear::STATUS_CANCELLED, Some(ctx.user_id))
     };
     match result {
-        Ok(updated) => HttpResponse::Ok().json(updated),
+        Ok(updated) => {
+            crate::live::tournament_changed(&req, room.tid);
+            HttpResponse::Ok().json(updated)
+        }
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }

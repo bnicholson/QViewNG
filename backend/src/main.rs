@@ -3,6 +3,7 @@ use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
 use backend::database::Database;
 use backend::cache::Cache;
+use backend::live::{self, LiveHub};
 use backend::database::clean_db::clean_database;
 use backend::database::seed_data::seed_one::insert_seed_data_one;
 use backend::database::seed_data::system_default_data::insert_system_default_data;
@@ -82,6 +83,11 @@ async fn main() -> std::io::Result<()> {
     // server is unreachable, this returns a disabled cache and the app runs uncached rather
     // than failing to start -- see backend/src/cache.rs.
     let cache = Cache::from_env("VALKEY_URL").await;
+
+    // Live updates for pages watching a tournament (Games in Progress, the Server Monitor). One
+    // hub shared by every worker; its background worker recalculates only what someone is
+    // watching -- see backend/src/live.rs.
+    let live = LiveHub::start(live::snapshot_builder(db.clone(), cache.clone()));
     
     log::info!("Server listening on http://{host_and_port} ...");
 
@@ -92,11 +98,15 @@ async fn main() -> std::io::Result<()> {
         .wrap(Logger::default())
         .app_data(actix_web::web::Data::new(db.clone()))
         .app_data(actix_web::web::Data::new(cache.clone()))
+        .app_data(actix_web::web::Data::new(live.clone()))
         // .app_data(Data::new(app_data.mailer.clone()))
         // .app_data(Data::new(schema.clone()))
         // .app_data(Data::new(storage.clone()))
         .configure(configure_routes)
     })
+    // Open live-update streams never finish on their own, so a graceful shutdown would otherwise
+    // wait the full default 30 s for them. Their pages reconnect to the restarted server.
+    .shutdown_timeout(5)
     .bind(host_and_port)?
     .run()
     .await
