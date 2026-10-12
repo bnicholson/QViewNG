@@ -51,9 +51,12 @@ export default function GlobalNavBar() {
         <Toolbar sx={{ width: '100%' }}>
           {/* Left: brand */}
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-            <Typography variant="h6" component="div" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-              QView
-            </Typography>
+            <Link component={RouterLink} to="/" color="inherit" underline="none" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+              <Box component="img" src="/qview-logo.png" alt="" sx={{ height: 32, width: 32 }} />
+              <Typography variant="h6" component="span">
+                QView
+              </Typography>
+            </Link>
           </Box>
 
           {/* Center: primary navigation, centered across the full width of the bar */}
