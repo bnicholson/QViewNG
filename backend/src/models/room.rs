@@ -546,6 +546,12 @@ mod pending_stall_tests {
 
 /// One row of the Room Monitor: a room's latest ping data plus the referenced
 /// game's resend status. `status_error` is intentionally left out for now.
+///
+/// `question` and `event_question` are deliberately both here. `question` is the room's own
+/// position, from its pings; `event_question` is the question the game events the server holds
+/// put it on (the calculator's `current_question`, the same number Games in Progress shows).
+/// They differ while the room's event queue is behind, and the gap is that backlog in questions.
+/// `event_question` is None when the game has no events yet, or they cannot be scored.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct RoomMonitorRow {
     pub roomid: Uuid,
@@ -553,7 +559,8 @@ pub struct RoomMonitorRow {
     pub client_ts: Option<DateTime<Utc>>,  // ping_client_ts (client-reported time; used for the "late" check)
     pub room: Option<String>,              // ping_room
     pub round: Option<String>,             // ping_round
-    pub question: Option<i32>,             // ping_question_number
+    pub question: Option<i32>,             // ping_question_number: where the room itself says it is
+    pub event_question: Option<i32>,       // where the server's events put the room -- see below
     pub host_ip: Option<String>,           // ping_host_ip
     pub qm_version: Option<String>,        // ping_qm_version
     pub pending: Option<i32>,              // ping_jobspending
@@ -651,7 +658,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
         // matching the Game Selection "Done" definition.
         // data_incomplete = the retrieved events have a gap in question numbers or in a
         // question's sub-event (eventnum) sequence.
-        let (game_in_progress, data_incomplete) = match &game {
+        let (game_in_progress, data_incomplete, event_question) = match &game {
             Some(g) => {
                 let events = crate::models::gameevent::read_all_gameevents_of_game(db, g.gid, &pagination)
                     .unwrap_or_default();
@@ -663,7 +670,10 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                 let started = events.iter().any(|e| !ROOM_MONITOR_INIT_CODES.contains(&e.event.as_str()));
                 let has_question_20 = events.iter().any(|e| e.question >= 20);
 
-                let results = crate::models::gameevent::calculate_team_results_for_game(g.gid, events);
+                let calculated = crate::models::gameevent::calculate_game(g.gid, events);
+                // Nothing stored yet places the room nowhere (the calculator would say question 1).
+                let event_question = calculated.as_ref().ok().filter(|_| has_events).map(|c| c.current_question);
+                let results = calculated.map(|c| crate::models::gameevent::team_results_from_calculated(&c));
                 let ties_resolved = match &results {
                     Ok(teams) if !teams.is_empty() => {
                         let mut scores: Vec<i32> = teams.iter().map(|t| t.score).collect();
@@ -673,9 +683,9 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                     _ => false,
                 };
                 let finished = has_events && results.is_ok() && has_question_20 && ties_resolved;
-                (started && !finished, data_incomplete)
+                (started && !finished, data_incomplete, event_question)
             }
-            None => (false, false),
+            None => (false, false, None),
         };
 
         monitor.push(RoomMonitorRow {
@@ -685,6 +695,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
             room: room.ping_room.clone(),
             round: room.ping_round.clone(),
             question: room.ping_question_number,
+            event_question,
             host_ip: room.ping_host_ip.clone(),
             qm_version: room.ping_qm_version.clone(),
             pending: room.ping_jobspending,
@@ -733,6 +744,7 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
                     room: room.ping_room.clone(),
                     round: round_name,               // this game's own round, not the current ping's
                     question: max_question,          // highest recorded question for this game
+                    event_question: None,            // a game with gaps is not the room's current position
                     host_ip: room.ping_host_ip.clone(),
                     qm_version: room.ping_qm_version.clone(),
                     pending: room.ping_jobspending,
@@ -781,7 +793,7 @@ pub struct GamesInProgressRow {
     pub division: Option<String>,
     pub room: Option<String>,                      // ping_room (what the client calls it)
     pub round: Option<String>,                     // ping_round
-    pub question: Option<i32>,                     // ping_question_number
+    pub question: Option<i32>,                     // from the same events as `teams` -- see read_games_in_progress_of_tournament
     #[schema(value_type = Option<String>, format = DateTime)]
     pub check_in: Option<DateTime<Utc>>,           // ping_last_checkin_ts
     pub teams: Vec<GamesInProgressTeam>,          // empty when the game has no scoreable events yet
@@ -790,8 +802,9 @@ pub struct GamesInProgressRow {
 /// Builds the public "Games in Progress" tickertape for a tournament.
 ///
 /// Reads the ping columns the pingmsg endpoint already maintains on `rooms` -- Postgres is the
-/// source of truth for where each room is -- and joins each row to the live score of the game
-/// that room is running, taken from the Valkey-cached `CalculatedGame`.
+/// source of truth for which rooms are reporting -- and joins each row to the live score of the
+/// game that room is running, and the question that game is on, both taken from the one
+/// Valkey-cached `CalculatedGame` so a row can never contradict itself.
 ///
 /// Cost on a warm cache: one query for the tournament, one for its rooms, one Valkey GET per
 /// reporting room, and no gameevents reads at all. A room whose game is not yet cached pays
@@ -830,24 +843,33 @@ pub async fn read_games_in_progress_of_tournament(
         // Live scores from the cached calculation. A game with no scoreable events yet (or
         // one whose stream is mid-write) simply yields no teams rather than dropping the row:
         // "Jester 3 is on question 7" is still useful to a viewer.
-        let teams = match &game {
-            Some(g) => {
-                match crate::models::gameevent::calculate_game_cached(cache, db, g.gid).await? {
-                    Some(calculated) => {
-                        let mut results =
-                            crate::models::gameevent::team_results_from_calculated(&calculated);
-                        // Left-to-right as the room sees them, not by rank.
-                        results.sort_by_key(|r| r.team);
-                        results
-                            .into_iter()
-                            .filter(|r| !r.name.trim().is_empty())
-                            .map(|r| GamesInProgressTeam { name: r.name, score: r.score })
-                            .collect()
-                    }
-                    None => Vec::new(),
-                }
+        let calculated = match &game {
+            Some(g) => crate::models::gameevent::calculate_game_cached(cache, db, g.gid).await?,
+            None => None,
+        };
+        let teams = match &calculated {
+            Some(calculated) => {
+                let mut results = crate::models::gameevent::team_results_from_calculated(calculated);
+                // Left-to-right as the room sees them, not by rank.
+                results.sort_by_key(|r| r.team);
+                results
+                    .into_iter()
+                    .filter(|r| !r.name.trim().is_empty())
+                    .map(|r| GamesInProgressTeam { name: r.name, score: r.score })
+                    .collect()
             }
             None => Vec::new(),
+        };
+
+        // The question comes from the same calculation as the scores, never from the pings. The
+        // two arrive on their own schedules -- a ping can lag an event that was just stored, and a
+        // backed-up event queue lags the pings -- so mixing them could show 40-40 on question 4.
+        // `current_question` is the question being asked now (a correct answer on question 4
+        // makes it 5). The ping is used only while the row shows no scores -- no events yet, or
+        // none that can be scored -- since then there is nothing for it to contradict.
+        let question = match &calculated {
+            Some(c) if !teams.is_empty() => Some(c.current_question),
+            _ => room.ping_question_number,
         };
 
         rows.push(GamesInProgressRow {
@@ -856,7 +878,7 @@ pub async fn read_games_in_progress_of_tournament(
             division,
             room: room.ping_room.clone(),
             round: room.ping_round.clone(),
-            question: room.ping_question_number,
+            question,
             check_in: room.ping_last_checkin_ts,
             teams,
         });

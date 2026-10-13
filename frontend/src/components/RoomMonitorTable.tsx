@@ -124,6 +124,22 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
     }
   };
 
+  // The room's own question, plus — when its events are behind it — how far the server's events
+  // reach. The gap is the room's event backlog, counted in questions.
+  const renderQuestion = (r: RoomMonitorRowTS) => {
+    const behind = r.question !== null && r.event_question !== null && r.event_question < r.question;
+    if (!behind) return orDash(r.question);
+    const scoredThrough = (r.event_question ?? 1) - 1;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+        <span>{r.question}</span>
+        <span style={{ fontSize: 12 }} title="The room is ahead of the events the server has received; its pending events have not all arrived yet.">
+          {scoredThrough > 0 ? `Scored through Q${scoredThrough}` : 'No questions scored yet'}
+        </span>
+      </div>
+    );
+  };
+
   // Pending count, plus — on the room's main row — the clear's progress or, when the room looks
   // stuck, the button that starts one.
   const renderPending = (r: RoomMonitorRowTS) => {
@@ -163,7 +179,7 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
     { header: 'Check In',     render: (r) => formatDateTime(r.check_in) },
     { header: 'Room',         render: (r) => orDash(r.room)             },
     { header: 'Round',        render: (r) => orDash(r.round)            },
-    { header: 'Question',     render: (r) => orDash(r.question)         },
+    { header: 'Question',     render: renderQuestion                    },
     { header: 'QMVersion',    render: (r) => orDash(r.qm_version)       },
     { header: 'Pending',      render: renderPending                     },
     {

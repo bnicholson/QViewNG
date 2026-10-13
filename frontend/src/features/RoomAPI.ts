@@ -38,7 +38,14 @@ export interface RoomMonitorRowTS {
   client_ts: string | null;
   room: string | null;
   round: string | null;
+  /** The room's own position, from its pings. */
   question: number | null;
+  /**
+   * The question the game events the server holds put the room on (the same number Games in
+   * Progress shows). Behind `question` while the room's event queue is backed up. Null until the
+   * game has events, or when they cannot be scored.
+   */
+  event_question: number | null;
   host_ip: string | null;
   qm_version: string | null;
   pending: number | null;

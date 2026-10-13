@@ -307,3 +307,118 @@ async fn games_in_progress_stream_of_an_unknown_tournament_is_not_found() {
     assert_eq!(test::call_service(&app, req).await.status(), StatusCode::NOT_FOUND);
     assert!(!hub.is_watching_anything());
 }
+
+// ─── A row's question and scores come from the same events ──────────────────
+
+/// Stores a 2-team game played through question 4: each team answers two tossups (40-40), so the
+/// question being asked now is 5.
+fn seed_game_tied_40_40_after_question_4(conn: &mut backend::database::Connection, gid: Uuid) {
+    use backend::models::gameevent::{GameEventBuilder, GameEventCode};
+    let mut ev = |q: i32, e: i32, name: &str, team: i32, quizzer: i32, code: GameEventCode| {
+        GameEventBuilder::new_default(gid)
+            .set_question(Some(q))
+            .set_eventnum(Some(e))
+            .set_name(Some(name.to_string()))
+            .set_team(Some(team))
+            .set_quizzer(Some(quizzer))
+            .set_event(Some(code))
+            .build_and_insert(conn)
+            .unwrap();
+    };
+    ev(1, 0, "Tournament", 0, 0, GameEventCode::RM);
+    ev(1, 1, "N", 0, 0, GameEventCode::QT);
+    ev(1, 2, "Red Team", 0, 0, GameEventCode::TN);
+    ev(1, 3, "Red #1", 0, 0, GameEventCode::QN);
+    ev(1, 4, "Red #2", 0, 1, GameEventCode::QN);
+    ev(1, 5, "Blue Team", 1, 1, GameEventCode::TN);
+    ev(1, 6, "Blue #1", 1, 0, GameEventCode::QN);
+    ev(1, 7, "Blue #2", 1, 1, GameEventCode::QN);
+    ev(1, 8, "Red #1", 0, 0, GameEventCode::TC);
+    ev(2, 0, "Red #2", 0, 1, GameEventCode::TC);
+    ev(3, 0, "Blue #1", 1, 0, GameEventCode::TC);
+    ev(4, 0, "Blue #2", 1, 1, GameEventCode::TC);
+}
+
+/// The room's events for question 4 have arrived but its last ping still says question 4. Games
+/// in Progress must not show 40-40 "on question 4": both numbers come from the events.
+#[actix_web::test]
+async fn games_in_progress_takes_its_question_from_the_same_events_as_its_scores() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (game, tournament, division, round, room, ..) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .configure(configure_routes),
+    ).await;
+
+    let ping = test::TestRequest::get()
+        .uri(&ping_uri(game.gid, &tournament.tname, &division.dname, &room.name, &round.name, 4))
+        .to_request();
+    assert_eq!(test::call_service(&app, ping).await.status(), StatusCode::OK);
+    seed_game_tied_40_40_after_question_4(&mut conn, game.gid);
+
+    let rows = backend::models::room::read_games_in_progress_of_tournament(&Cache::disabled(), &mut conn, tournament.tid)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    let scores: Vec<i32> = rows[0].teams.iter().map(|t| t.score).collect();
+    assert_eq!(scores, vec![40, 40]);
+    assert_eq!(rows[0].question, Some(5), "four questions are scored, so the room is on question 5");
+}
+
+/// Before a game has any events there is nothing to calculate, so the ping's question is shown.
+#[actix_web::test]
+async fn games_in_progress_falls_back_to_the_ping_question_without_events() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (game, tournament, division, round, room, ..) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .configure(configure_routes),
+    ).await;
+
+    let ping = test::TestRequest::get()
+        .uri(&ping_uri(game.gid, &tournament.tname, &division.dname, &room.name, &round.name, 3))
+        .to_request();
+    assert_eq!(test::call_service(&app, ping).await.status(), StatusCode::OK);
+
+    let rows = backend::models::room::read_games_in_progress_of_tournament(&Cache::disabled(), &mut conn, tournament.tid)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].teams.is_empty());
+    assert_eq!(rows[0].question, Some(3));
+}
+
+/// The Server Monitor shows both positions: the room's own (from its pings) and the one the
+/// stored events give. Here the room has moved on to question 7 while its events stop at 4.
+#[actix_web::test]
+async fn room_monitor_shows_the_rooms_question_and_the_events_question() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (game, tournament, division, round, room, ..) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .configure(configure_routes),
+    ).await;
+
+    seed_game_tied_40_40_after_question_4(&mut conn, game.gid);
+    let ping = test::TestRequest::get()
+        .uri(&ping_uri(game.gid, &tournament.tname, &division.dname, &room.name, &round.name, 7))
+        .to_request();
+    assert_eq!(test::call_service(&app, ping).await.status(), StatusCode::OK);
+
+    let rows = backend::models::room::read_room_monitor_of_tournament(&mut conn, tournament.tid).unwrap();
+    let row = rows.iter().find(|r| r.roomid == room.roomid && r.is_room_row).expect("the room's row");
+    assert_eq!(row.question, Some(7), "the room's own position, from its ping");
+    assert_eq!(row.event_question, Some(5), "the position the stored events give");
+}
