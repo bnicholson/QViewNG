@@ -148,9 +148,14 @@ export const GamesInProgress = () => {
   return (
     <div>
       <Box sx={{ mt: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h5">Games in Progress</Typography>
-          <LiveIndicator status={status} pollIntervalMs={POLL_MS} />
+        {/* Equal side columns keep the title centered on the page; the indicator sits in the right one. */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
+          <Typography variant="h5" sx={{ gridColumn: 2, textAlign: 'center' }}>
+            Games in Progress
+          </Typography>
+          <Box sx={{ justifySelf: 'end' }}>
+            <LiveIndicator status={status} pollIntervalMs={POLL_MS} />
+          </Box>
         </Box>
         {rows.length > 0 && (
           <Typography variant="subtitle1" color="text.secondary">
