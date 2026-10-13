@@ -168,7 +168,7 @@ pub async fn write(
                 let tmp = pair.1.replace("+"," ");
                 gameevent_entry.parm1 = (&tmp).to_string();
                 gameeventlog_entry.parm1 = tmp;
-                log::debug!("{}:{} - Parsed query param 'p1' = {}", module_path!(),line!(), gameeventlog_entry.parm1);
+                // log::debug!("{}:{} - Parsed query param 'p1' = {}", module_path!(),line!(), gameeventlog_entry.parm1);
                 field_count += 1;
             }, 
             "p2" => { // parameter 2 - depends upon what ec is
@@ -203,7 +203,7 @@ pub async fn write(
             "s3s" => {
                 let tmp = pair.1.replace("+","+");
                 gameeventlog_entry.s3s = tmp;
-                log::debug!("{}:{} - Parsed query param 's3s' = {}", module_path!(),line!(), gameeventlog_entry.s3s);
+                // log::debug!("{}:{} - Parsed query param 's3s' = {}", module_path!(),line!(), gameeventlog_entry.s3s);
                 field_count += 1;
             },
             "myip" => {
@@ -275,11 +275,11 @@ pub async fn write(
     let rsltbase64 = base64::engine::general_purpose::STANDARD.encode(rslt);
 
     // now grab the result of the sha3-512 hashing
-	log::info!("{:?} {:?} GameEvent: Org: {} BldgRoom: {}, Key: {}, Tk: {}, TN: {}, DN: {}, Room: {}, Round: {}, Question: {}, EventNumber: {} Name: {} Team: {} Quizzer: {}, EC: {}, Parm1: {} Parm2: {}, Timestamp: {}, Host: {}, MD5: {}, Nonce: {} {}, Sha3-512 sum: {} Calculated sha3-512 sum: {}",
-        module_path!(),line!(), org, &gameeventlog_entry.bldgroom, &gameeventlog_entry.clientkey, tk, &gameeventlog_entry.tournament, &gameeventlog_entry.division, 
-        &gameeventlog_entry.room, &gameeventlog_entry.round, &gameeventlog_entry.question, &gameeventlog_entry.eventnum, &gameeventlog_entry.name,
-        &gameeventlog_entry.team, &gameeventlog_entry.quizzer, &gameeventlog_entry.event, &gameeventlog_entry.parm1, &gameeventlog_entry.parm2, 
-        ts, &gameeventlog_entry.clientip, &gameeventlog_entry.md5digest, &gameeventlog_entry.nonce, &gameeventlog_entry.nonce.len(), &gameeventlog_entry.s3s, rsltbase64 );   
+	// log::info!("{:?} {:?} GameEvent: Org: {} BldgRoom: {}, Key: {}, Tk: {}, TN: {}, DN: {}, Room: {}, Round: {}, Question: {}, EventNumber: {} Name: {} Team: {} Quizzer: {}, EC: {}, Parm1: {} Parm2: {}, Timestamp: {}, Host: {}, MD5: {}, Nonce: {} {}, Sha3-512 sum: {} Calculated sha3-512 sum: {}",
+    //     module_path!(),line!(), org, &gameeventlog_entry.bldgroom, &gameeventlog_entry.clientkey, tk, &gameeventlog_entry.tournament, &gameeventlog_entry.division, 
+    //     &gameeventlog_entry.room, &gameeventlog_entry.round, &gameeventlog_entry.question, &gameeventlog_entry.eventnum, &gameeventlog_entry.name,
+    //     &gameeventlog_entry.team, &gameeventlog_entry.quizzer, &gameeventlog_entry.event, &gameeventlog_entry.parm1, &gameeventlog_entry.parm2, 
+    //     ts, &gameeventlog_entry.clientip, &gameeventlog_entry.md5digest, &gameeventlog_entry.nonce, &gameeventlog_entry.nonce.len(), &gameeventlog_entry.s3s, rsltbase64 );   
     
     // now make sure we didn't have any corrupted data.  If so print an error and get out
     if !&gameeventlog_entry.s3s.eq(&rsltbase64) {
@@ -526,9 +526,9 @@ fn reject_to_quarantine(
     }
 }
 
-fn print_type_of<T>(_: &T) {
-    println!("{}", std::any::type_name::<T>())
-}
+// fn print_type_of<T>(_: &T) {
+//     println!("{}", std::any::type_name::<T>())
+// }
 
 // #[derive(OpenApi)]
 // #[openapi(paths(index))]

@@ -318,13 +318,13 @@ async fn index(
     for (name, value) in response.headers() {
         headers_dump.push_str(&format!("{}: {}\n", name, value.to_str().unwrap_or("<non-utf8>")));
     }
-    println!(
-        "pingmsg full response:\n{:?} {}\n{}\n{}",
-        response.head().version,
-        response.status(),
-        headers_dump,
-        body
-    );
+    // println!(
+    //     "pingmsg full response:\n{:?} {}\n{}\n{}",
+    //     response.head().version,
+    //     response.status(),
+    //     headers_dump,
+    //     body
+    // );
 
     response
 }
