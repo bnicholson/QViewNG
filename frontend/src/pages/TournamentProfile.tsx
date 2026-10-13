@@ -202,7 +202,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     .map(({ requiredPermission: _rp, visible: _v, ...item }) => item)
 
   return (
-    <ProfileLayout title={<>Tournament:<br />{tournament!.tname}</>} navItems={navItems}>
+    <ProfileLayout entityType="Tournament" entityName={tournament!.tname} navItems={navItems}>
       <Stack spacing={3}>
 
         {/* ── Breadcrumb ── */}

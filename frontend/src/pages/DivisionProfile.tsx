@@ -68,7 +68,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Division:<br />{division.dname}</>} navItems={navItems}>
+    <ProfileLayout entityType="Division" entityName={division.dname} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

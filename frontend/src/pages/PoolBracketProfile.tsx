@@ -60,7 +60,7 @@ export const PoolBracketProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>{label}:<br />{bracket.name}</>} navItems={navItems}>
+    <ProfileLayout entityType={label} entityName={bracket.name} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

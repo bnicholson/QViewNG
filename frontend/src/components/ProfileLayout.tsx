@@ -1,28 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import List from '@mui/material/List'
-import ListItemButton from '@mui/material/ListItemButton'
-import ListItemText from '@mui/material/ListItemText'
 import Typography from '@mui/material/Typography'
 import Divider from '@mui/material/Divider'
-import { useProfileHistory } from '../contexts/ProfileHistoryContext'
 import { ProfileSidebarProvider } from '../contexts/ProfileSidebarContext'
+import { usePublishProfileNav } from '../contexts/ProfileNavContext'
+import ProfileNavList from './ProfileNavList'
+import { isRouteActive, isRouteNavItem, type NavItem } from '../utils/profileNav'
 
-type RouteNavItem = {
-  kind: 'route'
-  label: string
-  to: string
-}
-
-type AnchorNavItem = {
-  kind: 'anchor'
-  label: string
-  anchor: string
-}
-
-export type NavItem = RouteNavItem | AnchorNavItem
+export type { NavItem }
 
 const SIDEBAR_WIDTH = 148
 /**
@@ -41,48 +27,18 @@ function readCollapsedPreference(): boolean {
 }
 
 interface ProfileLayoutProps {
-  title: React.ReactNode
+  /** The kind of domain entity, e.g. "Team". */
+  entityType: string
+  /** The entity's name. Omitted for profiles that are not of a single entity (CRM). */
+  entityName?: string
   subtitle?: string
   navItems: NavItem[]
   children: React.ReactNode
 }
 
-function useActiveAnchor(anchors: string[]): string | null {
-  const [activeAnchor, setActiveAnchor] = useState<string | null>(anchors[0] ?? null)
-
-  useEffect(() => {
-    if (anchors.length === 0) return
-
-    const observers: IntersectionObserver[] = []
-
-    anchors.forEach((anchor) => {
-      const el = document.getElementById(anchor)
-      if (!el) return
-
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            setActiveAnchor(anchor)
-          }
-        },
-        { rootMargin: '-10% 0px -60% 0px', threshold: 0 }
-      )
-
-      observer.observe(el)
-      observers.push(observer)
-    })
-
-    return () => observers.forEach((o) => o.disconnect())
-  }, [anchors.join(',')])
-
-  return activeAnchor
-}
-
-export default function ProfileLayout({ title, subtitle, navItems, children }: ProfileLayoutProps) {
+export default function ProfileLayout({ entityType, entityName, subtitle, navItems, children }: ProfileLayoutProps) {
   const location = useLocation()
-  const { exitUrl, exit } = useProfileHistory()
-  const anchors = navItems.filter((i): i is AnchorNavItem => i.kind === 'anchor').map((i) => i.anchor)
-  const activeAnchor = useActiveAnchor(anchors)
+  usePublishProfileNav({ entityType, entityName, navItems })
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsedPreference)
 
   const toggleCollapsed = () => {
@@ -97,18 +53,9 @@ export default function ProfileLayout({ title, subtitle, navItems, children }: P
     })
   }
 
-  const isRouteActive = (to: string) => {
-    return location.pathname === to || location.pathname.startsWith(to + '/')
-  }
-
-  const routeItems = navItems.filter((i): i is RouteNavItem => i.kind === 'route')
-  if (routeItems.length > 0 && !routeItems.some((i) => isRouteActive(i.to))) {
+  const routeItems = navItems.filter(isRouteNavItem)
+  if (routeItems.length > 0 && !routeItems.some((i) => isRouteActive(location.pathname, i.to))) {
     return <Navigate to={routeItems[0].to} replace />
-  }
-
-  const scrollToAnchor = (anchor: string) => {
-    const el = document.getElementById(anchor)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
@@ -129,74 +76,15 @@ export default function ProfileLayout({ title, subtitle, navItems, children }: P
             }}
           >
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, px: '10px', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.08em' }}>
-              {title}
+              {entityName === undefined ? entityType : <>{entityType}:<br />{entityName}</>}
             </Typography>
             {subtitle && (
               <Typography variant="caption" sx={{ px: '10px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
                 {subtitle}
               </Typography>
             )}
-            {exitUrl && (
-              <>
-                <Divider sx={{ mb: 0.5 }} />
-                <Button
-                  size="small"
-                  onClick={exit}
-                  sx={{ px: '10px', py: '3px', justifyContent: 'flex-start', color: 'text.secondary', fontSize: '0.875rem', textTransform: 'none', width: '100%' }}
-                >
-                  &laquo; Exit Profile
-                </Button>
-              </>
-            )}
             <Divider sx={{ mb: 0.5 }} />
-            <List dense disablePadding>
-              {navItems.map((item) => {
-                const isActive =
-                  item.kind === 'route'
-                    ? isRouteActive(item.to)
-                    : activeAnchor === item.anchor
-
-                const commonSx = {
-                  pl: isActive ? '7px' : '10px',
-                  py: '3px',
-                  borderLeft: isActive ? '3px solid' : '3px solid transparent',
-                  borderColor: isActive ? 'primary.main' : 'transparent',
-                  borderRadius: 0,
-                  '&:hover': { bgcolor: 'action.hover' },
-                }
-
-                if (item.kind === 'route') {
-                  return (
-                    <ListItemButton
-                      key={item.to}
-                      component={Link}
-                      to={item.to}
-                      sx={commonSx}
-                      selected={false}
-                    >
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{ fontSize: '0.875rem' }}
-                      />
-                    </ListItemButton>
-                  )
-                }
-
-                return (
-                  <ListItemButton
-                    key={item.anchor}
-                    onClick={() => scrollToAnchor(item.anchor)}
-                    sx={commonSx}
-                    selected={false}
-                  >
-                    <ListItemText
-                      primary={item.label}
-                      primaryTypographyProps={{ fontSize: '0.875rem', sx: { whiteSpace: 'pre-line' } }}
-                    />
-                  </ListItemButton>
-                )
-              })}
-            </List>
+            <ProfileNavList navItems={navItems} />
           </Box>
         )}
 

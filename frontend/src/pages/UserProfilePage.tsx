@@ -4,6 +4,9 @@ import { Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import Stack from '@mui/material/Stack'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
 import ProfileLayout from '../components/ProfileLayout'
 import type { NavItem } from '../components/ProfileLayout'
 import { ProfileBreadcrumbs } from '../components/ProfileBreadcrumbs'
@@ -124,14 +127,29 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   ]
 
   return (
-    <ProfileLayout title={<>User:<br />{userName ? `${userName.fname} ${userName.lname}` : ''}</>} navItems={navItems}>
+    <ProfileLayout entityType="User" entityName={userName ? `${userName.fname} ${userName.lname}` : ''} navItems={navItems}>
       <Stack spacing={3}>
 
         {/* ── Breadcrumb (shown on every page of the profile) ── */}
-        <ProfileBreadcrumbs crumbs={[
-          { name: 'Home', to: '/' },
-          { label: 'User', name: userName ? `${userName.fname} ${userName.lname}` : '' },
-        ]} />
+        <ProfileBreadcrumbs
+          crumbs={[
+            { name: 'Home', to: '/' },
+            { label: 'User', name: userName ? `${userName.fname} ${userName.lname}` : '' },
+          ]}
+          actions={isOwnProfile && (
+            // Mobile only: there the top bar drops its Logout icon, so your own profile carries it.
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              onClick={() => auth.logout()}
+              startIcon={<FontAwesomeIcon icon={faRightFromBracket} style={{ fontSize: '0.9rem' }} />}
+              sx={{ display: { xs: 'inline-flex', md: 'none' }, color: 'text.secondary', borderColor: 'divider', whiteSpace: 'nowrap' }}
+            >
+              Logout
+            </Button>
+          )}
+        />
 
         {/* ── Section content ── */}
         <Box sx={{ overflowX: 'auto' }}>

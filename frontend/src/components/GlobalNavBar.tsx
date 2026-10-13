@@ -14,6 +14,10 @@ import DrawerGlobal from './DrawerGlobal'
 
 const drawerWidth = 240
 
+// Shown from `md` up only. On mobile the bottom nav carries Home, Help and Profile/Login, and the
+// user's own profile carries Logout.
+const desktopOnly = { display: { xs: 'none', md: 'inline-flex' } } as const
+
 // Modern text-style nav link (not a button): matches the "QView" brand typography (h6,
 // normal case) with an animated underline that reveals on hover.
 const navLinkSx = {
@@ -59,8 +63,9 @@ export default function GlobalNavBar() {
             </Link>
           </Box>
 
-          {/* Center: primary navigation, centered across the full width of the bar */}
-          <Box sx={{ display: 'flex', gap: { xs: 3, sm: 5 }, justifyContent: 'center', alignItems: 'center' }}>
+          {/* Center: primary navigation, centered across the full width of the bar. Below `md` the
+              bottom nav (MobileBottomNav) carries Home, Help and Profile/Login instead. */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: { xs: 3, sm: 5 }, justifyContent: 'center', alignItems: 'center' }}>
             <Link component={RouterLink} to="/" variant="h6" color="inherit" underline="none" sx={navLinkSx}>
               {/* <FontAwesomeIcon icon={faHomeLg} style={{ fontSize: '0.8em' }} /> */}
               Home
@@ -75,21 +80,21 @@ export default function GlobalNavBar() {
           <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
             {auth.isAuthenticated && (
               <Tooltip title="My Profile">
-                <IconButton size="small" color="inherit" aria-label="My Profile" onClick={() => navigate(`/user/${auth.session?.userId}/overview`)}>
+                <IconButton size="small" color="inherit" aria-label="My Profile" sx={desktopOnly} onClick={() => navigate(`/user/${auth.session?.userId}/overview`)}>
                   <FontAwesomeIcon icon={faUser} style={{ fontSize: '1rem' }} />
                 </IconButton>
               </Tooltip>
             )}
             {auth.isAuthenticated && (
               <Tooltip title="Logout">
-                <IconButton size="small" color="inherit" aria-label="Logout" onClick={() => auth.logout()}>
+                <IconButton size="small" color="inherit" aria-label="Logout" sx={desktopOnly} onClick={() => auth.logout()}>
                   <FontAwesomeIcon icon={faRightFromBracket} style={{ fontSize: '1rem' }} />
                 </IconButton>
               </Tooltip>
             )}
             {!auth.isAuthenticated && (
               <Tooltip title="Login">
-                <IconButton size="small" color="inherit" aria-label="Login" onClick={() => navigate('/login')}>
+                <IconButton size="small" color="inherit" aria-label="Login" sx={desktopOnly} onClick={() => navigate('/login')}>
                   <FontAwesomeIcon icon={faRightToBracket} style={{ fontSize: '1rem' }} />
                 </IconButton>
               </Tooltip>

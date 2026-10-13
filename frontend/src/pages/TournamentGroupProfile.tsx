@@ -39,7 +39,7 @@ export const TournamentGroupProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Tournament Group:<br />{group.name}</>} navItems={navItems}>
+    <ProfileLayout entityType="Tournament Group" entityName={group.name} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

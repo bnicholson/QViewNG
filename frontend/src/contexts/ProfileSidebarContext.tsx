@@ -33,6 +33,8 @@ export function ProfileSidebarToggle() {
         aria-label={label}
         aria-expanded={!collapsed}
         sx={{
+          // The sidebar is never shown below `md` (the mobile Menu sheet replaces it).
+          display: { xs: 'none', md: 'inline-flex' },
           flexShrink: 0,
           color: 'text.secondary',
           // A rounded rectangle rather than IconButton's circle, so it reads as a button.

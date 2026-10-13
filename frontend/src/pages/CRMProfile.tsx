@@ -14,7 +14,7 @@ const navItems = [
 
 export const CRMProfile = (props: { childRoute?: string }) => {
   return (
-    <ProfileLayout title="CRM" navItems={navItems}>
+    <ProfileLayout entityType="CRM" navItems={navItems}>
       <Stack spacing={3}>
         {/* CRM has no breadcrumb row, so it hosts the sidebar toggle itself. */}
         <Box><ProfileSidebarToggle /></Box>

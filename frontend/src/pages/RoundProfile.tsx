@@ -52,7 +52,7 @@ export const RoundProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Round:<br />{round.name}</>} navItems={navItems}>
+    <ProfileLayout entityType="Round" entityName={round.name} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

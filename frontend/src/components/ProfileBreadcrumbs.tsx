@@ -22,12 +22,15 @@ export interface Crumb {
  *
  * This row also carries the profile sidebar's collapse/expand control, immediately left of the
  * path — the only place it appears, in either state.
+ *
+ * `actions` sit at the right end of the row, pinned to its top: a long path wraps beside them
+ * rather than pushing them down.
  */
-export function ProfileBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
+export function ProfileBreadcrumbs({ crumbs, actions }: { crumbs: Crumb[]; actions?: React.ReactNode }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
       <ProfileSidebarToggle />
-      <Breadcrumbs aria-label="breadcrumb">
+      <Breadcrumbs aria-label="breadcrumb" sx={{ flex: 1, minWidth: 0 }}>
       {crumbs.map((c, i) => (
         <span key={i} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
           {c.label && (
@@ -51,6 +54,11 @@ export function ProfileBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
         </span>
       ))}
       </Breadcrumbs>
+      {actions && (
+        <Box sx={{ alignSelf: 'flex-start', flexShrink: 0, display: 'flex', gap: 0.5 }}>
+          {actions}
+        </Box>
+      )}
     </Box>
   )
 }

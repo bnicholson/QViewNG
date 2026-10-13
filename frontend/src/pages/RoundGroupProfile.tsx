@@ -53,7 +53,7 @@ export const RoundGroupProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Session:<br />{session.name}</>} navItems={navItems}>
+    <ProfileLayout entityType="Session" entityName={session.name} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

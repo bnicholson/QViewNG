@@ -44,7 +44,7 @@ export const GameProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Game:<br />{gid}</>} navItems={navItems}>
+    <ProfileLayout entityType="Game" entityName={gid} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

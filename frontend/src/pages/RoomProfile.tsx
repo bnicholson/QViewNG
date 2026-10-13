@@ -43,7 +43,7 @@ export const RoomProfile = (props: { childRoute?: string }) => {
   ]
 
   return (
-    <ProfileLayout title={<>Room:<br />{room.name}</>} navItems={navItems}>
+    <ProfileLayout entityType="Room" entityName={room.name} navItems={navItems}>
       <Stack spacing={3}>
 
         <ProfileBreadcrumbs crumbs={[

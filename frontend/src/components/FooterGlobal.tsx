@@ -2,10 +2,14 @@ import { Box, Container, Link, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import { Link as RouterLink } from "react-router-dom";
 import versionInfo from "../version.json";
+import { useAuth } from "../hooks/useAuth";
 
 export default function FooterGlobal() {
+    const auth = useAuth();
+
     return (
-        <Box px={{ xs: 3, sm: 10 }} py={{ xs: 5, sm: 10 }} bgcolor="text.secondary" color="white">
+        // Hidden below `md`: on phones the bottom nav takes its place, so the app feels like an app.
+        <Box display={{ xs: 'none', md: 'block' }} px={{ xs: 3, sm: 10 }} py={{ xs: 5, sm: 10 }} bgcolor="text.secondary" color="white">
             <Typography variant="h6">
             <Container maxWidth='lg'>
                 <Grid container spacing={5}>
@@ -21,9 +25,15 @@ export default function FooterGlobal() {
                 <Grid>
                     <Box borderBottom={1}>Accounts</Box>
                     <Box>
-                        <Link component={RouterLink} to="/login" color="inherit" underline="hover">
-                            Login
-                        </Link>
+                        {auth.isAuthenticated ? (
+                            <Link component="button" onClick={() => auth.logout()} color="inherit" underline="hover" sx={{ font: 'inherit', verticalAlign: 'baseline' }}>
+                                Logout
+                            </Link>
+                        ) : (
+                            <Link component={RouterLink} to="/login" color="inherit" underline="hover">
+                                Login
+                            </Link>
+                        )}
                     </Box>
                     <Box>
                         <Link component={RouterLink} to="/register" color="inherit" underline="hover">

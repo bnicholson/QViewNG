@@ -46,7 +46,7 @@ export const TeamProfile = (props: { childRoute?: ChildRoute }) => {
   ];
 
   return (
-    <ProfileLayout title={<>Team:<br />{team?.name ?? ''}</>} navItems={navItems}>
+    <ProfileLayout entityType="Team" entityName={team?.name ?? ''} navItems={navItems}>
       <Stack spacing={3}>
         {team && division && tournament && (
           <ProfileBreadcrumbs crumbs={[
