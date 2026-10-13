@@ -1,8 +1,9 @@
 import AddIcon from '@mui/icons-material/Add';
 import { PERMISSION } from '../auth/permissions'
 import {
-  Button, Card, CardContent, FormControl, InputLabel, MenuItem, Select, TextField
+  Button, Card, CardActionArea, CardContent, FormControl, InputLabel, MenuItem, Select, TextField, useMediaQuery
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
@@ -15,6 +16,7 @@ import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI';
 import { makeCancellable } from '../features/makeCancellable';
 import { states } from '../features/states';
 import { TournamentCardContent } from '../components/TournamentCardContent';
+import { TournamentCardCompact } from '../components/TournamentCardCompact';
 import { TournamentEditorDialog } from '../components/TournamentEditorDialog';
 
 /**
@@ -34,6 +36,24 @@ export const TournamentFinder = () => {
   // permission gates the create dialog and the "tournaments I manage" shortcut.
   const isTournamentCreate = session?.can(PERMISSION.TOURNAMENT_CREATE) ?? false;
   const isTournamentManager = isTournamentCreate;
+  // Below `md`, as elsewhere in the mobile layout: full-width compact cards in a single column.
+  // noSsr so the first render already knows, rather than flashing the desktop cards.
+  const isMobile = useMediaQuery(useTheme().breakpoints.down('md'), { noSsr: true });
+  // On mobile the two dates share one row: an equal split that may shrink below the fields' natural
+  // width, in the smaller field size.
+  const dateFieldProps = isMobile
+    ? {
+        size: "small" as const,
+        sx: {
+          flex: "1 1 0",
+          minWidth: 0,
+          // Tighter insets so a full date still fits beside the calendar icon on a 320px phone.
+          "& .MuiInputBase-root": { pr: 1.25 },
+          "& .MuiInputBase-input": { pl: 1.25, pr: 0 },
+          "& .MuiInputAdornment-root": { ml: 0 },
+        },
+      }
+    : { sx: { flexGrow: 1, flexShrink: 1 } };
   const dispatcher = useAppDispatch();
   const navigate = useNavigate();
   const openTournament = (tournament: TournamentTS) => {
@@ -73,12 +93,13 @@ export const TournamentFinder = () => {
           display: "flex",
           flexDirection: "column",
           maxWidth: "100%",
-          marginLeft: "20px",
-          marginRight: "20px",
+          // The page container already provides the gutter on mobile.
+          marginLeft: isMobile ? 0 : "20px",
+          marginRight: isMobile ? 0 : "20px",
           width: 650
         }}
       >
-        <h1>
+        <h1 style={isMobile ? { fontSize: "1.5rem", margin: "4px 0 16px" } : undefined}>
           Find a Tournament
         </h1>
         <div style={{
@@ -96,11 +117,7 @@ export const TournamentFinder = () => {
               onChange={setStartDate}
               enableAccessibleFieldDOMStructure={false}
               slots={{textField: TextField}}
-              slotProps={{
-                textField: { 
-                  sx: { flexGrow: 1, flexShrink: 1 }
-                }
-              }}
+              slotProps={{ textField: dateFieldProps }}
             />
             <DatePicker
               label={"To"}
@@ -109,11 +126,7 @@ export const TournamentFinder = () => {
               onChange={setStopDate}
               enableAccessibleFieldDOMStructure={false}
               slots={{ textField: TextField }}
-              slotProps={{
-                textField:{
-                  sx:{ flexGrow: 1, flexShrink: 1 }
-                }
-              }}
+              slotProps={{ textField: dateFieldProps }}
             />
           </LocalizationProvider>
         </div>
@@ -170,10 +183,23 @@ export const TournamentFinder = () => {
         </div>
         <div style={{
           display: "flex",
-          flexWrap: "wrap",
-          gap: 10
+          flexDirection: isMobile ? "column" : "row",
+          // Wrapping a column would size each card to its unwrapped text rather than the screen.
+          flexWrap: isMobile ? "nowrap" : "wrap",
+          gap: 10,
+          width: isMobile ? "100%" : undefined
         }}>
-          {isTournamentCreate && (
+          {isTournamentCreate && isMobile && (
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setTournamentEditor({ isOpen: true, tournament: undefined })}
+              sx={{ py: 1 }}
+            >
+              Create a New Tournament
+            </Button>
+          )}
+          {isTournamentCreate && !isMobile && (
             <Card onClick={() => setTournamentEditor({ isOpen: true, tournament: undefined })}>
               <CardContent sx={{
                 alignItems: "center", display: "flex", flexDirection: "column", height: "100%",
@@ -200,7 +226,13 @@ export const TournamentFinder = () => {
           ) : publicTournaments.length < 1 ? (
             "No Tournaments found based on current filter criteria."
           ) : (
-            publicTournaments.map(tournament => (
+            publicTournaments.map(tournament => isMobile ? (
+              <Card key={tournament.tid}>
+                <CardActionArea onClick={() => openTournament(tournament)}>
+                  <TournamentCardCompact tournament={tournament} />
+                </CardActionArea>
+              </Card>
+            ) : (
               <Card key={tournament.tid}>
                 <TournamentCardContent onClick={() => openTournament(tournament)} tournament={tournament} />
                 {/* Make the user view the profile first before editing:

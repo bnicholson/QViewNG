@@ -1,18 +1,9 @@
-import dayjs from "dayjs";
 import { CardContent, type CardContentProps } from "@mui/material";
 import "./TournamentCardContent.css";
+import { getTournamentStatus } from "../utils/tournamentStatus";
 
 interface Props extends CardContentProps {
   tournament: Pick<Tournament, "tname" | "fromdate" | "todate" | "venue" | "shortinfo" | "city" | "state" | "country" | "organization">;
-}
-
-const getTournamentStatus = (fromdate: any, todate: any): { label: string; className: string } => {
-  const today = dayjs().startOf('day')
-  const from = dayjs(fromdate).startOf('day')
-  const to = dayjs(todate).startOf('day')
-  if (today.isBefore(from)) return { label: 'Coming Up', className: 'statusComingUp' }
-  if (today.isAfter(to)) return { label: 'Ended', className: 'statusEnded' }
-  return { label: 'In Progress', className: 'statusInProgress' }
 }
 
 /**

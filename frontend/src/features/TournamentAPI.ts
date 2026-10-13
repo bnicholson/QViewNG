@@ -23,7 +23,9 @@ export interface TournamentTS extends Omit<Tournament, "fromdate" | "todate" | "
  * Returns true if today falls within the tournament's inclusive registration window
  * (registration is open on and between the open and close dates; closed otherwise).
  */
-export const isRegistrationOpen = (tournament: TournamentTS): boolean => {
+export const isRegistrationOpen = (
+  tournament: Pick<TournamentTS, "registration_open_date" | "registration_close_date">,
+): boolean => {
   const { registration_open_date, registration_close_date } = tournament;
   if (!registration_open_date || !registration_close_date) return false;
   const today = dayjs();
