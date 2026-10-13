@@ -60,6 +60,7 @@ async fn main() -> std::io::Result<()> {
         println!("");
         if true {
             clean_database(&mut conn);  // Removes all data from DB
+            Cache::from_env("VALKEY_URL").await.clear_all().await;  // Drops cached entries keyed by now-reused ids
 
             if true {  // 'false' only when wanting a completely empty
                 insert_system_default_data(&mut conn);  // (*required in prod and dev for permissions to work)

@@ -228,6 +228,46 @@ impl Cache {
             ),
         }
     }
+
+    /// Deletes every key this project owns (everything under `qv:`). Best-effort.
+    ///
+    /// For dev reseeding: after the database is wiped and repopulated, ids are reused, so any
+    /// cached entry keyed by an old id would describe data that no longer exists. Scoped to
+    /// `qv:*` with SCAN rather than FLUSHDB so a Valkey shared with anything else is left alone.
+    pub async fn clear_all(&self) {
+        let Some(manager) = self.manager.as_ref() else {
+            return;
+        };
+        let mut conn = manager.clone();
+
+        let mut cursor: u64 = 0;
+        let mut deleted: usize = 0;
+        loop {
+            let mut cmd = redis::cmd("SCAN");
+            cmd.arg(cursor).arg("MATCH").arg("qv:*").arg("COUNT").arg(1000);
+            let query = cmd.query_async::<(u64, Vec<String>)>(&mut conn);
+            let (next, keys) = match tokio::time::timeout(OP_TIMEOUT, query).await {
+                Ok(Ok(page)) => page,
+                Ok(Err(e)) => {
+                    log::warn!("Valkey SCAN failed ({e}); cache only partially cleared.");
+                    return;
+                }
+                Err(_) => {
+                    log::warn!("Valkey SCAN timed out; cache only partially cleared.");
+                    return;
+                }
+            };
+
+            deleted += keys.len();
+            self.invalidate(&keys).await;
+
+            if next == 0 {
+                break;
+            }
+            cursor = next;
+        }
+        log::info!("Cleared {deleted} cached key(s) from Valkey.");
+    }
 }
 
 /// Replaces any `user:password@` in a connection URL with `***@` so it is safe to log.
