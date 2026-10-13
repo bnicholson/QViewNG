@@ -22,6 +22,7 @@ import { UserProfileAsQuizmasterPage } from './UserProfileAsQuizmasterPage'
 import { UserProfileAsContentJudgePage } from './UserProfileAsContentJudgePage'
 import { UserProfileManagedTournamentsPage } from './UserProfileManagedTournamentsPage'
 import { UserProfileManagedTournamentGroupsPage } from './UserProfileManagedTournamentGroupsPage'
+import { UserProfileAboutPage } from './UserProfileAboutPage'
 
 type ChildRoute =
   | 'overview'
@@ -36,6 +37,7 @@ type ChildRoute =
   | 'as-content-judge'
   | 'managed-tournaments'
   | 'managed-tournament-groups'
+  | 'about'
 
 export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
   const auth = useAuth()
@@ -124,6 +126,10 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
     ...((auth.session?.can(PERMISSION.SYSTEM_ACCESS_DEV_TOOLS) ?? false) ? [
       { kind: 'route' as const, label: 'Developer', to: `/dev` },
     ] : []),
+    // Mobile only: the footer, which carries the version line, is hidden on mobile.
+    ...(isOwnProfile ? [
+      { kind: 'route' as const, label: 'About QView', to: `/user/${user_id}/about`, mobileOnly: true },
+    ] : []),
   ]
 
   return (
@@ -164,6 +170,7 @@ export const UserProfilePage = (props: { childRoute?: ChildRoute }) => {
           {props.childRoute === 'as-quizmaster'    && <UserProfileAsQuizmasterPage userId={user_id} canAdminister={canAdminister} isOwnProfile={isOwnProfile} />}
           {props.childRoute === 'as-content-judge'         && <UserProfileAsContentJudgePage userId={user_id} canAdminister={canAdminister} isOwnProfile={isOwnProfile} />}
           {props.childRoute === 'managed-tournaments'       && canManageTournaments       && <UserProfileManagedTournamentsPage userId={user_id} canCreate={canCreateTournament} canDelete={canDeleteTournament} isTournamentManager={isTournamentManager} canViewPairingCode={canViewPairingCode} canAdminister={canAdminister} isOwnProfile={isOwnProfile} targetCanAdminister={targetCanAdminister ?? false} targetCanCreateTournaments={targetCanCreateTournaments} />}
+          {props.childRoute === 'about'            && <UserProfileAboutPage />}
           {props.childRoute === 'managed-tournament-groups' && canManageTournamentGroups  && <UserProfileManagedTournamentGroupsPage userId={user_id} canCreate={canCreateTournamentGroup} canDelete={canDeleteTournamentGroup} canAdminister={canAdminister} isOwnProfile={isOwnProfile} targetCanCreateTournaments={targetCanCreateTournaments} />}
         </Box>
 

@@ -3,12 +3,16 @@ export type RouteNavItem = {
   kind: 'route'
   label: string
   to: string
+  /** Offered only in the mobile Menu sheet, not the desktop sidebar. */
+  mobileOnly?: boolean
 }
 
 export type AnchorNavItem = {
   kind: 'anchor'
   label: string
   anchor: string
+  /** Offered only in the mobile Menu sheet, not the desktop sidebar. */
+  mobileOnly?: boolean
 }
 
 export type NavItem = RouteNavItem | AnchorNavItem

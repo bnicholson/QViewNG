@@ -1,7 +1,7 @@
 import { Box, Container, Link, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import { Link as RouterLink } from "react-router-dom";
-import versionInfo from "../version.json";
+import QViewAttribution from "./QViewAttribution";
 import { useAuth } from "../hooks/useAuth";
 
 export default function FooterGlobal() {
@@ -57,17 +57,7 @@ export default function FooterGlobal() {
                 </Grid>
             </Container>
             <Box textAlign="center" pt={{ xs: 5, sm: 10 }} pb={{ xs: 5, sm: 0 }}>
-                QView by{' '}
-                <Link
-                    href="https://www.quizstuff.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    color="inherit"
-                    underline="hover"
-                >
-                    QuizStuff
-                </Link>
-                &reg; 2022-{new Date().getFullYear()} (v{versionInfo.version})
+                <QViewAttribution />
             </Box>
             </Typography>
         </Box>

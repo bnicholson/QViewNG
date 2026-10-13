@@ -84,7 +84,7 @@ export default function ProfileLayout({ entityType, entityName, subtitle, navIte
               </Typography>
             )}
             <Divider sx={{ mb: 0.5 }} />
-            <ProfileNavList navItems={navItems} />
+            <ProfileNavList navItems={navItems.filter((i) => !i.mobileOnly)} />
           </Box>
         )}
 

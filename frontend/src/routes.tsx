@@ -77,6 +77,7 @@ export default function QViewRoutes() {
             <Route path="/user/:user_id/as-content-judge" element={<UserProfilePage childRoute="as-content-judge" />} />
             <Route path="/user/:user_id/managed-tournaments" element={<UserProfilePage childRoute="managed-tournaments" />} />
             <Route path="/user/:user_id/managed-tournament-groups" element={<UserProfilePage childRoute="managed-tournament-groups" />} />
+            <Route path="/user/:user_id/about" element={<UserProfilePage childRoute="about" />} />
             <Route path="/crm" element={<CRMProfile />} />
             <Route path="/crm/users" element={<CRMProfile childRoute="users" />} />
             <Route path="/crm/create-tournament-applicants" element={<CRMProfile childRoute="create-tournament-applicants" />} />
