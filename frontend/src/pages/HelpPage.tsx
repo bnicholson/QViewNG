@@ -4,9 +4,13 @@ import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import { docCategories, docPath, latestVersion } from '../data/docs'
+import { DEFAULT_CATEGORY_ID, docCategories, docPath, latestVersion } from '../data/docs'
+import { usePublishMobileMenu } from '../contexts/MobileMenuContext'
 
 export const HelpPage = () => {
+  // On mobile the Menu sheet browses the manuals, starting with QView's.
+  usePublishMobileMenu({ kind: 'docs', categoryId: DEFAULT_CATEGORY_ID })
+
   return (
     <Box sx={{ maxWidth: 1040, mx: 'auto' }}>
       {/* Hero */}

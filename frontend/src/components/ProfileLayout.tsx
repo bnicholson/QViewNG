@@ -4,7 +4,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Divider from '@mui/material/Divider'
 import { ProfileSidebarProvider } from '../contexts/ProfileSidebarContext'
-import { usePublishProfileNav } from '../contexts/ProfileNavContext'
+import { usePublishMobileMenu } from '../contexts/MobileMenuContext'
 import ProfileNavList from './ProfileNavList'
 import { isRouteActive, isRouteNavItem, type NavItem } from '../utils/profileNav'
 
@@ -38,7 +38,7 @@ interface ProfileLayoutProps {
 
 export default function ProfileLayout({ entityType, entityName, subtitle, navItems, children }: ProfileLayoutProps) {
   const location = useLocation()
-  usePublishProfileNav({ entityType, entityName, navItems })
+  usePublishMobileMenu({ kind: 'profile', entityType, entityName, navItems })
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsedPreference)
 
   const toggleCollapsed = () => {

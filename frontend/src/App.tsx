@@ -10,7 +10,7 @@ import FooterGlobal from './components/FooterGlobal';
 import GlobalNavBar from './components/GlobalNavBar';
 import MobileBottomNav from './components/MobileBottomNav';
 import { ProfileHistoryProvider } from './contexts/ProfileHistoryContext';
-import { ProfileNavProvider } from './contexts/ProfileNavContext';
+import { MobileMenuProvider } from './contexts/MobileMenuContext';
 
 if (import.meta.env.NODE_ENV === 'development') import('./setupDevelopment')
 
@@ -20,7 +20,7 @@ export default function App() {
 
   return (
     <ProfileHistoryProvider>
-    <ProfileNavProvider>
+    <MobileMenuProvider>
       <CssBaseline />
       <GlobalNavBar />
       <Toolbar />
@@ -31,7 +31,7 @@ export default function App() {
         <FooterGlobal />
       </div>
       <MobileBottomNav />
-    </ProfileNavProvider>
+    </MobileMenuProvider>
     </ProfileHistoryProvider>
   )
 }

@@ -5,14 +5,13 @@ import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
-import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
-import Typography from '@mui/material/Typography'
-import CloseIcon from '@mui/icons-material/Close'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars, faCircleQuestion, faHomeLg, faRightToBracket, faUser } from '@fortawesome/free-solid-svg-icons'
 import { useAuth } from '../hooks/useAuth'
-import { useProfileNav } from '../contexts/ProfileNavContext'
+import { useMobileMenu } from '../contexts/MobileMenuContext'
+import DocsMenuPanel from './DocsMenuPanel'
+import MenuSheetHeader from './MenuSheetHeader'
 import ProfileNavList from './ProfileNavList'
 import { isRouteActive } from '../utils/profileNav'
 
@@ -26,14 +25,15 @@ const iconStyle = { fontSize: '1.25rem' }
 
 /**
  * Mobile-only navigation fixed to the bottom of the screen: Home, Help, Profile (Login when signed
- * out) and Menu. Menu opens the current profile's sections in a sheet that slides up, and is
- * disabled on pages that are not profiles.
+ * out) and Menu. Menu opens a sheet that slides up with whatever the page offers (see
+ * `usePublishMobileMenu`) — a profile's sections, or the Help Center's manuals — and is disabled on
+ * pages that offer nothing.
  */
 export default function MobileBottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const auth = useAuth()
-  const profileNav = useProfileNav()
+  const menu = useMobileMenu()
   // The path the sheet was opened on. Any navigation, from the sheet or elsewhere, leaves that path
   // and so dismisses it.
   const [menuOpenedOn, setMenuOpenedOn] = useState<string | null>(null)
@@ -47,7 +47,8 @@ export default function MobileBottomNav() {
   const pathname = location.pathname
   const value =
     pathname === '/' ? 'home'
-    : isRouteActive(pathname, '/help') ? 'help'
+    // The manuals live outside /help (/qview-docs/…), but publish a docs menu.
+    : isRouteActive(pathname, '/help') || menu?.kind === 'docs' ? 'help'
     : myProfileBase && isRouteActive(pathname, myProfileBase) ? 'profile'
     : !myProfileBase && pathname === '/login' ? 'profile'
     : null
@@ -107,7 +108,7 @@ export default function MobileBottomNav() {
             label="Menu"
             value="menu"
             icon={<FontAwesomeIcon icon={faBars} style={iconStyle} />}
-            disabled={!profileNav}
+            disabled={!menu}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpenedOn(location.pathname)}
@@ -118,7 +119,7 @@ export default function MobileBottomNav() {
 
       <Drawer
         anchor="bottom"
-        open={menuOpen && !!profileNav}
+        open={menuOpen && !!menu}
         onClose={() => closeMenu()}
         slotProps={{
           transition: {
@@ -132,36 +133,30 @@ export default function MobileBottomNav() {
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               maxHeight: '80vh',
+              // The docs sheet's content changes size as manuals are switched and folders opened;
+              // a fixed height keeps it from jumping under the reader's thumb.
+              height: menu?.kind === 'docs' ? '80vh' : undefined,
               pb: 'env(safe-area-inset-bottom)',
             },
           },
         }}
       >
-        {profileNav && (
+        {/* Grab handle — a visual cue that this is a sheet. */}
+        <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mt: 1, flexShrink: 0 }} />
+        {menu?.kind === 'profile' && (
           <>
-            {/* Grab handle — a visual cue that this is a sheet. */}
-            <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mt: 1 }} />
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, px: 2, pt: 1, pb: 1.5 }}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.6, display: 'block' }}>
-                  {profileNav.entityType} Profile{profileNav.entityName !== undefined && ':'}
-                </Typography>
-                {profileNav.entityName !== undefined && (
-                  <Typography variant="h6" component="h2" sx={{ fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
-                    {profileNav.entityName}
-                  </Typography>
-                )}
-              </Box>
-              <IconButton aria-label="Close menu" onClick={() => closeMenu()} edge="end">
-                <CloseIcon />
-              </IconButton>
-            </Box>
+            <MenuSheetHeader
+              overline={`${menu.entityType} Profile${menu.entityName !== undefined ? ':' : ''}`}
+              title={menu.entityName}
+              onClose={() => closeMenu()}
+            />
             <Divider />
             <Box sx={{ overflowY: 'auto', py: 0.5 }}>
-              <ProfileNavList navItems={profileNav.navItems} onSelect={closeMenu} touch />
+              <ProfileNavList navItems={menu.navItems} onSelect={closeMenu} touch />
             </Box>
           </>
         )}
+        {menu?.kind === 'docs' && <DocsMenuPanel menu={menu} onClose={() => closeMenu()} />}
       </Drawer>
     </>
   )

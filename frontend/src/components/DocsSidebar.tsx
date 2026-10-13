@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import Collapse from '@mui/material/Collapse'
 import Divider from '@mui/material/Divider'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Select, { type SelectChangeEvent } from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import {
   docCategories,
   docPath,
@@ -16,139 +13,13 @@ import {
   orderedSlugs,
   resolveVersion,
   type DocCategory,
-  type DocNavNode,
   type DocVersion,
 } from '../data/docs'
+import { usePublishMobileMenu } from '../contexts/MobileMenuContext'
+import DocsNavTree from './DocsNavTree'
 
-/** Horizontal inset shared by the header, the selectors and every nav row. */
+/** Horizontal inset of the header and selectors; matches DocsNavTree's rows. */
 const ITEM_INSET = 1
-
-function containsSlug(node: DocNavNode, slug?: string): boolean {
-  if (!slug) return false
-  if (node.slug === slug) return true
-  return (node.children ?? []).some((c) => containsSlug(c, slug))
-}
-
-// Folder-path ids of every folder that is an ancestor of the active article.
-function ancestorFolderIds(nodes: DocNavNode[], slug: string | undefined, path: string[] = []): string[] {
-  const ids: string[] = []
-  for (const n of nodes) {
-    if (n.children) {
-      const id = [...path, n.title].join('/')
-      if (containsSlug(n, slug)) ids.push(id)
-      ids.push(...ancestorFolderIds(n.children, slug, [...path, n.title]))
-    }
-  }
-  return ids
-}
-
-function NavNodes({
-  nodes,
-  path,
-  basePath,
-  activeSlug,
-  open,
-  toggle,
-}: {
-  nodes: DocNavNode[]
-  path: string[]
-  /** `/{category}/{version}` — article links are this plus the slug. */
-  basePath: string
-  activeSlug?: string
-  open: Record<string, boolean>
-  toggle: (id: string) => void
-}) {
-  const depth = path.length
-
-  return (
-    <>
-      {nodes.map((node) => {
-        // Leaf: a link to an article.
-        if (node.slug) {
-          const active = node.slug === activeSlug
-          return (
-            <Box
-              key={node.slug}
-              component={RouterLink}
-              to={`${basePath}/${node.slug}`}
-              sx={{
-                display: 'block',
-                textDecoration: 'none',
-                px: ITEM_INSET,
-                py: 0.625,
-                my: '1px',
-                borderRadius: 1,
-                fontSize: '0.8125rem',
-                lineHeight: 1.45,
-                fontWeight: active ? 600 : 400,
-                color: active ? 'primary.main' : 'text.secondary',
-                bgcolor: active ? 'action.selected' : 'transparent',
-                '&:hover': {
-                  bgcolor: active ? 'action.selected' : 'action.hover',
-                  color: active ? 'primary.main' : 'text.primary',
-                },
-              }}
-            >
-              {node.title}
-            </Box>
-          )
-        }
-
-        // Folder: a collapsible group.
-        const id = [...path, node.title].join('/')
-        const isOpen = !!open[id]
-        return (
-          <Box key={id}>
-            <Box
-              onClick={() => toggle(id)}
-              role="button"
-              aria-expanded={isOpen}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                px: ITEM_INSET,
-                py: 0.75,
-                mt: depth === 0 ? 1.75 : 0.5,
-                borderRadius: 1,
-                cursor: 'pointer',
-                userSelect: 'none',
-                fontSize: depth === 0 ? '0.9375rem' : '0.875rem',
-                fontWeight: 700,
-                lineHeight: 1.35,
-                color: 'text.primary',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <ChevronRightIcon
-                sx={{
-                  fontSize: 18,
-                  flexShrink: 0,
-                  color: 'text.disabled',
-                  transition: 'transform 150ms ease',
-                  transform: isOpen ? 'rotate(90deg)' : 'none',
-                }}
-              />
-              {node.title}
-            </Box>
-            <Collapse in={isOpen} unmountOnExit>
-              <Box sx={{ ml: 1.25, pl: 1, borderLeft: '1px solid', borderColor: 'divider' }}>
-                <NavNodes
-                  nodes={node.children ?? []}
-                  path={[...path, node.title]}
-                  basePath={basePath}
-                  activeSlug={activeSlug}
-                  open={open}
-                  toggle={toggle}
-                />
-              </Box>
-            </Collapse>
-          </Box>
-        )
-      })}
-    </>
-  )
-}
 
 interface Props {
   category: DocCategory
@@ -156,25 +27,13 @@ interface Props {
   activeSlug?: string
 }
 
+/**
+ * The desktop Help Center sidebar. Below `md` it is hidden, and it offers the same navigation
+ * through the mobile bottom bar's Menu sheet instead.
+ */
 export default function DocsSidebar({ category, docVersion, activeSlug }: Props) {
   const navigate = useNavigate()
-  const [open, setOpen] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {}
-    ancestorFolderIds(docVersion.nav, activeSlug).forEach((id) => (init[id] = true))
-    return init
-  })
-
-  // When the active article (or the version's tree) changes, ensure its ancestor folders are open.
-  // User toggles are otherwise preserved.
-  useEffect(() => {
-    setOpen((prev) => {
-      const next = { ...prev }
-      ancestorFolderIds(docVersion.nav, activeSlug).forEach((id) => (next[id] = true))
-      return next
-    })
-  }, [activeSlug, docVersion])
-
-  const toggle = (id: string) => setOpen((p) => ({ ...p, [id]: !p[id] }))
+  usePublishMobileMenu({ kind: 'docs', categoryId: category.id, version: docVersion.version, activeSlug })
 
   // Switching category lands on that category's newest version, at the same article when it has
   // one — so readers can move between the three manuals without losing their place entirely.
@@ -275,14 +134,7 @@ export default function DocsSidebar({ category, docVersion, activeSlug }: Props)
 
       <Divider sx={{ mt: 2 }} />
 
-      <NavNodes
-        nodes={docVersion.nav}
-        path={[]}
-        basePath={basePath}
-        activeSlug={activeSlug}
-        open={open}
-        toggle={toggle}
-      />
+      <DocsNavTree nav={docVersion.nav} basePath={basePath} activeSlug={activeSlug} />
     </Box>
   )
 }
