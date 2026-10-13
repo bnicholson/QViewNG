@@ -53,8 +53,8 @@ export default function GlobalNavBar() {
     <>
       <AppBar position="fixed" sx={{ width: '100%' }}>
         <Toolbar sx={{ width: '100%' }}>
-          {/* Left: brand */}
-          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+          {/* Left: brand. Centered below `md`, where it is the only thing in the bar. */}
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-start' } }}>
             <Link component={RouterLink} to="/" color="inherit" underline="none" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
               <Box component="img" src="/qview-logo.png" alt="" sx={{ height: 32, width: 32 }} />
               <Typography variant="h6" component="span">
@@ -76,8 +76,10 @@ export default function GlobalNavBar() {
             </Link>
           </Box>
 
-          {/* Right: session actions */}
-          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
+          {/* Right: session actions. Every one is desktop-only, so the group is dropped below `md`
+              rather than left empty, where it would still hold half the bar and push the brand
+              off centre. */}
+          <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
             {auth.isAuthenticated && (
               <Tooltip title="My Profile">
                 <IconButton size="small" color="inherit" aria-label="My Profile" sx={desktopOnly} onClick={() => navigate(`/user/${auth.session?.userId}/overview`)}>
