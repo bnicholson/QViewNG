@@ -579,7 +579,7 @@ impl GameEventCalculator {
                         return Err(std::mem::take(errors));
                     }
                 };
-                println!["is_quiz_out_without_error: {}", is_quiz_out_without_error];
+                // println!["is_quiz_out_without_error: {}", is_quiz_out_without_error];
                 if is_quiz_out_without_error {
                     if let Some(team) = mut_self.teams.get_mut(&game_event.team) {
                         team.score += award;
