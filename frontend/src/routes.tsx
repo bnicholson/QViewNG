@@ -4,6 +4,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RecoveryPage } from "./pages/RecoveryPage";
 import { ResetPage } from "./containers/ResetPage";
 import { ActivationPage } from "./pages/ActivationPage";
+import { RegistrationSubmittedPage } from "./pages/RegistrationSubmittedPage";
 import { UserRegistrationPage } from "./pages/UserRegistrationPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
 import { HelpPage } from "./pages/HelpPage";
@@ -64,6 +65,7 @@ export default function QViewRoutes() {
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<UserRegistrationPage />} />
+            <Route path="/registered" element={<RegistrationSubmittedPage />} />
             <Route path="/user/:user_id" element={<UserProfilePage />} />
             <Route path="/user/:user_id/overview" element={<UserProfilePage childRoute="overview" />} />
             <Route path="/user/:user_id/permissions" element={<UserProfilePage childRoute="permissions" />} />

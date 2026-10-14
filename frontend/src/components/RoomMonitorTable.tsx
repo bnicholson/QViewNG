@@ -240,12 +240,10 @@ export default function RoomMonitorTable({ tid, canClear = false }: { tid: strin
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
-        {error && status === 'error'
+      <DataTableTemplate<RoomMonitorRowTS>
+        headerActions={error && status === 'error'
           ? <span style={{ fontSize: 12, color: '#c0392b' }}>{error}</span>
           : <LiveIndicator status={status} pollIntervalMs={POLL_MS} />}
-      </div>
-      <DataTableTemplate<RoomMonitorRowTS>
         loading={loading}
         entityLabel="Room Monitor"
         showCreateButton={false}

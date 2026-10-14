@@ -32,6 +32,7 @@ const STANDALONE: Record<string, string | undefined> = {
   '/reset': 'Reset Password',
   '/activate': 'Activate Account',
   '/register': 'Register',
+  '/registered': 'Check Your Email',
   '/tdeditor': 'Tournament Director Editor',
   '/files': 'Files',
   '/swagger': 'API Reference',

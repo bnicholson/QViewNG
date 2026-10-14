@@ -66,7 +66,7 @@ export const UserRegistrationPage = () => {
     })
     setProcessing(false)
     if (response.ok) {
-      navigate('/activate')
+      navigate('/registered', { state: { email } })
     } else {
       const body = await response.json().catch(() => ({}))
       setServerError(body.error ?? 'Registration failed. Please try again.')
@@ -147,13 +147,6 @@ export const UserRegistrationPage = () => {
         onClick={() => navigate('/login')}
       >
         Already have an account? Click here to login.
-      </a>
-      <a
-        style={{ marginTop: '30px' }}
-        href="#"
-        onClick={() => navigate('/activate')}
-      >
-        Need to activate your account? Click here.
       </a>
     </div>
     </div>

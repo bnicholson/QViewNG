@@ -147,7 +147,7 @@ export const GamesInProgress = () => {
 
   return (
     <div>
-      <Box sx={{ mt: 2 }}>
+      <Box sx={{ mb: 1.5 }}>
         {/* Equal side columns keep the title centered on the page; the indicator sits in the right one. */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
           <Typography variant="h5" sx={{ gridColumn: 2, textAlign: 'center' }}>
@@ -163,7 +163,6 @@ export const GamesInProgress = () => {
           </Typography>
         )}
       </Box>
-      <br />
       {/* A failed refresh keeps showing the last rows; only a refusal, or having nothing, shows the error. */}
       {error && (status === 'error' || data === null) ? (
         <Paper sx={{ width: '100%', p: 3 }}>
