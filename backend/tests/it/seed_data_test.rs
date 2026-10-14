@@ -208,3 +208,27 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
     }
     println!("\nverified {} games, all 20 questions answered in each", checked);
 }
+
+/// Every user the seed creates holds the `member` role, whatever other roles they get.
+#[test]
+fn every_seeded_user_is_a_member() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("connect");
+
+    insert_system_default_data(&mut conn);
+    insert_seed_data_one(&mut conn, false, false);
+
+    let member_role = models::role::read_by_name(&mut conn, models::role::AppRole::Member.as_str()).unwrap();
+    let without_member: Vec<String> = {
+        use backend::schema::{users, users_roles};
+        let members = users_roles::table
+            .filter(users_roles::role_id.eq(member_role.id))
+            .select(users_roles::user_id);
+        users::table
+            .filter(users::id.ne_all(members))
+            .select(users::email)
+            .load(&mut conn)
+            .unwrap()
+    };
+    assert!(without_member.is_empty(), "seeded users without the member role: {:?}", without_member);
+}

@@ -7,8 +7,11 @@ pub fn insert_seed_data_one(db: &mut database::Connection, include_scheduling: b
     let start_time_for_db_pop_seed_data = Utc::now();
     println!("Starting DB Data Population for Seed Data");
 
+    let preexisting_user_ids = all_user_ids(db);
+
     add_tour_1_demo(db, include_scheduling, include_gameevents);
     create_tournament_applicants(db);
+    assign_member_role_to_seeded_users(db, &preexisting_user_ids);
 
     let end_time_for_db_pop_seed_data = Utc::now();
     let duration_for_db_pop_seed_data = end_time_for_db_pop_seed_data.naive_utc() - start_time_for_db_pop_seed_data.naive_utc();
@@ -1504,22 +1507,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
 
     // (Decades rounds are created inside the scheduling block below.)
 
-    // Coaches get the member role regardless of whether a schedule has been defined yet.
-    let member_role = crate::models::role::read_by_name(db, "member").unwrap();
-    let coaches = [
-        coach_exp_1.id, coach_exp_2.id, coach_exp_3.id,
-        coach_exp_4.id, coach_exp_5.id, coach_exp_6.id,
-        coach_exp_7.id, coach_exp_8.id, coach_exp_9.id,
-        coach_exp_10.id, coach_exp_11.id, coach_exp_12.id,
-        coach_nov_2.id, coach_nov_3.id, coach_nov_4.id,
-        coach_dec_1.id, coach_dec_2.id, coach_dec_3.id, coach_dec_4.id,
-    ];
-    for coach_id in coaches {
-        UsersRolesBuilder::new(coach_id)
-            .assign(member_role.id)
-            .build_and_insert(db)
-            .unwrap();
-    }
+    // (Every seeded user, coaches included, gets the member role in `assign_member_role_to_seeded_users`.)
 
     // ── Schedule ────────────────────────────────────────────────────────────────
     // Everything below this point — division roundgroups, pools/brackets, team placements, games, and
@@ -2069,6 +2057,32 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     let end_time_for_game_events = Utc::now();
     let duration_for_game_events = end_time_for_game_events.naive_utc() - start_time_for_game_events.naive_utc();
     println!("Done. DB Game Events Population Time Duration: {}\n", duration_for_game_events);
+}
+
+fn all_user_ids(db: &mut database::Connection) -> Vec<Uuid> {
+    use diesel::prelude::*;
+    use crate::schema::users::dsl::*;
+    users.select(id).load(db).unwrap()
+}
+
+/// Gives the `member` role to every user created by the seed (anyone not in `preexisting_user_ids`)
+/// who doesn't already have it — quizmasters, content judges, quizzers and coaches alike.
+fn assign_member_role_to_seeded_users(db: &mut database::Connection, preexisting_user_ids: &[Uuid]) {
+    use diesel::prelude::*;
+    use crate::models::users_roles::NewUsersRole;
+    use crate::schema::users_roles;
+
+    let member_role = crate::models::role::read_by_name(db, AppRole::Member.as_str()).unwrap();
+    let rows: Vec<NewUsersRole> = all_user_ids(db)
+        .into_iter()
+        .filter(|uid| !preexisting_user_ids.contains(uid))
+        .map(|uid| NewUsersRole { user_id: uid, role_id: member_role.id })
+        .collect();
+    diesel::insert_into(users_roles::table)
+        .values(&rows)
+        .on_conflict_do_nothing()
+        .execute(db)
+        .unwrap();
 }
 
 pub fn create_tournament_applicants(db: &mut database::Connection) {
