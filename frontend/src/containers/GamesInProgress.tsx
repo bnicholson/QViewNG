@@ -142,7 +142,7 @@ export const GamesInProgress = () => {
     return () => clearInterval(tick)
   }, [])
 
-  // Mounted only under /tournament/:tid/live-games, so a tid is always present.
+  // Mounted only under /tournament/:tid/live-stats, so a tid is always present.
   if (!tid) return null
 
   return (

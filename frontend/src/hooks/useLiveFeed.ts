@@ -54,6 +54,13 @@ export function useLiveFeed<T>({ url, token, poll, pollIntervalMs, onExpired }: 
     onExpiredRef.current = onExpired
   })
 
+  // A different feed (e.g. another division's standings) starts empty rather than showing the
+  // previous feed's data under the new selection. A new token alone keeps the data.
+  useEffect(() => {
+    setData(null)
+    setError(null)
+  }, [url])
+
   useEffect(() => {
     if (!url) return
     const stop = new AbortController()

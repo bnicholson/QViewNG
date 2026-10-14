@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { TournamentFinder } from "./pages/TournamentFinder";
 import { LoginPage } from "./pages/LoginPage";
 import { RecoveryPage } from "./pages/RecoveryPage";
@@ -31,6 +31,13 @@ import { Swagger } from "./containers/Swagger";
 import NotFound from "./pages/NotFound";
 import { CRMProfile } from "./pages/CRMProfile";
 import { DevPage } from "./pages/DevPage";
+
+/** Sends the old LIVE Games URL to LIVE Stats, keeping any query string. */
+function LiveGamesRedirect() {
+  const { tid } = useParams()
+  const { search } = useLocation()
+  return <Navigate to={`/tournament/${tid}/live-stats${search}`} replace />
+}
 
 export default function QViewRoutes() {
     return (
@@ -88,7 +95,9 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid" element={<TournamentProfile/>} />
             <Route path="/tournament/:tid/overview" element={<TournamentProfile childRoute="overview" />} />
             <Route path="/tournament/:tid/schedule" element={<TournamentProfile childRoute="schedule" />} />
-            <Route path="/tournament/:tid/live-games" element={<TournamentProfile childRoute="live-games" />} />
+            <Route path="/tournament/:tid/live-stats" element={<TournamentProfile childRoute="live-stats" />} />
+            {/* The page was called LIVE Games; keep old links and spectator screens working. */}
+            <Route path="/tournament/:tid/live-games" element={<LiveGamesRedirect />} />
             <Route path="/tournament/:tid/register" element={<TournamentProfile childRoute="register/team" />} />
             <Route path="/tournament/:tid/register/team" element={<TournamentProfile childRoute="register/team" />} />
             <Route path="/tournament/:tid/register/gear" element={<TournamentProfile childRoute="register/gear" />} />
