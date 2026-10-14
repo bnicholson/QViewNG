@@ -4,11 +4,13 @@ import AppBar from '@mui/material/AppBar'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Box from '@mui/material/Box'
+import Checkbox from '@mui/material/Checkbox'
 import { SaveButton } from './SaveButton'
 import CloseIcon from '@mui/icons-material/Close'
 import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import FormHelperText from '@mui/material/FormHelperText'
 import Grid from '@mui/material/Grid'
 import IconButton from '@mui/material/IconButton'
 import InputLabel from '@mui/material/InputLabel'
@@ -22,6 +24,8 @@ import Typography from '@mui/material/Typography'
 import { type TransitionProps } from '@mui/material/transitions'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { UserAPI, type NewUserPayload, type UserChangeset, type UserTS } from '../features/UserAPI'
+import { RoleAPI, roleDisplayName, type RoleTS } from '../features/RoleAPI'
+import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -63,16 +67,32 @@ interface Props {
   isOpen: boolean;
   onCancel: VoidFunction;
   onSave: (user: UserTS) => void;
+  /** Show the Roles editor. Only the Superuser Console passes this, and it also needs a Superuser. */
+  canEditRoles?: boolean;
 }
 
+const SUPER_USER_ROLE = 'super_user';
+
+/** The roles fetched for one user: the full role list and the ids assigned to them, or an error. */
+type RolesLoad =
+  | { userId: string; roles: RoleTS[]; assigned: string[] }
+  | { userId: string; error: string };
+
+const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every(id => b.includes(id));
+
 export const UserEditorDialog = (props: Props) => {
-  const { initialUser, isOpen, onCancel, onSave } = props;
+  const { initialUser, isOpen, onCancel, onSave, canEditRoles = false } = props;
   const isEditMode = initialUser !== undefined;
+  const { accessToken, session } = useAuth();
+  const showRoles = isEditMode && canEditRoles && (session?.isSystemAdministrator ?? false);
+  const isSelf = isEditMode && session?.userId === initialUser!.id;
 
   const [form, setForm] = useState<FormState>(isEditMode ? toFormState(initialUser!) : emptyState);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
+  const [rolesLoad, setRolesLoad] = useState<RolesLoad | null>(null);
+  const [roleIds, setRoleIds] = useState<string[]>([]);
 
   const resetState = () => {
     setForm(isEditMode ? toFormState(initialUser!) : emptyState);
@@ -86,10 +106,36 @@ export const UserEditorDialog = (props: Props) => {
     resetState();
   }, [isOpen, initialUser]);
 
+  useEffect(() => {
+    if (!isOpen || !showRoles) return;
+    let cancelled = false;
+    const userId = initialUser!.id;
+    Promise.all([RoleAPI.getAll(), RoleAPI.getRoleIdsForUser(userId, accessToken)])
+      .then(([roles, assigned]) => {
+        if (cancelled) return;
+        setRolesLoad({ userId, roles, assigned });
+        setRoleIds(assigned);
+      })
+      .catch((err: Error) => { if (!cancelled) setRolesLoad({ userId, error: err.message }); });
+    return () => { cancelled = true; };
+  }, [isOpen, showRoles, initialUser, accessToken]);
+
+  // Only a load for the user being edited counts; until it arrives the section shows as loading.
+  const loaded = rolesLoad?.userId === initialUser?.id ? rolesLoad : null;
+  const rolesLoading = showRoles && loaded === null;
+  const rolesError = loaded && 'error' in loaded ? loaded.error : null;
+  const allRoles = loaded && 'roles' in loaded ? loaded.roles : [];
+  const savedRoleIds = loaded && 'assigned' in loaded ? loaded.assigned : [];
+
+  const rolesChanged = showRoles && !rolesLoading && !rolesError && !sameIds(roleIds, savedRoleIds);
+
+  const toggleRole = (id: string, checked: boolean) =>
+    setRoleIds(ids => checked ? [...ids, id] : ids.filter(r => r !== id));
+
   const isDirty = (): boolean => {
     if (isEditMode) {
       const orig = toFormState(initialUser!);
-      return (Object.keys(orig) as (keyof FormState)[]).some(k => form[k] !== orig[k]);
+      return rolesChanged || (Object.keys(orig) as (keyof FormState)[]).some(k => form[k] !== orig[k]);
     }
     return Object.values(form).some(v => v !== '' && v !== false);
   };
@@ -142,6 +188,16 @@ export const UserEditorDialog = (props: Props) => {
           activated: form.activated,
         };
         result = await UserAPI.update(initialUser!.id, changeset);
+        if (rolesChanged) {
+          try {
+            const assigned = await RoleAPI.setRoleIdsForUser(initialUser!.id, roleIds, accessToken);
+            setRolesLoad({ userId: initialUser!.id, roles: allRoles, assigned });
+          } catch (err) {
+            setErrorMsg('The user was saved, but their roles were not: ' + (err instanceof Error ? err.message : String(err)));
+            setAlertOpened(true);
+            return;
+          }
+        }
       } else {
         const payload: NewUserPayload = {
           fname: form.fname,
@@ -280,6 +336,43 @@ export const UserEditorDialog = (props: Props) => {
               </Grid>
             </Grid>
           </ListItem>
+
+          {showRoles && (
+            <ListItem>
+              <Box sx={{ width: '100%' }}>
+                <InputLabel>Roles</InputLabel>
+                {rolesLoading && <Typography variant="body2" color="text.secondary">Loading roles…</Typography>}
+                {rolesError && <Typography variant="body2" color="error">{rolesError}</Typography>}
+                {!rolesLoading && !rolesError && (
+                  <Grid container spacing={1}>
+                    {allRoles.map(role => {
+                      // The server refuses this too: a Superuser can't remove their own Super User role.
+                      const locked = isSelf && role.name === SUPER_USER_ROLE && savedRoleIds.includes(role.id);
+                      return (
+                        <Grid key={role.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={roleIds.includes(role.id)}
+                                disabled={locked}
+                                onChange={(e) => toggleRole(role.id, e.target.checked)}
+                              />
+                            }
+                            label={roleDisplayName(role.name)}
+                          />
+                          {(locked || role.description) && (
+                            <FormHelperText sx={{ mt: -0.5, ml: 4 }}>
+                              {locked ? "You can't remove this role from yourself." : role.description}
+                            </FormHelperText>
+                          )}
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                )}
+              </Box>
+            </ListItem>
+          )}
         </List>
       </Box>
 

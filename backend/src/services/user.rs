@@ -3,7 +3,7 @@ use crate::auth::policies::UserContext;
 use crate::{models::{self, roster::{NewRoster, Roster}, roster_coach::{RosterCoach, RosterCoachBuilder}, user::{NewUser, User, UserChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
-use diesel::QueryResult;
+use diesel::{Connection, QueryResult};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -261,7 +261,11 @@ async fn create(
     // log this api call
     models::apicalllog::create(&mut db, &req);
     
-    let result: QueryResult<User> = models::user::create(&mut db, item);
+    let result: QueryResult<User> = db.transaction(|c| {
+        let user = models::user::create(c, item)?;
+        models::users_roles::assign_default_role(c, user.id)?;
+        Ok(user)
+    });
 
     let response: EntityResponse<User> = process_response(result, "post");
     

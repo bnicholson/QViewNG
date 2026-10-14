@@ -55,7 +55,7 @@ const PROFILE_ROOTS: Record<string, string> = {
   game: 'Game',
 }
 
-/** Section segments, shared by every profile page and by /crm. */
+/** Section segments, shared by every profile page and by /su-console. */
 const SECTIONS: Record<string, string> = {
   overview: 'Overview',
   schedule: 'Schedule',
@@ -105,8 +105,8 @@ export function titleForPath(pathname: string): string {
     return format(article?.title ?? `${category.title} Docs`)
   }
 
-  // /crm/{section} — sections sit directly under /crm, with no id in between.
-  if (first === 'crm') {
+  // /su-console/{section} — sections sit directly under /su-console, with no id in between.
+  if (first === 'su-console') {
     const section = second ? SECTIONS[second] : undefined
     return format(section ? `Superuser Console ${section}` : 'Superuser Console')
   }

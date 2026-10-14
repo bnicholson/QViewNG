@@ -84,6 +84,8 @@ pub enum AppSpecialPermission {
     SystemAdminister,
     /// Reach the /dev page and the developer tooling it links to.
     SystemAccessDevTools,
+    /// Reach the Superuser Console (/su-console).
+    SystemAccessSuperuserConsole,
     /// See a tournament's pairing code; it is stripped from the payload otherwise.
     TournamentReadPairingCode,
     /// See "Created" / "Last Modified" audit columns on a tournament's entity tables.
@@ -101,6 +103,7 @@ impl AppSpecialPermission {
         match self {
             AppSpecialPermission::SystemAdminister               => "system:administer",
             AppSpecialPermission::SystemAccessDevTools           => "system:access_dev_tools",
+            AppSpecialPermission::SystemAccessSuperuserConsole   => "system:access_superuser_console",
             AppSpecialPermission::TournamentReadPairingCode      => "tournament:read_pairing_code",
             AppSpecialPermission::TournamentReadAudit            => "tournament:read_audit",
             AppSpecialPermission::TournamentUpdateSchedule       => "tournament:update_schedule",
@@ -112,7 +115,8 @@ impl AppSpecialPermission {
     pub fn resource(&self) -> &'static str {
         match self {
             AppSpecialPermission::SystemAdminister
-            | AppSpecialPermission::SystemAccessDevTools => "system",
+            | AppSpecialPermission::SystemAccessDevTools
+            | AppSpecialPermission::SystemAccessSuperuserConsole => "system",
             AppSpecialPermission::TournamentReadPairingCode
             | AppSpecialPermission::TournamentReadAudit
             | AppSpecialPermission::TournamentUpdateSchedule => AppResource::Tournament.as_str(),

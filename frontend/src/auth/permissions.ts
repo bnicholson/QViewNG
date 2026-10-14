@@ -89,6 +89,8 @@ export const PERMISSION = {
   SYSTEM_ADMINISTER: 'system:administer',
   /** The /dev page and the developer tooling it links to. */
   SYSTEM_ACCESS_DEV_TOOLS: 'system:access_dev_tools',
+  /** The Superuser Console (/su-console); everyone without it gets the 404 page there. */
+  SYSTEM_ACCESS_SUPERUSER_CONSOLE: 'system:access_superuser_console',
   /** A tournament's pairing code; the backend strips it from the payload without this. */
   TOURNAMENT_READ_PAIRING_CODE: 'tournament:read_pairing_code',
   /** "Created" / "Last Modified" audit columns on a tournament's entity tables. */

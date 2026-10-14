@@ -124,3 +124,30 @@ pub fn delete_all_for_user(db: &mut database::Connection, uid: Uuid) -> QueryRes
     use crate::schema::users_roles::dsl::*;
     diesel::delete(users_roles.filter(user_id.eq(uid))).execute(db)
 }
+
+/// Make `rids` exactly the user's roles, in one transaction: roles not listed are removed, missing
+/// ones are added, and roles kept keep their original `created_at`.
+pub fn replace_for_user(db: &mut database::Connection, uid: Uuid, rids: &[Uuid]) -> QueryResult<Vec<UsersRole>> {
+    use crate::schema::users_roles::dsl::*;
+    db.transaction(|conn| {
+        diesel::delete(users_roles.filter(user_id.eq(uid)).filter(role_id.ne_all(rids))).execute(conn)?;
+        let rows: Vec<NewUsersRole> = rids.iter().map(|&rid| NewUsersRole { user_id: uid, role_id: rid }).collect();
+        insert_into(users_roles).values(&rows).on_conflict_do_nothing().execute(conn)?;
+        users_roles.filter(user_id.eq(uid)).load::<UsersRole>(conn)
+    })
+}
+
+/// Give a newly created user the default `member` role. Roles come from the seed data, so a database
+/// that was never seeded has no `member` role; the user is then left without one and a warning is
+/// logged, rather than failing the account creation.
+pub fn assign_default_role(db: &mut database::Connection, uid: Uuid) -> QueryResult<()> {
+    let role_name = models::role::AppRole::Member.as_str();
+    match models::role::read_by_name(db, role_name) {
+        Ok(role) => create(db, NewUsersRole { user_id: uid, role_id: role.id }).map(|_| ()),
+        Err(diesel::result::Error::NotFound) => {
+            tracing::warn!("No '{}' role exists; user {} was created without a role.", role_name, uid);
+            Ok(())
+        }
+        Err(e) => Err(e),
+    }
+}

@@ -16,7 +16,7 @@ interface DevLink {
 }
 
 const devLinks: DevLink[] = [
-  { label: 'Superuser Console',    path: '/crm',                description: 'User and tournament applicant management' },
+  { label: 'Superuser Console',    path: '/su-console',         description: 'User and tournament applicant management' },
   { label: 'Old Tournaments Page', path: '/tournaments-page',   description: 'Legacy Tournaments list page' },
   { label: 'TD Editor',            path: '/tdeditor',           description: 'Legacy tournament director editor'        },
   { label: 'Files',                path: '/files',              description: 'File management'                         },

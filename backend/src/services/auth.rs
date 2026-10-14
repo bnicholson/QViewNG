@@ -5,6 +5,7 @@ use chrono::{Utc, Duration};
 use uuid::Uuid;
 use crate::database::Database;
 use crate::models;
+use diesel::Connection;
 use crate::auth::{
     REFRESH_COOKIE, REFRESH_EXPIRY_DAYS, RESET_EXPIRY_HOURS,
     LoginRequest, TokenResponse,
@@ -116,7 +117,11 @@ async fn register(db: Data<Database>, Json(body): Json<RegisterRequest>, req: Ht
     if let Some(creator_id) = creator {
         builder = builder.set_created_by_userid(creator_id);
     }
-    let new_user = match builder.build_and_insert(&mut conn) {
+    let new_user = match conn.transaction(|c| {
+        let user = builder.build_and_insert(c)?;
+        models::users_roles::assign_default_role(c, user.id)?;
+        Ok::<_, diesel::result::Error>(user)
+    }) {
         Ok(u) => u,
         Err(e) => {
             tracing::error!("Failed to create user: {:?}", e);

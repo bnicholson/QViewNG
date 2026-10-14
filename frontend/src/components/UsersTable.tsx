@@ -145,12 +145,14 @@ export default function UsersTable() {
         onSave={handleCreateSave}
       />
 
-      {/* Edit dialog — opens when a user's name is clicked */}
+      {/* Edit dialog — opens when a user's name is clicked. This table lives only in the Superuser
+          Console, the one place a user's roles can be edited. */}
       <UserEditorDialog
         initialUser={editingUser}
         isOpen={editingUser !== undefined}
         onCancel={() => setEditingUser(undefined)}
         onSave={handleEditSave}
+        canEditRoles
       />
     </>
   );
