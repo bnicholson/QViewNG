@@ -108,7 +108,7 @@ export function titleForPath(pathname: string): string {
   // /crm/{section} — sections sit directly under /crm, with no id in between.
   if (first === 'crm') {
     const section = second ? SECTIONS[second] : undefined
-    return format(section ? `CRM ${section}` : 'CRM')
+    return format(section ? `Superuser Console ${section}` : 'Superuser Console')
   }
 
   // /help/{slug} redirects into the documentation, so it only shows while bouncing.

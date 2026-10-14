@@ -29,7 +29,7 @@ function readCollapsedPreference(): boolean {
 interface ProfileLayoutProps {
   /** The kind of domain entity, e.g. "Team". */
   entityType: string
-  /** The entity's name. Omitted for profiles that are not of a single entity (CRM). */
+  /** The entity's name. Omitted for profiles that are not of a single entity (the Superuser Console). */
   entityName?: string
   subtitle?: string
   navItems: NavItem[]

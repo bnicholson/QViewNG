@@ -14,9 +14,9 @@ const navItems = [
 
 export const CRMProfile = (props: { childRoute?: string }) => {
   return (
-    <ProfileLayout entityType="CRM" navItems={navItems}>
+    <ProfileLayout entityType="Superuser Console" navItems={navItems}>
       <Stack spacing={3}>
-        {/* CRM has no breadcrumb row, so it hosts the sidebar toggle itself. */}
+        {/* The Superuser Console has no breadcrumb row, so it hosts the sidebar toggle itself. */}
         <Box><ProfileSidebarToggle /></Box>
         <Box sx={{ overflowX: 'auto' }}>
           {props.childRoute === 'users' && <ManageUsers />}
