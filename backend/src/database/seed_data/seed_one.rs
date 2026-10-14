@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, poolbracketgroup::PoolBracketGroupBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, game_statsgroup::GameStatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, poolbracketgroup::PoolBracketGroupBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
@@ -181,16 +181,17 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
-    // One division-scoped statsgroup per division (games are linked to these below).
-    let sg_experienced = StatsGroupBuilder::new_default(&division_experienced.dname, tour.tid)
+    // One division-scoped statsgroup per division. Created before any game, so each game joins
+    // its division's group as it is created (see `game::create`).
+    StatsGroupBuilder::new_default(&division_experienced.dname, tour.tid)
         .set_division_id(Some(division_experienced.did))
         .build_and_insert(db)
         .unwrap();
-    let sg_novice = StatsGroupBuilder::new_default(&division_novice.dname, tour.tid)
+    StatsGroupBuilder::new_default(&division_novice.dname, tour.tid)
         .set_division_id(Some(division_novice.did))
         .build_and_insert(db)
         .unwrap();
-    let sg_decades = StatsGroupBuilder::new_default(&division_decades.dname, tour.tid)
+    StatsGroupBuilder::new_default(&division_decades.dname, tour.tid)
         .set_division_id(Some(division_decades.did))
         .build_and_insert(db)
         .unwrap();
@@ -2051,25 +2052,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_3_decades, &team_4_decades));
 
-    // Add every game of each division to its division's statsgroup (games_statsgroups).
-    // A game's division is derived via its pool bracket (game -> pool_bracket -> division), so
-    // read_all_games_of_division groups them correctly.
-    let all_games_pagination = crate::models::common::PaginationParams {
-        page: 0,
-        page_size: crate::models::common::PaginationParams::MAX_PAGE_SIZE as i64,
-    };
-    for (division_did, statsgroup_sgid) in [
-        (division_experienced.did, sg_experienced.sgid),
-        (division_novice.did, sg_novice.sgid),
-        (division_decades.did, sg_decades.sgid),
-    ] {
-        let games = crate::models::game::read_all_games_of_division(db, division_did, &all_games_pagination).unwrap();
-        for game in games {
-            GameStatsGroupBuilder::new(game.gid, statsgroup_sgid)
-                .build_and_insert(db)
-                .unwrap();
-        }
-    }
+    // Every game joined its division's statsgroup as it was created (see `game::create`), since
+    // the statsgroups above exist before any game does.
 
     // Seed the game-event stream for every game in one place, and time just this portion — it is by
     // far the most expensive part of the seed, so it is gated behind `include_gameevents` as a unit.

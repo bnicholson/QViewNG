@@ -85,6 +85,17 @@ async fn main() -> std::io::Result<()> {
     // than failing to start -- see backend/src/cache.rs.
     let cache = Cache::from_env("VALKEY_URL").await;
 
+    // Bring every division's own stats group in step with the division's games. Games used to join
+    // it only when the division was created, so a division scheduled afterwards was missing most of
+    // its games from its standings. Idempotent, and a no-op once everything is in step.
+    match db.get_connection().map_err(|e| e.to_string())
+        .and_then(|mut conn| backend::models::statsgroup::sync_all_division_statsgroups(&mut conn).map_err(|e| e.to_string()))
+    {
+        Ok(0) => {}
+        Ok(changed) => log::info!("Brought {changed} division stats group(s) in step with their divisions' games."),
+        Err(e) => log::error!("Could not sync division stats groups at startup: {e}"),
+    }
+
     // Live updates for pages watching a tournament (Games in Progress, the Server Monitor). One
     // hub shared by every worker; its background worker recalculates only what someone is
     // watching -- see backend/src/live.rs.

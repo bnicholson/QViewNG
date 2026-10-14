@@ -629,3 +629,111 @@ async fn team_and_individual_stats_count_only_finished_games() {
     let quizzers: Vec<serde_json::Value> = test::read_body_json(test::call_service(&app, read("individualstats")).await).await;
     assert!(!quizzers.is_empty());
 }
+
+// ─── A division's own stats group mirrors the division's games ───────────────
+
+fn games_of(conn: &mut backend::database::Connection, sg_id: uuid::Uuid) -> Vec<uuid::Uuid> {
+    use backend::schema::games_statsgroups::dsl as gs;
+    let mut gids: Vec<uuid::Uuid> = gs::games_statsgroups
+        .filter(gs::statsgroupid.eq(sg_id))
+        .select(gs::gameid)
+        .load(conn)
+        .unwrap();
+    gids.sort();
+    gids
+}
+
+/// A game scheduled after its division's stats group exists joins it, so the division's standings
+/// include it. (Games used to join only when the division was created.)
+#[actix_web::test]
+async fn a_new_game_joins_its_divisions_stats_group() {
+    use backend::models::{game::GameBuilder, statsgroup::{self, StatsGroupBuilder}};
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (game_1, tour, division, round, room, team_1, team_2, _, _, quizmaster) =
+        fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+
+    // The fixture's game predates the group, as a game scheduled before this fix would.
+    let sg = StatsGroupBuilder::new_default("Div 1", tour.tid)
+        .set_division_id(Some(division.did))
+        .build_and_insert(&mut conn)
+        .unwrap();
+    assert!(games_of(&mut conn, sg.sgid).is_empty());
+
+    // The startup backfill picks it up...
+    assert_eq!(statsgroup::sync_all_division_statsgroups(&mut conn).unwrap(), 1);
+    assert_eq!(games_of(&mut conn, sg.sgid), vec![game_1.gid]);
+    // ...and is a no-op once everything is in step.
+    assert_eq!(statsgroup::sync_all_division_statsgroups(&mut conn).unwrap(), 0);
+
+    // A game created from now on joins at once.
+    let game_2 = GameBuilder::new_default(room.roomid, round.roundid)
+        .set_leftteamid(team_2.teamid)
+        .set_rightteamid(team_1.teamid)
+        .set_quizmasterid(quizmaster.id)
+        .set_org("second game".to_string()) // a room and round host one game per client key and org
+        .build_and_insert(&mut conn)
+        .unwrap();
+    let mut expected = vec![game_1.gid, game_2.gid];
+    expected.sort();
+    assert_eq!(games_of(&mut conn, sg.sgid), expected);
+}
+
+/// A game moved to another division's pool moves to that division's stats group.
+#[actix_web::test]
+async fn a_game_moved_to_another_division_moves_stats_groups() {
+    use backend::models::{division::DivisionBuilder, game::GameChangeset, pool_bracket::PoolBracketBuilder, statsgroup::StatsGroupBuilder};
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (game, tour, division, ..) = fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+    let sg_1 = StatsGroupBuilder::new_default("Div 1", tour.tid)
+        .set_division_id(Some(division.did))
+        .build_and_insert(&mut conn)
+        .unwrap();
+    backend::models::statsgroup::sync_division_statsgroup(&mut conn, division.did).unwrap();
+
+    let division_2 = DivisionBuilder::new_default("Div 2", tour.tid).build_and_insert(&mut conn).unwrap();
+    let sg_2 = StatsGroupBuilder::new_default("Div 2", tour.tid)
+        .set_division_id(Some(division_2.did))
+        .build_and_insert(&mut conn)
+        .unwrap();
+    let pool_2 = PoolBracketBuilder::new_default(division_2.did)
+        .set_name("Pool A")
+        .set_creator_userid(game.creator_id)
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    let mut move_it = GameChangeset::empty();
+    move_it.poolbracket_id = Some(pool_2.pool_bracket_id);
+    models::game::update(&mut conn, game.gid, &move_it, game.last_modified_user).unwrap();
+
+    assert!(games_of(&mut conn, sg_1.sgid).is_empty(), "left the old division's group");
+    assert_eq!(games_of(&mut conn, sg_2.sgid), vec![game.gid], "joined the new division's group");
+}
+
+/// Only the division's own (oldest) group is kept in step; a custom group scoped to the same
+/// division keeps exactly the games it was given.
+#[actix_web::test]
+async fn a_custom_group_in_the_same_division_is_left_alone() {
+    use backend::models::{game_statsgroup::GameStatsGroupBuilder, statsgroup::StatsGroupBuilder};
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (game, tour, division, ..) = fixtures::games::seed_1_game_with_minimum_required_dependencies(&mut conn);
+    let own = StatsGroupBuilder::new_default("Div 1", tour.tid)
+        .set_division_id(Some(division.did))
+        .build_and_insert(&mut conn)
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(5)); // a strictly later created_at
+    let custom = StatsGroupBuilder::new_default("Finals", tour.tid)
+        .set_division_id(Some(division.did))
+        .build_and_insert(&mut conn)
+        .unwrap();
+
+    backend::models::statsgroup::sync_division_statsgroup(&mut conn, division.did).unwrap();
+    assert_eq!(games_of(&mut conn, own.sgid), vec![game.gid]);
+    assert!(games_of(&mut conn, custom.sgid).is_empty());
+
+    GameStatsGroupBuilder::new(game.gid, custom.sgid).build_and_insert(&mut conn).unwrap();
+    backend::models::statsgroup::sync_division_statsgroup(&mut conn, division.did).unwrap();
+    assert_eq!(games_of(&mut conn, custom.sgid), vec![game.gid]);
+}

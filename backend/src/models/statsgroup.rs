@@ -341,6 +341,113 @@ pub fn update_tiebreaker_rules(
         .map(|sg| parse_tiebreaker_rules(&sg.tiebreaker_rules))
 }
 
+// ─── A division's own stats group ─────────────────────────────────────────────
+
+/// The stats group that mirrors a division: every game of the division, kept in step
+/// automatically. Created alongside the division (see `services::division::create`).
+///
+/// It is told apart from any other stats group scoped to the same division by being the oldest
+/// one. Today no other kind exists -- nothing else in the app creates division-scoped groups or
+/// edits a group's games -- but a custom group added later (e.g. "Finals") must never be mistaken
+/// for the division's own and have its games overwritten.
+pub fn read_division_statsgroup_id(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Option<Uuid>> {
+    use crate::schema::statsgroups::dsl as sg;
+    sg::statsgroups
+        .filter(sg::division_id.eq(division_id))
+        .filter(sg::del_fl.eq(false))
+        .order((sg::created_at.asc(), sg::sgid.asc()))
+        .select(sg::sgid)
+        .first::<Uuid>(db)
+        .optional()
+}
+
+/// Makes a division's own stats group hold exactly the division's games: links games scheduled
+/// since it was last synced, and unlinks games that moved to another division. Idempotent.
+///
+/// Returns the group when its games changed, so a caller holding the cache can drop the group's
+/// standings at once rather than wait out `AGGREGATE_TTL`. `None` when nothing changed, or the
+/// division has no stats group.
+pub fn sync_division_statsgroup(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Option<Uuid>> {
+    use std::collections::HashSet;
+    let Some(sg_id) = read_division_statsgroup_id(db, division_id)? else {
+        return Ok(None);
+    };
+
+    // The division's games, unpaginated: a large division must not be silently truncated.
+    let wanted: HashSet<Uuid> = {
+        use crate::schema::{games, pool_brackets};
+        games::table
+            .inner_join(pool_brackets::table.on(games::poolbracket_id.eq(pool_brackets::pool_bracket_id)))
+            .filter(pool_brackets::divisionid.eq(division_id))
+            .filter(games::del_fl.eq(false))
+            .select(games::gid)
+            .load::<Uuid>(db)?
+            .into_iter()
+            .collect()
+    };
+
+    use crate::schema::games_statsgroups::dsl as gs;
+    let linked: HashSet<Uuid> = gs::games_statsgroups
+        .filter(gs::statsgroupid.eq(sg_id))
+        .select(gs::gameid)
+        .load::<Uuid>(db)?
+        .into_iter()
+        .collect();
+
+    let to_link: Vec<_> = wanted.difference(&linked)
+        .map(|gid| (gs::gameid.eq(*gid), gs::statsgroupid.eq(sg_id)))
+        .collect();
+    // A soft-deleted game stays linked: the stats readers already skip deleted games, and keeping
+    // the link means an undelete needs no re-sync.
+    let deleted: HashSet<Uuid> = {
+        use crate::schema::games::dsl as g;
+        let extra: Vec<Uuid> = linked.difference(&wanted).copied().collect();
+        g::games.filter(g::gid.eq_any(&extra)).filter(g::del_fl.eq(true)).select(g::gid).load::<Uuid>(db)?
+            .into_iter().collect()
+    };
+    let to_unlink: Vec<Uuid> = linked.difference(&wanted).filter(|gid| !deleted.contains(gid)).copied().collect();
+
+    if to_link.is_empty() && to_unlink.is_empty() {
+        return Ok(None);
+    }
+    if !to_link.is_empty() {
+        diesel::insert_into(gs::games_statsgroups)
+            .values(&to_link)
+            .on_conflict_do_nothing()
+            .execute(db)?;
+    }
+    if !to_unlink.is_empty() {
+        diesel::delete(
+            gs::games_statsgroups
+                .filter(gs::statsgroupid.eq(sg_id))
+                .filter(gs::gameid.eq_any(&to_unlink)),
+        ).execute(db)?;
+    }
+    Ok(Some(sg_id))
+}
+
+/// [`sync_division_statsgroup`] for every division. Run once at startup, so games scheduled
+/// before divisions' groups were kept in step automatically are picked up. Returns how many
+/// divisions' groups changed.
+pub fn sync_all_division_statsgroups(db: &mut database::Connection) -> QueryResult<usize> {
+    let division_ids: Vec<Uuid> = {
+        use crate::schema::statsgroups::dsl as sg;
+        sg::statsgroups
+            .filter(sg::del_fl.eq(false))
+            .filter(sg::division_id.is_not_null())
+            .select(sg::division_id.assume_not_null())
+            .distinct()
+            .load::<Uuid>(db)?
+    };
+    let mut changed = 0;
+    for division_id in division_ids {
+        if sync_division_statsgroup(db, division_id)?.is_some() {
+            changed += 1;
+        }
+    }
+    Ok(changed)
+}
+
 // ─── Aggregated-standings cache ───────────────────────────────────────────────
 
 /// Cache-format version for the aggregated standings rows.

@@ -365,9 +365,14 @@ pub fn create(db: &mut database::Connection, item: &NewGame) -> QueryResult<Game
         }
     }
 
-    insert_into(games)
+    let created = insert_into(games)
         .values(game)
-        .get_result::<Game>(db)
+        .get_result::<Game>(db)?;
+
+    // Every game joins its division's own stats group, so the division's standings include it.
+    let division_id = read_division_of_game(db, &created)?.did;
+    crate::models::statsgroup::sync_division_statsgroup(db, division_id)?;
+    Ok(created)
 }
 
 pub fn create_update(db: &mut database::Connection, item: &GameChangeset) -> QueryResult<Game> {
@@ -1313,14 +1318,32 @@ pub fn request_gameevents_resend(db_conn: &mut database::Connection, item_id: Uu
 
 pub fn update(db_conn: &mut database::Connection, item_id: Uuid, item: &GameChangeset, modified_by: Uuid) -> QueryResult<Game> {
     use crate::schema::games::dsl::*;
-    diesel::update(games.find(item_id))
+    // A new pool bracket can move the game to another division; note the old one first.
+    let division_before = match item.poolbracket_id {
+        Some(_) => games.find(item_id).first::<Game>(db_conn).ok()
+            .and_then(|g| read_division_of_game(db_conn, &g).ok())
+            .map(|d| d.did),
+        None => None,
+    };
+
+    let updated = diesel::update(games.find(item_id))
         .set((
             item,
             updated_at.eq(diesel::dsl::now),
             last_modified_user.eq(modified_by),
         ))
         .returning(Game::as_returning())
-        .get_result(db_conn)
+        .get_result(db_conn)?;
+
+    // Keep both divisions' own stats groups in step when the game changed division.
+    if let Some(before) = division_before {
+        let after = read_division_of_game(db_conn, &updated)?.did;
+        if after != before {
+            crate::models::statsgroup::sync_division_statsgroup(db_conn, before)?;
+            crate::models::statsgroup::sync_division_statsgroup(db_conn, after)?;
+        }
+    }
+    Ok(updated)
 }
 
 /// Soft delete: mark the game deleted (excluded from reads) without removing the row.
