@@ -349,7 +349,7 @@ pub fn update_tiebreaker_rules(
 /// olympic-point maths, W-L counting, placement rules or sort order. A change that alters the
 /// shape of `TeamStat` or `IndividualStat` needs no bump -- a stale entry simply fails to
 /// deserialize and is treated as a miss (see backend/src/cache.rs).
-const STATS_VERSION: u32 = 1;
+const STATS_VERSION: u32 = 2; // 2: only finished games count
 
 /// How long aggregated standings live.
 ///
@@ -471,8 +471,9 @@ fn olympic_awards(num_teams: usize, rank: i32, score: i32, game_total: i32) -> (
 }
 
 /// Computes team standings for a statsgroup by running the score calculator over each of the
-/// statsgroup's games and aggregating per team (keyed by team name). Games whose event stream
-/// can't be scored are skipped.
+/// statsgroup's games and aggregating per team (keyed by team name). Only finished games count
+/// (see `CalculatedGame::is_finished`); unfinished ones, and games whose event stream can't be
+/// scored, are skipped.
 ///
 /// Within a game a team's W-L is counted per opponent, so a 3-team round gives 1st 2 wins,
 /// 2nd 1 win and 1 loss, and 3rd 2 losses; a 2-team round gives 1-0 and 0-1.
@@ -505,7 +506,11 @@ pub async fn read_team_stats_of_statsgroup(
         if let Some(calculated) =
             crate::models::gameevent::calculate_game_cached(cache, db, game.gid).await?
         {
-            per_game.push(crate::models::gameevent::team_results_from_calculated(&calculated));
+            // Only finished games count: a game still being played would credit whoever leads
+            // it now, and standings would then jump around and reverse during a round.
+            if calculated.is_finished() {
+                per_game.push(crate::models::gameevent::team_results_from_calculated(&calculated));
+            }
         }
     }
 
@@ -764,7 +769,11 @@ pub async fn read_individual_stats_of_statsgroup(
         if let Some(calculated) =
             crate::models::gameevent::calculate_game_cached(cache, db, game.gid).await?
         {
-            per_game.push(crate::models::gameevent::quizzer_results_from_calculated(&calculated));
+            // Only finished games count: a game still being played would credit whoever leads
+            // it now, and standings would then jump around and reverse during a round.
+            if calculated.is_finished() {
+                per_game.push(crate::models::gameevent::quizzer_results_from_calculated(&calculated));
+            }
         }
     }
 

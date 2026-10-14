@@ -1343,7 +1343,7 @@ pub fn purge(db_conn: &mut database::Connection, item_id: Uuid) -> QueryResult<u
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct GameStatus {
     pub gid: Uuid,
-    pub done: bool,     // has a question-20 record and all ties are resolved (distinct final scores)
+    pub done: bool,     // finished (`CalculatedGame::is_finished`), or reached question 20 and its teams have moved on
     pub data_ok: bool,  // the game has events that score without error
     pub next_question: Option<i32>, // highest recorded question number + 1 (None if no events)
 }
@@ -1378,26 +1378,18 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
         // sequential gaps in question/eventnum) must be part of "data OK". Computed before
         // the calculator consumes `events`.
         let has_gaps = crate::models::gameevent::events_have_gaps(&events);
-        let results = crate::models::gameevent::calculate_team_results_for_game(game.gid, events);
+        let calculated = crate::models::gameevent::calculate_game(game.gid, events);
         // Data is OK when there are events, they have no gaps, and they score without error.
-        let data_ok = has_events && !has_gaps && results.is_ok();
-        // Ties are resolved when no two teams share the same placement rank. Ranks (not
-        // scores) are the right signal: an overtime game decides a winner via distinct ranks
-        // while the displayed score stays tied, so a score comparison would miss it.
-        let ties_resolved = match &results {
-            Ok(teams) if !teams.is_empty() => {
-                let mut ranks: Vec<i32> = teams.iter().map(|t| t.rank).collect();
-                ranks.sort_unstable();
-                ranks.windows(2).all(|w| w[0] != w[1])
-            }
-            _ => false,
-        };
+        let data_ok = has_events && !has_gaps && calculated.is_ok();
+        // The shared definition of a finished game -- the same one standings count by.
+        let finished = calculated.as_ref().is_ok_and(|c| c.is_finished());
 
         // A team has "moved on" when it appears in another game whose events were recorded
-        // after this game's last event. This resolves overtime games where the score stays
-        // tied (Q21+ decides a winner without changing the score): the ties_resolved score
-        // check can't detect the outcome, but the teams starting their next round proves the
-        // game is finished.
+        // after this game's last event. A fallback for a game whose placings the calculator
+        // never separated (e.g. an overtime it could not resolve): the teams starting their next
+        // round proves the game is over. It needs the other games, so it lives here rather than
+        // in `is_finished`, and it only marks the game Done here -- standings still skip a game
+        // whose placings are undecided, since they have no ranks to count.
         let team_moved_on = match latest_serverts_by_gid.get(&game.gid).copied() {
             Some(this_game_end) => {
                 let this_teams: Vec<Uuid> = [Some(game.leftteamid), game.centerteamid, Some(game.rightteamid)]
@@ -1419,7 +1411,7 @@ pub fn read_game_statuses_of_tournament(db: &mut database::Connection, tournamen
             None => false,
         };
 
-        let done = data_ok && has_question_20 && (ties_resolved || team_moved_on);
+        let done = data_ok && (finished || (has_question_20 && team_moved_on));
 
         statuses.push(GameStatus { gid: game.gid, done, data_ok, next_question });
     }

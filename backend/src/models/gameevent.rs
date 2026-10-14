@@ -1044,6 +1044,34 @@ impl CalculatedGame {
     pub fn overtime_ranks_assigned(&self) -> bool {
         self.teams.values().any(|team| team.rank >= 1)
     }
+
+    /// True when the game is over: every regulation question has been asked and resolved, and
+    /// no two teams share a placing.
+    ///
+    /// This is the one definition of "finished". Standings count only finished games (a game
+    /// half played would otherwise credit its leader with a win that may yet reverse), the
+    /// Server Monitor uses it for "in progress", and Game Selection's "Done" builds on it.
+    ///
+    /// * Question 20 resolved: `current_question` moves past a question only on the event that
+    ///   ends it (a correct answer, a bonus, no jump...), so it is past 20 once 20 is done.
+    /// * Placings decided: compared by placement rank, not score. In overtime the calculator
+    ///   ranks the teams once the tie is broken while the displayed scores stay tied, so a score
+    ///   comparison would never see an overtime game end.
+    pub fn is_finished(&self) -> bool {
+        if self.current_question <= DEFAULT_QUESTIONS_PER_GAME {
+            return false;
+        }
+        let mut ranks: Vec<i32> = team_results_from_calculated(self)
+            .into_iter()
+            .filter(|r| !r.name.trim().is_empty())
+            .map(|r| r.rank)
+            .collect();
+        if ranks.len() < 2 {
+            return false;
+        }
+        ranks.sort_unstable();
+        ranks.windows(2).all(|pair| pair[0] != pair[1])
+    }
 }
 
 impl GameEventCalculator {
@@ -3027,6 +3055,66 @@ pub fn create_update_game_event(db: &mut database::Connection, item: &NewGameEve
 }
 
 // Not including a Delete fn until it is apparent that it is needed.
+
+#[cfg(test)]
+mod is_finished_tests {
+    use super::*;
+
+    /// Two teams of one quizzer each, then `tossups` (team index per question, `None` for a no
+    /// jump), then no-jumps through question `last_question`.
+    fn game(tossups: &[Option<i32>], last_question: i32) -> CalculatedGame {
+        let gid = Uuid::new_v4();
+        let mut stream = GameEventStreamBuilder::new(gid)
+            .then_add_RM("Tournament")
+            .then_add_QT("N")
+            .then_add_TN("Red Team", 0).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Red #1", 0, 0, true, false).unwrap()
+            .then_add_TN("Blue Team", 1).unwrap()
+            .then_add_QN_plus_if_SC_or_SS("Blue #1", 1, 0, true, false).unwrap();
+        for tossup in tossups {
+            stream = match tossup {
+                Some(0) => stream.then_add_TC("Red #1", 0).unwrap(),
+                Some(_) => stream.then_add_TC("Blue #1", 1).unwrap(),
+                None => stream.then_add_NJ().unwrap(),
+            };
+        }
+        for _ in (tossups.len() as i32 + 1)..=last_question {
+            stream = stream.then_add_NJ().unwrap();
+        }
+        let (events, _) = stream.to_game_events();
+        calculate_game(gid, events).expect("the stream scores")
+    }
+
+    #[test]
+    fn a_game_still_in_regulation_is_not_finished() {
+        let calculated = game(&[Some(0), Some(0), Some(1)], 19);
+        assert_eq!(calculated.current_question, 20);
+        assert!(!calculated.is_finished(), "question 20 has not been resolved yet");
+    }
+
+    #[test]
+    fn a_game_with_question_20_resolved_and_a_leader_is_finished() {
+        let calculated = game(&[Some(0), Some(0), Some(1)], 20);
+        assert!(calculated.is_finished());
+    }
+
+    #[test]
+    fn a_game_tied_after_question_20_is_not_finished() {
+        let calculated = game(&[Some(0), Some(1)], 20);
+        assert!(!calculated.is_finished(), "a tie after regulation goes to overtime");
+    }
+
+    #[test]
+    fn a_tie_broken_in_overtime_is_finished_though_the_scores_still_show_tied() {
+        let mut tossups = vec![Some(0), Some(1)];
+        tossups.extend(std::iter::repeat_n(None, 18)); // through question 20, tied
+        tossups.push(Some(1));                          // question 21 breaks the tie
+        let calculated = game(&tossups, 21);
+        let scores: Vec<i32> = calculated.teams.values().map(|t| t.score).collect();
+        assert_eq!(scores[0], scores[1], "overtime does not change the displayed score");
+        assert!(calculated.is_finished());
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -98,7 +98,8 @@ pub fn arrange_get_all_games_of_statsgroup_works_integration_test(db: &mut datab
 // Seeds one example game modeled on the QuizMachine export (ExportQuizzes4.csv):
 // an initialization block (RM/QT, then each team's TN, five QN, captain SC and
 // co-captain SS) followed by correct tossups. "Red Team" answers 4 tossups and
-// "Blue Team" answers 2, so final scores are Red 80, Blue 40 (20 pts per tossup).
+// "Blue Team" answers 2, and questions 7-20 go unanswered, so the game finishes Red 80,
+// Blue 40 (20 pts per tossup).
 // The game is linked to a division-scoped statsgroup, which is returned.
 pub fn arrange_team_stats_works_integration_test(db: &mut database::Connection) -> StatsGroup {
     let (game, tour, division, _round, _room, _team_1, _team_2, _coach_1, _coach_2, _quizmaster) =
@@ -113,8 +114,41 @@ pub fn arrange_team_stats_works_integration_test(db: &mut database::Connection) 
         .unwrap();
 
     seed_example_game_events(db, game.gid);
+    finish_example_game(db, game.gid);
 
     statsgroup
+}
+
+/// The same game as `arrange_team_stats_works_integration_test`, stopped after question 6 (Red
+/// leads 80-40). Returns the statsgroup and the game, so a test can finish it with
+/// [`finish_example_game`].
+pub fn arrange_team_stats_with_unfinished_game(db: &mut database::Connection) -> (StatsGroup, Game) {
+    let (game, tour, division, ..) = seed_1_game_with_minimum_required_dependencies(db);
+    let statsgroup = StatsGroupBuilder::new_default("Unfinished Game StatsGroup", tour.tid)
+        .set_division_id(Some(division.did))
+        .build_and_insert(db)
+        .unwrap();
+    GameStatsGroupBuilder::new(game.gid, statsgroup.sgid)
+        .build_and_insert(db)
+        .unwrap();
+    seed_example_game_events(db, game.gid);
+    (statsgroup, game)
+}
+
+/// Questions 7-20 go unanswered, which finishes the example game 80-40. Standings count only
+/// finished games.
+pub fn finish_example_game(db: &mut database::Connection, gid: uuid::Uuid) {
+    for q in 7..=20 {
+        GameEventBuilder::new_default(gid)
+            .set_question(Some(q))
+            .set_eventnum(Some(0))
+            .set_name(Some(String::new()))
+            .set_team(Some(0))
+            .set_quizzer(Some(0))
+            .set_event(Some(GameEventCode::NJ))
+            .build_and_insert(db)
+            .unwrap();
+    }
 }
 
 fn seed_example_game_events(db: &mut database::Connection, gid: uuid::Uuid) {

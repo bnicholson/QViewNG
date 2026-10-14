@@ -654,8 +654,8 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
         let resend = game.as_ref().and_then(|g| g.resend_gameevents_response.clone());
 
         // Started = at least one non-initialization (gameplay) event.
-        // Finished = reached question 20 with all ties resolved (distinct final scores),
-        // matching the Game Selection "Done" definition.
+        // Finished = `CalculatedGame::is_finished`, the definition standings and Game Selection
+        // use too.
         // data_incomplete = the retrieved events have a gap in question numbers or in a
         // question's sub-event (eventnum) sequence.
         let (game_in_progress, data_incomplete, event_question) = match &game {
@@ -668,21 +668,11 @@ pub fn read_room_monitor_of_tournament(db: &mut database::Connection, tournament
 
                 let has_events = !events.is_empty();
                 let started = events.iter().any(|e| !ROOM_MONITOR_INIT_CODES.contains(&e.event.as_str()));
-                let has_question_20 = events.iter().any(|e| e.question >= 20);
 
-                let calculated = crate::models::gameevent::calculate_game(g.gid, events);
+                let calculated = crate::models::gameevent::calculate_game(g.gid, events).ok();
                 // Nothing stored yet places the room nowhere (the calculator would say question 1).
-                let event_question = calculated.as_ref().ok().filter(|_| has_events).map(|c| c.current_question);
-                let results = calculated.map(|c| crate::models::gameevent::team_results_from_calculated(&c));
-                let ties_resolved = match &results {
-                    Ok(teams) if !teams.is_empty() => {
-                        let mut scores: Vec<i32> = teams.iter().map(|t| t.score).collect();
-                        scores.sort_unstable();
-                        scores.windows(2).all(|w| w[0] != w[1])
-                    }
-                    _ => false,
-                };
-                let finished = has_events && results.is_ok() && has_question_20 && ties_resolved;
+                let event_question = calculated.as_ref().filter(|_| has_events).map(|c| c.current_question);
+                let finished = calculated.as_ref().is_some_and(|c| c.is_finished());
                 (started && !finished, data_incomplete, event_question)
             }
             None => (false, false, None),

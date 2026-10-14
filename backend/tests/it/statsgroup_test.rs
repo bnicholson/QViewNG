@@ -591,3 +591,41 @@ async fn reordering_the_rules_reorders_the_standings() {
     assert_eq!(rows[0]["rank_rule_below"]["rule"], "team_wl");
 }
 
+
+/// Standings count only finished games. Red leads 80-40 after question 6; counting that game now
+/// would credit Red with a win the rest of the round could still reverse. Once question 20 is
+/// resolved, the game counts.
+#[actix_web::test]
+async fn team_and_individual_stats_count_only_finished_games() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (statsgroup, game) = fixtures::statsgroups::arrange_team_stats_with_unfinished_game(&mut conn);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .configure(configure_routes)
+    ).await;
+
+    let read = |kind: &'static str| {
+        test::TestRequest::get()
+            .uri(&format!("/api/statsgroups/{}/{}", statsgroup.sgid, kind))
+            .insert_header(system_admin_auth_header())
+            .to_request()
+    };
+
+    let teams: Vec<serde_json::Value> = test::read_body_json(test::call_service(&app, read("teamstats")).await).await;
+    let quizzers: Vec<serde_json::Value> = test::read_body_json(test::call_service(&app, read("individualstats")).await).await;
+    assert!(teams.is_empty(), "an unfinished game must not count: {teams:?}");
+    assert!(quizzers.is_empty(), "an unfinished game must not count: {quizzers:?}");
+
+    fixtures::statsgroups::finish_example_game(&mut conn, game.gid);
+
+    let teams: Vec<backend::models::statsgroup::TeamStat> =
+        test::read_body_json(test::call_service(&app, read("teamstats")).await).await;
+    assert_eq!(teams.len(), 2);
+    assert_eq!((teams[0].name.as_str(), teams[0].games, teams[0].wins), ("Red Team", 1, 1));
+    assert_eq!((teams[1].name.as_str(), teams[1].games, teams[1].losses), ("Blue Team", 1, 1));
+    let quizzers: Vec<serde_json::Value> = test::read_body_json(test::call_service(&app, read("individualstats")).await).await;
+    assert!(!quizzers.is_empty());
+}
