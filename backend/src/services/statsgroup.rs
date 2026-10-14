@@ -166,6 +166,10 @@ async fn update_tiebreaker_rules(
             cache
                 .invalidate(&models::statsgroup::aggregate_cache_keys(sg_id))
                 .await;
+            // A division's live standings reorder at once rather than on the next sweep.
+            if let Ok(Some(did)) = models::statsgroup::read(&mut db, sg_id).map(|sg| sg.division_id) {
+                crate::live::division_changed(&req, did);
+            }
             HttpResponse::Ok().json(rules)
         }
         Err(_) => HttpResponse::InternalServerError().finish(),

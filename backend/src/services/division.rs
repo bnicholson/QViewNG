@@ -544,10 +544,73 @@ async fn destroy(
     }
 }
 
+// ─── Public team standings (LIVE Stats) ───────────────────────────────────────
+
+/// The division's team standings: the rows of its own stats group, finished games only, with
+/// the tie-breaker explanations.
+///
+/// Public by design, like Games in Progress -- it is what a spectator screen points at, and it
+/// shows only what is already on a scoreboard. The full admin Stats Groups panel stays restricted.
+#[get("/{id}/teamstats")]
+async fn read_team_stats(
+    db: Data<Database>,
+    cache: Data<crate::cache::Cache>,
+    division_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    // Public for unauthenticated callers; an authenticated caller needs statsgroup:read.
+    if !crate::services::common::authorized_to_read(&req, AppResource::StatsGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let did = division_id.into_inner();
+    if models::division::read(&mut conn, did).is_err() {
+        return HttpResponse::NotFound().finish();
+    }
+    match models::statsgroup::read_team_stats_of_division(&cache, &mut conn, did).await {
+        Ok(rows) => HttpResponse::Ok().json(rows),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Live division standings: the same rows as `/teamstats`, pushed as Server-Sent Events whenever
+/// a game event lands in the division. See `crate::live`.
+#[get("/{id}/teamstats/stream")]
+async fn stream_team_stats(
+    db: Data<Database>,
+    division_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    if !crate::services::common::authorized_to_read(&req, AppResource::StatsGroup) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let did = division_id.into_inner();
+    if models::division::read(&mut conn, did).is_err() {
+        return HttpResponse::NotFound().finish();
+    }
+    let Some(hub) = req.app_data::<Data<crate::live::LiveHub>>() else {
+        return HttpResponse::ServiceUnavailable().finish();
+    };
+    crate::live::stream_response(hub, crate::live::Topic::TeamStats(did), None)
+}
+
 pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
     return scope
         .service(index)
         .service(read)
+        .service(read_team_stats)
+        .service(stream_team_stats)
         .service(read_rounds)
         .service(read_pool_brackets)
         .service(read_pool_bracket_rows)

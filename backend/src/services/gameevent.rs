@@ -574,11 +574,11 @@ async fn index(
                 // Every acknowledged event changed something a live page shows: an applied one the
                 // scores, a quarantined or set-aside one the Server Monitor's quarantine count.
                 // Notifying here, once, covers each of write()'s acknowledging paths.
-                let tournament_name = qstring::QString::from(req.query_string())
-                    .get("tn")
-                    .unwrap_or("")
-                    .replace("+", " ");
+                let query = qstring::QString::from(req.query_string());
+                let tournament_name = query.get("tn").unwrap_or("").replace("+", " ");
                 crate::live::tournament_named_changed(&req, &mut db, &tournament_name);
+                // And the standings of the game's division, which an event can finish.
+                crate::live::game_division_changed(&req, &mut db, query.get("gid").unwrap_or(""));
             }
             return response;
         }

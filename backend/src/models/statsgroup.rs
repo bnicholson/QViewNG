@@ -626,6 +626,23 @@ pub async fn read_team_stats_of_statsgroup(
     Ok(stats)
 }
 
+/// The team standings of a division: those of its own stats group (see
+/// [`read_division_statsgroup_id`]). Empty when the division has no stats group.
+///
+/// Served by the public division standings endpoint and the live LIVE Stats page. It reads
+/// through the same cache as [`read_team_stats_of_statsgroup`], so the admin Stats Groups panel
+/// and the public page always agree.
+pub async fn read_team_stats_of_division(
+    cache: &Cache,
+    db: &mut database::Connection,
+    division_id: Uuid,
+) -> QueryResult<Vec<TeamStat>> {
+    match read_division_statsgroup_id(db, division_id)? {
+        Some(sg_id) => read_team_stats_of_statsgroup(cache, db, sg_id).await,
+        None => Ok(Vec::new()),
+    }
+}
+
 /// Aggregates per-game team results into the sorted, placed `TeamStat` rows the endpoint
 /// serves. Pure: no database, no cache, no scoring -- which makes the olympic-point and
 /// tie-breaker behaviour unit-testable without a game event in sight.

@@ -55,22 +55,22 @@ pub const SWEEP: Duration = Duration::from_secs(30);
 /// idle limit.
 pub const KEEPALIVE: Duration = Duration::from_secs(15);
 
-/// A page that can be watched live, for one tournament.
+/// A page that can be watched live.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Topic {
-    /// The public Games in Progress tickertape.
+    /// The public Games in Progress tickertape, for a tournament.
     GamesInProgress(Uuid),
-    /// The restricted Server Monitor (room monitor).
+    /// The restricted Server Monitor (room monitor), for a tournament.
     RoomMonitor(Uuid),
+    /// The public team standings of a division (its own stats group).
+    ///
+    /// Marked by [`LiveHub::division_changed`], not by tournament triggers: standings change only
+    /// when a game event lands (or the tie-breaker rules are edited), and every room's pings would
+    /// otherwise rebuild them every second for nothing.
+    TeamStats(Uuid),
 }
 
 impl Topic {
-    pub fn tournament(&self) -> Uuid {
-        match self {
-            Topic::GamesInProgress(tid) | Topic::RoomMonitor(tid) => *tid,
-        }
-    }
-
     /// Every topic of a tournament. A trigger marks all of them, so a trigger never has to know
     /// which page shows which data, and no page can fall behind because a trigger forgot it.
     pub fn all_of(tid: Uuid) -> [Topic; 2] {
@@ -122,6 +122,13 @@ impl LiveHub {
         for topic in Topic::all_of(tid) {
             // Fails only if the worker has stopped, which happens only at shutdown.
             let _ = self.dirty_tx.send(topic);
+        }
+    }
+
+    /// Marks a division's standings as needing a recalculation. Returns immediately.
+    pub fn division_changed(&self, did: Uuid) {
+        if self.is_watching_anything() {
+            let _ = self.dirty_tx.send(Topic::TeamStats(did));
         }
     }
 
@@ -269,6 +276,9 @@ pub fn snapshot_builder(db: crate::database::Database, cache: crate::cache::Cach
                 .map(|rows| serde_json::to_string(&rows)),
             Topic::RoomMonitor(tid) => crate::models::room::read_room_monitor_of_tournament(&mut conn, tid)
                 .map(|rows| serde_json::to_string(&rows)),
+            Topic::TeamStats(did) => tokio::runtime::Handle::current()
+                .block_on(crate::models::statsgroup::read_team_stats_of_division(&cache, &mut conn, did))
+                .map(|rows| serde_json::to_string(&rows)),
         };
         match json {
             Ok(Ok(json)) => Some(json),
@@ -305,6 +315,28 @@ pub fn tournament_named_changed(req: &HttpRequest, conn: &mut crate::database::C
     use diesel::prelude::*;
     if let Ok(tid) = t::tournaments.filter(t::tname.eq(tournament_name)).select(t::tid).first::<Uuid>(conn) {
         hub.tournament_changed(tid);
+    }
+}
+
+/// Marks a division's live standings for a recalculation, if this app has a hub.
+pub fn division_changed(req: &HttpRequest, did: Uuid) {
+    if let Some(hub) = req.app_data::<Data<LiveHub>>() {
+        hub.division_changed(did);
+    }
+}
+
+/// Marks the live standings of the division a game belongs to, from the game id a QuizMachine
+/// client sends. Skips the lookup entirely when no one is watching anything.
+pub fn game_division_changed(req: &HttpRequest, conn: &mut crate::database::Connection, game_id: &str) {
+    let Some(hub) = req.app_data::<Data<LiveHub>>() else { return };
+    if !hub.is_watching_anything() {
+        return;
+    }
+    let Ok(gid) = Uuid::parse_str(game_id.trim()) else { return };
+    if let Ok(division) = crate::models::game::read(conn, gid)
+        .and_then(|game| crate::models::game::read_division_of_game(conn, &game))
+    {
+        hub.division_changed(division.did);
     }
 }
 

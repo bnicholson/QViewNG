@@ -1,4 +1,5 @@
-//! Live updates over Server-Sent Events: the Games in Progress and Server Monitor streams.
+//! Live updates over Server-Sent Events: the Games in Progress, Server Monitor and division
+//! standings (LIVE Stats) streams.
 use crate::fixtures;
 
 use std::pin::Pin;
@@ -421,4 +422,99 @@ async fn room_monitor_shows_the_rooms_question_and_the_events_question() {
     let row = rows.iter().find(|r| r.roomid == room.roomid && r.is_room_row).expect("the room's row");
     assert_eq!(row.question, Some(7), "the room's own position, from its ping");
     assert_eq!(row.event_question, Some(5), "the position the stored events give");
+}
+
+// ─── LIVE Stats: a division's team standings ─────────────────────────────────
+
+/// The game event that finishes a game reaches an open standings stream: the game was not
+/// counted while being played, and is the moment its last question is resolved.
+#[actix_web::test]
+async fn team_stats_stream_pushes_the_game_event_that_finishes_a_game() {
+    use backend::models::gameevent::{GameEventBuilder, GameEventCode};
+    use backend::models::statsgroup::TeamStat;
+    use_test_gameevent_psk();
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let (_statsgroup, game) = fixtures::statsgroups::arrange_team_stats_with_unfinished_game(&mut conn);
+    let division = backend::models::game::read_division_of_game(&mut conn, &game).unwrap();
+    let tournament = backend::models::tournament::read(&mut conn, division.tid).unwrap();
+    let round = backend::models::round::read(&mut conn, game.roundid).unwrap();
+    let room = backend::models::room::read(&mut conn, game.roomid).unwrap();
+    // Questions 7-19 go unanswered; question 20 is left for the room to send.
+    for q in 7..=19 {
+        GameEventBuilder::new_default(game.gid)
+            .set_question(Some(q)).set_eventnum(Some(0)).set_name(Some(String::new()))
+            .set_team(Some(0)).set_quizzer(Some(0)).set_event(Some(GameEventCode::NJ))
+            .build_and_insert(&mut conn)
+            .unwrap();
+    }
+    let hub = test_hub(&db);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .app_data(web::Data::new(hub.clone()))
+            .configure(configure_routes),
+    ).await;
+
+    // Public: no token.
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/divisions/{}/teamstats/stream", division.did))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let mut frames = Frames::new(resp.into_body());
+
+    let first: Vec<TeamStat> = frames.next_snapshot().await;
+    assert!(first.is_empty(), "the only game is still being played: {first:?}");
+
+    let ev = ClientGameEvent {
+        gid: game.gid.to_string(),
+        tournament: tournament.tname.clone(),
+        division: division.dname.clone(),
+        room: room.name.clone(),
+        round: round.name.clone(),
+        question: 20,
+        eventnum: 0,
+        name: String::new(),
+        team: 0,
+        quizzer: 0,
+        event: "NJ".to_string(),
+        parm1: String::new(),
+        parm2: String::new(),
+        nonce: "nonce-live-finish".to_string(),
+    };
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&signed_gameevent_uri(&ev)).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let after: Vec<TeamStat> = frames.next_snapshot().await;
+    assert_eq!(after.len(), 2);
+    assert_eq!((after[0].name.as_str(), after[0].place, after[0].games, after[0].wins), ("Red Team", 1, 1, 1));
+    assert_eq!((after[1].name.as_str(), after[1].place, after[1].losses), ("Blue Team", 2, 1));
+    assert!(after[1].rank_rule_above.is_some(), "the public standings carry the tie-breaker explanations");
+}
+
+/// The REST read of the same standings is public, and a division nobody knows is not found.
+#[actix_web::test]
+async fn division_team_stats_are_public() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+    let did = statsgroup.division_id.unwrap();
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .configure(configure_routes),
+    ).await;
+
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&format!("/api/divisions/{did}/teamstats")).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let rows: Vec<serde_json::Value> = test::read_body_json(resp).await;
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0]["name"], "Red Team");
+    assert!(rows[1]["rank_rule_above"].is_object());
+
+    let resp = test::call_service(&app, test::TestRequest::get().uri(&format!("/api/divisions/{}/teamstats", Uuid::new_v4())).to_request()).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
