@@ -456,7 +456,7 @@ pub fn sync_all_division_statsgroups(db: &mut database::Connection) -> QueryResu
 /// olympic-point maths, W-L counting, placement rules or sort order. A change that alters the
 /// shape of `TeamStat` or `IndividualStat` needs no bump -- a stale entry simply fails to
 /// deserialize and is treated as a miss (see backend/src/cache.rs).
-const STATS_VERSION: u32 = 2; // 2: only finished games count
+const STATS_VERSION: u32 = 3; // 2: only finished games count; 3: individual score excludes bonus points
 
 /// How long aggregated standings live.
 ///
@@ -851,7 +851,7 @@ pub struct IndividualStat {
     pub individual: String,     // quizzer name
     pub team_name: String,      // the quizzer's team name
     pub games: i32,             // number of (scored) games the quizzer played
-    pub score: i32,             // total individual points across games
+    pub score: i32,             // individual points across games, excluding bonus points (see bonus_pts)
     pub avg: f64,               // score / games
     pub correct: i32,           // correct tossups
     pub errors: i32,            // erroneous tossups
@@ -924,7 +924,9 @@ fn aggregate_individual_stats(per_game: &[Vec<QuizzerGameResult>]) -> Vec<Indivi
                 games: 0, score: 0, correct: 0, errors: 0, bonus_pts: 0, bonus_attempts: 0,
             });
             entry.games += 1;
-            entry.score += result.score;
+            // A quizzer's individual score leaves out bonus points; those are reported on their
+            // own in `bonus_pts`. The per-game score includes them, so take them back out here.
+            entry.score += result.score - result.bonus_pts;
             entry.correct += result.correct;
             entry.errors += result.errors;
             entry.bonus_pts += result.bonus_pts;
@@ -1151,6 +1153,24 @@ mod aggregation_tests {
             stats.iter().map(|s| (s.individual.as_str(), s.place)).collect::<Vec<_>>(),
             vec![("Ann", 1), ("Bob", 1), ("Cal", 3)]
         ];
+    }
+
+    /// Bonus points are reported in `bonus_pts` but kept out of the individual score, so they
+    /// don't affect the average or the placings either.
+    #[test]
+    fn individual_score_excludes_bonus_points() {
+        let with_bonus = |name: &str, score: i32, bonus_pts: i32| QuizzerGameResult {
+            bonus_pts,
+            bonus_attempts: bonus_pts / 10,
+            ..quizzer("Red", name, score, 2, 0)
+        };
+        // Ann: 40 tossup points + 20 bonus. Bob: 50 tossup points, no bonus.
+        let stats = aggregate_individual_stats(&vec![vec![with_bonus("Ann", 60, 20), with_bonus("Bob", 50, 0)]]);
+        assert_eq![
+            stats.iter().map(|s| (s.individual.as_str(), s.score, s.bonus_pts, s.place)).collect::<Vec<_>>(),
+            vec![("Bob", 50, 0, 1), ("Ann", 40, 20, 2)]
+        ];
+        assert_eq![stats[1].avg, 40.0];
     }
 
     /// Individual counts sum across games.
