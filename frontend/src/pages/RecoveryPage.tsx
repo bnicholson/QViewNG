@@ -8,22 +8,30 @@ export const RecoveryPage = () => {
   const [username, setUsername] = useState<string>('')
   const [email, setEmail] = useState<string>('')
   const [processing, setProcessing] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
 
   const recover = async () => {
+    if (!username.trim() || !email.trim()) {
+      setError('Please enter both the username and the email address of the account.')
+      return
+    }
     setProcessing(true)
-    const response = await (
-      await fetch('/api/auth/forgot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email }),
-      })
-    ).json()
-    console.log(response)
+    setError(null)
+    // The server answers the same way whether or not the pair matches an account (and only emails
+    // on a match), so every successful request goes to the same confirmation page.
+    const response = await fetch('/api/auth/forgot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, email }),
+    }).catch(() => null)
     setProcessing(false)
-    setUsername('')
-    setEmail('')
+    if (response?.ok) {
+      navigate('/recovery-sent')
+    } else {
+      setError('Something went wrong sending the recovery email. Please try again.')
+    }
   }
 
   if (auth.isAuthenticated) {
@@ -40,12 +48,13 @@ export const RecoveryPage = () => {
       <form onSubmit={(e) => { e.preventDefault(); recover() }}>
         <div style={{ display: 'flex', flexFlow: 'column' }}>
           <label>Username</label>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input value={username} onChange={(e) => { setUsername(e.target.value); setError(null) }} />
         </div>
         <div style={{ display: 'flex', flexFlow: 'column' }}>
           <label>Email (of the account)</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input value={email} onChange={(e) => { setEmail(e.target.value); setError(null) }} />
         </div>
+        {error && <span style={{ color: 'red', fontSize: '0.85em', marginTop: '4px' }}>{error}</span>}
         <div style={{ display: 'flex', flexFlow: 'column' }}>
           <button type="submit" disabled={processing}>
             Send Recovery Email

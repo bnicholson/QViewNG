@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from "react-router-do
 import { TournamentFinder } from "./pages/TournamentFinder";
 import { LoginPage } from "./pages/LoginPage";
 import { RecoveryPage } from "./pages/RecoveryPage";
+import { RecoverySentPage } from "./pages/RecoverySentPage";
 import { ResetPage } from "./containers/ResetPage";
 import { ActivationPage } from "./pages/ActivationPage";
 import { RegistrationSubmittedPage } from "./pages/RegistrationSubmittedPage";
@@ -69,6 +70,7 @@ export default function QViewRoutes() {
             <Route path="/markdown-cheatsheet" element={<MarkdownCheatsheetPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/recovery" element={<RecoveryPage />} />
+            <Route path="/recovery-sent" element={<RecoverySentPage />} />
             <Route path="/reset" element={<ResetPage />} />
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/register" element={<UserRegistrationPage />} />

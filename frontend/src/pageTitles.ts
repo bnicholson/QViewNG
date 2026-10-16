@@ -29,6 +29,7 @@ const STANDALONE: Record<string, string | undefined> = {
   '/markdown-cheatsheet': 'Markdown Cheatsheet',
   '/login': 'Log In',
   '/recovery': 'Password Recovery',
+  '/recovery-sent': 'Check Your Email',
   '/reset': 'Reset Password',
   '/activate': 'Activate Account',
   '/register': 'Register',
