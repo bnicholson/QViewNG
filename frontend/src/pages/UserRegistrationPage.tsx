@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { PasswordInput } from '../components/PasswordField'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { IS_DEMO } from '../main'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -141,13 +141,12 @@ export const UserRegistrationPage = () => {
         </button>
       </div>
       </form>
-      <a
+      <Link
         style={{ marginTop: '30px' }}
-        href="#"
-        onClick={() => navigate('/login')}
+        to="/login"
       >
         Already have an account? Click here to login.
-      </a>
+      </Link>
     </div>
     </div>
   )

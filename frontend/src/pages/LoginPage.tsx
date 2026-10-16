@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { PasswordInput } from '../components/PasswordField'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export const LoginPage = () => {
   const auth = useAuth()
-  const navigate = useNavigate()
   const [email, setEmail] = useState<string>('')
   const [password, setPassword] = useState<string>('')
   const [processing, setProcessing] = useState<boolean>(false)
@@ -53,20 +52,18 @@ export const LoginPage = () => {
         </button>
       </div>
       </form>
-      <a
+      <Link
         style={{ marginTop: '30px' }}
-        href="#"
-        onClick={() => navigate('/register')}
+        to="/register"
       >
         <b>Register here</b> to create a new account.
-      </a>
-      <a
+      </Link>
+      <Link
         style={{ marginTop: '30px' }}
-        href="#"
-        onClick={() => navigate('/recovery')}
+        to="/recovery"
       >
         <b>Recover password</b> for an existing account.
-      </a>
+      </Link>
     </div>
     </div>
   )

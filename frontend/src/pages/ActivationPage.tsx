@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { Link } from 'react-router-dom'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { IS_DEMO } from '../main'
 
@@ -68,13 +69,12 @@ export const ActivationPage = () => {
           </p>
         </>
       )}
-      <a
+      <Link
         style={{ marginTop: '30px' }}
-        href="#"
-        onClick={() => navigate('/login')}
+        to="/login"
       >
         Click here to login.
-      </a>
+      </Link>
     </div>
     </div>
   )

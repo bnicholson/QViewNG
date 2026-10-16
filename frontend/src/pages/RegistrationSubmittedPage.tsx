@@ -1,8 +1,7 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 
 /** Shown after a successful registration: the account waits on the link in the activation email. */
 export const RegistrationSubmittedPage = () => {
-  const navigate = useNavigate()
   // The registration page passes the address along; a direct visit has none.
   const email = (useLocation().state as { email?: string } | null)?.email
 
@@ -17,13 +16,12 @@ export const RegistrationSubmittedPage = () => {
       <p>
         The link expires in 24 hours. If you don't see the email, check your spam or junk folder.
       </p>
-      <a
+      <Link
         style={{ marginTop: '30px' }}
-        href="#"
-        onClick={() => navigate('/login')}
+        to="/login"
       >
         Already activated? Click here to login.
-      </a>
+      </Link>
     </div>
     </div>
   )

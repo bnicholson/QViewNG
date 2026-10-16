@@ -1,16 +1,15 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { IS_DEMO } from '../main'
 import { PasswordForm } from '../components/PasswordForm'
 
 export const UserProfileChangePasswordPage = () => {
   const auth = useAuth()
-  const navigate = useNavigate()
 
   if (!auth.isAuthenticated) {
     return (
       <div>
-        <a href="#" onClick={() => navigate('/login')}>Login to change your password</a>
+        <Link to="/login">Login to change your password</Link>
       </div>
     )
   }
