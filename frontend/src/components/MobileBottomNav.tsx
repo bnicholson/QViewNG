@@ -24,8 +24,8 @@ const mobileOnly = { display: { xs: 'flex', md: 'none' } } as const
 const iconStyle = { fontSize: '1.25rem' }
 
 /**
- * Mobile-only navigation fixed to the bottom of the screen: Home, Help, Profile (Login when signed
- * out) and Menu. Menu opens a sheet that slides up with whatever the page offers (see
+ * Mobile-only navigation fixed to the bottom of the screen: Profile (Login when signed out), Home,
+ * Help and Menu. Menu opens a sheet that slides up with whatever the page offers (see
  * `usePublishMobileMenu`) — a profile's sections, or the Help Center's manuals — and is disabled on
  * pages that offer nothing.
  */
@@ -77,18 +77,6 @@ export default function MobileBottomNav() {
         }}
       >
         <BottomNavigation showLabels value={value} sx={{ width: '100%', height: BAR_HEIGHT }}>
-          <BottomNavigationAction
-            label="Home"
-            value="home"
-            icon={<FontAwesomeIcon icon={faHomeLg} style={iconStyle} />}
-            onClick={() => navigate('/')}
-          />
-          <BottomNavigationAction
-            label="Help"
-            value="help"
-            icon={<FontAwesomeIcon icon={faCircleQuestion} style={iconStyle} />}
-            onClick={() => navigate('/help')}
-          />
           {myProfileBase ? (
             <BottomNavigationAction
               label="Profile"
@@ -104,6 +92,18 @@ export default function MobileBottomNav() {
               onClick={() => navigate('/login')}
             />
           )}
+          <BottomNavigationAction
+            label="Home"
+            value="home"
+            icon={<FontAwesomeIcon icon={faHomeLg} style={iconStyle} />}
+            onClick={() => navigate('/')}
+          />
+          <BottomNavigationAction
+            label="Help"
+            value="help"
+            icon={<FontAwesomeIcon icon={faCircleQuestion} style={iconStyle} />}
+            onClick={() => navigate('/help')}
+          />
           <BottomNavigationAction
             label="Menu"
             value="menu"
