@@ -35,6 +35,7 @@ interface FormState {
   username: string;
   email: string;
   password: string;
+  confirmPassword: string;
 }
 
 const emptyState: FormState = {
@@ -44,6 +45,7 @@ const emptyState: FormState = {
   username: '',
   email: '',
   password: '',
+  confirmPassword: '',
 };
 
 interface Props {
@@ -104,6 +106,11 @@ export const QuizzerEditorDialog = (props: Props) => {
     }
     if (!form.password.trim()) {
       setErrorMsg('Password is required.');
+      setAlertOpened(true);
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      setErrorMsg('Passwords do not match.');
       setAlertOpened(true);
       return;
     }
@@ -240,6 +247,18 @@ export const QuizzerEditorDialog = (props: Props) => {
                   value={form.password}
                   fullWidth
                   onChange={(e) => setForm(s => ({ ...s, password: e.target.value }))}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <InputLabel>Confirm Password (*required)</InputLabel>
+                <PasswordTextField
+                  variant="outlined"
+                  placeholder="Confirm Password"
+                  value={form.confirmPassword}
+                  fullWidth
+                  onChange={(e) => setForm(s => ({ ...s, confirmPassword: e.target.value }))}
+                  error={form.confirmPassword !== '' && form.password !== form.confirmPassword}
+                  helperText={form.confirmPassword !== '' && form.password !== form.confirmPassword ? 'Passwords do not match.' : undefined}
                 />
               </Grid>
             </Grid>

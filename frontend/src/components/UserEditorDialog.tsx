@@ -41,6 +41,7 @@ interface FormState {
   username: string;
   email: string;
   password: string;
+  confirmPassword: string;
   activated: boolean;
 }
 
@@ -52,13 +53,14 @@ function toFormState(user: UserTS): FormState {
     username: user.username,
     email: user.email,
     password: '',
+    confirmPassword: '',
     activated: user.activated,
   };
 }
 
 const emptyState: FormState = {
   fname: '', mname: '', lname: '',
-  username: '', email: '', password: '',
+  username: '', email: '', password: '', confirmPassword: '',
   activated: false,
 };
 
@@ -172,6 +174,11 @@ export const UserEditorDialog = (props: Props) => {
     }
     if (!isEditMode && !form.password.trim()) {
       setErrorMsg('Password is required.');
+      setAlertOpened(true);
+      return;
+    }
+    if (!isEditMode && form.password !== form.confirmPassword) {
+      setErrorMsg('Passwords do not match.');
       setAlertOpened(true);
       return;
     }
@@ -320,6 +327,18 @@ export const UserEditorDialog = (props: Props) => {
                     variant="outlined" fullWidth placeholder="Password"
                     value={form.password}
                     onChange={(e) => setForm(s => ({ ...s, password: e.target.value }))}
+                  />
+                </Grid>
+              )}
+              {!isEditMode && (
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <InputLabel>Confirm Password (*required)</InputLabel>
+                  <PasswordTextField
+                    variant="outlined" fullWidth placeholder="Confirm Password"
+                    value={form.confirmPassword}
+                    onChange={(e) => setForm(s => ({ ...s, confirmPassword: e.target.value }))}
+                    error={form.confirmPassword !== '' && form.password !== form.confirmPassword}
+                    helperText={form.confirmPassword !== '' && form.password !== form.confirmPassword ? 'Passwords do not match.' : undefined}
                   />
                 </Grid>
               )}

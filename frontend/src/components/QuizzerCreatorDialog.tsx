@@ -48,9 +48,10 @@ interface FormState {
   username: string;
   email: string;
   password: string;
+  confirmPassword: string;
 }
 
-const emptyState: FormState = { fname: '', mname: '', lname: '', username: '', email: '', password: '' };
+const emptyState: FormState = { fname: '', mname: '', lname: '', username: '', email: '', password: '', confirmPassword: '' };
 
 interface Props {
   rosterId: string;
@@ -94,6 +95,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
     if (field === 'lname' && !v.trim()) err = 'Last name is required.';
     if (field === 'email' && v && !EMAIL_REGEX.test(v)) err = 'Please enter a valid email address.';
     if (field === 'password' && v) err = validatePassword(v) ?? undefined;
+    if (field === 'confirmPassword' && v && v !== form.password) err = 'Passwords do not match.';
     setFieldErrors(s => ({ ...s, [field]: err }));
   };
 
@@ -119,6 +121,10 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
     if (form.password) {
       const pwdErr = validatePassword(form.password);
       if (pwdErr) errors.password = pwdErr;
+    }
+    // The password is optional, but once one is entered it has to be typed twice.
+    if ((form.password || form.confirmPassword) && form.password !== form.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
     }
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -284,7 +290,7 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
 
           <ListItem>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <InputLabel>Password</InputLabel>
                 <PasswordTextField
                   variant="outlined"
@@ -295,6 +301,19 @@ export const QuizzerCreatorDialog = ({ rosterId, rosterName, isOpen, onCancel, o
                   onBlur={() => validateField('password')}
                   error={!!fieldErrors.password}
                   helperText={fieldErrors.password ?? 'Recommended: 8+ chars, upper, lower, number, special'}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <InputLabel>Confirm Password</InputLabel>
+                <PasswordTextField
+                  variant="outlined"
+                  placeholder="Confirm Password"
+                  value={form.confirmPassword}
+                  fullWidth
+                  onChange={e => setField('confirmPassword', e.target.value)}
+                  onBlur={() => validateField('confirmPassword')}
+                  error={!!fieldErrors.confirmPassword}
+                  helperText={fieldErrors.confirmPassword}
                 />
               </Grid>
             </Grid>

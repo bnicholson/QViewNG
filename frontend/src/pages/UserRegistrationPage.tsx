@@ -22,12 +22,14 @@ export const UserRegistrationPage = () => {
   const [username, setUsername] = useState<string>('')
   const [email, setEmail] = useState<string>('')
   const [password, setPassword] = useState<string>('')
+  const [confirmPassword, setConfirmPassword] = useState<string>('')
   const [processing, setProcessing] = useState<boolean>(false)
   const [fnameError, setFnameError] = useState<string | null>(null)
   const [lnameError, setLnameError] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
 
   const handleEmailBlur = () => {
@@ -50,12 +52,14 @@ export const UserRegistrationPage = () => {
     const unameErr = username.trim() ? null : 'Username is required.'
     const emailErr = email && !EMAIL_REGEX.test(email) ? 'Please enter a valid email address.' : null
     const pwdErr = validatePassword(password)
+    const confirmErr = password !== confirmPassword ? 'Passwords do not match.' : null
     setFnameError(fnErr)
     setLnameError(lnErr)
     setUsernameError(unameErr)
     setEmailError(emailErr ?? null)
     setPasswordError(pwdErr)
-    if (fnErr || lnErr || unameErr || emailErr || pwdErr) return
+    setConfirmPasswordError(confirmErr)
+    if (fnErr || lnErr || unameErr || emailErr || pwdErr || confirmErr) return
 
     setProcessing(true)
     setServerError(null)
@@ -133,6 +137,15 @@ export const UserRegistrationPage = () => {
           onBlur={handlePasswordBlur}
         />
         {passwordError && <span style={{ color: 'red', fontSize: '0.85em', marginTop: '4px' }}>{passwordError}</span>}
+      </div>
+      <div style={{ display: 'flex', flexFlow: 'column' }}>
+        <label>Confirm Password</label>
+        <PasswordInput
+          value={confirmPassword}
+          onChange={(e) => { setConfirmPassword(e.target.value); setConfirmPasswordError(null) }}
+          onBlur={() => setConfirmPasswordError(confirmPassword && password !== confirmPassword ? 'Passwords do not match.' : null)}
+        />
+        {confirmPasswordError && <span style={{ color: 'red', fontSize: '0.85em', marginTop: '4px' }}>{confirmPasswordError}</span>}
       </div>
       {serverError && <span style={{ color: 'red', fontSize: '0.85em', marginTop: '4px' }}>{serverError}</span>}
       <div style={{ display: 'flex', flexFlow: 'column' }}>
