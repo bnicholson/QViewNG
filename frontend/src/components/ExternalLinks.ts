@@ -14,6 +14,7 @@ export const PARTNER_LINKS: ExternalLink[] = [
 /** Other quizzing sites, listed under "Related Pages". */
 export const RELATED_LINKS: ExternalLink[] = [
   { name: 'YouthQuiz.com (Set Maker)', url: 'https://youthquiz.com' },
+  { name: 'The Foundry (Study Materials)', url: 'https://www.thefoundrypublishing.com/youthtop/quizzing.html' },
   { name: 'NazQuizzing.org', url: 'https://www.nazquizzing.org/' },
 ]
 
