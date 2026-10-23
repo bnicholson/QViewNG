@@ -62,7 +62,7 @@ export const LoginPage = () => {
         style={{ marginTop: '30px' }}
         to="/recovery"
       >
-        <b>Recover password</b> for an existing account.
+        <b>Forgot password?</b> Click here to recover your account.
       </Link>
     </div>
     </div>
