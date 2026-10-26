@@ -17,7 +17,8 @@ build-log*.txt
 /backend/target/debug
 /qviewng-db
 /postgres-init/*.backup
-/.claude/
+/.claude/*
+!/.claude/skills/
 
 # Temp files in the build
 Cargo.lock
