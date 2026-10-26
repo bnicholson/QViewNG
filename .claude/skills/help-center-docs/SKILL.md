@@ -96,3 +96,10 @@ Cover everything the user needs to succeed on their own, with no need to ask any
 - Internal links use the `doc:` scheme: `doc:slug` within the same version, `doc:category/slug` across categories (see `resolveDocHref` in `index.ts`). Never hard-code URLs.
 - Escape `&gt;` / `&lt;` / `&amp;` in menu paths like `Setup &gt; General`.
 - Every new article needs both an entry in `articles` and a node in `nav`. When an article stops being a placeholder, remove `draft` from the version once all its articles are real.
+
+## Final check: spelling and casing
+As the last step, after everything else is done, proofread all newly added or modified text: article titles, nav titles, headings, body text, captions and `alt` text. Correct every spelling mistake and casing error before handing the work back. This applies to content imported "verbatim" from the user's drafts too: verbatim means the wording, not the typos.
+- **Spelling:** fix typos and misspellings (e.g. "GIve" → "Give", "wil" → "will"), doubled words ("the the"), and verb/noun mix-ups like "login" (noun) vs. "log in" (verb).
+- **Casing:** capitalize QView entity names consistently when they mean the QView thing: Tournament, Division, Round, Game, Room, Team, Quizzer, Roster, Gear, Gear Set. Leave generic phrases ("tournament day", "quiz room") lowercase.
+- **Product and UI names:** write QView, QuizMachine and QMServer exactly like that. Write UI labels exactly as they appear on screen, even when the app itself has a typo, and tell the user about the app's typo so it can be fixed at the source.
+- List what you corrected in your report to the user.
