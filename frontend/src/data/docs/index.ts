@@ -4,6 +4,7 @@
 // first) under the right category below.
 
 import type { DocArticle, DocCategory, DocCategoryId, DocNavNode, DocVersion } from './types'
+import { qview0100 } from './qview-0.1.0.0'
 import { qviewCurrent } from './qview'
 import { quizmachine600 } from './quizmachine-6.0.0'
 import { quizmachine500 } from './quizmachine-5.0.0'
@@ -22,7 +23,7 @@ export const docCategories: DocCategory[] = [
     path: 'qview-docs',
     description:
       'Running tournaments in the QView web app — accounts, tournaments, divisions and rooms, games, rosters and gear.',
-    versions: [qviewCurrent],
+    versions: [qview0100, qviewCurrent],
   },
   {
     id: 'quizmachine',
