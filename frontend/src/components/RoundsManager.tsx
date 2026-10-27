@@ -56,8 +56,14 @@ type RoundGap =
   | { kind: 'break'; minutes: number; from: string; to: string }
   | { kind: 'overlap'; minutes: number; prevNames: string[]; name: string }
 
-function formatStart(iso: string | null): string {
-  return iso ? dayjs(iso).format('MMM D, YYYY · h:mm A') : 'Unscheduled'
+/** "Oct 27, 2026 · 7:00 AM – 7:30 AM": the round's start and its end one round duration later. The
+ *  end gets its own date only when the round runs past midnight. */
+function formatTimeRange(iso: string | null, durationMinutes: number): string {
+  if (!iso) return 'Unscheduled'
+  const start = dayjs(iso)
+  const end = start.add(durationMinutes, 'minute')
+  const endFormat = end.isSame(start, 'day') ? 'h:mm A' : 'MMM D, YYYY · h:mm A'
+  return `${start.format('MMM D, YYYY · h:mm A')} – ${end.format(endFormat)}`
 }
 
 /** "45 min", "1 hr", "1 hr 30 min". */
@@ -385,7 +391,7 @@ export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes,
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
             <Typography variant="body2" sx={{ fontWeight: 600, color: ROUND_CARD.label }}>Round: {round.name}</Typography>
-            <Typography variant="caption" color="text.secondary">{formatStart(round.scheduled_start_time)}</Typography>
+            <Typography variant="caption" color="text.secondary">{formatTimeRange(round.scheduled_start_time, roundDurationMinutes)}</Typography>
           </Box>
           {canEdit && (
             <>
@@ -454,27 +460,6 @@ export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes,
       <Alert severity="info" sx={{ mb: 1.5, textAlign: 'left' }}>
         Build your schedule here: create the Rounds that make up your event's time, then add the Games played in each Round. Or use "Create Schedule" to generate a whole round-robin at once. Each Round is taken to last the Tournament's round duration ({formatMinutes(roundDurationMinutes)}), so any longer gap between Rounds shows as a break.
       </Alert>
-
-      {/* Auto-Schedule plus the schedule-wide round actions — just above the filters. */}
-      {canEdit && (
-        <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Button variant="contained" disableElevation onClick={() => setAutoScheduleOpen(true)}>Create Schedule</Button>
-          <Tooltip title={createBlockedTooltip}>
-            <span>
-              <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={() => setRoundDialog({ open: true, round: null })}>
-                Add Round
-              </Button>
-            </span>
-          </Tooltip>
-          <Tooltip title={rounds.length === 0 ? 'Add a round first to set a start time.' : ''}>
-            <span>
-              <Button size="small" startIcon={<ScheduleIcon />} disabled={rounds.length === 0} onClick={() => setStartTimesDialogOpen(true)}>
-                Edit Start Times
-              </Button>
-            </span>
-          </Tooltip>
-        </Box>
-      )}
 
       {/* Filters card — client-side show/hide of the games below by Room or Team. Hidden until the
           division actually has games (which implies it has rounds too). */}
@@ -564,6 +549,27 @@ export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes,
         </Card>
       )}
 
+      {/* Auto-Schedule plus the schedule-wide round actions — directly below the filters. */}
+      {canEdit && (
+        <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Button variant="contained" disableElevation onClick={() => setAutoScheduleOpen(true)}>Create Schedule</Button>
+          <Tooltip title={createBlockedTooltip}>
+            <span>
+              <Button size="small" startIcon={<AddIcon />} disabled={filtersActive} onClick={() => setRoundDialog({ open: true, round: null })}>
+                Add Round
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={rounds.length === 0 ? 'Add a round first to set a start time.' : ''}>
+            <span>
+              <Button size="small" startIcon={<ScheduleIcon />} disabled={rounds.length === 0} onClick={() => setStartTimesDialogOpen(true)}>
+                Edit Start Times
+              </Button>
+            </span>
+          </Tooltip>
+        </Box>
+      )}
+
       {/* Every round in the division as one flat, chronological list, with any break or overlap
           drawn between a round and the one before it. */}
       {(() => {
@@ -633,12 +639,11 @@ export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes,
       <RoundStartTimesDialog
         isOpen={startTimesDialogOpen}
         tid={tid}
-        defaultStart={allRoundsSorted.find(r => r.scheduled_start_time)?.scheduled_start_time ?? null}
-        roundCount={allRoundsSorted.length}
+        rounds={allRoundsSorted}
         onCancel={() => setStartTimesDialogOpen(false)}
-        onApply={(startIso, dur) => {
+        onApply={(selected, startIso, dur) => {
           setStartTimesDialogOpen(false)
-          applyStartTimes(allRoundsSorted, startIso, dur)
+          applyStartTimes(selected, startIso, dur)
         }}
       />
 

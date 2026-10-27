@@ -40,24 +40,19 @@ matchups which will be addressed later.</p>
   <img src="rounds-and-games-3.webp" alt="The Create / Edit button on the Schedule page." loading="lazy" />
   <figcaption>The Create / Edit button on the Schedule page.</figcaption>
 </figure>
-<!-- SCREENSHOT TODO: Schedule > Create / Edit, top of the editor (no Mode toggle any more). Red boxes labelled A to D: A = the Division tabs, B = "Create Schedule", C = "Add Round", D = "Edit Start Times". -->
+<!-- SCREENSHOT TODO: Schedule > Create / Edit, top of the editor (no Mode toggle any more; the buttons now sit below the Filter card). Red boxes labelled A to E: A = the Division tabs, B = the Filter card, C = "Create Schedule", D = "Add Round", E = "Edit Start Times". -->
 <figure>
-  <img src="rounds-and-games-4.webp" alt="The schedule editor’s Division tabs and buttons, labelled A to D." loading="lazy" />
-  <figcaption>The schedule editor’s Division tabs and buttons, labelled A to D.</figcaption>
+  <img src="rounds-and-games-4.webp" alt="The schedule editor’s Division tabs, filter and buttons, labelled A to E." loading="lazy" />
+  <figcaption>The schedule editor’s Division tabs, filter and buttons, labelled A to E.</figcaption>
 </figure>
-<!-- SCREENSHOT TODO: Schedule > Create / Edit, below the buttons. Red boxes labelled E to G: E = the Filter card, F = a Round card, G = one Game chip inside it. -->
+<!-- SCREENSHOT TODO: Schedule > Create / Edit, below the buttons. Red boxes labelled F and G: F = a Round card (its time now shows a range, e.g. 7:00 AM – 7:30 AM), G = one Game chip inside it. -->
 <figure>
-  <img src="rounds-and-games-5.webp" alt="The schedule editor’s filter, Rounds and Games, labelled E to G." loading="lazy" />
-  <figcaption>The schedule editor’s filter, Rounds and Games, labelled E to G.</figcaption>
+  <img src="rounds-and-games-5.webp" alt="The schedule editor’s Rounds and Games, labelled F and G." loading="lazy" />
+  <figcaption>The schedule editor’s Rounds and Games, labelled F and G.</figcaption>
 </figure>
 <p>Here you will see the following:</p>
 <ol type="A">
   <li><strong>Divisions in a tabbed row</strong>: Select which Division to create/edit the schedule of.</li>
-  <li><strong>‘Create Schedule’ button</strong>: Use this to create Rounds and Games in a Round-Robin or Tournament
-  Bracket configuration.</li>
-  <li><strong>‘Add Round’ button</strong>: Add a single new Round to the current list of Rounds.</li>
-  <li><strong>‘Edit Start Times’ button</strong>: Edit the Start times of all Rounds in bulk with a given Round
-  duration (default = 30 minutes). (The default Round duration is set at the Tournament-level.)</li>
   <li><strong>Filter</strong>: Select/Deselect which Games are shown in the schedule. This does not delete the items,
   it only hides them.
     <ul>
@@ -76,7 +71,13 @@ matchups which will be addressed later.</p>
       where those two Teams compete without a third Team, if any exist.</li>
     </ul>
   </li>
-  <li><strong>Round</strong>: This is the time-context for the Game. In it you can:
+  <li><strong>‘Create Schedule’ button</strong>: Use this to create Rounds and Games in a Round-Robin or Tournament
+  Bracket configuration.</li>
+  <li><strong>‘Add Round’ button</strong>: Add a single new Round to the current list of Rounds.</li>
+  <li><strong>‘Edit Start Times’ button</strong>: Edit the Start Times of a run of consecutive Rounds in bulk with a
+  given Round duration (default = 30 minutes). (The default Round duration is set at the Tournament-level.)</li>
+  <li><strong>Round</strong>: This is the time-context for the Game. Next to its name is the time it runs, from its
+  Start Time to its end one Round duration later (e.g. 7:00 AM – 7:30 AM). In it you can:
     <ul>
       <li><strong>‘Add a Game’</strong>: Add a new Game to that specific Round.</li>
       <li><strong>‘Edit Round’</strong>: Allows you to edit the Round’s details.</li>
@@ -146,19 +147,27 @@ fields of the dialog.</p>
 comes after it (see <strong>Breaks between Rounds</strong> above).</p>
 
 <h2>Edit Start Times button</h2>
-<p>Use this button to adjust the Start Times of the Division’s existing Rounds in bulk. When you click the button,
-you are presented with the following options:</p>
-<!-- SCREENSHOT TODO (optional): the Edit Start Times dialog. Its notice now ends with "Any breaks between rounds are closed up." -->
+<p>Use this button to adjust the Start Times of a run of the Division’s existing Rounds in bulk. When you click the
+button, you are presented with the following options:</p>
+<!-- SCREENSHOT TODO: the Edit Start Times dialog. The notice is gone; it now opens with a "Rounds to re-time" checklist of the Division's Rounds (e.g. Rounds 2 to 4 checked, each showing "current time → new time"), then the Start and Round duration fields. -->
 <figure>
   <img src="rounds-and-games-7.webp" alt="The Edit Start Times dialog." loading="lazy" />
   <figcaption>The Edit Start Times dialog.</figcaption>
 </figure>
-<p>Please take some time to read the notice in this dialog box. It is a simple interface: Set the date and time that
-the first Round is supposed to start, then define how much time should be in between the start of each Round. When
-you click ‘Apply’ it will adjust the start times of all Rounds by that offset. For instance, Round 1 = 7am, Round 2 =
-7:30am, Round 3 = 8am, Round 4 = 8:30am, etc. (This modifies existing Rounds of the Division only.)</p>
-<p class="doc-warning">Because every Round is re-spaced evenly, any Breaks in the Division’s schedule are closed up.
-Add them back afterwards by editing the Start Time of the Round after each Break.</p>
+<p>It is a simple interface:</p>
+<ol>
+  <li>In <strong>Rounds to re-time</strong>, check the Rounds you want to change. All of them are checked when the
+  dialog opens. The Rounds you check are always one unbroken run: checking a Round also checks every Round between it
+  and the ones already checked, and you can only uncheck the first or last Round of the run.</li>
+  <li>Set the date and time that the first checked Round is supposed to start. It starts out as that Round’s current
+  Start Time.</li>
+  <li>Define how much time should be in between the start of each Round.</li>
+</ol>
+<p>Each checked Round shows its current Start Time and, after the arrow, the Start Time it will get. When you click
+‘Apply’ the checked Rounds are re-timed with that spacing. For instance, Round 2 = 8am, Round 3 = 8:30am,
+Round 4 = 9am, etc. Rounds that aren’t checked keep their Start Times.</p>
+<p class="doc-warning">The checked Rounds are re-spaced evenly, so any Breaks between them are closed up. Breaks and
+overlaps with the Rounds before and after the run can change, so check the schedule after you click ‘Apply’.</p>
 
 <h2>Once Done With Scheduling:</h2>
 <p>Please keep in mind, Scheduling may need to be updated if you ever add new Teams to the Division. This is a great
