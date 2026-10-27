@@ -30,7 +30,6 @@ import { TeamAPI, type TeamTS } from '../features/TeamAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { GameAPI, type NewGamePayload, type GameChangeset, type GameTS, type GameRowTS } from '../features/GameAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
-import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { useAuth } from '../hooks/useAuth'
 
 const Transition = React.forwardRef(function Transition(
@@ -59,7 +58,6 @@ function roundLabel(round: RoundTS | undefined): string {
 interface GameFormState {
   org: string;
   divisionid: string;
-  roundgroup_id: string;
   poolbracket_id: string;
   roomid: string;
   roundid: string;
@@ -75,7 +73,6 @@ interface GameFormState {
 const emptyState: GameFormState = {
   org: '',
   divisionid: '',
-  roundgroup_id: '',
   poolbracket_id: '',
   roomid: '',
   roundid: '',
@@ -93,8 +90,6 @@ interface Props {
   isOpen: boolean;
   /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
   lockedDivisionId?: string;
-  /** When set, the Division Session is fixed to this id and its dropdown is disabled (e.g. adding a game to a round). */
-  lockedRoundGroupId?: string;
   /** When set, the Round is fixed to this id and its dropdown is disabled (e.g. adding a game to a round). */
   lockedRoundId?: string;
   /** When set, the dialog edits this existing game instead of creating a new one. */
@@ -102,12 +97,11 @@ interface Props {
   /** The editing game's pool bracket (GameRowTS doesn't carry it) — used to prefill the Pool/Bracket. */
   gamePoolBracketId?: string;
   /**
-   * Normal scheduling mode: hide the Division Session and Pool/Bracket dropdowns (neither is a
-   * concept the user manages there). The Round dropdown then lists every round in the division
-   * rather than just one session's, and the game is attached to `defaultPoolBracketId`.
+   * Hide the Pool/Bracket dropdown (Schedule > Create / Edit, where pools aren't a concept the user
+   * manages). The game is attached to `gamePoolBracketId` / `defaultPoolBracketId` instead.
    */
-  hideSessionAndPoolFields?: boolean;
-  /** Normal mode: the pool a new game is attached to (resolved/created by the caller). */
+  hidePoolField?: boolean;
+  /** With `hidePoolField`: the pool a new game is attached to (resolved/created by the caller). */
   defaultPoolBracketId?: string;
   /** When editing, called to navigate to the game's profile (adds a "View Game" header button). */
   onView?: () => void;
@@ -118,15 +112,14 @@ interface Props {
 }
 
 export const GameEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, lockedRoundId, game, gamePoolBracketId,
-    hideSessionAndPoolFields = false, defaultPoolBracketId, onView, onDelete, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, lockedRoundId, game, gamePoolBracketId,
+    hidePoolField = false, defaultPoolBracketId, onView, onDelete, onCancel, onSave } = props;
   const isEdit = !!game;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<GameFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [rooms, setRooms] = useState<RoomTS[]>([]);
   const [rounds, setRounds] = useState<RoundTS[]>([]);
-  const [roundgroups, setRoundGroups] = useState<RoundGroupTS[]>([]);
   const [poolBrackets, setPoolBrackets] = useState<PoolBracketTS[]>([]);
   const [teams, setTeams] = useState<TeamTS[]>([]);
   const [users, setUsers] = useState<UserTS[]>([]);
@@ -140,10 +133,9 @@ export const GameEditorDialog = (props: Props) => {
     setForm({
       ...emptyState,
       divisionid: lockedDivisionId ?? '',
-      roundgroup_id: lockedRoundGroupId ?? '',
       roundid: lockedRoundId ?? '',
-      // Normal mode never shows the Pool/Bracket dropdown, so the caller's pool is the game's pool.
-      poolbracket_id: hideSessionAndPoolFields ? (gamePoolBracketId ?? defaultPoolBracketId ?? '') : '',
+      // With the Pool/Bracket dropdown hidden, the caller's pool is the game's pool.
+      poolbracket_id: hidePoolField ? (gamePoolBracketId ?? defaultPoolBracketId ?? '') : '',
     });
     setQmFromRoom(false);
     setCjFromRoom(false);
@@ -199,8 +191,7 @@ export const GameEditorDialog = (props: Props) => {
             .then(full => setForm({
               org: full.org ?? '',
               divisionid: game.divisionid,
-              roundgroup_id: rnds.find(r => r.roundid === full.roundid)?.roundgroup_id ?? '',
-              poolbracket_id: gamePoolBracketId ?? (hideSessionAndPoolFields ? (defaultPoolBracketId ?? '') : ''),
+              poolbracket_id: gamePoolBracketId ?? (hidePoolField ? (defaultPoolBracketId ?? '') : ''),
               roomid: full.roomid,
               roundid: full.roundid,
               ruleset: full.ruleset ?? 'Nazarene',
@@ -215,20 +206,15 @@ export const GameEditorDialog = (props: Props) => {
         }
       })
       .catch(() => console.error('Failed to load form data for game editor'));
-  }, [isOpen, tid, lockedDivisionId, lockedRoundGroupId, lockedRoundId, game, gamePoolBracketId,
-      hideSessionAndPoolFields, defaultPoolBracketId]);
+  }, [isOpen, tid, lockedDivisionId, lockedRoundId, game, gamePoolBracketId,
+      hidePoolField, defaultPoolBracketId]);
 
-  // Roundgroups and Pool/Brackets both belong to the chosen Division, so (re)load them whenever
-  // it changes. (The Round dropdown is then further filtered to the chosen roundgroup.)
+  // Pool/Brackets belong to the chosen Division, so (re)load them whenever it changes.
   useEffect(() => {
     if (!isOpen || !form.divisionid) {
-      setRoundGroups([]);
       setPoolBrackets([]);
       return;
     }
-    RoundGroupAPI.getByDivision(form.divisionid)
-      .then(setRoundGroups)
-      .catch(() => { console.error('Failed to load division sessions'); setRoundGroups([]); });
     PoolBracketAPI.getByDivision(form.divisionid)
       .then(setPoolBrackets)
       .catch(() => { console.error('Failed to load pool brackets'); setPoolBrackets([]); });
@@ -255,11 +241,9 @@ export const GameEditorDialog = (props: Props) => {
 
   const handleSave = async () => {
     if (!form.divisionid) { setErrorMsg('Division is required.'); setAlertOpened(true); return; }
-    // In Normal mode the session isn't part of the payload at all (the round carries it) and the
-    // pool comes from the caller, so neither is validated as user input.
-    if (!hideSessionAndPoolFields && !form.roundgroup_id) { setErrorMsg('Division Session is required.'); setAlertOpened(true); return; }
+    // With the Pool/Bracket dropdown hidden the pool comes from the caller, not user input.
     if (!form.poolbracket_id) {
-      setErrorMsg(hideSessionAndPoolFields
+      setErrorMsg(hidePoolField
         ? "Couldn't work out where this game belongs. Close this and try again."
         : 'Pool/Bracket is required.');
       setAlertOpened(true);
@@ -272,7 +256,7 @@ export const GameEditorDialog = (props: Props) => {
     if (!form.quizmasterid) { setErrorMsg('Quizmaster is required.'); setAlertOpened(true); return; }
 
     // Neither Division nor Tournament is sent — both are derived server-side from the chosen pool
-    // bracket. The Division/Roundgroup selectors here only scope the pool bracket / round / team choices.
+    // bracket. The Division selector here only scopes the pool bracket / round / team choices.
     let result: GameTS;
     try {
       if (game) {
@@ -341,15 +325,10 @@ export const GameEditorDialog = (props: Props) => {
   // Rounds and Teams selectable for this Game are scoped to the chosen Division (not just the Tournament).
   // Until a Division is chosen, the Round/Team dropdowns stay disabled.
   const divisionChosen = !!form.divisionid;
-  const roundgroupChosen = !!form.roundgroup_id;
-  // Rounds belong to a roundgroup, so they're scoped to the chosen roundgroup (not the division).
-  // With the Session dropdown hidden (Normal mode) there's nothing to scope by, so every round in
-  // the division is offered, in schedule order.
-  const divisionRoundGroupIds = new Set(roundgroups.map(rg => rg.roundgroup_id));
-  const roundgroupRounds = hideSessionAndPoolFields
+  // Every round in the chosen division is offered, in schedule order.
+  const divisionRounds = divisionChosen
     ? rounds
-        .filter(r => divisionRoundGroupIds.has(r.roundgroup_id))
-        .slice()
+        .filter(r => r.did === form.divisionid)
         .sort((a, b) => {
           if (a.scheduled_start_time && b.scheduled_start_time) {
             if (a.scheduled_start_time !== b.scheduled_start_time) return a.scheduled_start_time < b.scheduled_start_time ? -1 : 1;
@@ -357,7 +336,7 @@ export const GameEditorDialog = (props: Props) => {
           else if (b.scheduled_start_time) return 1;
           return a.name.localeCompare(b.name, undefined, { numeric: true });
         })
-    : (roundgroupChosen ? rounds.filter(r => r.roundgroup_id === form.roundgroup_id) : []);
+    : [];
   const divisionTeams = divisionChosen ? teams.filter(t => t.did === form.divisionid) : [];
   // Pool brackets belong to a division, so the Pool/Bracket dropdown is scoped to the chosen Division.
   const divisionPoolBrackets = divisionChosen
@@ -414,8 +393,8 @@ export const GameEditorDialog = (props: Props) => {
         </Collapse>
 
         <List>
-          {/* Row 1: Division, Roundgroup, Pool/Bracket, Room, Round. In Normal scheduling mode the
-              Session and Pool/Bracket dropdowns are hidden — both are supplied by the caller. */}
+          {/* Row 1: Room, Division, Pool/Bracket, Round. With `hidePoolField` the Pool/Bracket
+              dropdown is hidden — the caller supplies the pool. */}
           <ListItem>
             <Grid container spacing={2} sx={{ width: '100%' }}>
               <Grid size={{ xs: 12, md: 7 }}>
@@ -429,25 +408,14 @@ export const GameEditorDialog = (props: Props) => {
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Division (*required)</InputLabel>
-                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, roundgroup_id: '', poolbracket_id: '', roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
+                <Select value={form.divisionid} onChange={(e) => set({ divisionid: e.target.value, poolbracket_id: '', roundid: '', leftteamid: '', centerteamid: '', rightteamid: '' })}
                   displayEmpty fullWidth disabled={!!lockedDivisionId}
                   renderValue={(v) => v ? (divisions.find(d => d.did === v)?.dname ?? v) : <em>Select a division</em>}
                 >
                   {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
                 </Select>
               </Grid>
-              {!hideSessionAndPoolFields && (
-              <Grid size={{ xs: 12, md: 7 }}>
-                <InputLabel>Division Session (*required)</InputLabel>
-                <Select value={form.roundgroup_id} onChange={(e) => set({ roundgroup_id: e.target.value, roundid: '' })}
-                  displayEmpty fullWidth disabled={!divisionChosen || !!lockedRoundGroupId}
-                  renderValue={(v) => v ? (roundgroups.find(s => s.roundgroup_id === v)?.name ?? v) : <em>Select a division session</em>}
-                >
-                  {roundgroups.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
-                </Select>
-              </Grid>
-              )}
-              {!hideSessionAndPoolFields && (
+              {!hidePoolField && (
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Pool/Bracket (*required)</InputLabel>
                 <Select value={form.poolbracket_id} onChange={(e) => set({ poolbracket_id: e.target.value })}
@@ -461,10 +429,10 @@ export const GameEditorDialog = (props: Props) => {
               <Grid size={{ xs: 12, md: 7 }}>
                 <InputLabel>Round (*required)</InputLabel>
                 <Select value={form.roundid} onChange={(e) => set({ roundid: e.target.value })}
-                  displayEmpty fullWidth disabled={hideSessionAndPoolFields ? !divisionChosen || !!lockedRoundId : !roundgroupChosen || !!lockedRoundId}
+                  displayEmpty fullWidth disabled={!divisionChosen || !!lockedRoundId}
                   renderValue={(v) => v ? roundLabel(rounds.find(r => r.roundid === v)) : <em>Select a round</em>}
                 >
-                  {roundgroupRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
+                  {divisionRounds.map(r => <MenuItem key={r.roundid} value={r.roundid}>{roundLabel(r)}</MenuItem>)}
                 </Select>
               </Grid>
             </Grid>

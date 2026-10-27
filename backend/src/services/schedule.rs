@@ -10,18 +10,18 @@ use crate::database::Database;
 use crate::{
     auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}},
     models::{self, common::PaginationParams, permission::{AppAction, AppResource},
-        roundgroup::NewRoundGroup, poolbracketgroup::NewPoolBracketGroup, pool_bracket::NewPoolBracket,
+        poolbracketgroup::NewPoolBracketGroup, pool_bracket::NewPoolBracket,
         round::NewRound, game::NewGame, team_teamgroup::NewTeamTeamgroup},
 };
 
 /// Request to auto-create a round-robin schedule for a division. Mirrors the "Create Schedule"
-/// dialog: one session (with its own pool group + pools) is created per entry in `session_names`,
-/// and each session is one full single round-robin per pool.
+/// dialog: one pool group (with its own pools) is created per entry in `pool_group_names`, and each
+/// pool group plays one full single round-robin per pool, in rounds that follow the previous group's.
 #[derive(Debug, Deserialize)]
 struct CreateScheduleRequest {
     did: Uuid,
-    /// One created session per name (the "# of times each team plays" count).
-    session_names: Vec<String>,
+    /// One created pool group per name (the "# of times each team plays" count).
+    pool_group_names: Vec<String>,
     /// How many pools to split the division's teams across.
     num_pools: i64,
     /// Minutes between consecutive rounds (used to space each round's scheduled start).
@@ -30,8 +30,8 @@ struct CreateScheduleRequest {
     start_time: Option<DateTime<Utc>>,
     /// Ordered room ids to fill the concurrent-game slots each round.
     room_slots: Vec<Uuid>,
-    /// When true (default), teams are re-shuffled into new pools for each session's pool group, so
-    /// teams face mostly-different opponents session to session. Only matters with 2+ sessions.
+    /// When true (default), teams are re-shuffled into new pools for each pool group, so teams face
+    /// mostly-different opponents from one group to the next. Only matters with 2+ pool groups.
     #[serde(default)]
     shuffle_teams: Option<bool>,
 }
@@ -50,7 +50,6 @@ fn divide_into_pools(team_ids: &[Uuid], num_pools: usize) -> Vec<Vec<Uuid>> {
 /// Counts of what was created — everything or nothing (the work runs in one transaction).
 #[derive(Debug, Serialize)]
 struct CreateScheduleResponse {
-    sessions_created: usize,
     pool_groups_created: usize,
     pools_created: usize,
     team_placements_created: usize,
@@ -128,7 +127,7 @@ async fn create(
         }
     };
 
-    // Authorize as the parent division (tournament owner or admin), same as pools/rounds/sessions.
+    // Authorize as the parent division (tournament owner or admin), same as pools/rounds.
     {
         let extensions = req.extensions();
         let user_ctx = extensions.get::<UserContext>().unwrap().clone();
@@ -139,8 +138,8 @@ async fn create(
     }
 
     // ── Validate inputs before touching the database (so nothing is created on a bad request) ──
-    if req_body.session_names.is_empty() {
-        return Ok(HttpResponse::UnprocessableEntity().json(json!({ "error": "At least one session is required." })));
+    if req_body.pool_group_names.is_empty() {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({ "error": "At least one pool group is required." })));
     }
     if req_body.num_pools < 1 {
         return Ok(HttpResponse::UnprocessableEntity().json(json!({ "error": "At least one pool is required." })));
@@ -157,7 +156,7 @@ async fn create(
 
     // Base division for validation. Shuffling only permutes which team lands in which pool — pool
     // count and sizes (and therefore round count and per-round concurrency) are identical — so the
-    // base division validates every session, shuffled or not.
+    // base division validates every pool group, shuffled or not.
     let team_ids: Vec<Uuid> = teams.iter().map(|t| t.teamid).collect();
     let base_pools = divide_into_pools(&team_ids, num_pools);
     if base_pools.is_empty() {
@@ -165,13 +164,13 @@ async fn create(
     }
 
     let base_pairings: Vec<Vec<Vec<(Uuid, Uuid)>>> = base_pools.iter().map(|p| round_robin_pairings(p)).collect();
-    let session_rounds = base_pairings.iter().map(|pp| pp.len()).max().unwrap_or(0);
-    if session_rounds == 0 {
+    let group_rounds = base_pairings.iter().map(|pp| pp.len()).max().unwrap_or(0);
+    if group_rounds == 0 {
         return Ok(HttpResponse::UnprocessableEntity().json(json!({ "error": "No rounds could be generated for the given teams and pools." })));
     }
 
     // The busiest round's concurrent-game count must fit in the assigned room slots.
-    let max_concurrency = (0..session_rounds)
+    let max_concurrency = (0..group_rounds)
         .map(|r| base_pairings.iter().map(|pp| pp.get(r).map_or(0, |v| v.len())).sum::<usize>())
         .max()
         .unwrap_or(0);
@@ -196,28 +195,28 @@ async fn create(
 
     // ── Create everything in one transaction: on any error nothing is persisted ──
     let did = req_body.did;
-    let session_names = req_body.session_names.clone();
+    let pool_group_names = req_body.pool_group_names.clone();
     let room_slots = req_body.room_slots.clone();
     let round_duration = req_body.round_duration_minutes;
     let start_time = req_body.start_time;
-    // Default on: only shuffles when there's more than one session (a single session has nothing to
-    // vary against). When off, every session reuses the same pool division.
-    let shuffle_teams = req_body.shuffle_teams.unwrap_or(true) && session_names.len() > 1;
+    // Default on: only shuffles when there's more than one pool group (a single group has nothing to
+    // vary against). When off, every pool group reuses the same pool division.
+    let shuffle_teams = req_body.shuffle_teams.unwrap_or(true) && pool_group_names.len() > 1;
 
     let tx_result = conn.transaction::<CreateScheduleResponse, diesel::result::Error, _>(|conn| {
         let mut counts = CreateScheduleResponse {
-            sessions_created: 0, pool_groups_created: 0, pools_created: 0,
+            pool_groups_created: 0, pools_created: 0,
             team_placements_created: 0, rounds_created: 0, games_created: 0,
         };
         let mut global_round_index: i64 = 0;
         let mut rng = rand::rng();
 
-        for session_name in &session_names {
-            let name = if session_name.trim().is_empty() { "Session".to_string() } else { session_name.trim().to_string() };
+        for group_name in &pool_group_names {
+            let name = if group_name.trim().is_empty() { "Pool Group".to_string() } else { group_name.trim().to_string() };
 
-            // Each session gets its own pool composition when shuffling; otherwise the base division.
-            // Sizes match the base either way, so validation above still holds.
-            let (session_pools, session_pairings) = if shuffle_teams {
+            // Each pool group gets its own pool composition when shuffling; otherwise the base
+            // division. Sizes match the base either way, so validation above still holds.
+            let (group_pools, group_pairings) = if shuffle_teams {
                 let mut order = team_ids.clone();
                 order.shuffle(&mut rng);
                 let pools = divide_into_pools(&order, num_pools);
@@ -227,21 +226,16 @@ async fn create(
                 (base_pools.clone(), base_pairings.clone())
             };
 
-            let session = models::roundgroup::create(conn, &NewRoundGroup {
-                did, name: name.clone(), creator_userid: user_id, last_modified_userid: user_id,
-            })?;
-            counts.sessions_created += 1;
-
             let group = models::poolbracketgroup::create(conn, &NewPoolBracketGroup {
                 divisionid: did, name: name.clone(), creator_userid: user_id, last_modified_userid: user_id,
             })?;
             counts.pool_groups_created += 1;
 
-            // This session's pools + team placements.
-            let mut pool_ids: Vec<Uuid> = Vec::with_capacity(session_pools.len());
-            for (p, teams_in_pool) in session_pools.iter().enumerate() {
-                // Pool names must be unique within the division, and every session gets its own
-                // "Pool A/B/…"; qualify with the (division-unique) session name so they don't collide.
+            // This pool group's pools + team placements.
+            let mut pool_ids: Vec<Uuid> = Vec::with_capacity(group_pools.len());
+            for (p, teams_in_pool) in group_pools.iter().enumerate() {
+                // Pool names must be unique within the division, and every pool group gets its own
+                // "Pool A/B/…"; qualify with the (division-unique) group name so they don't collide.
                 let pool = models::pool_bracket::create(conn, &NewPoolBracket {
                     divisionid: did,
                     name: format!("{} - Pool {}", name, (b'A' + p as u8) as char),
@@ -266,12 +260,12 @@ async fn create(
             }
 
             // Rounds run in parallel across pools; games draw rooms from the slots in order.
-            for r in 0..session_rounds {
+            for r in 0..group_rounds {
                 let start = start_time.map(|s| s + Duration::minutes(global_round_index * round_duration));
-                // Round names run sequentially across all sessions (session 1 rounds 1..n, session 2
-                // continues at n+1, …), so `global_round_index` — not the per-session `r` — names them.
+                // Round names run sequentially across all pool groups (group 1 rounds 1..n, group 2
+                // continues at n+1, …), so `global_round_index` — not the per-group `r` — names them.
                 let round = models::round::create(conn, &NewRound {
-                    roundgroup_id: session.roundgroup_id,
+                    did,
                     name: format!("{}", global_round_index + 1),
                     scheduled_start_time: start,
                     last_modified_user: user_id,
@@ -280,7 +274,7 @@ async fn create(
 
                 let mut slot = 0usize;
                 for (p, pool_id) in pool_ids.iter().enumerate() {
-                    let pairs = match session_pairings[p].get(r) { Some(v) => v, None => continue };
+                    let pairs = match group_pairings[p].get(r) { Some(v) => v, None => continue };
                     for (leftteamid, rightteamid) in pairs {
                         // Bounds already validated, but guard so we never index past the slots.
                         let room_id = *room_slots.get(slot).ok_or_else(||

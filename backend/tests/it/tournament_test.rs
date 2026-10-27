@@ -1532,40 +1532,6 @@ async fn get_all_quizzers_of_tournament_works() {
 
 
 #[actix_web::test]
-async fn get_roundgroup_rows_of_tournament_works() {
-
-    // Arrange:
-
-    let db = test_db();
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-
-    // One tournament with two divisions: "Session Div" (3 roundgroups) + "Other Div" (1 roundgroup).
-    let division = fixtures::divisions::seed_get_roundgroups_by_division(&mut conn);
-    let tid = division.tid;
-
-    let app = test::init_service(
-        App::new().app_data(web::Data::new(db)).configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/tournaments/{}/roundgroup-rows?page={}&page_size={}", tid, PAGE_NUM, PAGE_SIZE);
-    let resp = test::call_service(&app, test::TestRequest::get().uri(&uri).to_request()).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // All four roundgroups across both divisions of the tournament.
-    let body: PagedResponse<backend::models::roundgroup::RoundGroupRow> = test::read_body_json(resp).await;
-    assert_eq!(body.count, 4);
-    assert_eq!(body.items.len(), 4);
-    let names: Vec<&str> = body.items.iter().map(|s| s.name.as_str()).collect();
-    assert!(names.contains(&"Pool Play"));
-    assert!(names.contains(&"Bracket Play"));
-    assert!(names.contains(&"Finals"));
-    assert!(names.contains(&"Other Session"));
-    // Enriched with the correct division name for each roundgroup.
-    let other = body.items.iter().find(|s| s.name == "Other Session").unwrap();
-    assert_eq!(other.division_name, "Other Div");
-}
-
-#[actix_web::test]
 async fn get_pool_bracket_rows_of_tournament_works() {
 
     // Arrange:

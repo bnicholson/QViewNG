@@ -48,7 +48,6 @@ mod roomgroup_test;
 mod roster_test;
 mod round_rows_test;
 mod round_test;
-mod roundgroup_test;
 mod schedule_test;
 mod seed_data_test;
 mod statsgroup_test;

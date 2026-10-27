@@ -113,24 +113,6 @@ export const TournamentAPI = {
     },
   delete: async (id: string) =>
     await fetch(`/api/tournaments/${id}`, { method: 'DELETE' }),
-  /**
-   * Flip the tournament's scheduling mode on its own. Every `TournamentChangeset` field is optional
-   * server-side, so this sends just the one field and leaves the rest of the tournament untouched —
-   * which is what the "Mode: Normal / Advanced" toggle in Schedule > Create/Edit needs.
-   */
-  updateScheduleMode: async (id: string, useAdvancedScheduling: boolean, accessToken?: string): Promise<void> => {
-    const response = await fetch(`/api/tournaments/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({ use_advanced_scheduling: useAdvancedScheduling }),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to save the scheduling mode (${response.status})`);
-    }
-  },
   update: async (id: string, tournament: TournamentChangesetTS, accessToken?: string): Promise<TournamentCreateUpdateResult> => {
     const response = await fetch(`/api/tournaments/${id}`, {
       method: 'PUT',

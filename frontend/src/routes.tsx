@@ -19,7 +19,6 @@ import { TournamentProfile } from "./pages/TournamentProfile";
 import { TournamentGroupProfile } from "./pages/TournamentGroupProfile"
 import { RoundProfile } from "./pages/RoundProfile"
 import { DivisionProfile } from "./pages/DivisionProfile"
-import { RoundGroupProfile } from "./pages/RoundGroupProfile"
 import { BuildingProfile } from "./pages/BuildingProfile"
 import { PoolBracketProfile } from "./pages/PoolBracketProfile"
 import { PoolBracketGroupProfile } from "./pages/PoolBracketGroupProfile"
@@ -105,7 +104,6 @@ export default function QViewRoutes() {
             <Route path="/tournament/:tid/register/gear" element={<TournamentProfile childRoute="register/gear" />} />
             <Route path="/tournament/:tid/register/as-volunteer" element={<TournamentProfile childRoute="register/volunteer" />} />
             <Route path="/tournament/:tid/divisions" element={<TournamentProfile childRoute="divisions" />} />
-            <Route path="/tournament/:tid/division-sessions" element={<TournamentProfile childRoute="division-sessions" />} />
             <Route path="/tournament/:tid/pool-bracket-groups" element={<TournamentProfile childRoute="pool-bracket-groups" />} />
             <Route path="/tournament/:tid/pools" element={<TournamentProfile childRoute="pools" />} />
             <Route path="/tournament/:tid/brackets" element={<TournamentProfile childRoute="brackets" />} />
@@ -136,15 +134,10 @@ export default function QViewRoutes() {
             <Route path="/division/:did" element={<DivisionProfile />} />
             <Route path="/division/:did/overview" element={<DivisionProfile childRoute="overview" />} />
             <Route path="/division/:did/teams" element={<DivisionProfile childRoute="teams" />} />
-            <Route path="/division/:did/sessions" element={<DivisionProfile childRoute="sessions" />} />
             <Route path="/division/:did/pool-bracket-groups" element={<DivisionProfile childRoute="pool-bracket-groups" />} />
             <Route path="/division/:did/pools" element={<DivisionProfile childRoute="pools" />} />
             <Route path="/division/:did/brackets" element={<DivisionProfile childRoute="brackets" />} />
 
-            <Route path="/division-session/:sessionid" element={<RoundGroupProfile childRoute="overview" />} />
-            <Route path="/division-session/:sessionid/overview" element={<RoundGroupProfile childRoute="overview" />} />
-            <Route path="/division-session/:sessionid/rounds" element={<RoundGroupProfile childRoute="rounds" />} />
-            <Route path="/division-session/:sessionid/games" element={<RoundGroupProfile childRoute="games" />} />
 
             <Route path="/pool-bracket-group/:groupid" element={<PoolBracketGroupProfile childRoute="overview" />} />
             <Route path="/pool-bracket-group/:groupid/overview" element={<PoolBracketGroupProfile childRoute="overview" />} />

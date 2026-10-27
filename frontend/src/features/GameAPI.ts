@@ -210,9 +210,6 @@ export const GameAPI = {
   /** One page of the pool bracket's enriched game rows (games whose poolbracket_id matches). */
   getRowsByPoolBracket: async (bracketId: string, page: number, size: number): Promise<PagedGameRows> =>
     (await fetch(`/api/poolbrackets/${bracketId}/game-rows?page=${page}&page_size=${size}`)).json(),
-  /** One page of the roundgroup's enriched game rows (games whose round belongs to it). */
-  getRowsByRoundGroup: async (roundgroupId: string, page: number, size: number): Promise<PagedGameRows> =>
-    (await fetch(`/api/roundgroups/${roundgroupId}/game-rows?page=${page}&page_size=${size}`)).json(),
   /** One page of the enriched game rows the team plays in (any position), plus total count. */
   getRowsByTeam: async (teamId: string, page: number, size: number): Promise<PagedGameRows> =>
     (await fetch(`/api/teams/${teamId}/game-rows?page=${page}&page_size=${size}`)).json(),

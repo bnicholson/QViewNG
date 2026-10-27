@@ -12,7 +12,6 @@ import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
-import RoundGroupsTable from '../components/RoundGroupsTable'
 import PoolBracketsTable from '../components/PoolBracketsTable'
 import PoolBracketGroupsTable from '../components/PoolBracketGroupsTable'
 import GamesTable from '../components/GamesTable'
@@ -47,16 +46,14 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
   // Only super users, the tournament owner, and tournament admins may view Stats Groups.
   const canViewStatsGroups = isOwnerOrSystemAdmin || canViewAdmins
 
-  // Sessions, Pools and Brackets are infrastructure that Normal-mode scheduling creates and manages
-  // on the user's behalf, so their sections are hidden while the tournament is in Normal mode. Super
-  // users see every section regardless, since they support tournaments that are in either mode.
-  const showScheduleInternals = tournament.use_advanced_scheduling || isSystemAdmin
+  // Pool/Bracket Groups, Pools and Brackets are infrastructure that scheduling creates and manages on
+  // the user's behalf, so only super users (who support every tournament) see their sections.
+  const showScheduleInternals = isSystemAdmin
 
   const navItems = [
     ...(canRead(PERMISSION.DIVISION_READ)    ? [{ kind: 'route' as const, label: 'Overview', to: `/division/${did}/overview` }] : []),
     ...(canRead(PERMISSION.TEAM_READ)        ? [{ kind: 'route' as const, label: 'Teams',    to: `/division/${did}/teams`    }] : []),
     ...(canRead(PERMISSION.USER_READ)        ? [{ kind: 'route' as const, label: 'Quizzers', to: `/division/${did}/quizzers` }] : []),
-    ...(showScheduleInternals && canRead(PERMISSION.ROUNDGROUP_READ)  ? [{ kind: 'route' as const, label: 'Sessions', to: `/division/${did}/sessions` }] : []),
     ...(showScheduleInternals && canRead(PERMISSION.POOLBRACKETGROUP_READ) ? [{ kind: 'route' as const, label: 'Pool/Bracket Groups', to: `/division/${did}/pool-bracket-groups` }] : []),
     ...(showScheduleInternals && canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Pools',    to: `/division/${did}/pools`    }] : []),
     ...(showScheduleInternals && canRead(PERMISSION.POOLBRACKET_READ) ? [{ kind: 'route' as const, label: 'Brackets', to: `/division/${did}/brackets` }] : []),
@@ -91,16 +88,6 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'quizzers' && (
             <QuizzersTable did={did}
               showSensitiveColumns={isOwnerOrSystemAdmin} showAuditColumns={canViewAuditColumns}
-              hiddenColumns={['Division']} />
-          )}
-          {props.childRoute === 'sessions' && !showScheduleInternals && <Navigate to={`/division/${did}/overview`} replace />}
-          {props.childRoute === 'sessions' && showScheduleInternals && (
-            <RoundGroupsTable tid={tournament.tid} did={did}
-              showCreateButton={canCreate(PERMISSION.ROUNDGROUP_CREATE)}
-              showEditButton={canCreate(PERMISSION.ROUNDGROUP_UPDATE)}
-              showDeleteButton={canCreate(PERMISSION.ROUNDGROUP_DELETE)}
-              showAuditColumns={canViewAuditColumns}
-              // In the Division profile every roundgroup is in this division, so the Division column is redundant.
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'pool-bracket-groups' && !showScheduleInternals && <Navigate to={`/division/${did}/overview`} replace />}

@@ -1,7 +1,6 @@
 use crate::fixtures;
 use actix_http::StatusCode;
 use actix_web::{App, test, web};
-use backend::models::roundgroup::RoundGroupBuilder;
 use backend::models::pool_bracket::{PoolBracket, PoolBracketBuilder, PoolBracketRow};
 use backend::models::team::TeamBuilder;
 use backend::models::team::TeamRow;
@@ -22,12 +21,6 @@ async fn create_works() {
     let (_tournament, division, owner, admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let roundgroup = RoundGroupBuilder::new(division.did)
-        .set_name("Pool Play")
-        .set_creator_userid(owner.id)
-        .build_and_insert(&mut conn)
-        .unwrap();
-
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(db))
@@ -45,7 +38,7 @@ async fn create_works() {
     let owner_req = test::TestRequest::post()
         .uri("/api/poolbrackets")
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
-        .set_json(json!({ "divisionid": roundgroup.did, "name": "Pool A", "type": "pool" }))
+        .set_json(json!({ "divisionid": division.did, "name": "Pool A", "type": "pool" }))
         .to_request();
 
     let owner_resp = test::call_service(&app, owner_req).await;
@@ -54,7 +47,7 @@ async fn create_works() {
     let body: EntityResponse<PoolBracket> = test::read_body_json(owner_resp).await;
     assert_eq!(body.code, 201);
     let bracket = body.data.unwrap();
-    assert_eq!(bracket.divisionid, roundgroup.did);
+    assert_eq!(bracket.divisionid, division.did);
     assert_eq!(bracket.name.as_str(), "Pool A");
     assert_eq!(bracket.type_.as_str(), "pool");
     assert_eq!(bracket.creator_userid, owner.id);
@@ -70,18 +63,18 @@ async fn create_works() {
     let admin_req = test::TestRequest::post()
         .uri("/api/poolbrackets")
         .insert_header(("Authorization", format!("Bearer {}", admin_token)))
-        .set_json(json!({ "divisionid": roundgroup.did, "name": "Bracket A", "type": "bracket" }))
+        .set_json(json!({ "divisionid": division.did, "name": "Bracket A", "type": "bracket" }))
         .to_request();
 
     let admin_resp = test::call_service(&app, admin_req).await;
     assert_eq!(admin_resp.status(), StatusCode::CREATED);
 
-    // ── Fail: name must be unique within the roundgroup ─────────────────────────
+    // ── Fail: name must be unique within the division ─────────────────────────
 
     let dup_req = test::TestRequest::post()
         .uri("/api/poolbrackets")
         .insert_header(("Authorization", format!("Bearer {}", owner_token)))
-        .set_json(json!({ "divisionid": roundgroup.did, "name": "Pool A", "type": "pool" }))
+        .set_json(json!({ "divisionid": division.did, "name": "Pool A", "type": "pool" }))
         .to_request();
 
     let dup_resp = test::call_service(&app, dup_req).await;
@@ -98,7 +91,7 @@ async fn create_works() {
     let unrelated_req = test::TestRequest::post()
         .uri("/api/poolbrackets")
         .insert_header(("Authorization", format!("Bearer {}", unrelated_token)))
-        .set_json(json!({ "divisionid": roundgroup.did, "name": "Pool C", "type": "pool" }))
+        .set_json(json!({ "divisionid": division.did, "name": "Pool C", "type": "pool" }))
         .to_request();
 
     let unrelated_resp = test::call_service(&app, unrelated_req).await;
@@ -172,12 +165,7 @@ async fn add_and_remove_team_works() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let roundgroup = RoundGroupBuilder::new(division.did)
-        .set_name("Pool Play")
-        .set_creator_userid(owner.id)
-        .build_and_insert(&mut conn)
-        .unwrap();
-    let bracket = PoolBracketBuilder::new(roundgroup.did)
+    let bracket = PoolBracketBuilder::new(division.did)
         .set_name("Pool A").set_type("pool").set_creator_userid(owner.id)
         .build_and_insert(&mut conn)
         .unwrap();
@@ -263,12 +251,7 @@ async fn update_works() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let roundgroup = RoundGroupBuilder::new(division.did)
-        .set_name("Pool Play")
-        .set_creator_userid(owner.id)
-        .build_and_insert(&mut conn)
-        .unwrap();
-    let bracket = PoolBracketBuilder::new(roundgroup.did)
+    let bracket = PoolBracketBuilder::new(division.did)
         .set_name("Pool A")
         .set_type("pool")
         .set_creator_userid(owner.id)
@@ -333,12 +316,7 @@ async fn delete_works() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let roundgroup = RoundGroupBuilder::new(division.did)
-        .set_name("Pool Play")
-        .set_creator_userid(owner.id)
-        .build_and_insert(&mut conn)
-        .unwrap();
-    let bracket = PoolBracketBuilder::new(roundgroup.did)
+    let bracket = PoolBracketBuilder::new(division.did)
         .set_name("Pool A")
         .set_type("pool")
         .set_creator_userid(owner.id)
@@ -400,10 +378,7 @@ async fn delete_soft_deletes_and_purge_removes() {
     let (_tournament, division, owner, _admin_user, unrelated_user) =
         fixtures::divisions::arrange_division_update_works_integration_test(&mut conn);
 
-    let roundgroup = RoundGroupBuilder::new(division.did)
-        .set_name("Pool Play").set_creator_userid(owner.id)
-        .build_and_insert(&mut conn).unwrap();
-    let bracket = PoolBracketBuilder::new(roundgroup.did)
+    let bracket = PoolBracketBuilder::new(division.did)
         .set_name("Pool A").set_type("pool").set_creator_userid(owner.id)
         .build_and_insert(&mut conn).unwrap();
 

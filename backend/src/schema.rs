@@ -581,20 +581,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    roundgroups (roundgroup_id) {
-        roundgroup_id -> Uuid,
-        did -> Uuid,
-        created_date -> Timestamptz,
-        creator_userid -> Uuid,
-        last_modified_date -> Timestamptz,
-        last_modified_userid -> Uuid,
-        #[max_length = 64]
-        name -> Varchar,
-        del_fl -> Bool,
-    }
-}
-
-diesel::table! {
     rounds (roundid) {
         roundid -> Uuid,
         scheduled_start_time -> Nullable<Timestamptz>,
@@ -624,7 +610,7 @@ diesel::table! {
         name -> Varchar,
         last_modified_user -> Uuid,
         del_fl -> Bool,
-        roundgroup_id -> Uuid,
+        did -> Uuid,
     }
 }
 
@@ -791,7 +777,6 @@ diesel::table! {
         use_gear_registration -> Bool,
         use_volunteer_registration -> Bool,
         default_round_duration -> Int4,
-        use_advanced_scheduling -> Bool,
     }
 }
 
@@ -887,8 +872,7 @@ diesel::joinable!(rosters_coaches -> rosters (rosterid));
 diesel::joinable!(rosters_coaches -> users (coachid));
 diesel::joinable!(rosters_quizzers -> rosters (rosterid));
 diesel::joinable!(rosters_quizzers -> users (quizzerid));
-diesel::joinable!(roundgroups -> divisions (did));
-diesel::joinable!(rounds -> roundgroups (roundgroup_id));
+diesel::joinable!(rounds -> divisions (did));
 diesel::joinable!(rounds -> users (last_modified_user));
 diesel::joinable!(statsgroups -> divisions (division_id));
 diesel::joinable!(statsgroups -> tournaments (tournament_id));
@@ -939,7 +923,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     rosters,
     rosters_coaches,
     rosters_quizzers,
-    roundgroups,
     rounds,
     schedules,
     statsgroups,

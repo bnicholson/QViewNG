@@ -24,7 +24,6 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs, { type Dayjs } from 'dayjs'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
-import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { RoundAPI, type NewRoundPayload, type RoundTS } from '../features/RoundAPI'
 import { useAuth } from '../hooks/useAuth'
 
@@ -37,14 +36,12 @@ const Transition = React.forwardRef(function Transition(
 
 interface RoundFormState {
   did: string;
-  roundgroup_id: string;
   name: string;
   scheduled_start_time: Dayjs | null;
 }
 
 const emptyState: RoundFormState = {
   did: "",
-  roundgroup_id: "",
   name: "",
   scheduled_start_time: null,
 };
@@ -54,13 +51,6 @@ interface Props {
   isOpen: boolean;
   /** When set, the Division is fixed to this id and its dropdown is disabled (e.g. from a Division profile). */
   lockedDivisionId?: string;
-  /** When set, the Division RoundGroup is fixed to this id and its dropdown is disabled (e.g. from a RoundGroup profile). */
-  lockedRoundGroupId?: string;
-  /**
-   * Normal scheduling mode: hide the Division Session dropdown entirely (sessions aren't a concept
-   * the user manages there). `lockedRoundGroupId` must be supplied — it's where the round lands.
-   */
-  hideRoundGroupField?: boolean;
   /** When set, the dialog edits this existing round (name/time) instead of creating a new one. */
   round?: RoundTS | null;
   onCancel: VoidFunction;
@@ -68,12 +58,11 @@ interface Props {
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, lockedRoundGroupId, hideRoundGroupField = false, round, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, round, onCancel, onSave } = props;
   const isEdit = !!round;
   const { accessToken } = useAuth();
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
-  const [roundgroups, setRoundGroups] = useState<RoundGroupTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(confirmDialogDefaultState);
@@ -81,14 +70,13 @@ export const RoundEditorDialog = (props: Props) => {
   const resetState = () => {
     if (round) {
       setForm({
-        did: lockedDivisionId ?? "",
-        roundgroup_id: round.roundgroup_id,
+        did: round.did,
         name: round.name,
         scheduled_start_time: round.scheduled_start_time ? dayjs(round.scheduled_start_time) : null,
       });
     } else {
       setForm(lockedDivisionId
-        ? { ...emptyState, did: lockedDivisionId, roundgroup_id: lockedRoundGroupId ?? "" }
+        ? { ...emptyState, did: lockedDivisionId }
         : emptyState);
     }
     setConfirmDialog(confirmDialogDefaultState);
@@ -103,18 +91,10 @@ export const RoundEditorDialog = (props: Props) => {
       .then(items => setDivisions(items))
       .catch(() => console.error("Failed to load divisions for round form"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, tid, lockedDivisionId, lockedRoundGroupId, round]);
-
-  // A round belongs to a division roundgroup; load the chosen division's roundgroups to pick from.
-  useEffect(() => {
-    if (!form.did) { setRoundGroups([]); return }
-    RoundGroupAPI.getByDivision(form.did)
-      .then(setRoundGroups)
-      .catch(() => console.error("Failed to load division roundgroups for round form"));
-  }, [form.did]);
+  }, [isOpen, tid, lockedDivisionId, round]);
 
   const openCancelDialog = () => {
-    const isDirty = form.did !== "" || form.roundgroup_id !== "" || form.name !== "" || form.scheduled_start_time !== null;
+    const isDirty = form.did !== "" || form.name !== "" || form.scheduled_start_time !== null;
     if (!isDirty) {
       onCancel();
     } else {
@@ -131,13 +111,6 @@ export const RoundEditorDialog = (props: Props) => {
   const handleSave = async () => {
     if (!form.did) {
       setErrorMsg("Division is required.");
-      setAlertOpened(true);
-      return;
-    }
-    if (!form.roundgroup_id) {
-      setErrorMsg(hideRoundGroupField
-        ? "Couldn't work out where this round belongs. Close this and try again."
-        : "Division session is required.");
       setAlertOpened(true);
       return;
     }
@@ -161,7 +134,7 @@ export const RoundEditorDialog = (props: Props) => {
         }, accessToken);
       } else {
         const payload: NewRoundPayload = {
-          roundgroup_id: form.roundgroup_id,
+          did: form.did,
           name: form.name.trim(),
           scheduled_start_time: form.scheduled_start_time.toISOString(),
         };
@@ -242,10 +215,11 @@ export const RoundEditorDialog = (props: Props) => {
                 <InputLabel>Division (*required)</InputLabel>
                 <Select
                   value={form.did}
-                  onChange={(e) => setForm(s => ({ ...s, did: e.target.value, roundgroup_id: "" }))}
+                  onChange={(e) => setForm(s => ({ ...s, did: e.target.value }))}
                   displayEmpty
                   fullWidth
-                  disabled={!!lockedDivisionId}
+                  // A round can't move to another division once it exists.
+                  disabled={!!lockedDivisionId || isEdit}
                   renderValue={(val) => {
                     if (!val) return <em>Select a division</em>;
                     return divisions.find(d => d.did === val)?.dname ?? val;
@@ -256,26 +230,6 @@ export const RoundEditorDialog = (props: Props) => {
                   ))}
                 </Select>
               </Grid>
-              {!hideRoundGroupField && (
-              <Grid size={{ xs: 6 }}>
-                <InputLabel>Division Session (*required)</InputLabel>
-                <Select
-                  value={form.roundgroup_id}
-                  onChange={(e) => setForm(s => ({ ...s, roundgroup_id: e.target.value }))}
-                  displayEmpty
-                  fullWidth
-                  disabled={!form.did || !!lockedRoundGroupId}
-                  renderValue={(val) => {
-                    if (!val) return <em>Select a session</em>;
-                    return roundgroups.find(s => s.roundgroup_id === val)?.name ?? val;
-                  }}
-                >
-                  {roundgroups.map(s => (
-                    <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>
-                  ))}
-                </Select>
-              </Grid>
-              )}
               <Grid size={{ xs: 6 }}>
                 <InputLabel>Scheduled Start Time (*required)</InputLabel>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>

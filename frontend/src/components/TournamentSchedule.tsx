@@ -15,8 +15,6 @@ import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
-import ToggleButton from '@mui/material/ToggleButton'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import Divider from '@mui/material/Divider'
@@ -33,7 +31,6 @@ import EditIcon from '@mui/icons-material/Edit'
 
 import { useAuth } from '../hooks/useAuth'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
-import { RoundGroupAPI, type RoundGroupTS } from '../features/RoundGroupAPI'
 import { PoolBracketAPI, type PoolBracketTS } from '../features/PoolBracketAPI'
 import { PoolBracketGroupAPI, type PoolBracketGroupTS } from '../features/PoolBracketGroupAPI'
 import { TeamAPI, type TeamTS, type TeamRowTS } from '../features/TeamAPI'
@@ -43,9 +40,8 @@ import { RoomGroupAPI, type RoomGroupTS } from '../features/RoomGroupAPI'
 import { UserAPI, type UserTS } from '../features/UserAPI'
 import { TournamentAPI } from '../features/TournamentAPI'
 import { DivisionEditorDialog } from './DivisionEditorDialog'
-import { RoundGroupEditorDialog } from './RoundGroupEditorDialog'
 import { PoolBracketEditorDialog } from './PoolBracketEditorDialog'
-import SessionRoundsManager from './SessionRoundsManager'
+import RoundsManager, { type RoundGameEntry } from './RoundsManager'
 import { PoolDetail, naturalCompare } from './PoolDetail'
 import { PoolsManager } from './PoolsManager'
 
@@ -55,7 +51,6 @@ const SIZE = 500
 const RESULTS_PAGE_SIZE = 25
 
 type Mode = 'read' | 'conflicts' | 'edit' | 'edit2'
-type RoundGroupType = 'Round Robin' | 'Tournament Bracket(s)' | 'Undecided'
 
 interface Props {
   tid: string
@@ -64,7 +59,7 @@ interface Props {
 }
 
 /**
- * A self-contained schedule editor for an entire tournament. Divisions → Division RoundGroups →
+ * A self-contained schedule editor for an entire tournament. Divisions → Rounds →
  * Pools/Brackets → Teams & Games are all reachable and editable from this single component, so it
  * can be dropped onto the Tournament profile (or anywhere else) without additional wiring.
  *
@@ -77,17 +72,15 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
 
   const [mode, setMode] = useState<Mode>('read')
   const [error, setError] = useState<string | null>(null)
-  // The tournament's scheduling mode (persisted on the tournament, also editable in the Tournament
-  // editor). Normal mode keeps the Create/Edit section to Rounds and Games.
-  const [advanced, setAdvanced] = useState(false)
+  // The tournament's default round duration: how long each round is taken to last when finding
+  // breaks/overlaps between rounds in Create / Edit.
+  const [roundDuration, setRoundDuration] = useState(30)
 
   // Row 1 — divisions
   const [divisions, setDivisions] = useState<DivisionTS[]>([])
   const [selectedDid, setSelectedDid] = useState('')
 
-  // Row 2 — roundgroups + the division's pools/brackets and teams
-  const [roundgroups, setRoundGroups] = useState<RoundGroupTS[]>([])
-  const [selectedRoundGroupId, setSelectedRoundGroupId] = useState('')
+  // Row 2 — the division's pools/brackets and teams
   const [divisionBrackets, setDivisionBrackets] = useState<PoolBracketTS[]>([])
   const [divisionTeams, setDivisionTeams] = useState<TeamTS[]>([])
   // Poolbracketgroups scope team placement: a team is in exactly one pool per group (Pools tab).
@@ -98,17 +91,16 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   // every pool is shown as a card and the active one is chosen by clicking its card.
   const [selectedBracketId, setSelectedBracketId] = useState('')
 
-  // The card's top-level tab: Timing (rounds management), Pools, Brackets, or TimePool (time + games).
-  const [cardTab, setCardTab] = useState<'sessions' | 'pools' | 'brackets' | 'timepool'>('sessions')
+  // The card's top-level tab: Rounds (rounds + games), Pools, or Brackets.
+  const [cardTab, setCardTab] = useState<'rounds' | 'pools' | 'brackets'>('rounds')
 
-  // Teams and games per pool/bracket in the selected roundgroup (drive each card's team list + matrix).
+  // Teams and games per pool/bracket in the division (drive each card's team list + matrix).
   const [teamsByBracket, setTeamsByBracket] = useState<Record<string, TeamRowTS[]>>({})
   const [gamesByBracket, setGamesByBracket] = useState<Record<string, GameRowTS[]>>({})
 
   // Create-dialog visibility
   // Create/Edit dialog state — each carries the entity being edited, or null when creating.
   const [divDialog, setDivDialog] = useState<{ open: boolean; division: DivisionTS | null }>({ open: false, division: null })
-  const [roundgroupDialog, setRoundGroupDialog] = useState<{ open: boolean; roundgroup: RoundGroupTS | null }>({ open: false, roundgroup: null })
   const [bracketDialog, setBracketDialog] = useState<{ open: boolean; type: 'pool' | 'bracket'; bracket: PoolBracketTS | null }>({ open: false, type: 'pool', bracket: null })
 
   // ── Loaders ──────────────────────────────────────────────────────────────
@@ -120,7 +112,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   }, [tid])
 
   const loadDivisionData = useCallback((did: string) => {
-    RoundGroupAPI.getByDivision(did).then(setRoundGroups).catch(() => setError('Failed to load roundgroups.'))
     PoolBracketAPI.getByDivision(did).then(setDivisionBrackets).catch(() => setError('Failed to load pools/brackets.'))
     PoolBracketGroupAPI.getByDivision(did).then(setPoolBracketGroups).catch(() => setError('Failed to load pool groups.'))
     TeamAPI.getByDivision(did, PAGE, SIZE).then(setDivisionTeams).catch(() => setError('Failed to load teams.'))
@@ -138,7 +129,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       .catch(() => setError('Failed to load team placements.'))
   }, [])
 
-  const loadGamesForRoundGroup = useCallback((brackets: PoolBracketTS[]) => {
+  const loadGamesForDivision = useCallback((brackets: PoolBracketTS[]) => {
     Promise.all(
       brackets.map(b =>
         GameAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE).then(r => [b.pool_bracket_id, r.items] as const)
@@ -155,21 +146,9 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   useEffect(() => {
     if (!tid) return
     TournamentAPI.getById(tid)
-      .then(t => setAdvanced(t.use_advanced_scheduling ?? false))
-      .catch(() => { /* leave the default (Normal) if the tournament can't be loaded */ })
+      .then(t => setRoundDuration(t.default_round_duration ?? 30))
+      .catch(() => { /* leave the 30-minute default if the tournament can't be loaded */ })
   }, [tid])
-
-  // Flipping the toggle saves to the tournament, so the choice sticks for everyone who edits this
-  // schedule. The UI moves first and rolls back if the save fails.
-  const changeAdvanced = async (next: boolean) => {
-    setAdvanced(next)
-    try {
-      await TournamentAPI.updateScheduleMode(tid, next, accessToken)
-    } catch (e) {
-      setAdvanced(!next)
-      setError(e instanceof Error ? e.message : 'Failed to save the scheduling mode.')
-    }
-  }
 
   // Auto-select the first division as soon as divisions load (keeping any valid current choice), so
   // the cascade below fills in and the user lands on a populated schedule instead of empty dropdowns.
@@ -178,9 +157,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   }, [divisions])
 
   useEffect(() => {
-    setSelectedRoundGroupId('')
     setSelectedBracketId('')
-    setRoundGroups([])
     setDivisionBrackets([])
     setDivisionTeams([])
     setPoolBracketGroups([])
@@ -193,28 +170,20 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     setSelectedGroupId(prev => poolBracketGroups.some(g => g.poolbracketgroupid === prev) ? prev : (poolBracketGroups[0]?.poolbracketgroupid ?? ''))
   }, [poolBracketGroups])
 
-  // Auto-select the first roundgroup once the chosen division's roundgroups load (which in turn auto-selects
-  // its first pool/bracket via the row3Options effect below).
-  useEffect(() => {
-    setSelectedRoundGroupId(prev => roundgroups.some(s => s.roundgroup_id === prev) ? prev : (roundgroups[0]?.roundgroup_id ?? ''))
-  }, [roundgroups])
-
   useEffect(() => {
     setTeamsByBracket({})
     setGamesByBracket({})
     if (selectedDid) {
       loadPlacement(divisionBrackets)
-      loadGamesForRoundGroup(divisionBrackets)
+      loadGamesForDivision(divisionBrackets)
     }
-  }, [selectedDid, divisionBrackets, loadPlacement, loadGamesForRoundGroup])
+  }, [selectedDid, divisionBrackets, loadPlacement, loadGamesForDivision])
 
   // ── Derived values ───────────────────────────────────────────────────────
 
-  // Pool brackets belong to the division, so the whole division's brackets are in play regardless of
-  // the selected roundgroup.
-  const roundgroupBrackets = divisionBrackets
-  const pools = useMemo(() => roundgroupBrackets.filter(b => b.type === 'pool'), [roundgroupBrackets])
-  const brackets = useMemo(() => roundgroupBrackets.filter(b => b.type === 'bracket'), [roundgroupBrackets])
+  // Pool brackets belong to the division, so the whole division's brackets are in play.
+  const pools = useMemo(() => divisionBrackets.filter(b => b.type === 'pool'), [divisionBrackets])
+  const brackets = useMemo(() => divisionBrackets.filter(b => b.type === 'bracket'), [divisionBrackets])
 
   // The Pools tab is scoped to the selected poolbracketgroup: each team must be in exactly one pool
   // per group, so placement (and the pool tabs) only consider that group's pools. The Brackets tab
@@ -227,7 +196,7 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   const row3Options = isBracketMode ? brackets : groupPools
 
   // Keep the active pool/bracket (the unplaced-team target) valid: default to the first one and
-  // fall back to the first whenever the current one disappears (group/roundgroup/division change, deletion).
+  // fall back to the first whenever the current one disappears (group/division change, deletion).
   useEffect(() => {
     setSelectedBracketId(prev =>
       row3Options.some(b => b.pool_bracket_id === prev) ? prev : (row3Options[0]?.pool_bracket_id ?? '')
@@ -245,11 +214,11 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     [divisionTeams, placedTeamIds]
   )
 
-  // TimePool tab: the division's games grouped by round id (with each game's pool name), so the
-  // Sessions/Rounds view can show the Pools matrix's games under the round they belong to.
+  // Rounds tab: the division's games grouped by round id (with each game's pool name), so the
+  // Pools matrix's games show under the round they belong to.
   const gamesByRound = useMemo(() => {
     const poolNameById = new Map(divisionBrackets.map(b => [b.pool_bracket_id, b.name]))
-    const m = new Map<string, { g: GameRowTS; poolName: string; poolBracketId: string }[]>()
+    const m = new Map<string, RoundGameEntry[]>()
     Object.entries(gamesByBracket).forEach(([pbId, games]) => {
       const poolName = poolNameById.get(pbId) ?? ''
       games.forEach(g => {
@@ -261,15 +230,14 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
     return m
   }, [gamesByBracket, divisionBrackets])
 
-  const selectedBracket = roundgroupBrackets.find(b => b.pool_bracket_id === selectedBracketId) ?? null
+  const selectedBracket = divisionBrackets.find(b => b.pool_bracket_id === selectedBracketId) ?? null
   const selectedDivision = divisions.find(d => d.did === selectedDid) ?? null
-  const selectedRoundGroup = roundgroups.find(s => s.roundgroup_id === selectedRoundGroupId) ?? null
 
   // ── Team placement handlers ──────────────────────────────────────────────
 
   const refresh = () => {
     loadPlacement(divisionBrackets)
-    loadGamesForRoundGroup(divisionBrackets)
+    loadGamesForDivision(divisionBrackets)
   }
 
 
@@ -313,16 +281,15 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
       {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
       {activeMode === 'read' ? (
-        <ScheduleReadView tid={tid} advanced={advanced} />
+        <ScheduleReadView tid={tid} />
       ) : activeMode === 'conflicts' ? (
         <Alert severity="info">Scheduling conflict resolution is coming soon.</Alert>
       ) : activeMode === 'edit2' ? (
-        <DivisionTimePoolCompare
+        <DivisionRoundsCompare
           tid={tid}
           divisions={divisions}
           canEdit={canEdit}
-          advanced={advanced}
-          onAdvancedChange={changeAdvanced}
+          roundDurationMinutes={roundDuration}
         />
       ) : (
         <Stack spacing={2}>
@@ -349,57 +316,29 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
             </Button> */}
           </Box>
 
-          {/* Row 2a (the Session dropdown) is removed — sessions are managed on the "Sessions" tab
-              of the card below.
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 240 }} disabled={!selectedDid}>
-              <InputLabel>Session</InputLabel>
-              <Select
-                label="Session"
-                value={selectedRoundGroupId}
-                onChange={(e: SelectChangeEvent) => setSelectedRoundGroupId(e.target.value)}
-              >
-                {roundgroups.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-            {selectedRoundGroupId && (
-              <Typography variant="body2" color="text.secondary">Type: <strong>{roundgroupType}</strong></Typography>
-            )}
-            <Button startIcon={<EditIcon />} onClick={() => setRoundGroupDialog({ open: true, roundgroup: selectedRoundGroup })} disabled={!canEdit || !selectedRoundGroup}>
-              Edit
-            </Button>
-            <Button startIcon={<AddIcon />} onClick={() => setRoundGroupDialog({ open: true, roundgroup: null })} disabled={!canEdit || !selectedDid}>
-              Create Session
-            </Button>
-          </Box>
-          */}
-
           {/* The schedule card: teams awaiting placement on top, then the pool/bracket tabs (with a
               "+" to create another at the end of the row), then the selected pool/bracket's detail. */}
           {selectedDid && (
             <Card variant="outlined">
               <CardContent>
-                {/* Top-level tabs: Timing (rounds management), Pools, Brackets, TimePool (time + games). */}
+                {/* Top-level tabs: Rounds (rounds + games), Pools, Brackets. */}
                 <Tabs value={cardTab} onChange={(_e, v) => setCardTab(v)} sx={{ minHeight: 0 }}>
-                  <Tab value="sessions" label="Timing" />
+                  <Tab value="rounds" label="Rounds" />
                   <Tab value="pools" label="Pools" />
                   <Tab value="brackets" label="Brackets" />
-                  <Tab value="timepool" label="TimePool" />
                 </Tabs>
                 <Divider sx={{ mt: 1, mb: 1.5 }} />
 
-                {cardTab === 'sessions' || cardTab === 'timepool' ? (
-                  <SessionRoundsManager
+                {cardTab === 'rounds' ? (
+                  <RoundsManager
                     tid={tid}
                     did={selectedDid}
-                    roundgroups={roundgroups}
                     canEdit={canEdit}
-                    onRoundGroupsChanged={() => loadDivisionData(selectedDid)}
-                    variant={cardTab === 'timepool' ? 'timepool' : 'timing'}
-                    gamesByRound={cardTab === 'timepool' ? gamesByRound : undefined}
+                    roundDurationMinutes={roundDuration}
+                    gamesByRound={gamesByRound}
                     onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
                     onGamesChanged={refresh}
-                    poolBrackets={cardTab === 'timepool' ? divisionBrackets : undefined}
+                    poolBrackets={divisionBrackets}
                     onPoolsChanged={() => loadDivisionData(selectedDid)}
                   />
                 ) : cardTab === 'pools' ? (
@@ -523,23 +462,6 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
         }}
       />
 
-      <RoundGroupEditorDialog
-        tid={tid}
-        lockedDivisionId={selectedDid || undefined}
-        roundgroup={roundgroupDialog.roundgroup}
-        isOpen={roundgroupDialog.open}
-        onCancel={() => setRoundGroupDialog({ open: false, roundgroup: null })}
-        onSave={(roundgroupRow) => {
-          setRoundGroupDialog({ open: false, roundgroup: null })
-          if (selectedDid) {
-            // Reload the division's roundgroups, then select the just-created (or edited) one.
-            RoundGroupAPI.getByDivision(selectedDid)
-              .then(rgs => { setRoundGroups(rgs); setSelectedRoundGroupId(roundgroupRow.roundgroup_id) })
-              .catch(() => setError('Failed to load sessions.'))
-          }
-        }}
-      />
-
       <PoolBracketEditorDialog
         tid={tid}
         did={selectedDid || undefined}
@@ -562,51 +484,46 @@ export const TournamentSchedule = ({ tid, canEdit = false }: Props) => {
   )
 }
 
-// ── Division comparison (TimePool per division) ───────────────────────────────
+// ── Division comparison (rounds per division) ─────────────────────────────────
 
-/** One division's cached TimePool data: its sessions, pools/brackets, and games grouped by round. */
+/** One division's cached schedule data: its pools/brackets, and games grouped by round. */
 interface DivisionCompareData {
-  roundgroups: RoundGroupTS[]
   poolBrackets: PoolBracketTS[]
-  gamesByRound: Map<string, { g: GameRowTS; poolName: string; poolBracketId: string }[]>
+  gamesByRound: Map<string, RoundGameEntry[]>
 }
 
 /**
- * The second "Create / Edit" view: a tab per division, each showing that division's TimePool
- * (the SessionRoundsManager `timepool` variant). Every division's data is loaded once and kept in
+ * The second "Create / Edit" view: a tab per division, each showing that division's Rounds
+ * (a RoundsManager). Every division's data is loaded once and kept in
  * state, and every division's manager stays mounted (hidden when inactive), so switching tabs is
  * instant and the data stays cached for quick side-by-side comparison.
  */
-const DivisionTimePoolCompare = ({ tid, divisions, canEdit, advanced, onAdvancedChange }: {
+const DivisionRoundsCompare = ({ tid, divisions, canEdit, roundDurationMinutes }: {
   tid: string
   divisions: DivisionTS[]
   canEdit: boolean
-  /** The tournament's scheduling mode: Advanced exposes Sessions / Pool Groups / Pools, Normal doesn't. */
-  advanced: boolean
-  onAdvancedChange: (advanced: boolean) => void
+  /** The tournament's default round duration (minutes), used to find breaks between rounds. */
+  roundDurationMinutes: number
 }) => {
   const navigate = useNavigate()
   const [active, setActive] = useState('')
   const [dataByDid, setDataByDid] = useState<Record<string, DivisionCompareData>>({})
   const [error, setError] = useState<string | null>(null)
 
-  // Load (or reload) one division's sessions + games-by-round and cache it.
+  // Load (or reload) one division's pools/brackets + games-by-round and cache it.
   const loadDivision = useCallback((did: string) => {
-    Promise.all([
-      RoundGroupAPI.getByDivision(did),
-      PoolBracketAPI.getByDivision(did),
-    ])
-      .then(([roundgroups, brackets]) =>
+    PoolBracketAPI.getByDivision(did)
+      .then(brackets =>
         Promise.all(
           brackets.map(b => GameAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE).then(r => [b, r.items] as const))
         ).then(entries => {
-          const gamesByRound = new Map<string, { g: GameRowTS; poolName: string; poolBracketId: string }[]>()
+          const gamesByRound = new Map<string, RoundGameEntry[]>()
           entries.forEach(([b, games]) => games.forEach(g => {
             const entry = { g, poolName: b.name, poolBracketId: b.pool_bracket_id }
             const list = gamesByRound.get(g.roundid)
             if (list) list.push(entry); else gamesByRound.set(g.roundid, [entry])
           }))
-          setDataByDid(prev => ({ ...prev, [did]: { roundgroups, poolBrackets: brackets, gamesByRound } }))
+          setDataByDid(prev => ({ ...prev, [did]: { poolBrackets: brackets, gamesByRound } }))
         })
       )
       .catch(() => setError('Failed to load division schedule data.'))
@@ -620,37 +537,15 @@ const DivisionTimePoolCompare = ({ tid, divisions, canEdit, advanced, onAdvanced
   // Eagerly load every division once so all tabs are instant and stay cached for comparison.
   useEffect(() => { divisions.forEach(d => loadDivision(d.did)) }, [divisions, loadDivision])
 
-  // Mode picker — laid out like the "View" toggle inside the manager below. Shown above everything
-  // else because the mode is a property of the tournament, not of one division.
-  const modeToggle = (
-    <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-      <Typography variant="body2" sx={{ fontWeight: 600 }}>Mode:</Typography>
-      <ToggleButtonGroup
-        size="small"
-        exclusive
-        value={advanced ? 'advanced' : 'normal'}
-        onChange={(_e, v: string | null) => { if (v) onAdvancedChange(v === 'advanced') }}
-        disabled={!canEdit}
-      >
-        <ToggleButton value="normal">Normal</ToggleButton>
-        <ToggleButton value="advanced">Advanced</ToggleButton>
-      </ToggleButtonGroup>
-    </Box>
-  )
-
   if (divisions.length === 0) {
     return (
-      <Stack spacing={0}>
-        {modeToggle}
-        <Alert severity="info">This tournament has no divisions yet.</Alert>
-      </Stack>
+      <Alert severity="info">This tournament has no divisions yet.</Alert>
     )
   }
 
   return (
     <Card variant="outlined">
       <CardContent>
-        {modeToggle}
         {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
         {/* One tab per division so schedules can be compared side by side. */}
         <Tabs value={active || false} onChange={(_e, v: string) => setActive(v)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 0 }}>
@@ -664,16 +559,13 @@ const DivisionTimePoolCompare = ({ tid, divisions, canEdit, advanced, onAdvanced
           return (
             <Box key={d.did} hidden={d.did !== active}>
               {data ? (
-                <SessionRoundsManager
+                <RoundsManager
                   tid={tid}
                   did={d.did}
-                  roundgroups={data.roundgroups}
                   canEdit={canEdit}
-                  variant="timepool"
-                  advanced={advanced}
+                  roundDurationMinutes={roundDurationMinutes}
                   gamesByRound={data.gamesByRound}
                   onNavigateGame={(gid) => navigate(`/game/${gid}/overview`)}
-                  onRoundGroupsChanged={() => loadDivision(d.did)}
                   onGamesChanged={() => loadDivision(d.did)}
                   poolBrackets={data.poolBrackets}
                   onPoolsChanged={() => loadDivision(d.did)}
@@ -788,14 +680,12 @@ type ReadFilter = { kind: '' | 'room' | 'person' | 'team' | 'division'; id: stri
 
 /**
  * The read-only view of the schedule. A "Filter By" selector picks one of Room, Person, Team, or a
- * Division→RoundGroup→Pool drill-down; the matching filters appear below it. Room/Person/Team show a
- * single list of matching games (sorted by scheduled start time on the backend, paged via infinite
- * scroll); the Person filter labels each game with the user's role in it. The Division drill-down
- * instead shows the chosen pool/bracket's read-only card (teams + Rooms × Rounds matrix). In Normal
- * scheduling mode, sessions and pools/brackets are hidden: picking a Division shows one card with
- * every round of every session across all of the division's pools/brackets.
+ * Division; the matching filters appear below it. Room/Person/Team show a single list of matching
+ * games (sorted by scheduled start time on the backend, paged via infinite scroll); the Person filter
+ * labels each game with the user's role in it. The Division filter instead shows one read-only card
+ * (teams + Rooms × Rounds matrix) with every round across all of the division's pools/brackets.
  */
-const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean }) => {
+const ScheduleReadView = ({ tid }: { tid: string }) => {
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
 
@@ -807,21 +697,13 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
   const [roomgroups, setRoomGroups] = useState<RoomGroupTS[]>([])
   const [buildingFilter, setBuildingFilter] = useState('All')
 
-  // Team-filter cascade (Division → RoundGroup → Pool/Bracket), each defaulting to "All". These narrow
-  // which teams the Team dropdown offers; they aren't themselves the filter.
+  // The Team filter's Division dropdown (defaulting to "All") narrows which teams the Team dropdown
+  // offers; it isn't itself the filter.
   const [teamDiv, setTeamDiv] = useState('All')
-  const [teamRoundGroup, setTeamRoundGroup] = useState('All')
-  const [teamPool, setTeamPool] = useState('All')
-  const [roundgroupsForDiv, setRoundGroupsForDiv] = useState<RoundGroupTS[]>([])
-  const [bracketsForDiv, setBracketsForDiv] = useState<PoolBracketTS[]>([])
   const [teamOptions, setTeamOptions] = useState<{ teamid: string; name: string }[]>([])
 
-  // Division drill-down (Filter By = "Division | RoundGroup | Pool"): Division → RoundGroup → Pool/Bracket,
-  // ending in a read-only card for the chosen pool/bracket.
+  // Division filter: the chosen division's read-only card, built from all of its pools/brackets.
   const [dvDivision, setDvDivision] = useState('')
-  const [dvRoundGroup, setDvRoundGroup] = useState('')
-  const [dvBracket, setDvBracket] = useState('')
-  const [dvRoundGroups, setDvRoundGroups] = useState<RoundGroupTS[]>([])
   const [dvBrackets, setDvBrackets] = useState<PoolBracketTS[]>([])
   const [dvTeams, setDvTeams] = useState<TeamRowTS[]>([])
   const [dvGames, setDvGames] = useState<GameRowTS[]>([])
@@ -911,68 +793,26 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, nextPage, filter, loading])
 
-  // Team cascade: when a division is chosen, load its roundgroups and pool/brackets (for the RoundGroup and
-  // Pool/Bracket dropdowns). "All" clears them.
-  useEffect(() => {
-    if (teamDiv === 'All') { setRoundGroupsForDiv([]); setBracketsForDiv([]); return }
-    RoundGroupAPI.getByDivision(teamDiv).then(setRoundGroupsForDiv).catch(() => setError('Failed to load roundgroups.'))
-    PoolBracketAPI.getByDivision(teamDiv).then(setBracketsForDiv).catch(() => setError('Failed to load pools/brackets.'))
-  }, [teamDiv])
-
-  // The Team dropdown's options, narrowed by the most specific cascade selection: a pool/bracket's
-  // teams, else the roundgroup's teams (union across its pool/brackets), else the division's teams, else
-  // all of the tournament's teams.
-  // Pool brackets are division-scoped, so a chosen roundgroup no longer narrows them — the division's
-  // brackets are offered once a division (and roundgroup, to keep the cascade order) is picked.
-  const roundgroupBracketsForTeam = useMemo(
-    () => bracketsForDiv,
-    [bracketsForDiv],
-  )
+  // The Team dropdown's options: the chosen division's teams, else all of the tournament's teams.
   useEffect(() => {
     if (filter.kind !== 'team') return
     const norm = (arr: { teamid: string; name: string }[]) => arr.map(t => ({ teamid: t.teamid, name: t.name }))
-    if (teamPool !== 'All') {
-      TeamAPI.getRowsByPoolBracket(teamPool, PAGE, SIZE).then(r => setTeamOptions(norm(r.items))).catch(() => setError('Failed to load teams.'))
-    } else if (teamRoundGroup !== 'All') {
-      Promise.all(roundgroupBracketsForTeam.map(b => TeamAPI.getRowsByPoolBracket(b.pool_bracket_id, PAGE, SIZE)))
-        .then(results => {
-          const byId = new Map<string, { teamid: string; name: string }>()
-          results.forEach(r => r.items.forEach(t => byId.set(t.teamid, { teamid: t.teamid, name: t.name })))
-          setTeamOptions([...byId.values()])
-        })
-        .catch(() => setError('Failed to load teams.'))
-    } else if (teamDiv !== 'All') {
+    if (teamDiv !== 'All') {
       TeamAPI.getByDivision(teamDiv, PAGE, SIZE).then(items => setTeamOptions(norm(items))).catch(() => setError('Failed to load teams.'))
     } else {
       TeamAPI.getByTournament(tid, PAGE, SIZE).then(r => setTeamOptions(norm(r.items))).catch(() => setError('Failed to load teams.'))
     }
-  }, [filter.kind, teamDiv, teamRoundGroup, teamPool, roundgroupBracketsForTeam, tid])
+  }, [filter.kind, teamDiv, tid])
 
-  // Division drill-down: load the chosen division's roundgroups and pool/brackets.
+  // Division filter: load the chosen division's pool/brackets.
   useEffect(() => {
-    if (!dvDivision) { setDvRoundGroups([]); setDvBrackets([]); return }
-    RoundGroupAPI.getByDivision(dvDivision).then(setDvRoundGroups).catch(() => setError('Failed to load roundgroups.'))
+    if (!dvDivision) { setDvBrackets([]); return }
     PoolBracketAPI.getByDivision(dvDivision).then(setDvBrackets).catch(() => setError('Failed to load pools/brackets.'))
   }, [dvDivision])
 
-  // Pool brackets are division-scoped, so the chosen roundgroup doesn't narrow them.
-  const dvRoundGroupBrackets = useMemo(
-    () => dvBrackets,
-    [dvBrackets],
-  )
-
-  // Division drill-down: once a specific pool/bracket is chosen, load its teams + games for the card.
+  // The card shows every round, so combine the teams and games of all of the division's
+  // pools/brackets. A team placed in several of them is listed once.
   useEffect(() => {
-    if (!advanced) return   // Normal mode loads the whole division instead (below)
-    if (!dvBracket) { setDvTeams([]); setDvGames([]); return }
-    TeamAPI.getRowsByPoolBracket(dvBracket, PAGE, SIZE).then(r => setDvTeams(r.items)).catch(() => setError('Failed to load teams.'))
-    GameAPI.getRowsByPoolBracket(dvBracket, PAGE, SIZE).then(r => setDvGames(r.items)).catch(() => setError('Failed to load games.'))
-  }, [dvBracket, advanced])
-
-  // Normal mode: the card shows every round of every session, so combine the teams and games of all
-  // of the division's pools/brackets. A team placed in several of them is listed once.
-  useEffect(() => {
-    if (advanced) return
     if (dvBrackets.length === 0) { setDvTeams([]); setDvGames([]); return }
     let cancelled = false
     Promise.all(dvBrackets.map(b => Promise.all([
@@ -988,7 +828,7 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
       })
       .catch(() => { if (!cancelled) setError('Failed to load the division\'s schedule.') })
     return () => { cancelled = true }
-  }, [dvBrackets, advanced])
+  }, [dvBrackets])
 
   // The "Building" dropdown narrows the Room dropdown's options; "All" shows every room. Changing it
   // blanks the current Room selection.
@@ -1009,12 +849,6 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
   useEffect(() => {
     if (filter.kind === 'division' && !dvDivision && divisions.length === 1) setDvDivision(divisions[0].did)
   }, [filter.kind, dvDivision, divisions])
-  useEffect(() => {
-    if (advanced && filter.kind === 'division' && dvDivision && !dvRoundGroup && dvRoundGroups.length === 1) setDvRoundGroup(dvRoundGroups[0].roundgroup_id)
-  }, [advanced, filter.kind, dvDivision, dvRoundGroup, dvRoundGroups])
-  useEffect(() => {
-    if (advanced && filter.kind === 'division' && dvRoundGroup && !dvBracket && dvRoundGroupBrackets.length === 1) setDvBracket(dvRoundGroupBrackets[0].pool_bracket_id)
-  }, [advanced, filter.kind, dvRoundGroup, dvBracket, dvRoundGroupBrackets])
 
   const personLabel = (u: UserTS) => [u.fname, u.mname, u.lname].filter(Boolean).join(' ')
   const goGame = (gid: string) => navigate(`/game/${gid}/overview`)
@@ -1024,15 +858,8 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
   // Changing the Role re-narrows the Person list and blanks the Person selection.
   const onPersonRoleChange = (v: string) => { setPersonRole(v); setFilter({ kind: 'person', id: '' }) }
 
-  // Changing any cascade dropdown resets those below it and blanks the Team selection.
-  const onTeamDivChange = (v: string) => { setTeamDiv(v); setTeamRoundGroup('All'); setTeamPool('All'); setFilter({ kind: 'team', id: '' }) }
-  const onTeamRoundGroupChange = (v: string) => { setTeamRoundGroup(v); setTeamPool('All'); setFilter({ kind: 'team', id: '' }) }
-  const onTeamPoolChange = (v: string) => { setTeamPool(v); setFilter({ kind: 'team', id: '' }) }
-
-  // Division drill-down: changing a level resets the ones below it.
-  const onDvDivisionChange = (v: string) => { setDvDivision(v); setDvRoundGroup(''); setDvBracket('') }
-  const onDvRoundGroupChange = (v: string) => { setDvRoundGroup(v); setDvBracket('') }
-  const onDvBracketChange = (v: string) => { setDvBracket(v) }
+  // Changing the Division blanks the Team selection.
+  const onTeamDivChange = (v: string) => { setTeamDiv(v); setFilter({ kind: 'team', id: '' }) }
 
   return (
     // `pt` gives the outlined dropdowns' shrunk floating labels room so they aren't clipped at the top
@@ -1052,36 +879,19 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
             <MenuItem value="person">Person</MenuItem>
             <MenuItem value="team">Team</MenuItem>
             <MenuItem value="room">Room</MenuItem>
-            <MenuItem value="division">{advanced ? 'Division | Session | Pool/Bracket' : 'Division'}</MenuItem>
+            <MenuItem value="division">Division</MenuItem>
           </Select>
         </FormControl>
 
         {filter.kind === 'division' && (
           <>
-            {/* Drill down Division → RoundGroup → Pool/Bracket to view that pool/bracket's card below. */}
+            {/* The division alone picks the card below. */}
             <FormControl size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Division</InputLabel>
-              <Select label="Division" value={dvDivision} onChange={(e: SelectChangeEvent) => onDvDivisionChange(e.target.value)}>
+              <Select label="Division" value={dvDivision} onChange={(e: SelectChangeEvent) => setDvDivision(e.target.value)}>
                 {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
               </Select>
             </FormControl>
-            {/* Normal mode hides sessions and pools/brackets; the division alone picks the card. */}
-            {advanced && (
-              <>
-                <FormControl size="small" sx={{ minWidth: 240 }} disabled={!dvDivision}>
-                  <InputLabel>Session</InputLabel>
-                  <Select label="Session" value={dvRoundGroup} onChange={(e: SelectChangeEvent) => onDvRoundGroupChange(e.target.value)}>
-                    {dvRoundGroups.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: 240 }} disabled={!dvRoundGroup}>
-                  <InputLabel>Pool/Bracket</InputLabel>
-                  <Select label="Pool/Bracket" value={dvBracket} onChange={(e: SelectChangeEvent) => onDvBracketChange(e.target.value)}>
-                    {dvRoundGroupBrackets.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </>
-            )}
           </>
         )}
 
@@ -1126,26 +936,12 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
         )}
         {filter.kind === 'team' && (
           <>
-            {/* Division → RoundGroup → Pool/Bracket narrow the Team list; each defaults to "All". */}
+            {/* Division narrows the Team list; defaults to "All". */}
             <FormControl size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Division</InputLabel>
               <Select label="Division" value={teamDiv} onChange={(e: SelectChangeEvent) => onTeamDivChange(e.target.value)}>
                 <MenuItem value="All">All</MenuItem>
                 {divisions.map(d => <MenuItem key={d.did} value={d.did}>{d.dname}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 240 }} disabled={teamDiv === 'All'}>
-              <InputLabel>Session</InputLabel>
-              <Select label="Session" value={teamRoundGroup} onChange={(e: SelectChangeEvent) => onTeamRoundGroupChange(e.target.value)}>
-                <MenuItem value="All">All</MenuItem>
-                {roundgroupsForDiv.map(s => <MenuItem key={s.roundgroup_id} value={s.roundgroup_id}>{s.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 240 }} disabled={teamRoundGroup === 'All'}>
-              <InputLabel>Pool/Bracket</InputLabel>
-              <Select label="Pool/Bracket" value={teamPool} onChange={(e: SelectChangeEvent) => onTeamPoolChange(e.target.value)}>
-                <MenuItem value="All">All</MenuItem>
-                {roundgroupBracketsForTeam.map(b => <MenuItem key={b.pool_bracket_id} value={b.pool_bracket_id}>{b.name}</MenuItem>)}
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 240 }}>
@@ -1158,14 +954,12 @@ const ScheduleReadView = ({ tid, advanced }: { tid: string; advanced: boolean })
         )}
       </Stack>
 
-      {/* Results: for the Division drill-down, a read-only pool/bracket card; otherwise a count
+      {/* Results: for the Division filter, a read-only card of the division's rounds; otherwise a count
           header, the game cards, and an infinite-scroll sentinel + loading note. */}
       {filter.kind === 'division' ? (
-        (advanced ? dvBracket : dvDivision)
+        dvDivision
           ? <PoolDetail teams={dvTeams} games={dvGames} canEdit={false} onRemoveTeam={() => {}} onNavigateGame={goGame} />
-          : <Typography variant="body2" color="text.secondary">
-              {advanced ? 'Pick a division, session, and pool/bracket to see its card.' : 'Pick a division to see its rounds.'}
-            </Typography>
+          : <Typography variant="body2" color="text.secondary">Pick a division to see its rounds.</Typography>
       ) : !filter.kind ? (
         <Typography variant="body2" color="text.secondary">Choose what to filter by above.</Typography>
       ) : !filter.id ? (

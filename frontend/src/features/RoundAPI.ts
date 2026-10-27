@@ -1,7 +1,7 @@
 export interface RoundTS {
   roundid: string;
-  /** A round belongs to a (time-bound) roundgroup. */
-  roundgroup_id: string;
+  /** The division the round belongs to. */
+  did: string;
   name: string;
   scheduled_start_time: string | null;
   created_at: string;
@@ -9,7 +9,7 @@ export interface RoundTS {
 }
 
 export interface NewRoundPayload {
-  roundgroup_id: string;
+  did: string;
   name: string;
   scheduled_start_time: string | null; // ISO 8601 datetime string; null when not scheduled
 }
@@ -20,13 +20,11 @@ export interface PagedRounds {
 }
 
 /**
- * One fully-formed row of the rounds data table: the round plus its roundgroup name and its (derived)
- * division id/name, so the whole table is populated from a single request per page.
+ * One fully-formed row of the rounds data table: the round plus its division id/name, so the whole
+ * table is populated from a single request per page.
  */
 export interface RoundRowTS {
   roundid: string;
-  roundgroup_id: string;
-  roundgroup_name: string;
   did: string;
   division_name: string;
   name: string;
@@ -49,12 +47,6 @@ export const RoundAPI = {
     (await fetch(`/api/tournaments/${tid}/rounds?page=${page}&page_size=${size}`)).json(),
   getByDivision: async (did: string, page: number, size: number): Promise<RoundTS[]> =>
     (await fetch(`/api/divisions/${did}/rounds?page=${page}&page_size=${size}`)).json(),
-  /** A roundgroup.s rounds (the new, time-bound relationship). */
-  getByRoundGroup: async (roundgroupId: string, page: number, size: number): Promise<RoundTS[]> =>
-    (await fetch(`/api/roundgroups/${roundgroupId}/rounds?page=${page}&page_size=${size}`)).json(),
-  /** One page of a roundgroup.s enriched round rows, plus total count. */
-  getRowsByRoundGroup: async (roundgroupId: string, page: number, size: number): Promise<PagedRoundRows> =>
-    (await fetch(`/api/roundgroups/${roundgroupId}/round-rows?page=${page}&page_size=${size}`)).json(),
   /** One page of the tournament's enriched round rows (division name), plus total count. */
   getRowsByTournament: async (tid: string, page: number, size: number): Promise<PagedRoundRows> =>
     (await fetch(`/api/tournaments/${tid}/round-rows?page=${page}&page_size=${size}`)).json(),
@@ -82,8 +74,8 @@ export const RoundAPI = {
     if (!response.ok) throw new Error(`Round not found (${response.status})`);
     return response.json();
   },
-  /** Update a round's name/time, or move it to another session by setting `roundgroup_id`. */
-  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null; roundgroup_id?: string }, accessToken?: string): Promise<RoundTS> => {
+  /** Update a round's name and/or start time. */
+  update: async (id: string, payload: { name?: string; scheduled_start_time?: string | null }, accessToken?: string): Promise<RoundTS> => {
     const response = await fetch(`/api/rounds/${id}`, {
       method: 'PUT',
       headers: {

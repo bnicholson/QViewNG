@@ -193,13 +193,11 @@ fn find_division(db: &mut database::Connection, tournament_id: Uuid, name_str: &
 }
 
 fn find_round(db: &mut database::Connection, division_id: Uuid, number_str: &str) -> Option<Round> {
-    // Rounds now belong to division roundgroups; match by name across the division's roundgroups.
-    use crate::schema::{rounds, roundgroups};
-    rounds::table
-        .inner_join(roundgroups::table.on(rounds::roundgroup_id.eq(roundgroups::roundgroup_id)))
-        .filter(roundgroups::did.eq(division_id))
-        .filter(rounds::name.eq(number_str))
-        .select(rounds::all_columns)
+    use crate::schema::rounds::dsl as r;
+    r::rounds
+        .filter(r::did.eq(division_id))
+        .filter(r::name.eq(number_str))
+        .filter(r::del_fl.eq(false))
         .first::<Round>(db)
         .ok()
 }

@@ -1,5 +1,4 @@
 use backend::models::division::DivisionBuilder;
-use backend::models::roundgroup::RoundGroupBuilder;
 use backend::models::pool_bracket::PoolBracketBuilder;
 use backend::models::teamgroup;
 use backend::models::tournament::TournamentBuilder;
@@ -19,9 +18,7 @@ async fn delete_soft_deletes_and_purge_removes() {
     let owner = UserBuilder::new_default("TG Owner").set_hash_password("Pwd123!").build_and_insert(&mut conn).unwrap();
     let tournament = TournamentBuilder::new_default("TG Tour").set_owner_id(owner.id).build_and_insert(&mut conn).unwrap();
     let division = DivisionBuilder::new_default("TG Div", tournament.tid).build_and_insert(&mut conn).unwrap();
-    let roundgroup = RoundGroupBuilder::new(division.did)
-        .set_name("Pool Play").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
-    let bracket = PoolBracketBuilder::new(roundgroup.did)
+    let bracket = PoolBracketBuilder::new(division.did)
         .set_name("Pool A").set_type("pool").set_creator_userid(owner.id).build_and_insert(&mut conn).unwrap();
     // The bracket owns the 1-to-1 FK now; resolve_or_create makes the group and attaches it.
     let group = teamgroup::resolve_or_create_for_pool_bracket(&mut conn, bracket.pool_bracket_id, owner.id).unwrap();

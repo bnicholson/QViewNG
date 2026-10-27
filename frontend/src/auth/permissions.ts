@@ -27,10 +27,6 @@ export const PERMISSION = {
   DIVISION_UPDATE: 'division:update',
   DIVISION_DELETE: 'division:delete',
 
-  ROUNDGROUP_CREATE: 'roundgroup:create',
-  ROUNDGROUP_READ: 'roundgroup:read',
-  ROUNDGROUP_UPDATE: 'roundgroup:update',
-  ROUNDGROUP_DELETE: 'roundgroup:delete',
 
   POOLBRACKETGROUP_CREATE: 'poolbracketgroup:create',
   POOLBRACKETGROUP_READ: 'poolbracketgroup:read',

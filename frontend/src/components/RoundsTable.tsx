@@ -31,10 +31,6 @@ function roundColumns(showAuditColumns: boolean): ColumnDef<RoundRowTS>[] {
       render: (r) => <EntityLink to={`/division/${r.did}/overview`}>{r.division_name || r.did}</EntityLink>,
     },
     {
-      header: "Session",
-      render: (r) => <EntityLink to={`/division-session/${r.roundgroup_id}/overview`}>{r.roundgroup_name || r.roundgroup_id}</EntityLink>,
-    },
-    {
       header: "Round",
       render: (r) => (
         <Link
@@ -76,7 +72,7 @@ function roundColumns(showAuditColumns: boolean): ColumnDef<RoundRowTS>[] {
   ];
 }
 
-export default function RoundsTable({ tid, did, roundgroupId, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; roundgroupId?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
+export default function RoundsTable({ tid, did, showCreateButton = true, showDeleteButton = true, showAuditColumns = true, hiddenColumns = [] }: { tid: string; did?: string; showCreateButton?: boolean; showDeleteButton?: boolean; showAuditColumns?: boolean;
   /** Column headers to omit — lets a consumer hide a column that's redundant in its context. */
   hiddenColumns?: string[] }) {
   // Current page of enriched rows plus the total count — paginated server-side, one call per page.
@@ -91,11 +87,9 @@ export default function RoundsTable({ tid, did, roundgroupId, showCreateButton =
 
   const loadRounds = useCallback((p: number, ps: number) => {
     setLoading(true);
-    const request = roundgroupId
-      ? RoundAPI.getRowsByRoundGroup(roundgroupId, p, ps)
-      : did
-        ? RoundAPI.getRowsByDivision(did, p, ps)
-        : RoundAPI.getRowsByTournament(tid, p, ps);
+    const request = did
+      ? RoundAPI.getRowsByDivision(did, p, ps)
+      : RoundAPI.getRowsByTournament(tid, p, ps);
     request
       .then(({ count, items }) => {
         setRows(items);
@@ -105,11 +99,11 @@ export default function RoundsTable({ tid, did, roundgroupId, showCreateButton =
       })
       .catch(() => console.error("Failed to load rounds"))
       .finally(() => setLoading(false));
-  }, [tid, did, roundgroupId]);
+  }, [tid, did]);
 
   useEffect(() => {
     loadRounds(0, pageSizeRef.current);
-  }, [tid, did, roundgroupId]);
+  }, [tid, did]);
 
   const handlePageChange = useCallback((newPage: number) => {
     loadRounds(newPage, pageSize);
@@ -134,7 +128,7 @@ export default function RoundsTable({ tid, did, roundgroupId, showCreateButton =
     <>
       <DataTableTemplate<RoundRowTS>
         loading={loading}
-        key={roundgroupId ?? did ?? tid}
+        key={did ?? tid}
         entityLabel="Round"
         showCreateButton={showCreateButton}
         showDeleteButton={showDeleteButton}
@@ -151,7 +145,7 @@ export default function RoundsTable({ tid, did, roundgroupId, showCreateButton =
       />
       <RoundEditorDialog
         tid={tid}
-        lockedDivisionId={did} lockedRoundGroupId={roundgroupId}
+        lockedDivisionId={did}
         isOpen={editorIsOpen}
         onCancel={() => setEditorIsOpen(false)}
         onSave={handleSave}

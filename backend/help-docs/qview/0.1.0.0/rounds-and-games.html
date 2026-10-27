@@ -4,16 +4,10 @@ optional) and Teams fully entered.</p>
 at the section on adding Rooms to a Tournament in <a href="doc:creating-a-tournament">this article</a>. If your
 Tournament uses more than one building, assign each Room to its Building too, so people can filter the Schedule by
 Building.</p>
-<p>In QView, the Scheduling module has <strong>2 modes</strong>: “Normal” and “Advanced”.</p>
-<p><strong>Normal Mode</strong> deals only with Rounds and Games.</p>
-<p><strong>Advanced Mode</strong> includes what is included in Normal Mode and adds to it Sessions, Pools, Brackets,
-PoolGroups and BracketGroups.</p>
-<p>Both Scheduling modes can be used to achieve the same goal. Advanced Mode is more for organization of large
-schedules in an effort to make the sheer amount of Games and Rounds make more sense in their given planned
-contexts.</p>
-<p>With this being said, let’s cover the basics - <strong>Normal Mode:</strong></p>
+<p>Scheduling in QView is built from just two things: <strong>Rounds</strong> and <strong>Games</strong>. Anything
+else you’d want to know about your schedule, like where the breaks are, QView works out from those two for you.</p>
 
-<h2>Normal Mode</h2>
+<h2>Rounds and Games</h2>
 <p>Let’s start with terms.</p>
 <p>A <strong>Game</strong> in QView is a standard 20-question quiz set asked to 2 or 3 Teams of Quizzers by a
 quizmaster (in Nazarene-style teen Bible quizzing).</p>
@@ -32,7 +26,7 @@ the Division to (otherwise) be tied to a Round such that the Round’s Start Tim
 inflexibility in scheduling across all Divisions of the Tournament.</p>
 <p>Since the Round has to have a single Start Time, it was decided to allow Divisions to have their own Rounds and,
 therefore, their own Start Times to allow for more flexible scheduling in-Division.</p>
-<p>In <em>Normal Mode</em>, all that is needed for scheduling is Rounds and Games. Games get their Start Times from
+<p>All that is needed for scheduling is Rounds and Games. Games get their Start Times from
 the Round they are assigned to. Without Rounds, Games have no scheduling context.</p>
 <p>One of the most popular scheduling styles is <strong>Round-Robin</strong> matchups. In the examples here we will
 be using 2-team Game matchups since they are most common. There are some added complexities for 3-team Game
@@ -46,22 +40,21 @@ matchups which will be addressed later.</p>
   <img src="rounds-and-games-3.webp" alt="The Create / Edit button on the Schedule page." loading="lazy" />
   <figcaption>The Create / Edit button on the Schedule page.</figcaption>
 </figure>
+<!-- SCREENSHOT TODO: Schedule > Create / Edit, top of the editor (no Mode toggle any more). Red boxes labelled A to D: A = the Division tabs, B = "Create Schedule", C = "Add Round", D = "Edit Start Times". -->
 <figure>
-  <img src="rounds-and-games-4.webp" alt="The schedule editor’s mode, Division tabs and buttons, labelled A to E." loading="lazy" />
-  <figcaption>The schedule editor’s mode, Division tabs and buttons, labelled A to E.</figcaption>
+  <img src="rounds-and-games-4.webp" alt="The schedule editor’s Division tabs and buttons, labelled A to D." loading="lazy" />
+  <figcaption>The schedule editor’s Division tabs and buttons, labelled A to D.</figcaption>
 </figure>
+<!-- SCREENSHOT TODO: Schedule > Create / Edit, below the buttons. Red boxes labelled E to G: E = the Filter card, F = a Round card, G = one Game chip inside it. -->
 <figure>
-  <img src="rounds-and-games-5.webp" alt="The schedule editor’s filter, Rounds and Games, labelled F to H." loading="lazy" />
-  <figcaption>The schedule editor’s filter, Rounds and Games, labelled F to H.</figcaption>
+  <img src="rounds-and-games-5.webp" alt="The schedule editor’s filter, Rounds and Games, labelled E to G." loading="lazy" />
+  <figcaption>The schedule editor’s filter, Rounds and Games, labelled E to G.</figcaption>
 </figure>
 <p>Here you will see the following:</p>
 <ol type="A">
-  <li><strong>Mode</strong>: Controls toggle between “Normal” and “Advanced” mode. This is a setting at the
-  Tournament level which is updated whenever it is changed by any user with access to it. Data for both modes is the
-  same underneath; you can use either mode interchangeably.</li>
   <li><strong>Divisions in a tabbed row</strong>: Select which Division to create/edit the schedule of.</li>
-  <li><strong>‘Create Schedule’ button</strong>: Use this to create Rounds and Games (or more in Advanced Mode) in a
-  Round-Robin or Tournament Bracket configuration.</li>
+  <li><strong>‘Create Schedule’ button</strong>: Use this to create Rounds and Games in a Round-Robin or Tournament
+  Bracket configuration.</li>
   <li><strong>‘Add Round’ button</strong>: Add a single new Round to the current list of Rounds.</li>
   <li><strong>‘Edit Start Times’ button</strong>: Edit the Start times of all Rounds in bulk with a given Round
   duration (default = 30 minutes). (The default Round duration is set at the Tournament-level.)</li>
@@ -87,7 +80,8 @@ matchups which will be addressed later.</p>
     <ul>
       <li><strong>‘Add a Game’</strong>: Add a new Game to that specific Round.</li>
       <li><strong>‘Edit Round’</strong>: Allows you to edit the Round’s details.</li>
-      <li><strong>‘Delete Round’</strong>: Allows for deleting the Round from the Division.</li>
+      <li><strong>‘Delete Round’</strong>: Allows for deleting the Round from the Division. Every Game in the Round
+      is deleted with it.</li>
     </ul>
   </li>
   <li><strong>Game</strong>: This is the 2- or 3-team matchup of 20 questions. Click the Game to enter the editor for
@@ -99,6 +93,36 @@ matchups which will be addressed later.</p>
     </ul>
   </li>
 </ol>
+
+<h2>Breaks between Rounds</h2>
+<p>You don’t create breaks in QView. You just give each Round its Start Time, and QView shows you where the breaks
+are.</p>
+<p>It does this with your Tournament’s <strong>Default Round Duration</strong> (set when you <a
+href="doc:creating-a-tournament">create or edit the Tournament</a>). Every Round is taken to last that long. If the
+next Round starts later than that, the time in between shows up as a <strong>Break</strong> card between the two
+Rounds.</p>
+<!-- SCREENSHOT TODO: Schedule > Create / Edit, a Division with a gap in its Rounds (e.g. Round 2 at 8:00 AM and Round 3 at 9:00 AM with a 30-minute round duration). Red box around the grey "Break: 30 min" card between the two orange Round cards. -->
+<figure>
+  <img src="rounds-and-games-8.webp" alt="A 30-minute Break card between two Rounds." loading="lazy" />
+  <figcaption>A 30-minute Break card between two Rounds.</figcaption>
+</figure>
+<p>Say your Round duration is 30 minutes, “Round 1” starts at 7:00 AM and “Round 2” starts at 8:00 AM. Round 1 is
+done at 7:30 AM, so you’ll see a <strong>30 min</strong> Break between them (7:30 AM – 8:00 AM).</p>
+<p>Want a break? Edit the Start Time of the first Round after it (<strong>‘Edit Round’</strong>), and the Break
+card appears.</p>
+<p>A couple of things to know:</p>
+<ul>
+  <li><strong>Rounds that start at the same time</strong> run side by side, so there’s never a Break between
+  them.</li>
+  <li>If a Round starts <strong>before the one ahead of it would end</strong>, you’ll see a small orange
+  <strong>“Overlaps”</strong> warning instead of a Break. For example, with 30-minute Rounds, a Round at 7:00 AM
+  and the next at 7:15 AM overlap by 15 minutes. Usually that means a Start Time was typed in wrong, so check it with
+  <strong>‘Edit Round’</strong>.</li>
+  <li>Breaks and overlaps aren’t saved anywhere. Change a Round’s Start Time, or the Tournament’s Default Round
+  Duration, and they update to match.</li>
+</ul>
+<p class="doc-note">If you use the Filter to hide Rounds, Breaks are only shown between Rounds that sit right next to
+each other in the full schedule. A hidden Round never shows up as a fake Break.</p>
 
 <h2>Create Schedule button</h2>
 <p>It is recommended that when creating Rounds and Games for the first time for a Division to use the “Create
@@ -118,10 +142,13 @@ of QView.</p>
 what would be scheduled if you were to use the current settings.</p>
 <p>Once everything looks correct, click “Create Schedule” to create the Rounds and Games that you described using the
 fields of the dialog.</p>
+<p>The Rounds it creates run back to back, with no Breaks. To add a Break, edit the Start Time of the Round that
+comes after it (see <strong>Breaks between Rounds</strong> above).</p>
 
 <h2>Edit Start Times button</h2>
 <p>Use this button to adjust the Start Times of the Division’s existing Rounds in bulk. When you click the button,
 you are presented with the following options:</p>
+<!-- SCREENSHOT TODO (optional): the Edit Start Times dialog. Its notice now ends with "Any breaks between rounds are closed up." -->
 <figure>
   <img src="rounds-and-games-7.webp" alt="The Edit Start Times dialog." loading="lazy" />
   <figcaption>The Edit Start Times dialog.</figcaption>
@@ -130,6 +157,8 @@ you are presented with the following options:</p>
 the first Round is supposed to start, then define how much time should be in between the start of each Round. When
 you click ‘Apply’ it will adjust the start times of all Rounds by that offset. For instance, Round 1 = 7am, Round 2 =
 7:30am, Round 3 = 8am, Round 4 = 8:30am, etc. (This modifies existing Rounds of the Division only.)</p>
+<p class="doc-warning">Because every Round is re-spaced evenly, any Breaks in the Division’s schedule are closed up.
+Add them back afterwards by editing the Start Time of the Round after each Break.</p>
 
 <h2>Once Done With Scheduling:</h2>
 <p>Please keep in mind, Scheduling may need to be updated if you ever add new Teams to the Division. This is a great

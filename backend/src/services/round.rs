@@ -110,19 +110,15 @@ async fn create(
         None => return Ok(HttpResponse::Unauthorized().finish()),
     };
 
-    // A round belongs to a division roundgroup; validate it and derive its division for authorization.
-    let roundgroup = match models::roundgroup::read(&mut conn, item.roundgroup_id) {
-        Ok(s) => s,
+    // A round belongs to a division; validate it and derive the tournament for authorization.
+    let division = match models::division::read(&mut conn, item.did) {
+        Ok(d) => d,
         Err(_) => {
-            println!("Could not find Division RoundGroup by ID={}", &item.roundgroup_id);
+            println!("Could not find Division by ID={}", &item.did);
             return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": format!("Division roundgroup with ID {} does not exist", item.roundgroup_id)
+                "error": format!("Division with ID {} does not exist", item.did)
             })));
         }
-    };
-    let division = match models::division::read(&mut conn, roundgroup.did) {
-        Ok(d) => d,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
     let tournament = match models::tournament::read(&mut conn, division.tid) {
@@ -188,11 +184,7 @@ async fn update(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let roundgroup = match models::roundgroup::read(&mut conn, round.roundgroup_id) {
-        Ok(s) => s,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    };
-    let division = match models::division::read(&mut conn, roundgroup.did) {
+    let division = match models::division::read(&mut conn, round.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -210,19 +202,6 @@ async fn update(
     let round_update_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Update.as_str());
     if is_rbac_and_abac_authorized(&policy_ctx, &round_update_permission, AppResource::Round.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
-    }
-
-    // Moving the round to another session (roundgroup) is allowed only within the same division.
-    if let Some(target_rg_id) = item.roundgroup_id {
-        match models::roundgroup::read(&mut conn, target_rg_id) {
-            Ok(target_rg) if target_rg.did == division.did => {}
-            Ok(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": "A round can only be moved to a session in the same division."
-            }))),
-            Err(_) => return Ok(HttpResponse::UnprocessableEntity().json(json!({
-                "error": format!("Session with ID {} does not exist", target_rg_id)
-            }))),
-        }
     }
 
     tracing::debug!("{} Round model update {:?} {:?}", line!(), round_id, item);
@@ -262,11 +241,7 @@ async fn destroy(
         Err(_) => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let roundgroup = match models::roundgroup::read(&mut conn, round.roundgroup_id) {
-        Ok(s) => s,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    };
-    let division = match models::division::read(&mut conn, roundgroup.did) {
+    let division = match models::division::read(&mut conn, round.did) {
         Ok(d) => d,
         Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
@@ -288,29 +263,15 @@ async fn destroy(
 
     tracing::debug!("{} Round cascade delete {:?}", line!(), round_id);
 
-    // Deleting a round now cascades: all of the round's games are deleted with it. If that empties a
-    // pool bracket group (no games left across its pool brackets), the group and its pools are removed
-    // too. Everything runs in one transaction so a failure leaves the data untouched.
+    // Deleting a round cascades to its games, and nothing else: pool bracket groups, their pools and
+    // the pools' team placements are left untouched even if no games remain in them. Everything runs
+    // in one transaction so a failure leaves the data untouched.
     let result = conn.transaction::<(), diesel::result::Error, _>(|conn| {
         let page = PaginationParams { page: 0, page_size: 1000 };
-        let games = models::game::read_all_games_of_round(conn, round_id, &page)?;
-
-        // Remember which pool bracket groups these games touched, so we can clean up empties after.
-        let mut affected_groups: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
-        for game in &games {
-            if let Ok(bracket) = models::pool_bracket::read(conn, game.poolbracket_id) {
-                if let Some(group_id) = bracket.poolbracketgroupid {
-                    affected_groups.insert(group_id);
-                }
-            }
+        for game in models::game::read_all_games_of_round(conn, round_id, &page)? {
             models::game::delete(conn, game.gid)?;
         }
-
         models::round::delete(conn, round_id)?;
-
-        for group_id in affected_groups {
-            models::poolbracketgroup::delete_if_no_games(conn, group_id)?;
-        }
         Ok(())
     });
 

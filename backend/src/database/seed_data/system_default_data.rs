@@ -125,7 +125,6 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
             AppResource::TournamentGroup,
             AppResource::TournamentAdmin,
             AppResource::Division,
-            AppResource::RoundGroup,
             AppResource::PoolBracketGroup,
             AppResource::PoolBracket,
             AppResource::Round,

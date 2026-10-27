@@ -1,8 +1,8 @@
 /** Request body for the transactional auto-schedule endpoint (POST /api/schedule). */
 export interface CreateSchedulePayload {
   did: string;
-  /** One created session per name (the "# of times each team plays" count). */
-  session_names: string[];
+  /** One created pool group per name (the "# of times each team plays" count). */
+  pool_group_names: string[];
   /** How many pools to split the division's teams across. */
   num_pools: number;
   /** Minutes between consecutive rounds. */
@@ -11,13 +11,12 @@ export interface CreateSchedulePayload {
   start_time: string | null;
   /** Ordered room ids to fill each round's concurrent-game slots. */
   room_slots: string[];
-  /** When true, re-shuffle teams into new pools for each session's pool group (only affects 2+ sessions). */
+  /** When true, re-shuffle teams into new pools for each pool group (only affects 2+ pool groups). */
   shuffle_teams: boolean;
 }
 
 /** Counts of what the endpoint created — everything or nothing (it runs in one transaction). */
 export interface CreateScheduleResult {
-  sessions_created: number;
   pool_groups_created: number;
   pools_created: number;
   team_placements_created: number;
@@ -26,7 +25,7 @@ export interface CreateScheduleResult {
 }
 
 export const ScheduleAPI = {
-  /** Create a round-robin schedule (sessions, pool groups, pools, placements, rounds, games) in one
+  /** Create a round-robin schedule (pool groups, pools, placements, rounds, games) in one
    *  transactional request. On any failure the backend creates nothing. */
   create: async (payload: CreateSchedulePayload, accessToken?: string): Promise<CreateScheduleResult> => {
     const response = await fetch('/api/schedule', {

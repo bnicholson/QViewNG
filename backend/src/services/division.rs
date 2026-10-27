@@ -103,7 +103,7 @@ struct PoolBracketRowsParams {
     type_: String,
 }
 
-/// Returns fully-formed pool-bracket data-table rows (bracket + roundgroup/division names +
+/// Returns fully-formed pool-bracket data-table rows (bracket + division name +
 /// last-modified user name) for the division, filtered by `type`, in a single paginated call.
 #[get("/{id}/pool-bracket-rows")]
 async fn read_pool_bracket_rows(
@@ -144,23 +144,6 @@ async fn read_poolbracketgroup_rows(
     }
 }
 
-#[get("/{id}/roundgroups")]
-async fn read_roundgroups(
-    db: Data<Database>,
-    item_id: Path<Uuid>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut conn, &req);
-
-    match models::roundgroup::read_all_of_division(&mut conn, item_id.into_inner()) {
-        Ok(roundgroups) => HttpResponse::Ok().json(roundgroups),
-        Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
 /// The division's poolbracketgroups (each groups the pools that run concurrently for team placement).
 #[get("/{id}/poolbracketgroups")]
 async fn read_poolbracketgroups(
@@ -176,26 +159,6 @@ async fn read_poolbracketgroups(
     match models::poolbracketgroup::read_all_of_division(&mut conn, item_id.into_inner()) {
         Ok(groups) => HttpResponse::Ok().json(groups),
         Err(_) => HttpResponse::NotFound().finish(),
-    }
-}
-
-/// Returns fully-formed roundgroup data-table rows (roundgroup + division name + last-modified user name)
-/// for the division in a single paginated call.
-#[get("/{id}/roundgroup-rows")]
-async fn read_roundgroup_rows(
-    db: Data<Database>,
-    item_id: Path<Uuid>,
-    Query(params): Query<PaginationParams>,
-    req: HttpRequest
-) -> HttpResponse {
-    let mut conn = db.pool.get().unwrap();
-
-    // log this api call
-    models::apicalllog::create(&mut conn, &req);
-
-    match models::roundgroup::read_roundgroup_rows_of_division(&mut conn, item_id.into_inner(), &params) {
-        Ok((items, count)) => HttpResponse::Ok().json(PagedResponse { count, items }),
-        Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
@@ -387,26 +350,19 @@ async fn create(
             Err(e) => tracing::error!("{} Failed to create parallel statsgroup for division {}: {:?}", line!(), division.did, e),
         }
 
-        // Seed the division with a starting structure: a "Session 1" roundgroup containing a
-        // "Round 1" scheduled for 8am on the tournament's start date, plus a "Pool A" pool bracket.
-        match models::roundgroup::RoundGroupBuilder::new(division.did)
-            .set_name("Session 1")
-            .set_creator_userid(creator_id)
-            .build_and_insert(&mut conn)
+        // Seed the division with a starting structure: a "Round 1" scheduled for 8am on the
+        // tournament's start date, plus a "Pool A" pool bracket.
         {
-            Ok(roundgroup) => {
-                use chrono::{TimeZone, Utc};
-                let round_start = Utc.from_utc_datetime(&tournament_start_date.and_hms_opt(8, 0, 0).unwrap());
-                if let Err(e) = models::round::RoundBuilder::new_default(roundgroup.roundgroup_id)
-                    .set_name("Round 1")
-                    .set_scheduled_start_time(round_start)
-                    .set_last_modified_user(creator_id)
-                    .build_and_insert(&mut conn)
-                {
-                    tracing::error!("{} Failed to create default Round 1 for division {}: {:?}", line!(), division.did, e);
-                }
+            use chrono::{TimeZone, Utc};
+            let round_start = Utc.from_utc_datetime(&tournament_start_date.and_hms_opt(8, 0, 0).unwrap());
+            if let Err(e) = models::round::RoundBuilder::new_default(division.did)
+                .set_name("Round 1")
+                .set_scheduled_start_time(round_start)
+                .set_last_modified_user(creator_id)
+                .build_and_insert(&mut conn)
+            {
+                tracing::error!("{} Failed to create default Round 1 for division {}: {:?}", line!(), division.did, e);
             }
-            Err(e) => tracing::error!("{} Failed to create default Session 1 for division {}: {:?}", line!(), division.did, e),
         }
 
         // A "Group 1" poolbracketgroup holds the starting "Pool A" (team placement is per-group).
@@ -614,9 +570,7 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_rounds)
         .service(read_pool_brackets)
         .service(read_pool_bracket_rows)
-        .service(read_roundgroups)
         .service(read_poolbracketgroups)
-        .service(read_roundgroup_rows)
         .service(read_poolbracketgroup_rows)
         .service(read_teams)
         .service(read_team_rows)

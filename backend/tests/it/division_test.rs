@@ -626,7 +626,7 @@ async fn get_all_pool_brackets_of_division_works() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
-    // Assert: exactly the three brackets across the division's two roundgroups (the other division's
+    // Assert: exactly the division's three brackets (the other division's
     // bracket must not leak in).
     let body: Vec<backend::models::pool_bracket::PoolBracket> = test::read_body_json(resp).await;
     assert_eq!(body.len(), 3);
@@ -688,74 +688,6 @@ async fn get_pool_bracket_rows_of_division_works() {
     assert_eq!(bracket_body.items.len(), 1);
     assert_eq!(bracket_body.items[0].name.as_str(), "Bracket A");
     assert_eq!(bracket_body.items[0].type_, "bracket");
-}
-
-#[actix_web::test]
-async fn get_all_roundgroups_of_division_works() {
-
-    // Arrange:
-
-    let db = test_db();
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-
-    let division = fixtures::divisions::seed_get_roundgroups_by_division(&mut conn);
-
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/divisions/{}/roundgroups", division.did);
-    let req = test::TestRequest::get().uri(&uri).to_request();
-
-    // Act:
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert: exactly the three roundgroups of this division (the other division's roundgroup is excluded).
-    let body: Vec<backend::models::roundgroup::RoundGroup> = test::read_body_json(resp).await;
-    assert_eq!(body.len(), 3);
-    let names: Vec<&str> = body.iter().map(|s| s.name.as_str()).collect();
-    assert!(names.contains(&"Pool Play"));
-    assert!(names.contains(&"Bracket Play"));
-    assert!(names.contains(&"Finals"));
-    assert!(!names.contains(&"Other Session"));
-}
-
-#[actix_web::test]
-async fn get_roundgroup_rows_of_division_works() {
-
-    // Arrange:
-
-    let db = test_db();
-    let mut conn = db.get_connection().expect("Failed to get connection.");
-
-    let division = fixtures::divisions::seed_get_roundgroups_by_division(&mut conn);
-
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(db))
-            .configure(configure_routes)
-    ).await;
-
-    let uri = format!("/api/divisions/{}/roundgroup-rows?page={}&page_size={}", division.did, PAGE_NUM, PAGE_SIZE);
-    let req = test::TestRequest::get().uri(&uri).to_request();
-
-    // Act:
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    // Assert: enriched rows carry the division name and last-modified user's display name.
-    let body: PagedResponse<backend::models::roundgroup::RoundGroupRow> = test::read_body_json(resp).await;
-    assert_eq!(body.count, 3);
-    assert_eq!(body.items.len(), 3);
-    for row in &body.items {
-        assert_eq!(row.division_name, "Session Div");
-        assert!(row.last_modified_user_name.starts_with("Session Owner"));
-    }
 }
 
 #[actix_web::test]

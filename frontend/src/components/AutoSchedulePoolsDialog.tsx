@@ -14,8 +14,6 @@ import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
-import Checkbox from '@mui/material/Checkbox'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import ToggleButton from '@mui/material/ToggleButton'
@@ -37,12 +35,6 @@ interface Props {
   did: string
   /** Total number of teams currently in the division being scheduled. */
   totalTeams: number
-  /**
-   * Advanced mode (default) exposes the pool count, the team-shuffling option and the names of the
-   * sessions to be created. In Normal mode those are hidden and fixed at one pool / one pool group /
-   * one session per repeat — still created in the background, just never shown or named here.
-   */
-  advanced?: boolean
   onCancel: VoidFunction
   /** Called after a schedule is successfully created so the parent can reload its data. */
   onCreated?: () => void
@@ -75,6 +67,11 @@ function IncrementControl({ label, value, onChange, min = 1 }: { label: string; 
   )
 }
 
+// Every team goes in one pool (pools aren't something the user manages), so there's no pool
+// division to pick or shuffle. Each "time every team plays" gets its own pool group + pool, created
+// in the background and never named here.
+const numPools = 1
+
 /**
  * Number of rounds a single round-robin needs for `n` teams: n-1 when n is even, n when odd (odd
  * needs a bye each round). Zero for fewer than two teams.
@@ -85,21 +82,16 @@ function singleRoundRobinRounds(n: number): number {
 }
 
 export const AutoSchedulePoolsDialog = (props: Props) => {
-  const { isOpen, tid, did, totalTeams, advanced = true, onCancel, onCreated } = props
+  const { isOpen, tid, did, totalTeams, onCancel, onCreated } = props
   const { accessToken } = useAuth()
   const [scheduleType, setScheduleType] = useState<'round_robin' | 'brackets'>('round_robin')
   const [teamsPerGame, setTeamsPerGame] = useState<2 | 3 | 'mixed'>(2)
   const [timesEachPlays, setTimesEachPlays] = useState(1)
-  // Whether to re-shuffle teams into new pools for each session's pool group (only shown/used with 2+ plays).
-  const [shuffleTeams, setShuffleTeams] = useState(true)
-  const [numPools, setNumPools] = useState(1)
   const [startTime, setStartTime] = useState<Dayjs | null>(null)
   const [roundDurationMin, setRoundDurationMin] = useState(30)
   // Rooms available to the schedule, and the ordered room ids the user has assigned to the needed slots.
   const [rooms, setRooms] = useState<RoomTS[]>([])
   const [roomSlots, setRoomSlots] = useState<string[]>([])
-  // One editable name per session to be created (count = timesEachPlays).
-  const [sessionNames, setSessionNames] = useState<string[]>(['Session 1'])
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -108,13 +100,10 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
   useEffect(() => {
     if (!isOpen) return
     setTimesEachPlays(1)
-    setShuffleTeams(true)
-    setNumPools(1)
     setTeamsPerGame(2)
     setStartTime(null)
     setRoundDurationMin(30)
     setRoomSlots([])
-    setSessionNames(['Session 1'])
     setCreating(false)
     setError(null)
     TournamentAPI.getById(tid)
@@ -128,41 +117,31 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
       .catch(() => { /* leave rooms empty if they can't be loaded */ })
   }, [isOpen, tid])
 
-  // One session is created for each time every team plays, so keep sessionNames sized to timesEachPlays.
-  useEffect(() => {
-    setSessionNames(prev => {
-      if (prev.length === timesEachPlays) return prev
-      const next = prev.slice(0, timesEachPlays)
-      while (next.length < timesEachPlays) next.push(`Session ${next.length + 1}`)
-      return next
-    })
-  }, [timesEachPlays])
-
   // Rounds needed = single round-robin rounds for the largest pool, times how many times each pairing plays.
   // Pools play in parallel, so the pool with the most teams sets the round count.
   const teamsPerLargestPool = useMemo(
     () => (numPools > 0 ? Math.ceil(totalTeams / numPools) : totalTeams),
-    [totalTeams, numPools],
+    [totalTeams],
   )
   const totalRounds = useMemo(
     () => singleRoundRobinRounds(teamsPerLargestPool) * timesEachPlays,
     [teamsPerLargestPool, timesEachPlays],
   )
-  // Total games across the whole schedule: each pool plays one single round-robin per session, so a
-  // pool of `size` teams contributes size*(size-1)/2 games; summed over pools × the session count.
+  // Total games across the whole schedule: each pool plays one single round-robin per pool group, so
+  // a pool of `size` teams contributes size*(size-1)/2 games; summed over pools × the group count.
   const totalGames = useMemo(() => {
     if (numPools < 1 || totalTeams < 2) return 0
     const divisor = teamsPerGame === 'mixed' ? 2 : teamsPerGame
     const base = Math.floor(totalTeams / numPools)
     const remainder = totalTeams % numPools
-    let perSession = 0
+    let perGroup = 0
     for (let p = 0; p < numPools; p++) {
       const size = base + (p < remainder ? 1 : 0)
       // Games per round in this pool × the pool's round count. For 2-team this equals size*(size-1)/2.
-      perSession += Math.floor(size / divisor) * singleRoundRobinRounds(size)
+      perGroup += Math.floor(size / divisor) * singleRoundRobinRounds(size)
     }
-    return perSession * timesEachPlays
-  }, [totalTeams, numPools, timesEachPlays, teamsPerGame])
+    return perGroup * timesEachPlays
+  }, [totalTeams, timesEachPlays, teamsPerGame])
   // Games (and therefore rooms) in a full round = concurrent games across all pools. Each pool of
   // `size` teams runs floor(size / teamsPerGame) games at once; the 2-/3-team toggle sets how many
   // teams share a game/room, and "Mixed" uses 2 (the smaller size) — the worst case that needs the
@@ -178,7 +157,7 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
       games += Math.floor(size / divisor)
     }
     return games
-  }, [totalTeams, numPools, teamsPerGame])
+  }, [totalTeams, teamsPerGame])
 
   // Rooms needed per round equals the concurrent games per round.
   const roomsNeeded = gamesPerRound
@@ -205,9 +184,9 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
   }, [durationMinutes])
   const endTime: Dayjs | null = startTime && durationMinutes > 0 ? startTime.add(durationMinutes, 'minute') : null
 
-  // Create-only and transactional: the backend builds the sessions, pool groups, pools, team
-  // placements, rounds and games in one transaction — on any failure nothing is created. Each
-  // session is one full single round-robin per pool (so each pair meets `timesEachPlays` times
+  // Create-only and transactional: the backend builds the pool groups, pools, team placements,
+  // rounds and games in one transaction — on any failure nothing is created. Each pool group is
+  // one full single round-robin per pool (so each pair meets `timesEachPlays` times
   // overall). The Teams-per-game toggle only sizes the room slots; matchups are 2-team games.
   const createSchedule = async () => {
     setCreating(true)
@@ -215,14 +194,13 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
     try {
       await ScheduleAPI.create({
         did,
-        // Normal mode: one pool holding every team, so there is no pool division to shuffle. The
-        // session names are generated, not entered — the user never sees them.
-        session_names: sessionNames,
-        num_pools: advanced ? numPools : 1,
+        // One pool group per time every team plays; the names are generated, not entered.
+        pool_group_names: Array.from({ length: timesEachPlays }, (_, i) => `Pool Group ${i + 1}`),
+        num_pools: numPools,
         round_duration_minutes: roundDurationMin,
         start_time: startTime ? startTime.toISOString() : null,
         room_slots: roomSlots,
-        shuffle_teams: advanced ? shuffleTeams : false,
+        shuffle_teams: false,
       }, accessToken)
       onCreated?.()
       onCancel()
@@ -276,17 +254,8 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               <ToggleButton value="mixed">Mixed</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          {advanced && (
-            <IncrementControl
-              label="# of Pools"
-              value={numPools}
-              onChange={setNumPools}
-            />
-          )}
           <IncrementControl
-            label={advanced
-              ? '# of Sessions / # of times each Team plays every other Team within their Pool'
-              : '# of times each Team plays every other Team'}
+            label="# of times each Team plays every other Team"
             value={timesEachPlays}
             onChange={setTimesEachPlays}
           />
@@ -311,13 +280,6 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
               <Typography variant="body1">{totalGames}</Typography>
             </Box>
           </Box>
-          {advanced && timesEachPlays > 1 && (
-            <FormControlLabel
-              control={<Checkbox size="small" checked={shuffleTeams} onChange={(e) => setShuffleTeams(e.target.checked)} />}
-              label={<Typography variant="body2">Shuffle Teams into New Pools for each Pool Group</Typography>}
-            />
-          )}
-
           <Divider />
 
           {/* Assign a room to each concurrent-game slot needed per round. All slots must be filled. */}
@@ -392,30 +354,6 @@ export const AutoSchedulePoolsDialog = (props: Props) => {
             </Box>
           </LocalizationProvider>
 
-          {advanced && <Divider />}
-
-          {/* One session is created per "times each team plays"; each can be renamed here. */}
-          {advanced && (
-          <Box>
-            <InputLabel sx={{ whiteSpace: 'normal' }}>Sessions to create</InputLabel>
-            <Typography variant="caption" color="text.secondary">
-              One session is created for each time every team plays. Rename any of them below.
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
-              {sessionNames.map((name, i) => (
-                <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{i + 1}:</Typography>
-                  <TextField
-                    value={name}
-                    onChange={(e) => setSessionNames(prev => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
-                    size="small"
-                    fullWidth
-                  />
-                </Box>
-              ))}
-            </Box>
-          </Box>
-          )}
           </>
           )}
 

@@ -15,7 +15,6 @@ import DivisionsTable from '../components/DivisionsTable'
 import RoomsTable from '../components/RoomsTable'
 import BuildingsTable from '../components/BuildingsTable'
 import RoundsTable from '../components/RoundsTable'
-import RoundGroupsTable from '../components/RoundGroupsTable'
 import PoolBracketsTable from '../components/PoolBracketsTable'
 import PoolBracketGroupsTable from '../components/PoolBracketGroupsTable'
 import TeamsTable from '../components/TeamsTable'
@@ -113,13 +112,10 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     (session?.isSystemAdministrator ?? false) ||
     (session?.userId === tournament?.owner_id);
 
-  // Sessions, Pools and Brackets are infrastructure that Normal-mode scheduling creates and manages
-  // on the user's behalf, so their sections are hidden while the tournament is in Normal mode —
-  // there is nothing there for the user to manage, and naming them only raises questions. Super
-  // users see every section regardless, since they support tournaments that are in either mode.
-  const showScheduleInternals =
-    (tournament?.use_advanced_scheduling ?? false) ||
-    (session?.isSystemAdministrator ?? false);
+  // Pool/Bracket Groups, Pools and Brackets are infrastructure that scheduling creates and manages
+  // on the user's behalf — there is nothing there for the user to manage, and naming them only
+  // raises questions. Only super users (who support every tournament) see their sections.
+  const showScheduleInternals = session?.isSystemAdministrator ?? false;
 
   const canViewPairingCode =
     session?.can(PERMISSION.TOURNAMENT_READ_PAIRING_CODE) ?? false;
@@ -177,7 +173,6 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
     { kind: 'route', label: 'Schedule',     to: `/tournament/${tid}/schedule`,     requiredPermission: PERMISSION.TOURNAMENT_READ },
     { kind: 'route', label: 'LIVE Stats',   to: `/tournament/${tid}/live-stats`,   requiredPermission: PERMISSION.ROOM_READ },
     { kind: 'route', label: 'Divisions',    to: `/tournament/${tid}/divisions`,    requiredPermission: PERMISSION.DIVISION_READ },
-    { kind: 'route', label: 'Division Sessions', to: `/tournament/${tid}/division-sessions`, requiredPermission: PERMISSION.ROUNDGROUP_READ, visible: showScheduleInternals },
     { kind: 'route', label: 'Pool/Bracket Groups', to: `/tournament/${tid}/pool-bracket-groups`, requiredPermission: PERMISSION.POOLBRACKETGROUP_READ, visible: showScheduleInternals },
     { kind: 'route', label: 'Pools',        to: `/tournament/${tid}/pools`,        requiredPermission: PERMISSION.POOLBRACKET_READ, visible: showScheduleInternals },
     { kind: 'route', label: 'Brackets',     to: `/tournament/${tid}/brackets`,     requiredPermission: PERMISSION.POOLBRACKET_READ, visible: showScheduleInternals },
@@ -225,7 +220,6 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {/* LiveStats reads the tournament id (and its tab and division) from the URL, so it needs no props. */}
           {props.childRoute === 'live-stats'        && <LiveStats />}
           {props.childRoute === 'divisions'         && <DivisionsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.DIVISION_CREATE)} showDeleteButton={canCreate(PERMISSION.DIVISION_DELETE)} showSensitiveColumns={isOwnerOrSystemAdmin} showAuditColumns={canViewAuditColumns}/>}
-          {props.childRoute === 'division-sessions' && (showScheduleInternals ? <RoundGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.ROUNDGROUP_CREATE)} showEditButton={canCreate(PERMISSION.ROUNDGROUP_UPDATE)} showDeleteButton={canCreate(PERMISSION.ROUNDGROUP_DELETE)} showAuditColumns={canViewAuditColumns}/> : <Navigate to={`/tournament/${tid}/overview`} replace />)}
           {props.childRoute === 'pool-bracket-groups' && (showScheduleInternals
             ? <PoolBracketGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.POOLBRACKETGROUP_CREATE)} showEditButton={canCreate(PERMISSION.POOLBRACKETGROUP_UPDATE)} showDeleteButton={canCreate(PERMISSION.POOLBRACKETGROUP_DELETE)} showAuditColumns={canViewAuditColumns}/>
             : <Navigate to={`/tournament/${tid}/overview`} replace />)}

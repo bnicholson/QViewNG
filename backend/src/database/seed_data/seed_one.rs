@@ -1,4 +1,4 @@
-use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, roundgroup::RoundGroupBuilder, pool_bracket::PoolBracketBuilder, poolbracketgroup::PoolBracketGroupBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
+use crate::{database::{self, seed_data::system_default_data::default_password}, models::{computer::ComputerBuilder, create_tournament_applicant::CreateTournamentApplicantBuilder, division::DivisionBuilder, pool_bracket::PoolBracketBuilder, poolbracketgroup::PoolBracketGroupBuilder, equipmentregistration::{EquipmentRegistrationBuilder, EquipmentRegistrationStatus}, extensioncord::ExtensionCordBuilder, game::GameBuilder, interfacebox::InterfaceBoxBuilder, jumppad::JumpPadBuilder, microphonerecorder::MicrophoneRecorderBuilder, monitor::MonitorBuilder, powerstrip::PowerStripBuilder, projector::ProjectorBuilder, role::AppRole, room::RoomBuilder, roomgroup::RoomGroupBuilder, roster::RosterBuilder, roster_coach::RosterCoachBuilder, roster_quizzer::RosterQuizzerBuilder, round::RoundBuilder, statsgroup::StatsGroupBuilder, team::{Team, TeamBuilder}, team_teamgroup::TeamTeamgroupBuilder, tournament::TournamentBuilder, tournament_admin::TournamentAdminBuilder, tournamentgroup::TournamentGroupBuilder, tournamentgroup_tournament::TournamentGroupTournamentBuilder, user::UserBuilder, users_roles::UsersRolesBuilder}};
 use chrono::{DateTime, Local, NaiveDate, Duration, TimeZone, Utc};
 use uuid::Uuid;
 use crate::models::gameevent::{GameEventBuilder, GameEventCode};
@@ -199,7 +199,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
-    // Division roundgroups and pools/brackets are created later, inside the `include_scheduling` block
+    // Rounds and pools/brackets are created later, inside the `include_scheduling` block
     // (below), together with the team placements and games that depend on them — so an unscheduled
     // tournament stops at registered teams + gear.
 
@@ -454,7 +454,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
     // Rooms 8-10 added so the Experienced division's two 6-team pools (3 rooms each) can run
-    // concurrently with Novice and Decades in Session 1 without any room being double-booked.
+    // concurrently with Novice and Decades in their first round-robin without any room being double-booked.
     let room_8 = RoomBuilder::new_default("Room 8", tour.tid)
         .set_roomgroupid(Some(building_b.roomgroupid))
         .set_last_modified_user(tour_owner.id)
@@ -1184,7 +1184,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .build_and_insert(db)
         .unwrap();
 
-    // Rounds are created inside the scheduling block below (they belong to division roundgroups).
+    // Rounds are created inside the scheduling block below.
 
     // Div: Novice
     let coach_nov_1 = UserBuilder::new("Samuel")
@@ -1510,7 +1510,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
     // (Every seeded user, coaches included, gets the member role in `assign_member_role_to_seeded_users`.)
 
     // ── Schedule ────────────────────────────────────────────────────────────────
-    // Everything below this point — division roundgroups, pools/brackets, team placements, games, and
+    // Everything below this point — rounds, pools/brackets, team placements, games, and
     // the game events nested under `include_gameevents` — is the tournament's schedule. When
     // `include_scheduling` is false the seed stops here: a tournament with registered teams and gear
     // but no schedule yet, ready for the manager/admins to define one. Because games are only created
@@ -1520,27 +1520,17 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         return;
     }
 
-    // Each division runs two roundgroups ("Session 1" then "Session 2"). Session 1 for every division
-    // happens concurrently, so those games use disjoint rooms (Experienced 1-2, Novice 4-5,
-    // Decades 6-7); Session 2 happens afterward and reuses the same rooms.
+    // Each division plays two round-robins, one after the other. The first round-robin of every
+    // division happens concurrently, so those games use disjoint rooms (Experienced 1-2, Novice 4-5,
+    // Decades 6-7); the second happens afterward and reuses the same rooms.
     //
-    // Experienced's Session 1 is split into two pools (its teams divided evenly across them — see the
-    // team groups seeded below); every other roundgroup is a single pool holding all of that division's
-    // teams. Games must reference a real pool bracket — there is no auto-default.
-    // Experienced plays each pair twice, split by session: Session 1 is every pair's first meeting,
-    // Session 2 the second. Each session has its own poolbracketgroup holding that session's three
-    // pools, so a team is placed once per group. Pool names must be unique within the division, so
-    // they carry the session number (A1/B1/C1, then A2/B2/C2) — the same convention Novice uses.
-    let roundgroup_exp_1 = RoundGroupBuilder::new(division_experienced.did)
-        .set_name("Session 1")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
-    let roundgroup_exp_2 = RoundGroupBuilder::new(division_experienced.did)
-        .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
+    // Experienced's teams are split evenly across three pools (see the team groups seeded below);
+    // every other division's pool holds all of that division's teams. Games must reference a real
+    // pool bracket — there is no auto-default.
+    // Experienced plays each pair twice: Group 1's pools hold every pair's first meeting, Group 2's
+    // the second. Each poolbracketgroup holds three pools, so a team is placed once per group. Pool
+    // names must be unique within the division, so they carry the group number (A1/B1/C1, then
+    // A2/B2/C2) — the same convention Novice uses.
     let pbg_exp_1 = PoolBracketGroupBuilder::new(division_experienced.did)
         .set_name("Group 1")
         .set_creator_userid(tour_owner.id)
@@ -1551,7 +1541,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let mut exp_pools_by_session: Vec<Vec<Uuid>> = Vec::new();
+    let mut exp_pools_by_group: Vec<Vec<Uuid>> = Vec::new();
     for (group_id, suffix) in [
         (pbg_exp_1.poolbracketgroupid, 1),
         (pbg_exp_2.poolbracketgroupid, 2),
@@ -1566,21 +1556,16 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
                 .unwrap();
             pools.push(pool.pool_bracket_id);
         }
-        exp_pools_by_session.push(pools);
+        exp_pools_by_group.push(pools);
     }
 
-    let roundgroup_nov_1 = RoundGroupBuilder::new(division_novice.did)
-        .set_name("Session 1")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
     let pbg_nov_1 = PoolBracketGroupBuilder::new(division_novice.did)
         .set_name("Group 1")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
     // Novice's two round-robins live in separate pools, each in its own pool group (so every team is
-    // placed once per group): Session 1 → pool A1 (Group 1), Session 2 → pool A2 (Group 2).
+    // placed once per group): first round-robin → pool A1 (Group 1), second → pool A2 (Group 2).
     let pb_nov_1 = PoolBracketBuilder::new(division_novice.did)
         .set_name("A1")
         .set_poolbracketgroupid(pbg_nov_1.poolbracketgroupid)
@@ -1598,24 +1583,14 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let roundgroup_nov_2 = RoundGroupBuilder::new(division_novice.did)
-        .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
 
-    let roundgroup_dec_1 = RoundGroupBuilder::new(division_decades.did)
-        .set_name("Session 1")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
     let pbg_dec_1 = PoolBracketGroupBuilder::new(division_decades.did)
         .set_name("Group 1")
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    // Decades' two round-robins live in separate pools that share a single pool group: Session 1 →
-    // pool A1, Session 2 → pool A2 (both in Group 1, so every team appears in both pools of the group).
+    // Decades' two round-robins live in separate pools that share a single pool group: first →
+    // pool A1, second → pool A2 (both in Group 1, so every team appears in both pools of the group).
     let pb_dec_1 = PoolBracketBuilder::new(division_decades.did)
         .set_name("A1")
         .set_poolbracketgroupid(pbg_dec_1.poolbracketgroupid)
@@ -1628,111 +1603,106 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_creator_userid(tour_owner.id)
         .build_and_insert(db)
         .unwrap();
-    let roundgroup_dec_2 = RoundGroupBuilder::new(division_decades.did)
-        .set_name("Session 2")
-        .set_creator_userid(tour_owner.id)
-        .build_and_insert(db)
-        .unwrap();
 
-    // Rounds belong to (time-bound) division roundgroups. Experienced's single roundgroup runs 5 rounds
-    // (12:00-14:00); Novice and Decades each run 3 rounds per roundgroup (Session 1 12:00-13:00,
-    // Session 2 13:30-14:30). Both Experienced pools share these same 5 rounds.
-    let round_exp_s1_1 = RoundBuilder::new_default(roundgroup_exp_1.roundgroup_id)
+    // Rounds belong to their division and run back to back, 30 minutes apart, from 12:00:
+    // Experienced 6 rounds, Novice 10 (5 per round-robin) and Decades 6 (3 per round-robin). Round
+    // names run on across both round-robins so they stay unique within the division.
+    let round_exp_s1_1 = RoundBuilder::new_default(division_experienced.did)
         .set_last_modified_user(tour_owner.id).set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s1_2 = RoundBuilder::new_default(roundgroup_exp_1.roundgroup_id)
+    let round_exp_s1_2 = RoundBuilder::new_default(division_experienced.did)
         .set_last_modified_user(tour_owner.id).set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s1_3 = RoundBuilder::new_default(roundgroup_exp_1.roundgroup_id)
+    let round_exp_s1_3 = RoundBuilder::new_default(division_experienced.did)
         .set_last_modified_user(tour_owner.id).set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s2_4 = RoundBuilder::new_default(roundgroup_exp_2.roundgroup_id)
+    let round_exp_s2_4 = RoundBuilder::new_default(division_experienced.did)
         .set_last_modified_user(tour_owner.id).set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s2_5 = RoundBuilder::new_default(roundgroup_exp_2.roundgroup_id)
+    let round_exp_s2_5 = RoundBuilder::new_default(division_experienced.did)
         .set_last_modified_user(tour_owner.id).set_name("5")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_exp_s2_6 = RoundBuilder::new_default(roundgroup_exp_2.roundgroup_id)
+    let round_exp_s2_6 = RoundBuilder::new_default(division_experienced.did)
         .set_last_modified_user(tour_owner.id).set_name("6")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
 
-    // Novice has 5 teams, so each session is a full 5-team single round-robin: 5 rounds, 2 games per
-    // round with one team on a bye. Both sessions run the same round-robin (teams face each other twice).
-    let round_nov_s1_1 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
+    // Novice has 5 teams, so each round-robin is a full 5-team single round-robin: 5 rounds, 2 games
+    // per round with one team on a bye. It is played twice (teams face each other twice).
+    let round_nov_s1_1 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s1_2 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
+    let round_nov_s1_2 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s1_3 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
+    let round_nov_s1_3 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s1_4 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
+    let round_nov_s1_4 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s1_5 = RoundBuilder::new_default(roundgroup_nov_1.roundgroup_id)
+    let round_nov_s1_5 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("5")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_1 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s2_1 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("6")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_2 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s2_2 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("7")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 15,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_3 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s2_3 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("8")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 15, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_4 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s2_4 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("9")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 16,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_nov_s2_5 = RoundBuilder::new_default(roundgroup_nov_2.roundgroup_id)
+    let round_nov_s2_5 = RoundBuilder::new_default(division_novice.did)
         .set_last_modified_user(tour_owner.id).set_name("10")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 16, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
 
-    let round_dec_s1_1 = RoundBuilder::new_default(roundgroup_dec_1.roundgroup_id)
+    let round_dec_s1_1 = RoundBuilder::new_default(division_decades.did)
         .set_last_modified_user(tour_owner.id).set_name("1")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_dec_s1_2 = RoundBuilder::new_default(roundgroup_dec_1.roundgroup_id)
+    let round_dec_s1_2 = RoundBuilder::new_default(division_decades.did)
         .set_last_modified_user(tour_owner.id).set_name("2")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 12, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_dec_s1_3 = RoundBuilder::new_default(roundgroup_dec_1.roundgroup_id)
+    let round_dec_s1_3 = RoundBuilder::new_default(division_decades.did)
         .set_last_modified_user(tour_owner.id).set_name("3")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_dec_s2_1 = RoundBuilder::new_default(roundgroup_dec_2.roundgroup_id)
+    let round_dec_s2_1 = RoundBuilder::new_default(division_decades.did)
         .set_last_modified_user(tour_owner.id).set_name("4")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 13, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_dec_s2_2 = RoundBuilder::new_default(roundgroup_dec_2.roundgroup_id)
+    let round_dec_s2_2 = RoundBuilder::new_default(division_decades.did)
         .set_last_modified_user(tour_owner.id).set_name("5")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14,  0, 0).unwrap())
         .build_and_insert(db).unwrap();
-    let round_dec_s2_3 = RoundBuilder::new_default(roundgroup_dec_2.roundgroup_id)
+    let round_dec_s2_3 = RoundBuilder::new_default(division_decades.did)
         .set_last_modified_user(tour_owner.id).set_name("6")
         .set_scheduled_start_time(Utc.with_ymd_and_hms(2055, 5, 23, 14, 30, 0).unwrap())
         .build_and_insert(db).unwrap();
 
     // Team groups: each pool/bracket owns exactly one team group holding its teams. Experienced's
     // 12 teams are split evenly across three pools (1-4 in A, 5-8 in B, 9-12 in C), and each
-    // session's group repeats that split — so a team is placed once per pool group. Every other
+    // pool group repeats that split — so a team is placed once per pool group. Every other
     // division's pool holds all of its teams.
     let exp_pool_rosters: [[Uuid; 4]; 3] = [
         [team_1_experienced.teamid, team_2_experienced.teamid,
@@ -1742,8 +1712,8 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         [team_9_experienced.teamid, team_10_experienced.teamid,
          team_11_experienced.teamid, team_12_experienced.teamid],
     ];
-    for session_pools in &exp_pools_by_session {
-        for (pool_id, roster) in session_pools.iter().zip(exp_pool_rosters.iter()) {
+    for group_pools in &exp_pools_by_group {
+        for (pool_id, roster) in group_pools.iter().zip(exp_pool_rosters.iter()) {
             place_teams_in_pool(db, *pool_id, tour_owner.id, roster);
         }
     }
@@ -1761,20 +1731,19 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         ]);
     }
 
-    // Games — round-robin schedule. Session 1 games use disjoint rooms across divisions (they run
-    // concurrently); Session 2 reuses those rooms afterward. Each game records a (gid, left team,
+    // Games — round-robin schedule. First-round-robin games use disjoint rooms across divisions
+    // (they run concurrently); the second round-robin reuses those rooms afterward. Each game records a (gid, left team,
     // right team) spec here as it's built; the actual game-event streams are seeded together, in one
     // timed pass, after all games exist (see the `include_gameevents` block below).
     let mut game_event_specs: Vec<(Uuid, &Team, &Team)> = Vec::new();
 
-    // Div: Experienced — Session 1, three pools of four teams. Each pool plays a double
+    // Div: Experienced — three pools of four teams. Each pool plays a double
     // round-robin, so every team faces each of its three pool-mates twice: 6 rounds x 2 games per
     // pool = 12 games per pool, 36 in all. The three pools run concurrently, each owning two of
     // Building A's rooms (Pool A -> rooms 1-2, Pool B -> 3-4, Pool C -> 5-6; qm per room, rm1 ->
     // qm1 ... rm6 -> qm6), so no room or quizmaster is ever double-booked within a round.
-    // Rounds 1-3 sit in Session 1 and 4-6 in Session 2, which lines up with the pairing table: its
-    // first three rounds are each pair's first meeting and its last three are the rematches. Each
-    // game is filed under its own session's pool.
+    // Rounds 1-3 use Group 1's pools and 4-6 Group 2's, which lines up with the pairing table: its
+    // first three rounds are each pair's first meeting and its last three are the rematches.
     let exp_rounds = [
         &round_exp_s1_1, &round_exp_s1_2, &round_exp_s1_3,
         &round_exp_s2_4, &round_exp_s2_5, &round_exp_s2_6,
@@ -1793,11 +1762,11 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
             [(room_5.roomid, qm_5.id), (room_6.roomid, qm_6.id)],
         ),
     ];
-    let rounds_per_session = exp_rounds.len() / exp_pools_by_session.len();
+    let rounds_per_group = exp_rounds.len() / exp_pools_by_group.len();
     for (round_idx, round) in exp_rounds.iter().enumerate() {
-        let session_pools = &exp_pools_by_session[round_idx / rounds_per_session];
+        let group_pools = &exp_pools_by_group[round_idx / rounds_per_group];
         for (pool_idx, (teams, rooms)) in exp_pool_members.iter().enumerate() {
-            let pool_id = session_pools[pool_idx];
+            let pool_id = group_pools[pool_idx];
             for (slot, (left_idx, right_idx)) in FOUR_TEAM_DOUBLE_ROUND_ROBIN[round_idx].iter().enumerate() {
                 let (room_id, quizmaster_id) = rooms[slot];
                 let left = teams[*left_idx];
@@ -1811,7 +1780,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         }
     }
 
-    // Div: Novice — Session 1: full 5-team round-robin, 10 games / 5 rounds (2 games/round, one bye
+    // Div: Novice — first round-robin (pool A1): full 5-team round-robin, 10 games / 5 rounds (2 games/round, one bye
     // each round). rm7 → qm4, rm8 → qm5. Byes: R1→t1, R2→t2, R3→t3, R4→t4, R5→t5.
     // Round 1: (t2n,t5n)→rm7, (t3n,t4n)→rm8   [t1 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s1_1.roundid)
@@ -1869,7 +1838,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
 
-    // Div: Novice — Session 2: the same full 5-team round-robin again (teams face each other twice),
+    // Div: Novice — second round-robin (pool A2): the same full 5-team round-robin again (teams face each other twice),
     // 10 games / 5 rounds in rooms 7-8. rm7 → qm4, rm8 → qm5.
     // Round 1: (t2n,t5n)→rm7, (t3n,t4n)→rm8   [t1 bye]
     let game = GameBuilder::new_default(room_7.roomid, round_nov_s2_1.roundid)
@@ -1927,7 +1896,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .set_quizmasterid(qm_5.id).build_and_insert(db).unwrap();
     game_event_specs.push((game.gid, &team_2_novice, &team_3_novice));
 
-    // Div: Decades — Session 1: full 4-team round-robin, 6 games / 3 rounds (2 games/round).
+    // Div: Decades — first round-robin (pool A1): full 4-team round-robin, 6 games / 3 rounds (2 games/round).
     // Fixed team alternates between rm9 and rm10 each round.
     // Round 1: (t1d,t4d)→rm9, (t2d,t3d)→rm10
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s1_1.roundid)
@@ -1984,7 +1953,7 @@ pub fn add_tour_1_demo(db: &mut database::Connection, include_scheduling: bool, 
         .unwrap();
     game_event_specs.push((game.gid, &team_3_decades, &team_4_decades));
 
-    // Div: Decades — Session 2: full 4-team round-robin again, 6 games / 3 rounds. Rooms 9-10.
+    // Div: Decades — second round-robin (pool A2): full 4-team round-robin again, 6 games / 3 rounds. Rooms 9-10.
     // Round 1: (t1d,t4d)→rm9, (t2d,t3d)→rm10
     let game = GameBuilder::new_default(room_9.roomid, round_dec_s2_1.roundid)
         .set_poolbracket_id(pb_dec_2.pool_bracket_id)
