@@ -1,0 +1,157 @@
+<p>The most fundamental data in QView is the Tournament. Nearly everything in QView has to do with some Tournament in
+some way, shape or form.</p>
+<p>To create Tournaments your user must first be approved for Tournament creation capabilities. See more on
+<a href="doc:applying-to-be-a-tournament-manager">becoming approved to be a Tournament Manager here</a>.</p>
+
+<h2>Creating the Tournament</h2>
+<p>To start, Tournament creation can be initiated from two locations:</p>
+<ol>
+  <li>From your user profile, under <strong>Managed Tournaments</strong>, click <strong>Create Tournament</strong>:
+<figure>
+  <img src="creating-a-tournament-1.webp" alt="Create Tournament in your profile’s Managed Tournaments." loading="lazy" />
+  <figcaption>Create Tournament in your profile’s Managed Tournaments.</figcaption>
+</figure>
+  </li>
+  <li>From the Home page, click <strong>Create a New Tournament</strong> (if you don’t see this option, you’re either
+  not logged in or you don’t have Tournament Manager capabilities):
+<figure>
+  <img src="creating-a-tournament-2.webp" alt="Create a New Tournament on the Home page." loading="lazy" />
+  <figcaption>Create a New Tournament on the Home page.</figcaption>
+</figure>
+  </li>
+</ol>
+<p>Both locations will open the <strong>Create / Edit Tournament</strong> form. Fill out the form, then click
+<strong>Save</strong>.</p>
+<figure>
+  <img src="creating-a-tournament-3.webp" alt="The Create / Edit Tournament form." loading="lazy" />
+  <figcaption>The Create / Edit Tournament form.</figcaption>
+</figure>
+<p>Most of the fields are self-explanatory. The ones worth a second look:</p>
+<ul>
+  <li><strong>Name</strong> must be unique across QView. QuizMachine also matches the Tournament by name, so avoid
+  renaming it once Rooms are connected.</li>
+  <li><strong>Start Date</strong> and <strong>End Date</strong> are required, and the start can’t be after the
+  end.</li>
+  <li><strong>Default Round Duration (minutes)</strong> (30 by default) is used when you create a schedule or edit
+  Round start times in bulk.</li>
+  <li><strong>Scheduling Mode</strong> chooses <strong>Normal</strong> or <strong>Advanced</strong> scheduling. You
+  can switch it later from the Schedule page (see <a href="doc:rounds-and-games">Post-Registration Prep: Rounds and
+  Games</a>).</li>
+  <li><strong>Registration Types</strong> turns the Team, Gear and Volunteer registration tabs on or off. Untick all
+  three to turn registration off completely. <strong>Registration Open Date</strong> and <strong>Registration Close
+  Date</strong> set the Registration Window (see <a href="doc:divisions-and-registration">Setting Up Divisions and
+  Registration</a>).</li>
+  <li><strong>Short Information</strong> is the one line people see when searching for Tournaments, and in
+  QuizMachine when a Room picks its Tournament.</li>
+</ul>
+<p>The <strong>Visibility</strong> dropdown is used to control whether the Tournament can be seen publicly - by
+visitors and everyone else. New Tournaments start as <strong>Private</strong>. If it is set to “Private” only you (and
+the Tournament’s admins) can view the Tournament, from your profile’s “Managed Tournaments” section. For private
+Tournaments that you manage, you can click this button on the Home page to navigate there when logged in as a
+Tournament Manager:</p>
+<figure>
+  <img src="creating-a-tournament-4.webp" alt="View Tournaments that I Manage on the Home page." loading="lazy" />
+  <figcaption>View Tournaments that I Manage on the Home page.</figcaption>
+</figure>
+<p class="doc-warning">QuizMachine can only see <strong>Public</strong> Tournaments. Make the Tournament public before
+tournament day, or the Rooms won’t be able to find it.</p>
+
+<p>At the bottom of the form is what is called a Markdown editor. It is initialized with template text in the
+Markdown format. You can edit its contents on the left and view the changes on the right side of the editor.</p>
+<p>For help with writing Markdown, QView includes a <strong>Markdown syntax cheatsheet</strong>. To access it, just
+click the word “Markdown” and the cheatsheet will open in a new tab.</p>
+<figure>
+  <img src="creating-a-tournament-5.webp" alt="The Markdown editor, with the cheatsheet link." loading="lazy" />
+  <figcaption>The Markdown editor, with the cheatsheet link.</figcaption>
+</figure>
+<p>When you click <strong>Save</strong>, you’ll be asked to confirm the information. Click
+<strong>Confirm</strong> to create the Tournament.</p>
+<p>You will then be directed to the Tournament’s Overview page, which looks something like this:</p>
+<figure>
+  <img src="creating-a-tournament-6.webp" alt="A new Tournament’s Overview page." loading="lazy" />
+  <figcaption>A new Tournament’s Overview page.</figcaption>
+</figure>
+<p>The title is shown on its own line with an <strong>Edit</strong> button, which only you and the Tournament Admins
+you add can see. Use it whenever you need to change any of the details above.</p>
+<p>It then shows a few data fields that QView tracks uniquely and for different purposes. Finally, the Markdown
+portion which shares all other relevant information is included in this Overview page.</p>
+
+<h3>What is the Pairing Code?</h3>
+<p>QView gives every new Tournament a 6-digit <strong>Pairing Code</strong>. Each Room’s QuizMachine needs it to
+connect to the Tournament (see <a href="doc:setting-up-rooms">Setting Up Rooms using QuizMachine + QView</a>). It’s
+hidden as <code>########</code> on the Overview page; click the eye icon to show it. Only Tournament Managers and
+admins can see it.</p>
+<p>You can change it in the Edit form. Changing it doesn’t disconnect Rooms that are already paired, but every Room
+that pairs afterwards needs the new code. Only change it if the code has leaked.</p>
+
+<h2>Adding Buildings (optional)</h2>
+<p>If your Tournament is spread across more than one building, Buildings let you group your Rooms so people can find
+them. Once your Rooms are assigned to Buildings, anyone viewing the Tournament’s <strong>Schedule</strong> can filter
+it by Building: choose <strong>Room</strong> under <strong>Filter By</strong>, then pick a <strong>Building</strong> to
+narrow the Room list to just that Building’s Rooms. You can skip this for a single-building Tournament.</p>
+<ol>
+  <li>In the Tournament sidebar, click <strong>Buildings</strong>.</li>
+  <li>Click <strong>Create Building</strong>.</li>
+  <li>Enter the <strong>Building Name</strong> and any <strong>Notes</strong> (for example, where to park or which
+  entrance to use).</li>
+  <li>Click <strong>Save</strong> and confirm.</li>
+</ol>
+<figure>
+  <img src="creating-a-tournament-7.webp" alt="Creating a Building from the Buildings page." loading="lazy" />
+  <figcaption>Creating a Building from the Buildings page.</figcaption>
+</figure>
+<p>Click a Building’s name to open its page. Its <strong>Rooms</strong> tab lists the Rooms in that Building, and
+Rooms you create from there are put in that Building automatically.</p>
+
+<h2>Adding Rooms for the Tournament</h2>
+<p>Rooms don’t have to be added to your Tournament until just before creating Games (commonly known as 20-question
+quiz rounds), however, Rooms are associated directly with Tournaments and can be used across all Divisions of the
+Tournament.</p>
+<p>For this reason, it’s worth creating your Rooms now, to see how large your Tournament can scale to with addition
+of more and more Teams when they register.</p>
+<p>First, in your new Tournament, in the sidebar click <strong>Rooms</strong> to navigate to the Rooms list.</p>
+<p>Then click <strong>Create Room</strong>:</p>
+<figure>
+  <img src="creating-a-tournament-8.webp" alt="Create Room on the Tournament’s Rooms page." loading="lazy" />
+  <figcaption>Create Room on the Tournament’s Rooms page.</figcaption>
+</figure>
+<figure>
+  <img src="creating-a-tournament-9.webp" alt="The Create Room form." loading="lazy" />
+  <figcaption>The Create Room form.</figcaption>
+</figure>
+<p>Provide the name of the Room and perhaps some comments about it: whether it’s in a certain building, in a certain
+hard-to-find location in a building, or what its identifiable characteristics are (like “room with accordion
+divider”, “sanctuary” or “first room on the right when entering building’s main entrance”). The form also has:</p>
+<ul>
+  <li><strong>Building</strong>: the Building the Room is in, if you added Buildings. Leave it as
+  <strong>None</strong> otherwise. Assigning a Building is optional, but it lets people filter the Tournament’s
+  Schedule by Building (see <strong>Adding Buildings</strong> above).</li>
+  <li><strong>Supports 3-team games</strong>: tick this if the Room has the seats and Gear for three Teams.</li>
+</ul>
+<p>You can use any Room-naming scheme that you prefer. Many choose to label Rooms with letters (‘A’, ‘B’, ‘C’, etc.).
+You can use numbers, although you may prefer to keep numbering for Rounds only, to keep a clear separation of what is
+what (letters = Rooms, numbers = Rounds). If Rooms have their own names already (such as can be found on a college
+campus), then you may wish to use that (i.e. “Benson 203” could be “BEN203” - or you could just use “Benson 203”) -
+or you could name the Rooms something fun! Just make sure everyone knows where to go to get to where they need to be
+when they need to be there.</p>
+<p class="doc-note">QuizMachine matches each Room by its name, so settle on Room names before tournament day. If you
+rename a Room after its QuizMachine has connected, reconnect that Room.</p>
+<p>You can always come back and edit these later, including assigning a Room you’ve already created to a Building.
+Once a Room exists, its Edit form also lets you assign its <strong>Quizmaster</strong> and <strong>Content
+Judge</strong>.</p>
+<p>Click <strong>Save</strong> and confirm to create the Room. For reference, a list of Rooms could look like this for a
+Tournament:</p>
+<figure>
+  <img src="creating-a-tournament-10.webp" alt="A Tournament’s list of Rooms." loading="lazy" />
+  <figcaption>A Tournament’s list of Rooms.</figcaption>
+</figure>
+<p>With that, you have a Tournament and Rooms. Next, you will need to
+<a href="doc:divisions-and-registration">set up <strong>Divisions</strong> and prepare
+<strong>Registration</strong></a>.</p>
+
+<h2>See also</h2>
+<ul>
+  <li><a href="doc:applying-to-be-a-tournament-manager">Applying to Be a Tournament Manager (Creator/Owner)</a></li>
+  <li><a href="doc:divisions-and-registration">Setting Up Divisions and Registration</a></li>
+  <li><a href="doc:setting-up-rooms">Setting Up Rooms using QuizMachine + QView</a></li>
+</ul>

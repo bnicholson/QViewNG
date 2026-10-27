@@ -1,0 +1,205 @@
+<p>This article is for Tournament owners and admins who want standings for each Division. It covers how QView
+groups Games for stats, how to read Team and Individual stats, how to pull in Games from a Room that was offline
+(“sneakernet”), and how to export the results.</p>
+
+<p><strong>Before you start:</strong> you need to be the Tournament’s owner or one of its admins. Only those users see
+<strong>Server Stats</strong> in the Tournament sidebar.</p>
+
+<h2>What is a Stats Group?</h2>
+<p>A Stats Group is the set of Games that stats are computed from. <strong>QView makes one for you</strong> every time
+you create a Division, using the Division’s name. You don’t create or fill it yourself: when a Game is added to the
+Division (or moved into it), it joins the Division’s Stats Group automatically.</p>
+<p class="doc-note">If you’ve used QMServer, this replaces creating a Stats Group/Tournament by hand. In QView, every
+Division already has one.</p>
+
+<h2>Where do you find stats?</h2>
+<p>There are two places:</p>
+<ul>
+  <li><strong>Server Stats</strong> (owners and admins): Team and Individual stats for any Division, the
+  tie-breaking rules, sneakernet importing and exporting.</li>
+  <li><strong>LIVE Stats</strong> (everyone, even if they aren’t signed in): the Division’s Team standings, updating
+  live as Games finish. It’s a good page to put on a projector.</li>
+</ul>
+
+<h2>Checking that every Game is ready</h2>
+<p>Stats only count Games that are finished and have complete data, so check the Games first.</p>
+<ol>
+  <li>Open the Tournament and click <strong>Server Stats</strong> in the sidebar.</li>
+  <li>In <strong>Divisions / Groups</strong>, pick the Division.</li>
+  <li>In <strong>Data</strong>, pick <strong>Games Selection</strong> (it’s the default).</li>
+</ol>
+<figure>
+  <img src="computing-stats-1.webp" alt="The Games Selection view on Server Stats." loading="lazy" />
+  <figcaption>The Games Selection view on Server Stats.</figcaption>
+</figure>
+<p>Each row is a Game. Games already in this Division’s Stats Group are ticked and listed first. The columns that
+matter most:</p>
+<ul>
+  <li><strong>Question</strong>: how far the Game has got.</li>
+  <li><strong>Done</strong>: <strong>Yes</strong> once the Game is finished.</li>
+  <li><strong>DataOk</strong>: <strong>Yes</strong> when QView has every event it needs to score the Game.</li>
+</ul>
+<p>If any Games aren’t ready, a banner above the table tells you how many. A <strong>red row</strong> means the Game
+reached question 20 but its data is incomplete. Its Information column says <strong>Data Incomplete. Resend
+Advised.</strong></p>
+<p>To fix a Game with missing data, click the <strong>No</strong> in its DataOk column. That opens the Room Monitor,
+where you can ask that Room’s QuizMachine to resend (see <a href="doc:monitoring-rooms">Monitoring Rooms and
+Resending Game Data</a>). If the Room never had a connection, import its Games instead (below).</p>
+<p class="doc-note">The <strong>Selected</strong> checkboxes only change what you see and what goes into an export.
+They don’t add Games to or remove Games from the Stats Group, and they aren’t saved.</p>
+
+<h2>Reading Team Stats</h2>
+<ol>
+  <li>On <strong>Server Stats</strong>, set <strong>Data</strong> to <strong>Team Stats</strong>.</li>
+</ol>
+<figure>
+  <img src="computing-stats-2.webp" alt="Team Stats on Server Stats." loading="lazy" />
+  <figcaption>Team Stats on Server Stats.</figcaption>
+</figure>
+<p>You’ll see each Team’s <strong>Place</strong>, <strong># Games</strong>, <strong>Wins</strong>,
+<strong>Losses</strong>, <strong>Olympic Points</strong>, <strong>Mod. Olympic Points</strong>, <strong>Total
+Points</strong> and <strong>Total Avg Pts</strong>.</p>
+<p>A few things worth knowing:</p>
+<ul>
+  <li><strong>Wins and losses are counted per opponent.</strong> Say three Teams quiz together: the 1st-place Team
+  goes 2-0 for that Game, 2nd goes 1-1, and 3rd goes 0-2. In a 2-team Game it’s simply 1-0 and 0-1.</li>
+  <li><strong>Olympic points</strong> are 8 and 3 in a 2-team Game, and 10, 5 and 1 in a 3-team Game.
+  <strong>Modified Olympic points</strong> add to those based on each Team’s score.</li>
+  <li>Overtime questions don’t count toward the Team score used here.</li>
+  <li>Only finished Games count. A Game still in progress doesn’t change the standings until it ends.</li>
+</ul>
+
+<h3>Why is one Team above another?</h3>
+<p>Click the <strong>(i)</strong> in a Team’s <strong>Rank Rules</strong> column. A dialog explains which rule put
+the Team above the Team below it (and below the Team above it), with both Teams’ numbers. For example,
+“Rule 1 — Team W-L Record: 6-2, 4-4.”</p>
+
+<h3>Changing the tie-breaking rules</h3>
+<p>When Teams are level, QView separates them using a list of rules, top first. To change the order:</p>
+<ol>
+  <li>On <strong>Server Stats</strong> with <strong>Data</strong> set to <strong>Team Stats</strong>, click
+  <strong>Tie-breaking Rules</strong>.</li>
+  <li>Drag a rule (or use its up/down arrows) to move it. Untick a rule to leave it out.</li>
+  <li>Click <strong>Save</strong>.</li>
+</ol>
+<figure>
+  <img src="computing-stats-3.webp" alt="The Tie-breaking Rules dialog." loading="lazy" />
+  <figcaption>The Tie-breaking Rules dialog.</figcaption>
+</figure>
+<p>The default order is <strong>Team W-L Record</strong>, <strong>Head-to-Head W-L</strong>, <strong>Total
+Points</strong>, <strong>Total Avg Pts</strong>, <strong>Olympic Pts</strong>, <strong>Mod Olympic Pts</strong>.
+Head-to-Head only looks at the Games those Teams played against each other.</p>
+<p>When you save, Team Stats re-sorts straight away, and so does LIVE Stats for everyone watching.</p>
+<p class="doc-note">If you untick every rule, level Teams are simply listed in alphabetical order. Places are never
+shared between Teams: if two Teams are still level after every rule, alphabetical order decides.</p>
+
+<h2>Reading Individual Stats</h2>
+<ol>
+  <li>On <strong>Server Stats</strong>, set <strong>Data</strong> to <strong>Individual Stats</strong>.</li>
+</ol>
+<figure>
+  <img src="computing-stats-4.webp" alt="Individual Stats on Server Stats." loading="lazy" />
+  <figcaption>Individual Stats on Server Stats.</figcaption>
+</figure>
+<ul>
+  <li><strong>Score</strong> is the Quizzer’s points <em>without</em> bonus points. Bonus points are shown on their
+  own in <strong>Bonus Pts</strong>.</li>
+  <li><strong>Avg</strong> is Score divided by # Games.</li>
+  <li><strong>Errors</strong> counts wrong answers on toss-up questions. <strong>Bonus Attempts</strong> counts every
+  bonus they tried, right or wrong.</li>
+  <li>Quizzers are ranked by highest Score, then fewest Errors. Quizzers with the same Score and Errors share a place,
+  and the next place is skipped (1, 1, 3).</li>
+</ul>
+<p class="doc-note">The question-type columns (<strong>Generals</strong>, <strong>Memory</strong>,
+<strong>According</strong>, <strong>Context</strong>, <strong>Special</strong>) and <strong>Errs 16+/5+</strong> are
+blank for now.</p>
+<p class="doc-note">Teams and Quizzers are matched by name. If a name was typed differently in a Room, it shows up as a
+separate row, so fix the name in QView and resend or re-import that Game.</p>
+
+<h2>Showing live standings with LIVE Stats</h2>
+<ol>
+  <li>Open the Tournament and click <strong>LIVE Stats</strong>.</li>
+  <li>Click the <strong>Team Stats</strong> tab and pick the <strong>Division</strong>.</li>
+</ol>
+<figure>
+  <img src="computing-stats-5.webp" alt="Team standings on LIVE Stats." loading="lazy" />
+  <figcaption>Team standings on LIVE Stats.</figcaption>
+</figure>
+<p>The table updates by itself as Games finish. The indicator in the corner tells you how it’s staying up to date:
+<strong>Live</strong> is best. <strong>Refreshing every 30s</strong> means the live connection dropped and the
+page is checking every 30 seconds instead.</p>
+<p>The page’s address remembers the Division you picked, so you can bookmark it or open it on a projector and it will
+stay on that Division.</p>
+<p>If you see <strong>No games in this division have finished yet</strong>, nothing has ended in that Division yet.
+Teams appear as their first Games end.</p>
+<p class="doc-note">LIVE Stats and Server Stats always agree. Server Stats doesn’t update by itself, though: switch
+views or reload it to see the latest.</p>
+
+<h2>Importing Games from an offline Room (sneakernet)</h2>
+<p>If a Room’s QuizMachine couldn’t reach QView (no internet, say), its Games never arrived. You can bring them in by
+exporting them from QuizMachine to a USB drive and importing the file into QView. <i>When you use your <b>sneakers</b> to 
+physically transport the stats and then import them into QView, you're using "sneakernet".</i></p>
+<p><strong>You’ll need:</strong> permission to update Games in this Tournament, and the Room’s Games exported from
+QuizMachine as a <code>.csv</code> file (see
+<a href="doc:quizmachine/exporting-quiz-round-data">Exporting Quiz Round Data from QuizMachine</a>). Only Games
+marked <strong>DONE</strong> in QuizMachine are exported.</p>
+<ol>
+  <li>On <strong>Server Stats</strong>, set <strong>Data</strong> to <strong>Games Selection</strong>.</li>
+  <li>Click <strong>Import (SneakerNet)</strong> and choose the <code>.csv</code> file.</li>
+  <li>Read the preview. Nothing has been saved yet.</li>
+  <li>If the <strong>Games to Import</strong> list looks right, click <strong>Import</strong>.</li>
+  <li>When you see <strong>Imported game events for N game(s).</strong>, click <strong>Close</strong>.</li>
+</ol>
+<figure>
+  <img src="computing-stats-6.webp" alt="The Import Game Events preview." loading="lazy" />
+  <figcaption>The Import Game Events preview.</figcaption>
+</figure>
+<p>The preview has four lists:</p>
+<ul>
+  <li><strong>Games to Import</strong>: Games that will come in, with how many events each has.</li>
+  <li><strong>Errors</strong>: Games that will be skipped, and why.</li>
+  <li><strong>Games Not Found</strong>: Games in the file that QView couldn’t match to a Game in this Tournament.</li>
+  <li><strong>Missing Game Events</strong>: other Games in the same Rooms that aren’t in the file. This is a reminder
+  in case you meant to export them too.</li>
+</ul>
+<p><strong>How does QView match a Game?</strong> By the Tournament name, Division name, Room name and Round name in
+the file. They must match what’s in QView exactly (the Tournament name can also be blank). Games are imported
+together, and any Game with a problem is skipped rather than stopping the import.</p>
+
+<h3>When the import doesn’t work</h3>
+<ul>
+  <li><strong>“Only .csv files are accepted.”</strong> Choose the <code>.csv</code> file QuizMachine exported
+  (usually <code>Quizzes.csv</code>).</li>
+  <li><strong>A Game is under Games Not Found.</strong> A Division, Room or Round name in QuizMachine doesn’t match
+  QView. Check the spelling in both places.</li>
+  <li><strong>“This game already has game events beyond initialization; import skipped.”</strong> QView already has
+  that Game’s quiz data, from the Room or an earlier import. Importing the same file twice is safe; this is why.</li>
+  <li><strong>“Parsing error: …”</strong> The file isn’t in QuizMachine’s export format (for example, it was edited
+  in a spreadsheet). Export it again from QuizMachine.</li>
+  <li><strong>“question numbers are not sequential” or “missing event number”</strong> Part of the Game is missing
+  from the file. Re-export it from that Room’s QuizMachine.</li>
+</ul>
+
+<h2>Exporting results</h2>
+<ol>
+  <li>On <strong>Server Stats</strong>, pick the Division and the <strong>Data</strong> view you want:
+  <strong>Team Stats</strong>, <strong>Individual Stats</strong> or <strong>Games Selection</strong>.</li>
+  <li>Click <strong>Export</strong> and choose <strong>CSV (.csv)</strong>, <strong>Excel (.xlsx)</strong> or
+  <strong>PDF (.pdf)</strong>.</li>
+</ol>
+<figure>
+  <img src="computing-stats-7.webp" alt="The Export menu on Server Stats." loading="lazy" />
+  <figcaption>The Export menu on Server Stats.</figcaption>
+</figure>
+<p>The file downloads straight away, named after the view (<code>team-stats</code>, <code>individual-stats</code>
+or <code>game-selection</code>). It contains the whole table, not just the rows on screen. In Team Stats exports,
+the Rank Rules column is written out in words. PDFs of Team and Individual stats print in landscape.</p>
+<p class="doc-note">The <strong>Export</strong> button is greyed out when the table is empty. Pick a Division that has
+finished Games.</p>
+
+<h2>See also</h2>
+<ul>
+  <li><a href="doc:monitoring-rooms">Monitoring Rooms and Resending Game Data</a></li>
+  <li><a href="doc:setting-up-rooms">Setting Up Rooms using QuizMachine + QView</a></li>
+  <li><a href="doc:divisions-and-registration">Setting Up Divisions and Registration</a></li>
+</ul>

@@ -75,6 +75,20 @@ export const orderedSlugs = (docVersion: DocVersion): string[] => {
   return out
 }
 
+/** True when `slug`'s nav node, or any folder above it, is marked `requiresLogin`. */
+export const articleRequiresLogin = (docVersion: DocVersion, slug: string): boolean => {
+  const walk = (nodes: DocNavNode[], inherited: boolean): boolean | undefined => {
+    for (const n of nodes) {
+      const required = inherited || !!n.requiresLogin
+      if (n.slug === slug) return required
+      const found = n.children && walk(n.children, required)
+      if (found !== undefined) return found
+    }
+    return undefined
+  }
+  return walk(docVersion.nav, false) ?? false
+}
+
 /**
  * The previous/next articles relative to `slug`, treating the version's whole hierarchy as one
  * flat list. Either side is undefined at the first/last article.

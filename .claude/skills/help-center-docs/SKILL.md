@@ -7,6 +7,14 @@ description: Use whenever creating or modifying Help Center documentation and ar
 
 The Help Center lives in `frontend/src/data/docs/`. There's one file per category and version (`qview.ts`, `quizmachine-6.0.0.ts`, `qmserver-6.0.0.ts`, …), and the data model is in `types.ts`. Each article is a `DocArticle` with raw HTML in `contentHtml`, and each version's `nav` tree controls the sidebar. Before writing anything, read a few existing articles in the QuizMachine and QMServer 6.0.0 files. They are the reference for voice and structure.
 
+### Members-only articles live in the backend
+A nav folder marked `requiresLogin: true` (in QView 0.1.0.0: **Setting Up a Tournament** and **Tournament Day**) holds members-only articles. Their content is not in the frontend bundle, so scrapers and logged-out visitors can't read it:
+- The article's HTML is a file, `backend/help-docs/{category}/{version}/{slug}.html`. Its screenshots go in `backend/help-docs/{category}/{version}/images/` and are referenced by bare file name: `<img src="{slug}-{n}.webp" …>`. The backend serves the article to logged-in users only and turns those names into signed, expiring links (see `backend/src/services/helpdoc.rs`).
+- Its entry in `articles` has a `slug` and `title` but **no** `contentHtml`. The nav node stays in the frontend as usual, so the title still shows in the sidebar.
+- Write the HTML out in full: there's no `shot()` helper in these files, so write each `<figure>` by hand. `doc:` links work as usual.
+- Moving an article into or out of a members-only folder means moving its HTML and screenshots between the frontend and `backend/help-docs/` too.
+- After adding or changing one, run `cargo test --test it helpdoc_test::` in `backend/`. It loads every article there and every screenshot link in it, so a missing image fails the test.
+
 ## Step 1: Find the gaps first, and get approval
 
 Before writing or changing any article, compare what the codebase can actually do with what the docs cover for that category:
@@ -65,7 +73,7 @@ QView is the web app in this repo, so try to capture real screenshots first.
 - Always capture at **2× resolution** (device scale factor 2, e.g. `--force-device-scale-factor=2` for Chromium, `deviceScaleFactor: 2` for Playwright), so screenshots stay sharp on high-resolution screens. Pick the browser size in normal (1×) pixels; the image itself will be twice that size.
 - Crop to the part of the screen that matters, with just enough around it that the reader can tell where they are.
 - Add the callouts with ImageMagick: red rectangles (pure red, 6px on the 2× image so they look like 3px on screen) around what to click or look at, and red arrows when you need to connect two things.
-- Save to `frontend/public/docs/qview/{slug}-{n}.webp`, and reference it as `/docs/qview/{slug}-{n}.webp`.
+- Save to `frontend/public/docs/qview/{slug}-{n}.webp`, and reference it as `/docs/qview/{slug}-{n}.webp`. For a members-only article, save it to `backend/help-docs/qview/{version}/images/{slug}-{n}.webp` and reference it as `{slug}-{n}.webp` instead (see [Members-only articles](#members-only-articles-live-in-the-backend)).
 - Look at each finished image yourself and confirm it really shows what the caption says. If a capture doesn't work, use a placeholder for that one and say so.
 - At the end, list every screenshot you captured and every placeholder left for the user.
 
@@ -95,7 +103,7 @@ Cover everything the user needs to succeed on their own, with no need to ask any
 - HTML only: `<p>`, `<h2>`/`<h3>`, `<ol>` for steps, `<ul>` for options/lists, `<strong>` for UI labels, and `<figure>` for screenshots.
 - Internal links use the `doc:` scheme: `doc:slug` within the same version, `doc:category/slug` across categories (see `resolveDocHref` in `index.ts`). Never hard-code URLs.
 - Escape `&gt;` / `&lt;` / `&amp;` in menu paths like `Setup &gt; General`.
-- Every new article needs both an entry in `articles` and a node in `nav`. When an article stops being a placeholder, remove `draft` from the version once all its articles are real.
+- Every new article needs both an entry in `articles` and a node in `nav` (for a members-only article, the `articles` entry has no `contentHtml`; its HTML goes in `backend/help-docs/`). When an article stops being a placeholder, remove `draft` from the version once all its articles are real.
 
 ## Final check: spelling and casing
 As the last step, after everything else is done, proofread all newly added or modified text: article titles, nav titles, headings, body text, captions and `alt` text. Correct every spelling mistake and casing error before handing the work back. This applies to content imported "verbatim" from the user's drafts too: verbatim means the wording, not the typos.

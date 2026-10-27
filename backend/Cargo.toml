@@ -50,6 +50,10 @@ lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder
 actix-web-httpauth = "0.8.2"
 strum = "0.28.0"
 strum_macros = "0.28.0"
+# Builds help-docs/ (the members-only Help Center articles and their screenshots) into the binary;
+# see src/services/helpdoc.rs. Debug builds read the folder from disk instead, so edits show up
+# without a rebuild.
+rust-embed = "8"
 
 [features]
 # Test-only: drops the bcrypt cost for stored passwords to bcrypt's minimum (see

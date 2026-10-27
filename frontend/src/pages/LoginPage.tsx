@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { PasswordInput } from '../components/PasswordField'
-import { Navigate, Link } from 'react-router-dom'
+import { Navigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export const LoginPage = () => {
   const auth = useAuth()
+  // Where to go after logging in, when a page sent the user here (e.g. a members-only Help article).
+  const from = (useLocation().state as { from?: string } | null)?.from
   const [email, setEmail] = useState<string>('')
   const [password, setPassword] = useState<string>('')
   const [processing, setProcessing] = useState<boolean>(false)
@@ -15,8 +17,8 @@ export const LoginPage = () => {
     setLoginError(null)
     const error = await auth.login(email, password)
     if (error == null) {
-      // On success the guard below redirects to the user's own profile once the session
-      // (which carries the userId) has been set on the auth context.
+      // On success the guard below redirects (back to `from`, else to the user's own profile)
+      // once the session (which carries the userId) has been set on the auth context.
       return
     }
     setLoginError(error)
@@ -24,7 +26,10 @@ export const LoginPage = () => {
   }
 
   if (auth.isAuthenticated) {
-    const to = auth.session?.userId ? `/user/${auth.session.userId}/overview` : '/'
+    // Only same-app paths are honoured as a return destination.
+    const to = from?.startsWith('/') && !from.startsWith('//')
+      ? from
+      : auth.session?.userId ? `/user/${auth.session.userId}/overview` : '/'
     return <Navigate to={to} replace />
   }
 

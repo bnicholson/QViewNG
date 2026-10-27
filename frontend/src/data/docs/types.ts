@@ -16,8 +16,11 @@ export interface DocArticle {
    * Raw HTML. Trusted authored content (rendered via dangerouslySetInnerHTML).
    * Internal links use the `doc:` scheme so they survive version/category changes —
    * see `resolveDocHref` in ./index.
+   *
+   * Omitted for a members-only article (`requiresLogin` in the nav) whose content is served by
+   * the backend instead (`/api/helpdocs/...`), so it never ships in the bundle.
    */
-  contentHtml: string
+  contentHtml?: string
 }
 
 /** A node in the sidebar tree: a link to an article (`slug`) or a collapsible folder (`children`). */
@@ -25,6 +28,13 @@ export interface DocNavNode {
   title: string
   slug?: string
   children?: DocNavNode[]
+  /**
+   * Articles at or under this node show their content only to logged-in users; visitors still
+   * see the titles in the sidebar. Leave such an article's `contentHtml` out and put its HTML in
+   * backend/help-docs/ so the backend serves it only to logged-in users; an article that keeps
+   * its `contentHtml` is merely hidden on the page, since the text still ships in the bundle.
+   */
+  requiresLogin?: boolean
 }
 
 export interface DocVersion {

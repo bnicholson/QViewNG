@@ -27,6 +27,7 @@ mod extensioncord_test;
 mod game_rows_test;
 mod game_test;
 mod gameevent_test;
+mod helpdoc_test;
 mod interfacebox_test;
 mod live_test;
 mod jumppad_test;

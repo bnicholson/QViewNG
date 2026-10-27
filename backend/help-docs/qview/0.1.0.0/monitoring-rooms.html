@@ -1,0 +1,138 @@
+<p>Once your Rooms are connected, the <strong>Server Monitor</strong> lets you watch every Room from one screen and
+catch problems before they reach the stats: a Room that has stopped checking in, a Game whose data didn’t all arrive,
+or a QuizMachine whose send queue is stuck. This article is for the Tournament’s owner and admins on tournament
+day.</p>
+<p><strong>Before you start:</strong> you need to be the Tournament’s owner or one of its admins to see Server Monitor.
+Resending and clearing also need permission to update Games, which Tournament Managers and Tournament Admins
+have.</p>
+
+<h2>Opening the Server Monitor</h2>
+<ol>
+  <li>Open the Tournament and click <strong>Server Monitor</strong> in the sidebar.</li>
+</ol>
+<figure>
+  <img src="monitoring-rooms-1.webp" alt="The Server Monitor with one Room needing attention." loading="lazy" />
+  <figcaption>The Server Monitor with one Room needing attention.</figcaption>
+</figure>
+<p>Each Room appears once its QuizMachine has checked in. The page updates by itself: a green <strong>Live</strong>
+means changes appear as soon as QView receives them. <strong>Reconnecting…</strong> or <strong>Refreshing every
+30s</strong> means the live connection dropped, and the page is still updating, just more slowly.</p>
+
+<h2>What does each column mean?</h2>
+<ul>
+  <li><strong>Check In</strong>: when the Room last checked in with QView. A healthy Room checks in regularly.</li>
+  <li><strong>Room</strong>, <strong>Round</strong>: the Room and the Round it’s on.</li>
+  <li><strong>Question</strong>: the question the Room says it’s on. If QView hasn’t received all of the Room’s
+  events yet, a second line shows how far QView has actually scored (for example, “Scored through Q7”).</li>
+  <li><strong>QMVersion</strong>: the Room’s QuizMachine version.</li>
+  <li><strong>Pending</strong>: how many events are waiting in the Room’s QuizMachine to be sent. It should stay at or
+  near 0.</li>
+  <li><strong>Quarantine</strong>: events QView received but didn’t apply (see below).</li>
+  <li><strong>Status-Error</strong>: what’s wrong, if anything.</li>
+  <li><strong>Resend</strong>: asks the Room to send a Game’s events again.</li>
+</ul>
+
+<h2>When is a row red?</h2>
+<p>A row turns red when its Status-Error column shows one of these:</p>
+<ul>
+  <li><strong>Room not communicating?? Late??</strong> The Game is in progress but the Room hasn’t checked in for
+  more than 2 minutes. Go to the Room: the computer may have lost its internet connection, gone to sleep, or
+  QuizMachine may have been closed.</li>
+  <li><strong>Data Incomplete. Resend Advised.</strong> QView is missing some of the Game’s events (a question or an
+  event in the middle is missing). Use <strong>Resend</strong>.</li>
+</ul>
+<p>A Room can have more than one row. Besides its current Game, it gets an extra row for any earlier Game with
+missing data, so you can resend that too. The extra row disappears once that Game’s data is complete.</p>
+
+<h2>Resending a Game’s events</h2>
+<ol>
+  <li>Find the red row with <strong>Data Incomplete. Resend Advised.</strong></li>
+  <li>Click <strong>Resend</strong> on that row.</li>
+  <li>Wait for the Room’s next check-in. The note under the button tracks progress.</li>
+</ol>
+<figure>
+  <img src="monitoring-rooms-2.webp" alt="A resend waiting for the Room’s next check-in." loading="lazy" />
+  <figcaption>A resend waiting for the Room’s next check-in.</figcaption>
+</figure>
+<p>QView can’t reach into the Room directly. Instead, it hands the request to QuizMachine the next time the Room checks
+in, and QuizMachine sends the whole Game again. The note tells you where it’s at:</p>
+<ul>
+  <li><strong>Requested — awaiting next ping</strong>: the Room hasn’t checked in since you clicked.</li>
+  <li><strong>Resend request received by room.</strong>: the Room has the request and is resending.</li>
+  <li><strong>Room failed to resend game events. Please issue another resend request.</strong>: it’s been more than
+  30 seconds and the data is still incomplete. Click <strong>Resend</strong> again.</li>
+</ul>
+<p><strong>How can you tell it worked?</strong> The note disappears, the row is no longer red, and an extra row for an
+earlier Game drops off the monitor. The <strong>Resend</strong> button greys out once the data is complete.</p>
+<p class="doc-note">If <strong>Resend</strong> keeps failing, check that the Room is still checking in (look at
+<strong>Check In</strong>). A Room that isn’t online can’t pick up the request. If it can’t get online, export the
+Game from QuizMachine and import it instead (see <a href="doc:computing-stats">Importing Games from an offline
+Room</a>).</p>
+
+<h2>What if a Room’s Pending number is stuck?</h2>
+<p>Sometimes one event gets refused every time QuizMachine sends it, and everything queued behind it waits. When a
+Room’s <strong>Pending</strong> hasn’t gone down for 90 seconds, QView shows a red <strong>Clear Pending +
+Resend?</strong> button in that cell. (Users without permission see <strong>Stuck</strong> instead.)</p>
+<ol>
+  <li>Click <strong>Clear Pending + Resend?</strong>.</li>
+  <li>Read the dialog, then click <strong>Clear Pending + Resend</strong>.</li>
+  <li>Leave the Room’s QuizMachine running and connected, and watch the chip in the Pending cell.</li>
+</ol>
+<figure>
+  <img src="monitoring-rooms-3.webp" alt="The Clear Pending + Resend dialog." loading="lazy" />
+  <figcaption>The Clear Pending + Resend dialog.</figcaption>
+</figure>
+<p>Here’s what happens:</p>
+<ol>
+  <li><strong>Clearing…</strong> For up to 5 minutes, QView tells the Room each event arrived but doesn’t apply it,
+  so the Room’s queue empties. Every one of those events is kept in the Room’s Quarantine. Nothing is deleted.</li>
+  <li><strong>Resending…</strong> Once the Room reports nothing pending, QView asks it to resend every affected Game in
+  full, once a minute for up to 10 minutes.</li>
+  <li>It finishes as one of:
+    <ul>
+      <li><strong>Recovered</strong> (green): every set-aside event came back and was stored. You’re done.</li>
+      <li><strong>Resend not confirmed</strong> (red): the Room didn’t resend everything within 10 minutes. Check the
+      Room is online, then click <strong>Resend</strong> on any row still marked Data Incomplete.</li>
+      <li><strong>Expired</strong>: the 5 minutes ran out with nothing set aside, so nothing changed.</li>
+      <li><strong>Cancelled</strong>: you stopped it before anything was set aside.</li>
+    </ul>
+  </li>
+</ol>
+<p>The final chip stays on the row for 15 minutes.</p>
+<p class="doc-warning">While a Room is being cleared and resent, its scores in Games in Progress and Server Stats may
+be behind. Wait for <strong>Recovered</strong> before you rely on that Room’s stats.</p>
+<p>You can stop it with <strong>Cancel</strong> next to the <strong>Clearing…</strong> chip. Anything already set
+aside will still be asked for. Once it’s on <strong>Resending…</strong>, it can’t be cancelled.</p>
+
+<h2>What is Quarantine?</h2>
+<p>Quarantine holds events QView told the Room it received, so the Room could keep sending, but didn’t apply. Click the
+shield icon in a Room’s <strong>Quarantine</strong> column to see them. An amber shield with a number means there are
+some; a grey shield means none.</p>
+<figure>
+  <img src="monitoring-rooms-4.webp" alt="A Room with one quarantined event." loading="lazy" />
+  <figcaption>A Room with one quarantined event.</figcaption>
+</figure>
+<figure>
+  <img src="monitoring-rooms-5.webp" alt="A Room’s quarantined events." loading="lazy" />
+  <figcaption>A Room’s quarantined events.</figcaption>
+</figure>
+<ul>
+  <li><strong>Set aside while clearing</strong>: held during a Clear Pending + Resend. These come back on their own
+  when the Room resends.</li>
+  <li><strong>Rejected</strong>: QView couldn’t use the event, and the <strong>Reason</strong> column says why (for
+  example, the Game no longer exists in QView). Use the copy icon to copy the event exactly as the Room sent it, if
+  you need to pass it to a QView administrator.</li>
+</ul>
+<p class="doc-note">The Quarantine count is a history: it doesn’t go down when set-aside events are recovered. Use the
+row’s Status-Error and Resend columns, not the Quarantine count, to tell whether a Game’s data is complete.</p>
+
+<h2>Watching scores live</h2>
+<p>To watch the Games themselves, click <strong>LIVE Stats</strong> in the Tournament sidebar. Its <strong>Games in
+Progress</strong> tab shows every Room that has checked in within the last 30 minutes, with each Team’s score, and
+anyone can view it. See <a href="doc:computing-stats">Computing Stats</a> for the Team Stats tab.</p>
+
+<h2>See also</h2>
+<ul>
+  <li><a href="doc:setting-up-rooms">Setting Up Rooms using QuizMachine + QView</a></li>
+  <li><a href="doc:computing-stats">Computing Stats: Stats Groups, Sneakernet Importing and Exporting Results</a></li>
+</ul>

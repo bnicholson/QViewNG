@@ -1,0 +1,119 @@
+<p>You’ve set up your Tournament, Registration has closed and it’s the (first) morning of the Tournament. You need to
+set up your quiz rooms so that when the first Round starts, everything goes smoothly.</p>
+<p>Ahead of time, if you are having your various Teams bring their Gear for use at the Tournament (which has been
+registered for use at the Tournament), then they will need to arrive early enough for this setup. Typically 1 hour
+before the first Round begins works for a regular sized Tournament. With larger Tournaments you may need more time and
+perhaps some setup the day before.</p>
+<p>If you are using QView then you are also using QuizMachine on computers (usually laptops), 1 per Room (plus other
+Gear; this article assumes you know how to set that Gear up as needed).</p>
+
+<h2>Before you start</h2>
+<ul>
+  <li><strong>QuizMachine 6.3.0-e76 or newer</strong> on every Room’s computer. Older versions of QuizMachine will not
+  work with QView. For the latest install of QuizMachine please see
+  <a href="https://www.quizstuff.com/downloads.php" target="_blank" rel="noopener noreferrer">QuizStuff.com</a>.</li>
+  <li><strong>An internet connection</strong> in each Room. (If a Room can’t get online, see
+  <a href="doc:computing-stats">importing its Games afterwards</a>.)</li>
+  <li><strong>The Tournament set to Public.</strong> QuizMachine can’t see Private Tournaments.</li>
+  <li><strong>The Tournament’s Pairing Code.</strong> It’s on the Tournament’s Overview page (click the eye icon to
+  show it). See <a href="doc:creating-a-tournament">Creating a Tournament</a>.</li>
+  <li><strong>Rooms and a schedule</strong> in QView, so each Room has Games to load (see
+  <a href="doc:rounds-and-games">Post-Registration Prep: Rounds and Games</a>).</li>
+</ul>
+
+<h2>Pointing QuizMachine at QView</h2>
+<p>Once installed, start the QuizMachine desktop application (client). We will need to be using the QView
+configuration along with the address of the QView website for communicating data to it.</p>
+<ol>
+  <li>Click <strong>More</strong> or press the <strong>M</strong> key to pull up the <strong>More Menu</strong>. Then click
+  <strong>Setup</strong>.
+<figure>
+  <img src="setting-up-rooms-1.webp" alt="Setup in QuizMachine’s More Menu." loading="lazy" />
+  <figcaption>Setup in QuizMachine’s More Menu.</figcaption>
+</figure>
+  </li>
+  <li>At the top of the Setup window, click the second tab, <strong>Server/Sneakernet</strong>.
+<figure>
+  <img src="setting-up-rooms-2.webp" alt="QuizMachine’s Server/Sneakernet tab set up for QView." loading="lazy" />
+  <figcaption>QuizMachine’s Server/Sneakernet tab set up for QView.</figcaption>
+</figure>
+  </li>
+  <li>Set the Server to <strong>QView</strong> and the IP address to <strong>qview.teenbiblequiz.com</strong>.</li>
+  <li>Leave <strong>Tournament key</strong> and <strong>Physical Bldg/Room</strong> blank. QView doesn’t use them: you’ll
+  enter the Tournament’s Pairing Code and pick the Room in a later step instead.</li>
+  <li>Click <strong>OK</strong> to apply the changes and close the Setup window. (You do not need to click
+  <strong>Apply</strong> before clicking <strong>OK</strong>.)</li>
+</ol>
+
+<h2>Choosing the Tournament and Room</h2>
+<ol>
+  <li>Click <strong>More</strong> or press <strong>M</strong> again. Now click <strong>Start a Tournament</strong>.
+<figure>
+  <img src="setting-up-rooms-3.webp" alt="Start a Tournament in QuizMachine’s More Menu." loading="lazy" />
+  <figcaption>Start a Tournament in QuizMachine’s More Menu.</figcaption>
+</figure>
+  <p>QuizMachine will get the available Tournaments from QView. If this is successful you will very briefly see a
+  loading pop-up window, then the Tournament picker:</p>
+<figure>
+  <img src="setting-up-rooms-4.webp" alt="QuizMachine’s Tournament picker." loading="lazy" />
+  <figcaption>QuizMachine’s Tournament picker.</figcaption>
+</figure>
+  </li>
+  <li>In the first column, select your Tournament. The list shows Public Tournaments from about 1 month in the past
+  to 1 month in the future. The second column shows the selected Tournament’s Short Information, which helps you
+  check it’s the right one.</li>
+  <li>In the third column, select the Room that this QuizMachine computer is for.</li>
+  <li>Enter the Tournament’s Pairing Code in the <strong>Pairing Code</strong> field. This is a security measure: only
+  people with the Pairing Code can “pair” a QuizMachine client with that Tournament in QView. It also protects you
+  from connecting to the wrong Tournament, since that Tournament’s code won’t match.</li>
+  <li>Click <strong>Join</strong>.</li>
+</ol>
+
+<h2>Checking the first Game’s lineups</h2>
+<p>On success you will see the Lineups window appear with the first Game of that Room populated:</p>
+<figure>
+  <img src="setting-up-rooms-5.webp" alt="The Lineups window filled in from QView." loading="lazy" />
+  <figcaption>The Lineups window filled in from QView.</figcaption>
+</figure>
+<p>QView fills in the seats for you, but feel free to reorder each Team’s Quizzers by moving them to different seats
+as needed. You may also need to change their Captain/Co-captain designations. When ready, click <strong>OK</strong>
+to save the changes, close the Lineups window and load the Game.</p>
+<p>You are now ready to use this Room for the first Game of the Room!</p>
+
+<h2>How do you know it’s working?</h2>
+<p>Back in QView, open the Tournament and click <strong>Server Monitor</strong> in the sidebar. Every Room that has
+connected appears there with a recent <strong>Check In</strong> time. Once a Game starts, it also shows on
+<strong>LIVE Stats</strong> under <strong>Games in Progress</strong>. See
+<a href="doc:monitoring-rooms">Monitoring Rooms and Resending Game Data</a>.</p>
+
+<h2>When it doesn’t work</h2>
+<p>If the Tournament list doesn’t load, you’ll see an error instead:</p>
+<figure>
+  <img src="setting-up-rooms-6.webp" alt="QuizMachine’s error when it can’t reach QView." loading="lazy" />
+  <figcaption>QuizMachine’s error when it can’t reach QView.</figcaption>
+</figure>
+<ul>
+  <li><strong>The error above appears.</strong> Either the server settings aren’t right (usually a typo in the
+  address), or QView or the internet connection isn’t available. More often than not it’s the first: re-check the
+  <strong>Server/Sneakernet</strong> tab. In the example above, the address was typed with a comma instead of a period
+  (<code>qview,teenbiblequiz.com</code>), so QuizMachine couldn’t find QView.</li>
+  <li><strong>Your Tournament isn’t in the list.</strong> Either its dates aren’t within about a month of today, or
+  it is set to <strong>Private</strong> (the default). Fix either one in the Tournament’s Edit form, from its Overview
+  page.</li>
+  <li><strong>Your Room isn’t in the list.</strong> Check that the Room exists on the Tournament’s
+  <strong>Rooms</strong> page.</li>
+  <li><strong>Join fails.</strong> Check the Pairing Code on the Tournament’s Overview page. If the code was changed
+  recently, use the new one.</li>
+  <li><strong>The Lineups window is empty, or shows the wrong Game.</strong> Check the Room’s Games on the
+  Tournament’s <strong>Schedule</strong> page. Games are loaded in order of their Round’s start time.</li>
+</ul>
+<p class="doc-note">When a QuizMachine client is loaded as a certain Room of a Tournament, QuizMachine sees the Games as
+completely new with no history. QView, however, may already have some history for those Games if a different
+QuizMachine was connected as that Room and was used earlier.</p>
+
+<h2>See also</h2>
+<ul>
+  <li><a href="doc:monitoring-rooms">Monitoring Rooms and Resending Game Data</a></li>
+  <li><a href="doc:computing-stats">Computing Stats: Stats Groups, Sneakernet Importing and Exporting Results</a></li>
+  <li><a href="doc:quizmachine/entering-lineups">Entering Lineups (QuizMachine)</a></li>
+</ul>
