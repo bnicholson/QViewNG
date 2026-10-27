@@ -78,13 +78,15 @@ export const DocsArticlePage = ({ categoryId }: { categoryId: DocCategoryId }) =
   const basePath = docPath(category, docVersion.version)
   const locked = !!article && !isAuthenticated && articleRequiresLogin(docVersion, article.slug)
 
-  // Previous/Next across this version's whole hierarchy, treated as one flat list.
-  const navRow = prev || next ? (
+  // Previous/Next across this version's whole hierarchy, treated as one flat list. The copy at the
+  // bottom of the article also scrolls back to the top, so the next article starts at its title.
+  const navRow = (scrollToTop: boolean) => prev || next ? (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
       {prev ? (
         <Button
           component={RouterLink}
           to={`${basePath}/${prev.slug}`}
+          onClick={scrollToTop ? () => window.scrollTo(0, 0) : undefined}
           startIcon={<ChevronLeftIcon />}
           sx={{ textTransform: 'none', textAlign: 'left', maxWidth: '48%' }}
         >
@@ -95,6 +97,7 @@ export const DocsArticlePage = ({ categoryId }: { categoryId: DocCategoryId }) =
         <Button
           component={RouterLink}
           to={`${basePath}/${next.slug}`}
+          onClick={scrollToTop ? () => window.scrollTo(0, 0) : undefined}
           endIcon={<ChevronRightIcon />}
           sx={{ textTransform: 'none', textAlign: 'right', maxWidth: '48%', ml: 'auto' }}
         >
@@ -124,7 +127,7 @@ export const DocsArticlePage = ({ categoryId }: { categoryId: DocCategoryId }) =
               <Chip label={`v${docVersion.version}`} size="small" variant="outlined" />
             </Box>
 
-            {navRow && <Box sx={{ mb: 2 }}>{navRow}</Box>}
+            {(prev || next) && <Box sx={{ mb: 2 }}>{navRow(false)}</Box>}
 
             <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>
               {article.title}
@@ -156,7 +159,7 @@ export const DocsArticlePage = ({ categoryId }: { categoryId: DocCategoryId }) =
               </Alert>
             )}
 
-            {navRow && <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>{navRow}</Box>}
+            {(prev || next) && <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>{navRow(true)}</Box>}
           </>
         ) : (
           <Box sx={{ py: 4 }}>
