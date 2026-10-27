@@ -46,6 +46,7 @@ mod room_rows_test;
 mod room_test;
 mod roomgroup_test;
 mod roster_test;
+mod round_question_types_test;
 mod round_rows_test;
 mod round_test;
 mod schedule_test;

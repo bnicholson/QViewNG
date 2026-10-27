@@ -12,6 +12,7 @@ import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
+import ImportQuestionTypesButton from '../components/ImportQuestionTypesButton'
 import PoolBracketsTable from '../components/PoolBracketsTable'
 import PoolBracketGroupsTable from '../components/PoolBracketGroupsTable'
 import GamesTable from '../components/GamesTable'
@@ -123,10 +124,17 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
               hiddenColumns={['Division']} />
           )}
           {props.childRoute === 'rounds' && (
-            <RoundsTable tid={tournament.tid} did={did}
-              showCreateButton={canCreate(PERMISSION.ROUND_CREATE)} showDeleteButton={canCreate(PERMISSION.ROUND_DELETE)}
-              showAuditColumns={canViewAuditColumns}
-              hiddenColumns={['Division']} />
+            <>
+              {canCreate(PERMISSION.ROUND_UPLOAD_QUESTION_TYPES) && (
+                <Box sx={{ mb: 1 }}>
+                  <ImportQuestionTypesButton did={did} />
+                </Box>
+              )}
+              <RoundsTable tid={tournament.tid} did={did}
+                showCreateButton={canCreate(PERMISSION.ROUND_CREATE)} showDeleteButton={canCreate(PERMISSION.ROUND_DELETE)}
+                showAuditColumns={canViewAuditColumns}
+                hiddenColumns={['Division']} />
+            </>
           )}
           {props.childRoute === 'games' && (
             <GamesTable tid={tournament.tid} did={did}

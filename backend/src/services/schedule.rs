@@ -269,6 +269,8 @@ async fn create(
                     name: format!("{}", global_round_index + 1),
                     scheduled_start_time: start,
                     last_modified_user: user_id,
+                    question_types: String::new(),
+                    using_standard_question_types: true,
                 })?;
                 counts.rounds_created += 1;
 

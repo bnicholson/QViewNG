@@ -1,6 +1,6 @@
 use actix_web::{Error, HttpMessage, HttpRequest, HttpResponse, Result, delete, get, post, put, web::{Data, Json, Path, Query}};
 use serde_json::json;
-use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, PolicyContext, UserContext}}, models::{self, division::{Division, DivisionChangeset, NewDivision}, permission::{AppAction, AppResource}}, services::common::{EntityResponse, PagedResponse, process_response}};
+use crate::{auth::{is_rbac_and_abac_authorized, policies::{division::DivisionPolicyResource, round::RoundPolicyResource, PolicyContext, UserContext}}, models::{self, division::{Division, DivisionChangeset, NewDivision}, permission::{AppAction, AppResource, AppSpecialPermission}, round::{QuestionTypesSaveError, RoundQuestionTypesUpdate}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::models::common::PaginationParams;
 use crate::database::Database;
 use utoipa::OpenApi;
@@ -507,6 +507,131 @@ async fn destroy(
 ///
 /// Public by design, like Games in Progress -- it is what a spectator screen points at, and it
 /// shows only what is already on a scoreboard. The full admin Stats Groups panel stays restricted.
+/// Every round of the division with its question types, in schedule order, and whether the
+/// division's question types are complete (every round has a type for every question).
+#[get("/{id}/round-question-types")]
+async fn read_round_question_types(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    req: HttpRequest
+) -> HttpResponse {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let division_id = item_id.into_inner();
+    if models::division::read(&mut conn, division_id).is_err() {
+        return HttpResponse::NotFound().finish();
+    }
+
+    match models::round::read_question_types_of_division(&mut conn, division_id) {
+        Ok(question_types) => HttpResponse::Ok().json(question_types),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+/// Importing question types takes `round:upload_question_types` on top of being allowed to update
+/// the division's rounds (`round:update`, as the tournament's owner or one of its admins).
+fn can_upload_question_types(
+    conn: &mut crate::database::Connection,
+    division: &Division,
+    user_ctx: &UserContext,
+) -> Result<bool, diesel::result::Error> {
+    let tournament = models::tournament::read(conn, division.tid)?;
+    let user_is_admin = models::tournament_admin::is_admin(conn, tournament.tid, user_ctx.user_id);
+    let policy_ctx = PolicyContext {
+        user_ctx: user_ctx.clone(),
+        resource: RoundPolicyResource { tournament, user_is_tournament_admin: user_is_admin },
+    };
+    let round_update_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Update.as_str());
+    Ok(is_rbac_and_abac_authorized(&policy_ctx, &round_update_permission, AppResource::Round.as_str()).is_ok()
+        && user_ctx.can(AppSpecialPermission::RoundUploadQuestionTypes.as_str()))
+}
+
+#[derive(serde::Deserialize)]
+struct QuestionSetFileUpload {
+    /// The uploaded file's name; its extension picks the format.
+    filename: String,
+    /// The file's text.
+    content: String,
+}
+
+/// Reads the question types out of an uploaded question set file (.rtf or .csv) without saving
+/// anything, so the user can review them and choose which rounds they go to.
+#[post("/{id}/round-question-types/parse")]
+async fn parse_round_question_types(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Json(upload): Json<QuestionSetFileUpload>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let division = match models::division::read(&mut conn, item_id.into_inner()) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    match can_upload_question_types(&mut conn, &division, user_ctx) {
+        Ok(true) => {}
+        Ok(false) => return Ok(HttpResponse::Unauthorized().finish()),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    }
+
+    Ok(HttpResponse::Ok().json(models::question_type::parse_question_set_file(&upload.filename, &upload.content)))
+}
+
+/// Saves question types for several of the division's rounds at once. Either every round is
+/// saved or, if any round's question types are invalid, none is.
+#[put("/{id}/round-question-types")]
+async fn update_round_question_types(
+    db: Data<Database>,
+    item_id: Path<Uuid>,
+    Json(updates): Json<Vec<RoundQuestionTypesUpdate>>,
+    req: HttpRequest
+) -> Result<HttpResponse, Error> {
+    let mut conn = db.pool.get().unwrap();
+
+    // log this api call
+    models::apicalllog::create(&mut conn, &req);
+
+    let extensions = req.extensions();
+    let user_ctx = match extensions.get::<UserContext>() {
+        Some(u_ctx) => u_ctx,
+        None => return Ok(HttpResponse::Unauthorized().finish()),
+    };
+
+    let division = match models::division::read(&mut conn, item_id.into_inner()) {
+        Ok(d) => d,
+        Err(_) => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    match can_upload_question_types(&mut conn, &division, user_ctx) {
+        Ok(true) => {}
+        Ok(false) => return Ok(HttpResponse::Unauthorized().finish()),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
+    }
+
+    match models::round::update_question_types_of_division(&mut conn, division.did, &updates, user_ctx.user_id) {
+        Ok(rounds) => Ok(HttpResponse::Ok().json(rounds)),
+        Err(QuestionTypesSaveError::Invalid(round_errors)) => Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": "Some rounds' question types are not valid; nothing was saved.",
+            "rounds": round_errors,
+        }))),
+        Err(QuestionTypesSaveError::Database(_)) => Ok(HttpResponse::InternalServerError().finish()),
+    }
+}
+
 #[get("/{id}/teamstats")]
 async fn read_team_stats(
     db: Data<Database>,
@@ -576,6 +701,9 @@ pub fn endpoints(scope: actix_web::Scope) -> actix_web::Scope {
         .service(read_team_rows)
         .service(read_quizzer_rows)
         .service(read_round_rows)
+        .service(read_round_question_types)
+        .service(parse_round_question_types)
+        .service(update_round_question_types)
         .service(read_game_rows)
         .service(read_games)
         .service(create)

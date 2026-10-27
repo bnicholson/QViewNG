@@ -90,6 +90,8 @@ pub enum AppSpecialPermission {
     TournamentReadAudit,
     /// Use the schedule editor rather than the read-only schedule view.
     TournamentUpdateSchedule,
+    /// Import a division's round question types from a question set file.
+    RoundUploadQuestionTypes,
     /// Read any user's account, not just one's own.
     UserReadAny,
     /// Read the users participating in tournaments one manages.
@@ -105,6 +107,7 @@ impl AppSpecialPermission {
             AppSpecialPermission::TournamentReadPairingCode      => "tournament:read_pairing_code",
             AppSpecialPermission::TournamentReadAudit            => "tournament:read_audit",
             AppSpecialPermission::TournamentUpdateSchedule       => "tournament:update_schedule",
+            AppSpecialPermission::RoundUploadQuestionTypes       => "round:upload_question_types",
             AppSpecialPermission::UserReadAny                    => "user:read_any",
             AppSpecialPermission::UserReadTournamentParticipants => "user:read_tournament_participants",
         }
@@ -118,6 +121,7 @@ impl AppSpecialPermission {
             AppSpecialPermission::TournamentReadPairingCode
             | AppSpecialPermission::TournamentReadAudit
             | AppSpecialPermission::TournamentUpdateSchedule => AppResource::Tournament.as_str(),
+            AppSpecialPermission::RoundUploadQuestionTypes => AppResource::Round.as_str(),
             AppSpecialPermission::UserReadAny
             | AppSpecialPermission::UserReadTournamentParticipants => AppResource::User.as_str(),
         }

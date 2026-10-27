@@ -110,11 +110,13 @@ fn init_roles_and_permissions(db: &mut database::Connection) {
 
     let all_ids: Vec<Uuid> = perm_ids.values().copied().chain(special_ids.values().copied()).collect();
 
-    // The tournament sections that used to be gated on holding the manager/admin role.
+    // The tournament sections that used to be gated on holding the manager/admin role, plus
+    // importing round question types, which both roles also hold.
     let tour_view_permissions: Vec<Uuid> = vec![
         special(AppSpecialPermission::TournamentReadPairingCode),
         special(AppSpecialPermission::TournamentReadAudit),
         special(AppSpecialPermission::TournamentUpdateSchedule),
+        special(AppSpecialPermission::RoundUploadQuestionTypes),
     ];
 
     let tour_group_update_id = perm_ids.get(&(AppResource::TournamentGroup.as_str(), AppAction::Update.as_str())).copied();

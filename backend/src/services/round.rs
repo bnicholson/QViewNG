@@ -140,6 +140,13 @@ async fn create(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
+    if let Err(errors) = models::question_type::validate(&item.question_types, item.using_standard_question_types) {
+        return Ok(HttpResponse::UnprocessableEntity().json(json!({
+            "error": "The round's question types are not valid.",
+            "errors": errors,
+        })));
+    }
+
     tracing::debug!("{} Round model create {:?}", line!(), item);
 
     // log this api call
@@ -202,6 +209,19 @@ async fn update(
     let round_update_permission = format!("{}:{}", AppResource::Round.as_str(), AppAction::Update.as_str());
     if is_rbac_and_abac_authorized(&policy_ctx, &round_update_permission, AppResource::Round.as_str()).is_err() {
         return Ok(HttpResponse::Unauthorized().finish());
+    }
+
+    // Check the question types the round will end up with whenever either part of them changes,
+    // so turning the standard check back on can't leave non-standard types in place.
+    if item.question_types.is_some() || item.using_standard_question_types.is_some() {
+        let types = item.question_types.as_deref().unwrap_or(&round.question_types);
+        let using_standard = item.using_standard_question_types.unwrap_or(round.using_standard_question_types);
+        if let Err(errors) = models::question_type::validate(types, using_standard) {
+            return Ok(HttpResponse::UnprocessableEntity().json(json!({
+                "error": "The round's question types are not valid.",
+                "errors": errors,
+            })));
+        }
     }
 
     tracing::debug!("{} Round model update {:?} {:?}", line!(), round_id, item);

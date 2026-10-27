@@ -93,6 +93,8 @@ export const PERMISSION = {
   TOURNAMENT_READ_AUDIT: 'tournament:read_audit',
   /** The schedule editor, rather than the read-only schedule view. */
   TOURNAMENT_UPDATE_SCHEDULE: 'tournament:update_schedule',
+  /** Importing a division's round question types from a question set file (.rtf / .csv). */
+  ROUND_UPLOAD_QUESTION_TYPES: 'round:upload_question_types',
   /** Any user's account, not just one's own. */
   USER_READ_ANY: 'user:read_any',
   /** The users participating in tournaments one manages. */

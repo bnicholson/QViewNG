@@ -9,12 +9,15 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 use chrono::{DateTime, TimeZone, Utc};
 use std::collections::HashMap;
+use crate::models::question_type;
 
 pub struct RoundBuilder {
     pub did: Option<Uuid>,                       // id of the parent division
     pub name: Option<String>,
     pub scheduled_start_time: Option<DateTime<Utc>>,
-    pub last_modified_user: Option<Uuid>
+    pub last_modified_user: Option<Uuid>,
+    pub question_types: String,
+    pub using_standard_question_types: bool,
 }
 
 impl RoundBuilder {
@@ -23,7 +26,9 @@ impl RoundBuilder {
             did: Some(did),
             name: None,
             scheduled_start_time: None,
-            last_modified_user: None
+            last_modified_user: None,
+            question_types: String::new(),
+            using_standard_question_types: true,
         }
     }
     pub fn new_default(did: Uuid) -> Self {
@@ -31,7 +36,9 @@ impl RoundBuilder {
             did: Some(did),
             name: None,
             scheduled_start_time: Some(Utc.with_ymd_and_hms(2055, 5, 23, 00, 00, 0).unwrap()),
-            last_modified_user: None
+            last_modified_user: None,
+            question_types: String::new(),
+            using_standard_question_types: true,
         }
     }
     pub fn set_name(mut self, name: &str) -> Self {
@@ -46,6 +53,15 @@ impl RoundBuilder {
         self.last_modified_user = Some(user_id);
         self
     }
+    /// The 20 question type codes in question order (see `question_type`).
+    pub fn set_question_types(mut self, types: &str) -> Self {
+        self.question_types = types.to_string();
+        self
+    }
+    pub fn set_using_standard_question_types(mut self, using_standard: bool) -> Self {
+        self.using_standard_question_types = using_standard;
+        self
+    }
     fn validate_all_are_some(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         if self.did.is_none() {
@@ -56,6 +72,9 @@ impl RoundBuilder {
         }
         if self.scheduled_start_time.is_none() {
             errors.push("scheduled_start_time is required".to_string());
+        }
+        if let Err(type_errors) = question_type::validate(&self.question_types, self.using_standard_question_types) {
+            errors.extend(type_errors);
         }
         if !errors.is_empty() {
             return Err(errors);
@@ -73,7 +92,9 @@ impl RoundBuilder {
                         did: self.did.unwrap(),
                         name: self.name.unwrap(),
                         scheduled_start_time: self.scheduled_start_time,
-                        last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil)
+                        last_modified_user: self.last_modified_user.unwrap_or_else(Uuid::nil),
+                        question_types: self.question_types,
+                        using_standard_question_types: self.using_standard_question_types,
                     }
                 )
             }
@@ -139,6 +160,10 @@ pub struct Round {
     /// Soft-delete flag. When true the round is treated as deleted and excluded from reads.
     pub del_fl: bool,
     pub did: Uuid,                              // parent division
+    /// One question type code per question, in question order, or empty when none are saved.
+    pub question_types: String,
+    /// Whether saving question types checks for the standard count of each type.
+    pub using_standard_question_types: bool,
 }
 
 #[derive(
@@ -154,7 +179,15 @@ pub struct NewRound {
     #[serde(default)]
     pub scheduled_start_time: Option<DateTime<Utc>>,
     #[serde(default)]
-    pub last_modified_user: Uuid
+    pub last_modified_user: Uuid,
+    #[serde(default)]
+    pub question_types: String,
+    #[serde(default = "default_using_standard_question_types")]
+    pub using_standard_question_types: bool,
+}
+
+fn default_using_standard_question_types() -> bool {
+    true
 }
 
 // #[tsync::tsync]
@@ -163,7 +196,10 @@ pub struct NewRound {
 #[diesel(primary_key(roundid))]
 pub struct RoundChangeset {
     pub name: Option<String>,
-    pub scheduled_start_time: Option<DateTime<Utc>>
+    pub scheduled_start_time: Option<DateTime<Utc>>,
+    /// Empty clears the round's question types.
+    pub question_types: Option<String>,
+    pub using_standard_question_types: Option<bool>,
 }
 
 pub fn create(db: &mut database::Connection, item: &NewRound) -> QueryResult<Round> {
@@ -324,6 +360,126 @@ fn build_round_rows(db: &mut database::Connection, round_list: Vec<Round>) -> Qu
             }
         })
         .collect())
+}
+
+/// One round's question types, as listed for its division.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct RoundQuestionTypes {
+    pub roundid: Uuid,
+    pub name: String,
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub scheduled_start_time: Option<DateTime<Utc>>,
+    /// One question type code per question, in question order, or empty when none are saved.
+    pub question_types: String,
+    pub using_standard_question_types: bool,
+}
+
+/// Every round of a division with its question types, in schedule order.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct DivisionQuestionTypes {
+    /// True only when the division has rounds and every one of them has question types for all of
+    /// its questions. Anything built on question types (e.g. stats) is usable only when this is.
+    pub complete: bool,
+    pub rounds: Vec<RoundQuestionTypes>,
+}
+
+/// All of a division's rounds, in schedule order, with their question types.
+pub fn read_question_types_of_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<DivisionQuestionTypes> {
+    use crate::schema::rounds::dsl::*;
+    let round_list = rounds
+        .filter(did.eq(division_id))
+        .filter(del_fl.eq(false))
+        .order((scheduled_start_time.asc(), created_at.asc()))
+        .load::<Round>(db)?;
+
+    let complete = !round_list.is_empty()
+        && round_list.iter().all(|r| r.question_types.chars().count() == question_type::QUESTIONS_PER_ROUND);
+
+    Ok(DivisionQuestionTypes {
+        complete,
+        rounds: round_list
+            .into_iter()
+            .map(|r| RoundQuestionTypes {
+                roundid: r.roundid,
+                name: r.name,
+                scheduled_start_time: r.scheduled_start_time,
+                question_types: r.question_types,
+                using_standard_question_types: r.using_standard_question_types,
+            })
+            .collect(),
+    })
+}
+
+/// Whether every round of the division has question types for all of its questions.
+pub fn division_has_complete_question_types(db: &mut database::Connection, division_id: Uuid) -> QueryResult<bool> {
+    Ok(read_question_types_of_division(db, division_id)?.complete)
+}
+
+/// New question types for one round of a division.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct RoundQuestionTypesUpdate {
+    pub roundid: Uuid,
+    /// 20 question type codes in question order, or empty to clear the round's question types.
+    pub question_types: String,
+    #[serde(default = "default_using_standard_question_types")]
+    pub using_standard_question_types: bool,
+}
+
+/// Why a round's new question types were rejected.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct RoundQuestionTypesError {
+    pub roundid: Uuid,
+    pub errors: Vec<String>,
+}
+
+pub enum QuestionTypesSaveError {
+    Invalid(Vec<RoundQuestionTypesError>),
+    Database(diesel::result::Error),
+}
+
+/// Saves question types for several rounds of a division at once. Every update is checked first,
+/// and all are written in one transaction, so either every round is saved or none is.
+pub fn update_question_types_of_division(
+    db: &mut database::Connection,
+    division_id: Uuid,
+    updates: &[RoundQuestionTypesUpdate],
+    modified_by: Uuid,
+) -> Result<Vec<Round>, QuestionTypesSaveError> {
+    let mut invalid = Vec::new();
+    for update in updates {
+        let mut errors = Vec::new();
+        match read(db, update.roundid) {
+            Ok(r) if r.did == division_id => {}
+            Ok(_) => errors.push("The round is not in this division.".to_string()),
+            Err(diesel::result::Error::NotFound) => errors.push("The round does not exist.".to_string()),
+            Err(e) => return Err(QuestionTypesSaveError::Database(e)),
+        }
+        if let Err(type_errors) = question_type::validate(&update.question_types, update.using_standard_question_types) {
+            errors.extend(type_errors);
+        }
+        if !errors.is_empty() {
+            invalid.push(RoundQuestionTypesError { roundid: update.roundid, errors });
+        }
+    }
+    if !invalid.is_empty() {
+        return Err(QuestionTypesSaveError::Invalid(invalid));
+    }
+
+    db.transaction(|conn| {
+        updates
+            .iter()
+            .map(|u| {
+                let changeset = RoundChangeset {
+                    name: None,
+                    scheduled_start_time: None,
+                    question_types: Some(u.question_types.clone()),
+                    using_standard_question_types: Some(u.using_standard_question_types),
+                };
+                update(conn, u.roundid, &changeset, modified_by)
+            })
+            .collect::<QueryResult<Vec<Round>>>()
+    })
+    .map_err(QuestionTypesSaveError::Database)
 }
 
 pub fn update(db: &mut database::Connection, item_id: Uuid, item: &RoundChangeset, modified_by: Uuid) -> QueryResult<Round> {

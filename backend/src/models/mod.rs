@@ -14,6 +14,7 @@ pub mod gameevent_import;
 pub mod room;
 pub mod roomgroup;
 pub mod round;
+pub mod question_type;
 pub mod user;
 pub mod user_session;
 pub mod password_reset;

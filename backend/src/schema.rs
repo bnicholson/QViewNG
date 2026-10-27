@@ -611,6 +611,8 @@ diesel::table! {
         last_modified_user -> Uuid,
         del_fl -> Bool,
         did -> Uuid,
+        question_types -> Text,
+        using_standard_question_types -> Bool,
     }
 }
 

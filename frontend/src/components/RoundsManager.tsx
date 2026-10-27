@@ -30,6 +30,8 @@ import { GameEditorDialog } from './GameEditorDialog'
 import { RoundStartTimesDialog } from './RoundStartTimesDialog'
 import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
+import { PERMISSION } from '../auth/permissions'
+import ImportQuestionTypesButton from './ImportQuestionTypesButton'
 
 const PAGE = 0
 const SIZE = 500
@@ -118,7 +120,9 @@ interface Props {
  * tournament's round duration.
  */
 export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes, gamesByRound, onNavigateGame, onGamesChanged, poolBrackets, onPoolsChanged }: Props) {
-  const { accessToken } = useAuth()
+  const { accessToken, session } = useAuth()
+  // Importing question types also takes its own permission on top of editing the schedule.
+  const canUploadQuestionTypes = canEdit && (session?.can(PERMISSION.ROUND_UPLOAD_QUESTION_TYPES) ?? false)
   const [rounds, setRounds] = useState<RoundTS[]>([])
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -567,6 +571,7 @@ export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes,
               </Button>
             </span>
           </Tooltip>
+          {canUploadQuestionTypes && <ImportQuestionTypesButton did={did} onImported={loadRounds} />}
         </Box>
       )}
 
