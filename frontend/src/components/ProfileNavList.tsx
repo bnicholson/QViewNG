@@ -72,7 +72,8 @@ export default function ProfileNavList({ navItems, onSelect, touch = false }: Pr
   }
 
   const fontSize = touch ? '1rem' : '0.875rem'
-  const py = touch ? '10px' : '3px'
+  const py = touch ? '10px' : '6px'
+  const px = touch ? 10 : 14
 
   return (
     <>
@@ -81,7 +82,7 @@ export default function ProfileNavList({ navItems, onSelect, touch = false }: Pr
           <Button
             size="small"
             onClick={() => { select(); exit() }}
-            sx={{ px: '10px', py, justifyContent: 'flex-start', color: 'text.secondary', fontSize, textTransform: 'none', width: '100%' }}
+            sx={{ px: `${px}px`, py, justifyContent: 'flex-start', color: 'text.secondary', fontSize, textTransform: 'none', width: '100%' }}
           >
             &laquo; Exit Profile
           </Button>
@@ -96,7 +97,9 @@ export default function ProfileNavList({ navItems, onSelect, touch = false }: Pr
               : activeAnchor === item.anchor
 
           const commonSx = {
-            pl: isActive ? '7px' : '10px',
+            // The active item's 3px border sits inside its padding, so its text doesn't shift.
+            pl: `${isActive ? px - 3 : px}px`,
+            pr: `${px}px`,
             py,
             borderLeft: isActive ? '3px solid' : '3px solid transparent',
             borderColor: isActive ? 'primary.main' : 'transparent',

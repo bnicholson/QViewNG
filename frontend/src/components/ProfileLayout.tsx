@@ -10,7 +10,9 @@ import { isRouteActive, isRouteNavItem, type NavItem } from '../utils/profileNav
 
 export type { NavItem }
 
-const SIDEBAR_WIDTH = 148
+const SIDEBAR_WIDTH = 184
+/** Below the app bar (74px) plus a gap. */
+const SIDEBAR_TOP = 'calc(74px + 16px)'
 /**
  * Remembered per viewer: navigating between a profile's sections re-renders this layout, and a
  * collapse that reset on every click would be useless. Browser-only, so a failure to read or write
@@ -60,7 +62,7 @@ export default function ProfileLayout({ entityType, entityName, subtitle, navIte
 
   return (
     <ProfileSidebarProvider value={{ collapsed, toggle: toggleCollapsed }}>
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
         {/* Sidebar — omitted entirely while collapsed, so it takes no width and no flex gap. Its
             toggle lives beside the breadcrumb path, not in here, so it does not move when the
             sidebar closes. */}
@@ -71,19 +73,24 @@ export default function ProfileLayout({ entityType, entityName, subtitle, navIte
               width: SIDEBAR_WIDTH,
               flexShrink: 0,
               position: 'sticky',
-              top: 'calc(74px + 16px)',
+              top: SIDEBAR_TOP,
               display: { xs: 'none', md: 'block' },
+              // Fits within the viewport and scrolls on its own, only while the mouse is over it.
+              // `contain` keeps reaching its end from scrolling the page instead.
+              maxHeight: `calc(100vh - ${SIDEBAR_TOP} - 16px)`,
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
             }}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, px: '10px', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.08em' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, px: '14px', lineHeight: 1.5, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.08em' }}>
               {entityName === undefined ? entityType : <>{entityType}:<br />{entityName}</>}
             </Typography>
             {subtitle && (
-              <Typography variant="caption" sx={{ px: '10px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              <Typography variant="caption" sx={{ px: '14px', color: 'text.secondary', display: 'block', mb: 1 }}>
                 {subtitle}
               </Typography>
             )}
-            <Divider sx={{ mb: 0.5 }} />
+            <Divider sx={{ mb: 1 }} />
             <ProfileNavList navItems={navItems.filter((i) => !i.mobileOnly)} />
           </Box>
         )}
