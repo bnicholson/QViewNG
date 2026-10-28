@@ -60,6 +60,17 @@ export interface QuestionTypeStatTS {
   bonus_correct: number;
 }
 
+/** A team's or quizzer's outs and fouls. Mirrors `OutsAndFoulsStat` on the backend. */
+export interface OutsAndFoulsStatTS {
+  quiz_outs_without_errors: number; // these earn the quiz-out award
+  quiz_outs_with_errors: number;
+  error_outs: number;
+  foul_outs: number;
+  quizzer_fouls: number;
+  team_fouls: number;               // always 0 for a quizzer
+  coach_fouls: number;              // always 0 for a quizzer
+}
+
 export interface TeamStatTS {
   place: number;
   name: string;
@@ -74,6 +85,8 @@ export interface TeamStatTS {
   memory_verse_correct: number;
   /** Counts per question type, summed over the team's quizzers. */
   question_types: QuestionTypeStatTS[];
+  /** Outs and quizzer fouls summed over the team's quizzers, plus the team's own team and coach fouls. */
+  outs_and_fouls: OutsAndFoulsStatTS;
   rank_rule_above: RankRuleExplanationTS | null;
   rank_rule_below: RankRuleExplanationTS | null;
 }
@@ -90,6 +103,7 @@ export interface IndividualStatTS {
   bonus_pts: number;
   bonus_attempts: number;
   question_types: QuestionTypeStatTS[];
+  outs_and_fouls: OutsAndFoulsStatTS;
 }
 
 // These endpoints are restricted server-side to super users, the tournament owner, and its

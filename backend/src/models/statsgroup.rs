@@ -564,6 +564,73 @@ fn read_question_types_by_round(
         .collect())
 }
 
+// ─── Quiz outs, error outs, foul outs and fouls ───────────────────────────────
+
+/// A team's or quizzer's quiz outs, error outs, foul outs and fouls across the counted games.
+/// The totals (all quiz outs, all fouls) are left to the client.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Default, PartialEq, ToSchema)]
+pub struct OutsAndFoulsStat {
+    pub quiz_outs_without_errors: i32, // quiz outs with no erroneous tossup; these earn the quiz-out award
+    pub quiz_outs_with_errors: i32,
+    pub error_outs: i32,
+    pub foul_outs: i32,
+    pub quizzer_fouls: i32,
+    pub team_fouls: i32,               // always 0 for a quizzer
+    pub coach_fouls: i32,              // always 0 for a quizzer
+}
+
+impl OutsAndFoulsStat {
+    fn merge(&mut self, other: &OutsAndFoulsStat) {
+        self.quiz_outs_without_errors += other.quiz_outs_without_errors;
+        self.quiz_outs_with_errors += other.quiz_outs_with_errors;
+        self.error_outs += other.error_outs;
+        self.foul_outs += other.foul_outs;
+        self.quizzer_fouls += other.quizzer_fouls;
+        self.team_fouls += other.team_fouls;
+        self.coach_fouls += other.coach_fouls;
+    }
+}
+
+/// One quizzer's outs and fouls in one game. `foul_out` is the game's fouls-to-foul-out; the
+/// calculator doesn't record a foul-out question, so it is read off the foul count.
+fn quizzer_outs_and_fouls(quizzer: &CalculatedQuizzer, foul_out: i32) -> OutsAndFoulsStat {
+    let quizzed_out = quizzer.question_quizzed_out_on != -1;
+    let fouls = quizzer.fouls_received.len() as i32;
+    OutsAndFoulsStat {
+        quiz_outs_without_errors: (quizzed_out && quizzer.errors_on_tossups.is_empty()) as i32,
+        quiz_outs_with_errors: (quizzed_out && !quizzer.errors_on_tossups.is_empty()) as i32,
+        error_outs: (quizzer.question_errored_out_on != -1) as i32,
+        foul_outs: (foul_out > 0 && fouls >= foul_out) as i32,
+        quizzer_fouls: fouls,
+        ..Default::default()
+    }
+}
+
+/// Adds one game's outs and fouls to each quizzer's tally, keyed by (team name, quizzer name),
+/// and its team and coach fouls (which belong to no quizzer) to each team's, keyed by team name.
+fn tally_outs_and_fouls(
+    calculated: &CalculatedGame,
+    quizzers: &mut HashMap<(String, String), OutsAndFoulsStat>,
+    teams: &mut HashMap<String, OutsAndFoulsStat>,
+) {
+    for team in calculated.teams.values() {
+        for quizzer in team.quizzers.values() {
+            quizzers
+                .entry((team.name.clone(), quizzer.name.clone()))
+                .or_default()
+                .merge(&quizzer_outs_and_fouls(quizzer, calculated.options.foul_out));
+        }
+        let team_tally = teams.entry(team.name.clone()).or_default();
+        for (_, is_for_coach) in &team.team_and_coach_fouls_received {
+            if *is_for_coach {
+                team_tally.coach_fouls += 1;
+            } else {
+                team_tally.team_fouls += 1;
+            }
+        }
+    }
+}
+
 // ─── A division's own stats group ─────────────────────────────────────────────
 
 /// The stats group that mirrors a division: every game of the division, kept in step
@@ -758,6 +825,9 @@ pub struct TeamStat {
     /// Tossup and bonus counts per question type, in [`STATS_QUESTION_TYPES`] order. Summed over
     /// the team's quizzers; questions without a type don't count.
     pub question_types: Vec<QuestionTypeStat>,
+    /// Quiz outs, error outs, foul outs and quizzer fouls summed over the team's quizzers, plus
+    /// the team's own team and coach fouls.
+    pub outs_and_fouls: OutsAndFoulsStat,
     /// Which criterion placed this team below the one above it. None on the first row.
     pub rank_rule_above: Option<RankRuleExplanation>,
     /// Which criterion placed this team above the one below it. None on the last row.
@@ -862,6 +932,8 @@ pub async fn read_team_stats_of_statsgroup(
     // Each game's round's question types, for the Memory Verse counts and the per-type breakdown.
     let question_types_by_round = read_question_types_by_round(db, &games)?;
     let mut tallies: HashMap<(String, String), QuestionTypeTally> = HashMap::new();
+    let mut quizzer_outs: HashMap<(String, String), OutsAndFoulsStat> = HashMap::new();
+    let mut team_outs: HashMap<String, OutsAndFoulsStat> = HashMap::new();
 
     // One cache lookup (or one replay) per game. Games whose event stream can't be scored
     // come back as None and are skipped.
@@ -883,6 +955,7 @@ pub async fn read_team_stats_of_statsgroup(
                 if let Some(types) = types {
                     tally_question_types(&calculated, types, &mut tallies);
                 }
+                tally_outs_and_fouls(&calculated, &mut quizzer_outs, &mut team_outs);
             }
         }
     }
@@ -892,9 +965,15 @@ pub async fn read_team_stats_of_statsgroup(
     for ((team_name, _), tally) in &tallies {
         by_team.entry(team_name.clone()).or_default().merge(tally);
     }
+    for ((team_name, _), outs) in &quizzer_outs {
+        team_outs.entry(team_name.clone()).or_default().merge(outs);
+    }
     for stat in stats.iter_mut() {
         if let Some(tally) = by_team.get(&stat.name) {
             stat.question_types = tally.to_stats();
+        }
+        if let Some(outs) = team_outs.get(&stat.name) {
+            stat.outs_and_fouls = *outs;
         }
     }
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
@@ -990,6 +1069,7 @@ fn aggregate_team_stats(
             avg_points: if a.games > 0 { a.total_points as f64 / a.games as f64 } else { 0.0 },
             memory_verse_correct: a.memory_verse_correct,
             question_types: empty_question_type_stats(),
+            outs_and_fouls: OutsAndFoulsStat::default(),
             rank_rule_above: None,
             rank_rule_below: None,
         })
@@ -1144,6 +1224,8 @@ pub struct IndividualStat {
     /// Tossup and bonus counts per question type, in [`STATS_QUESTION_TYPES`] order. Questions
     /// without a type don't count.
     pub question_types: Vec<QuestionTypeStat>,
+    /// Quiz outs, error outs, foul outs and fouls; the team and coach fouls are always 0.
+    pub outs_and_fouls: OutsAndFoulsStat,
 }
 
 struct IndividualStatAgg {
@@ -1173,6 +1255,9 @@ pub async fn read_individual_stats_of_statsgroup(
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
     let question_types_by_round = read_question_types_by_round(db, &games)?;
     let mut tallies: HashMap<(String, String), QuestionTypeTally> = HashMap::new();
+    let mut quizzer_outs: HashMap<(String, String), OutsAndFoulsStat> = HashMap::new();
+    // Team and coach fouls belong to no quizzer, so the individual rows leave them out.
+    let mut team_outs: HashMap<String, OutsAndFoulsStat> = HashMap::new();
 
     // Note this shares the cache with the team-stats endpoint: whichever of the two is
     // requested first warms every game, and the second is served without touching the
@@ -1189,14 +1274,19 @@ pub async fn read_individual_stats_of_statsgroup(
                 if let Some(types) = question_types_by_round.get(&game.roundid) {
                     tally_question_types(&calculated, types, &mut tallies);
                 }
+                tally_outs_and_fouls(&calculated, &mut quizzer_outs, &mut team_outs);
             }
         }
     }
 
     let mut stats = aggregate_individual_stats(&per_game);
     for stat in stats.iter_mut() {
-        if let Some(tally) = tallies.get(&(stat.team_name.clone(), stat.individual.clone())) {
+        let key = (stat.team_name.clone(), stat.individual.clone());
+        if let Some(tally) = tallies.get(&key) {
             stat.question_types = tally.to_stats();
+        }
+        if let Some(outs) = quizzer_outs.get(&key) {
+            stat.outs_and_fouls = *outs;
         }
     }
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
@@ -1245,6 +1335,7 @@ fn aggregate_individual_stats(per_game: &[Vec<QuizzerGameResult>]) -> Vec<Indivi
             bonus_pts: a.bonus_pts,
             bonus_attempts: a.bonus_attempts,
             question_types: empty_question_type_stats(),
+            outs_and_fouls: OutsAndFoulsStat::default(),
         })
         .collect();
 
@@ -1669,6 +1760,7 @@ mod tiebreaker_tests {
             avg_points: if games > 0 { total as f64 / games as f64 } else { 0.0 },
             memory_verse_correct: 0,
             question_types: empty_question_type_stats(),
+            outs_and_fouls: OutsAndFoulsStat::default(),
             rank_rule_above: None,
             rank_rule_below: None,
         }
@@ -1844,5 +1936,70 @@ mod question_type_tests {
         let mut tally = QuestionTypeTally::default();
         tally_quizzer(&quizzer(&[1, 2], &[3], &[4], &[]), &[], &mut tally);
         assert_eq![tally.to_stats(), empty_question_type_stats()];
+    }
+}
+
+#[cfg(test)]
+mod outs_and_fouls_tests {
+    use super::*;
+
+    fn quizzer(errors: &[i32], fouls: &[i32], quizzed_out_on: i32, errored_out_on: i32) -> CalculatedQuizzer {
+        CalculatedQuizzer {
+            name: "Ann".to_string(),
+            correct_tossups: vec![],
+            errors_on_tossups: errors.to_vec(),
+            correct_bonuses: vec![],
+            errors_on_bonuses: vec![],
+            fouls_received: fouls.to_vec(),
+            question_quizzed_out_on: quizzed_out_on,
+            question_errored_out_on: errored_out_on,
+            question_fouled_out_on: -1,
+        }
+    }
+
+    /// A quiz out counts as with or without errors by whether the quizzer erred on a tossup.
+    #[test]
+    fn quiz_outs_split_on_errors() {
+        let clean = quizzer_outs_and_fouls(&quizzer(&[], &[], 8, -1), 3);
+        assert_eq![(clean.quiz_outs_without_errors, clean.quiz_outs_with_errors), (1, 0)];
+        let erred = quizzer_outs_and_fouls(&quizzer(&[3], &[], 9, -1), 3);
+        assert_eq![(erred.quiz_outs_without_errors, erred.quiz_outs_with_errors), (0, 1)];
+        let none = quizzer_outs_and_fouls(&quizzer(&[3], &[], -1, -1), 3);
+        assert_eq![none, OutsAndFoulsStat::default()];
+    }
+
+    /// Fouls are counted one by one, and reaching the game's foul-out count is a foul out.
+    #[test]
+    fn fouls_and_foul_outs() {
+        let two = quizzer_outs_and_fouls(&quizzer(&[], &[2, 5], -1, -1), 3);
+        assert_eq![(two.quizzer_fouls, two.foul_outs), (2, 0)];
+        let three = quizzer_outs_and_fouls(&quizzer(&[], &[2, 5, 7], -1, -1), 3);
+        assert_eq![(three.quizzer_fouls, three.foul_outs), (3, 1)];
+    }
+
+    #[test]
+    fn error_outs() {
+        let out = quizzer_outs_and_fouls(&quizzer(&[1, 2, 3], &[], -1, 3), 3);
+        assert_eq![(out.error_outs, out.quiz_outs_with_errors), (1, 0)];
+    }
+
+    /// Merging adds every count, which is how a team's row sums its quizzers' rows.
+    #[test]
+    fn merge_adds_every_count() {
+        let mut total = OutsAndFoulsStat { team_fouls: 1, ..Default::default() };
+        total.merge(&quizzer_outs_and_fouls(&quizzer(&[], &[4], 10, -1), 3));
+        total.merge(&quizzer_outs_and_fouls(&quizzer(&[1, 2, 3], &[], -1, 3), 3));
+        assert_eq![
+            total,
+            OutsAndFoulsStat {
+                quiz_outs_without_errors: 1,
+                quiz_outs_with_errors: 0,
+                error_outs: 1,
+                foul_outs: 0,
+                quizzer_fouls: 1,
+                team_fouls: 1,
+                coach_fouls: 0,
+            }
+        ];
     }
 }

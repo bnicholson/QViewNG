@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -29,6 +29,8 @@ import ExportTableButton from "./ExportTableButton";
 import type { ExportPayload } from "../features/exportTable";
 import QuestionTypeGrid from "./QuestionTypeGrid";
 import { questionTypeColumns, questionTypeExportColumns, questionTypeExportValues } from "../utils/questionTypeStats";
+import OutsAndFoulsGrid from "./OutsAndFoulsGrid";
+import { outsAndFoulsColumns, outsAndFoulsExportColumns, outsAndFoulsExportValues } from "../utils/outsAndFoulsStats";
 
 // One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
@@ -226,6 +228,23 @@ function GamesSelectionSection({ tid, statsGroupId, refreshKey, onExportReady }:
   );
 }
 
+/** A stats row's expanded panel: its tables side by side on desktop (wrapping if they don't fit), stacked on mobile. */
+function ExpandedStats({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: { xs: "column", md: "row" },
+        flexWrap: { md: "wrap" },
+        alignItems: "flex-start",
+        gap: 1,
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
 function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
   statsGroupId: string;
   onExportReady: (p: ExportPayload) => void;
@@ -265,11 +284,12 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
       filename: "team-stats",
       columns: [
         "Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg Pts",
-        ...questionTypeExportColumns, "Rank Rules",
+        ...outsAndFoulsExportColumns("team"), ...questionTypeExportColumns, "Rank Rules",
       ],
       rows: rows.map((r) => [
         r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points,
-        r.total_points, r.avg_points.toFixed(1), ...questionTypeExportValues(r.question_types), rankRuleSummary(r),
+        r.total_points, r.avg_points.toFixed(1), ...outsAndFoulsExportValues(r.outs_and_fouls, "team"),
+        ...questionTypeExportValues(r.question_types), rankRuleSummary(r),
       ]),
     });
   }, [rows, onExportReady]);
@@ -284,6 +304,7 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
     { header: "Mod.\nOlympic\nPoints", render: (r) => r.mod_olympic_points },
     { header: "Total\nPoints", render: (r) => r.total_points },
     { header: "Total\nAvg.\nPoints", render: (r) => r.avg_points.toFixed(1) },
+    ...outsAndFoulsColumns<TeamStatTS>((r) => r.outs_and_fouls, "team"),
     ...questionTypeColumns<TeamStatTS>((r) => r.question_types),
     {
       header: "Rank\nRules",
@@ -315,7 +336,12 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
       rows={rows}
       totalCount={rows.length}
       getId={(r) => r.name}
-      renderExpanded={(r) => <QuestionTypeGrid stats={r.question_types} />}
+      renderExpanded={(r) => (
+        <ExpandedStats>
+          <QuestionTypeGrid stats={r.question_types} />
+          <OutsAndFoulsGrid stats={r.outs_and_fouls} scope="team" />
+        </ExpandedStats>
+      )}
       onDelete={async () => {}}
       page={0}
       pageSize={rows.length || 1}
@@ -372,11 +398,11 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
       filename: "individual-stats",
       columns: [
         "Place", "Individual", "Team Name", "# Games", "Score", "Avg", "Correct", "Errors", "Bonus Pts", "Bonus Attempts",
-        "Errs 16+/5+", ...questionTypeExportColumns,
+        "Errs 16+/5+", ...outsAndFoulsExportColumns("individual"), ...questionTypeExportColumns,
       ],
       rows: rows.map((r) => [
         r.place, r.individual, r.team_name, r.games, r.score, r.avg.toFixed(1), r.correct, r.errors, r.bonus_pts, r.bonus_attempts,
-        "", ...questionTypeExportValues(r.question_types),
+        "", ...outsAndFoulsExportValues(r.outs_and_fouls, "individual"), ...questionTypeExportValues(r.question_types),
       ]),
     });
   }, [rows, onExportReady]);
@@ -395,6 +421,7 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
     { header: "Bonus Attempts", render: (r) => r.bonus_attempts },
     // Intentionally left blank for now.
     { header: "Errs 16+/5+", render: blank },
+    ...outsAndFoulsColumns<IndividualStatTS>((r) => r.outs_and_fouls, "individual"),
     ...questionTypeColumns<IndividualStatTS>((r) => r.question_types),
   ];
 
@@ -409,7 +436,12 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
       rows={rows}
       totalCount={rows.length}
       getId={(r) => `${r.team_name}-${r.individual}`}
-      renderExpanded={(r) => <QuestionTypeGrid stats={r.question_types} />}
+      renderExpanded={(r) => (
+        <ExpandedStats>
+          <QuestionTypeGrid stats={r.question_types} />
+          <OutsAndFoulsGrid stats={r.outs_and_fouls} scope="individual" />
+        </ExpandedStats>
+      )}
       onDelete={async () => {}}
       page={0}
       pageSize={rows.length || 1}
