@@ -623,7 +623,10 @@ async fn update_round_question_types(
     }
 
     match models::round::update_question_types_of_division(&mut conn, division.did, &updates, user_ctx.user_id) {
-        Ok(rounds) => Ok(HttpResponse::Ok().json(rounds)),
+        Ok(rounds) => {
+            crate::services::round::question_types_changed(&req, &mut conn, division.did).await;
+            Ok(HttpResponse::Ok().json(rounds))
+        }
         Err(QuestionTypesSaveError::Invalid(round_errors)) => Ok(HttpResponse::UnprocessableEntity().json(json!({
             "error": "Some rounds' question types are not valid; nothing was saved.",
             "rounds": round_errors,

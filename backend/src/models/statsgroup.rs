@@ -1,7 +1,8 @@
 
 use crate::cache::Cache;
 use crate::database;
-use crate::models::gameevent::{QuizzerGameResult, TeamGameResult};
+use crate::models::gameevent::{CalculatedGame, QuizzerGameResult, TeamGameResult};
+use std::collections::HashMap;
 use crate::models::common::PaginationParams;
 use crate::models::game_statsgroup::GameStatsGroup;
 use diesel::prelude::*;
@@ -229,6 +230,11 @@ pub fn purge(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<usize> {
 pub enum TieBreakerRule {
     #[serde(rename = "team_wl")]
     TeamWinLoss,
+    /// Correct tossups on M (Memory Verse) questions: those of type R, Q or V. Bonuses don't count.
+    /// Usable only when every round involved has question types (see
+    /// [`memory_verse_rule_available`]).
+    #[serde(rename = "memory_verse")]
+    MemoryVerseCorrect,
     #[serde(rename = "head_to_head")]
     HeadToHead,
     #[serde(rename = "total_points")]
@@ -245,6 +251,7 @@ impl TieBreakerRule {
     pub fn key(&self) -> &'static str {
         match self {
             TieBreakerRule::TeamWinLoss      => "team_wl",
+            TieBreakerRule::MemoryVerseCorrect => "memory_verse",
             TieBreakerRule::HeadToHead       => "head_to_head",
             TieBreakerRule::TotalPoints      => "total_points",
             TieBreakerRule::AvgPoints        => "avg_points",
@@ -257,11 +264,27 @@ impl TieBreakerRule {
     pub fn label(&self) -> &'static str {
         match self {
             TieBreakerRule::TeamWinLoss      => "Team W-L Record",
+            TieBreakerRule::MemoryVerseCorrect => "Memory Verse (M) Correct",
             TieBreakerRule::HeadToHead       => "Head-to-Head W-L",
             TieBreakerRule::TotalPoints      => "Total Points",
             TieBreakerRule::AvgPoints        => "Total Avg Pts",
             TieBreakerRule::OlympicPoints    => "Olympic Pts",
             TieBreakerRule::ModOlympicPoints => "Mod Olympic Pts",
+        }
+    }
+
+    /// Whether the criterion is checked until a stats group says otherwise. Memory Verse is off by
+    /// default: it changes standings only for groups that opt in.
+    pub fn enabled_by_default(&self) -> bool {
+        !matches!(self, TieBreakerRule::MemoryVerseCorrect)
+    }
+
+    /// Where the criterion goes when it is missing from a stored value: right after this one, if
+    /// present. Others missing go at the end.
+    fn placed_after(&self) -> Option<TieBreakerRule> {
+        match self {
+            TieBreakerRule::MemoryVerseCorrect => Some(TieBreakerRule::TeamWinLoss),
+            _ => None,
         }
     }
 
@@ -271,8 +294,9 @@ impl TieBreakerRule {
 }
 
 /// The order criteria are applied in until a stats group saves its own.
-pub const DEFAULT_TIEBREAKER_ORDER: [TieBreakerRule; 6] = [
+pub const DEFAULT_TIEBREAKER_ORDER: [TieBreakerRule; 7] = [
     TieBreakerRule::TeamWinLoss,
+    TieBreakerRule::MemoryVerseCorrect,
     TieBreakerRule::HeadToHead,
     TieBreakerRule::TotalPoints,
     TieBreakerRule::AvgPoints,
@@ -285,11 +309,20 @@ pub const DEFAULT_TIEBREAKER_ORDER: [TieBreakerRule; 6] = [
 pub struct TieBreakerSetting {
     pub rule: TieBreakerRule,
     pub enabled: bool,
+    /// False when the stats group lacks the data the criterion needs; it is then shown unchecked,
+    /// can't be checked, and is skipped when ranking. Filled in on read and ignored on write.
+    #[serde(default = "default_true")]
+    pub available: bool,
 }
 
-/// Parses the stored form. An empty or unparseable value yields the default order, all enabled.
-/// Criteria missing from a stored value are appended (enabled) so a newly added criterion shows up
-/// for stats groups configured before it existed.
+fn default_true() -> bool {
+    true
+}
+
+/// Parses the stored form. An empty or unparseable value yields the default order, each criterion
+/// enabled or not per [`TieBreakerRule::enabled_by_default`]. A criterion missing from a stored
+/// value (one added after the group was configured) is added with its default: appended, or for
+/// Memory Verse, placed right below Team W-L Record.
 pub fn parse_tiebreaker_rules(stored: &str) -> Vec<TieBreakerSetting> {
     let mut settings: Vec<TieBreakerSetting> = Vec::new();
     for token in stored.split(',') {
@@ -303,13 +336,19 @@ pub fn parse_tiebreaker_rules(stored: &str) -> Vec<TieBreakerSetting> {
         };
         if let Some(rule) = TieBreakerRule::from_key(key) {
             if !settings.iter().any(|s| s.rule == rule) {
-                settings.push(TieBreakerSetting { rule, enabled });
+                settings.push(TieBreakerSetting { rule, enabled, available: true });
             }
         }
     }
     for rule in DEFAULT_TIEBREAKER_ORDER {
-        if !settings.iter().any(|s| s.rule == rule) {
-            settings.push(TieBreakerSetting { rule, enabled: true });
+        if settings.iter().any(|s| s.rule == rule) {
+            continue;
+        }
+        let setting = TieBreakerSetting { rule, enabled: rule.enabled_by_default(), available: true };
+        let anchor = rule.placed_after().and_then(|a| settings.iter().position(|s| s.rule == a));
+        match anchor {
+            Some(pos) => settings.insert(pos + 1, setting),
+            None => settings.push(setting),
         }
     }
     settings
@@ -324,21 +363,92 @@ pub fn serialize_tiebreaker_rules(settings: &[TieBreakerSetting]) -> String {
         .join(",")
 }
 
+/// The stats group's criteria, with any whose data is missing marked unavailable and unchecked.
 pub fn read_tiebreaker_rules(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<Vec<TieBreakerSetting>> {
-    Ok(parse_tiebreaker_rules(&read(db, sg_id)?.tiebreaker_rules))
+    let settings = parse_tiebreaker_rules(&read(db, sg_id)?.tiebreaker_rules);
+    apply_availability(db, sg_id, settings)
 }
 
+/// Saves the criteria. One the group lacks the data for is saved unchecked whatever was sent.
 pub fn update_tiebreaker_rules(
     db: &mut database::Connection,
     sg_id: Uuid,
     settings: &[TieBreakerSetting],
 ) -> QueryResult<Vec<TieBreakerSetting>> {
     use crate::schema::statsgroups::dsl::*;
-    let stored = serialize_tiebreaker_rules(settings);
-    diesel::update(statsgroups.filter(sgid.eq(sg_id)))
+    let settings = apply_availability(db, sg_id, settings.to_vec())?;
+    let stored = serialize_tiebreaker_rules(&settings);
+    let saved = diesel::update(statsgroups.filter(sgid.eq(sg_id)))
         .set((tiebreaker_rules.eq(stored), updated_at.eq(diesel::dsl::now)))
-        .get_result::<StatsGroup>(db)
-        .map(|sg| parse_tiebreaker_rules(&sg.tiebreaker_rules))
+        .get_result::<StatsGroup>(db)?;
+    apply_availability(db, sg_id, parse_tiebreaker_rules(&saved.tiebreaker_rules))
+}
+
+/// Marks each criterion available or not for the stats group, unchecking the unavailable ones.
+fn apply_availability(
+    db: &mut database::Connection,
+    sg_id: Uuid,
+    mut settings: Vec<TieBreakerSetting>,
+) -> QueryResult<Vec<TieBreakerSetting>> {
+    let memory_verse_available = memory_verse_rule_available(db, sg_id)?;
+    for setting in settings.iter_mut() {
+        setting.available = match setting.rule {
+            TieBreakerRule::MemoryVerseCorrect => memory_verse_available,
+            _ => true,
+        };
+        if !setting.available {
+            setting.enabled = false;
+        }
+    }
+    Ok(settings)
+}
+
+/// Whether the Memory Verse criterion can be used: every round of every division the stats group
+/// covers has question types for all of its questions. A division's own group covers its division;
+/// any other group covers the divisions its games are in. A group covering nothing can't use it.
+pub fn memory_verse_rule_available(db: &mut database::Connection, sg_id: Uuid) -> QueryResult<bool> {
+    let division_ids: Vec<Uuid> = match read(db, sg_id)?.division_id {
+        Some(did) => vec![did],
+        None => {
+            let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+            let round_ids: Vec<Uuid> = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?
+                .into_iter()
+                .map(|g| g.roundid)
+                .collect();
+            use crate::schema::rounds::dsl as r;
+            r::rounds
+                .filter(r::roundid.eq_any(&round_ids))
+                .select(r::did)
+                .distinct()
+                .load::<Uuid>(db)?
+        }
+    };
+    if division_ids.is_empty() {
+        return Ok(false);
+    }
+    for did in division_ids {
+        if !crate::models::round::division_has_complete_question_types(db, did)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// How many M (Memory Verse) questions -- regulation questions of type R, Q or V -- each team
+/// answered correctly on a tossup in one game, keyed by team index. Bonuses don't count. `question_types` is the game's round's
+/// stored types; overtime questions have no type and never count.
+fn memory_verse_correct_by_team(calculated: &CalculatedGame, question_types: &str) -> HashMap<i32, i32> {
+    let types: Vec<char> = question_types.chars().collect();
+    crate::models::gameevent::correct_tossups_by_team(calculated)
+        .into_iter()
+        .map(|(team_idx, questions)| {
+            let count = questions
+                .iter()
+                .filter(|q| **q >= 1 && matches!(types.get((**q - 1) as usize), Some('R' | 'Q' | 'V')))
+                .count() as i32;
+            (team_idx, count)
+        })
+        .collect()
 }
 
 // ─── A division's own stats group ─────────────────────────────────────────────
@@ -426,6 +536,25 @@ pub fn sync_division_statsgroup(db: &mut database::Connection, division_id: Uuid
     Ok(Some(sg_id))
 }
 
+/// Every stats group whose standings depend on the division's rounds: the division's own group
+/// and any other group holding one of the division's games.
+pub fn read_statsgroup_ids_depending_on_division(db: &mut database::Connection, division_id: Uuid) -> QueryResult<Vec<Uuid>> {
+    use crate::schema::{games, games_statsgroups, rounds};
+    let mut ids: Vec<Uuid> = games_statsgroups::table
+        .inner_join(games::table.on(games::gid.eq(games_statsgroups::gameid)))
+        .inner_join(rounds::table.on(rounds::roundid.eq(games::roundid)))
+        .filter(rounds::did.eq(division_id))
+        .select(games_statsgroups::statsgroupid)
+        .distinct()
+        .load::<Uuid>(db)?;
+    if let Some(own) = read_division_statsgroup_id(db, division_id)? {
+        if !ids.contains(&own) {
+            ids.push(own);
+        }
+    }
+    Ok(ids)
+}
+
 /// [`sync_division_statsgroup`] for every division. Run once at startup, so games scheduled
 /// before divisions' groups were kept in step automatically are picked up. Returns how many
 /// divisions' groups changed.
@@ -510,6 +639,9 @@ pub struct TeamStat {
     pub mod_olympic_points: i32,    // Modified Olympic points (§12.5): Olympic base adjusted by team score
     pub total_points: i32,          // sum of final scores across games
     pub avg_points: f64,            // total_points / games (0 when no games were scored)
+    /// Correct tossups on M (Memory Verse) questions across the counted games. Always 0 when the
+    /// Memory Verse criterion isn't available to the stats group.
+    pub memory_verse_correct: i32,
     /// Which criterion placed this team below the one above it. None on the first row.
     pub rank_rule_above: Option<RankRuleExplanation>,
     /// Which criterion placed this team above the one below it. None on the last row.
@@ -533,6 +665,7 @@ struct TeamStatAgg {
     olympic_points: i32,
     mod_olympic_points: i32,
     total_points: i32,
+    memory_verse_correct: i32,
 }
 
 /// One scored game reduced to the names and ranks needed for head-to-head.
@@ -601,14 +734,33 @@ pub async fn read_team_stats_of_statsgroup(
         return Ok(cached);
     }
 
+    // Unavailable criteria come back unchecked, so they're skipped below.
     let settings = read_tiebreaker_rules(db, sg_id)?;
+    let memory_verse_available = settings
+        .iter()
+        .any(|s| s.rule == TieBreakerRule::MemoryVerseCorrect && s.available);
 
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
 
+    // Each game's round's question types, for the Memory Verse counts.
+    let question_types_by_round: HashMap<Uuid, String> = if memory_verse_available {
+        use crate::schema::rounds::dsl as r;
+        let round_ids: Vec<Uuid> = games.iter().map(|g| g.roundid).collect();
+        r::rounds
+            .filter(r::roundid.eq_any(&round_ids))
+            .select((r::roundid, r::question_types))
+            .load::<(Uuid, String)>(db)?
+            .into_iter()
+            .collect()
+    } else {
+        HashMap::new()
+    };
+
     // One cache lookup (or one replay) per game. Games whose event stream can't be scored
     // come back as None and are skipped.
     let mut per_game: Vec<Vec<TeamGameResult>> = Vec::with_capacity(games.len());
+    let mut memory_verse_per_game: Vec<HashMap<i32, i32>> = Vec::with_capacity(games.len());
     for game in games {
         if let Some(calculated) =
             crate::models::gameevent::calculate_game_cached(cache, db, game.gid).await?
@@ -617,11 +769,15 @@ pub async fn read_team_stats_of_statsgroup(
             // it now, and standings would then jump around and reverse during a round.
             if calculated.is_finished() {
                 per_game.push(crate::models::gameevent::team_results_from_calculated(&calculated));
+                memory_verse_per_game.push(match question_types_by_round.get(&game.roundid) {
+                    Some(types) => memory_verse_correct_by_team(&calculated, types),
+                    None => HashMap::new(),
+                });
             }
         }
     }
 
-    let stats = aggregate_team_stats(&per_game, &settings);
+    let stats = aggregate_team_stats(&per_game, &memory_verse_per_game, &settings);
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
     Ok(stats)
 }
@@ -646,8 +802,12 @@ pub async fn read_team_stats_of_division(
 /// Aggregates per-game team results into the sorted, placed `TeamStat` rows the endpoint
 /// serves. Pure: no database, no cache, no scoring -- which makes the olympic-point and
 /// tie-breaker behaviour unit-testable without a game event in sight.
+///
+/// `memory_verse_per_game[i]` holds game `i`'s Memory Verse counts by team index; a missing game
+/// or team counts 0.
 fn aggregate_team_stats(
     per_game: &[Vec<TeamGameResult>],
+    memory_verse_per_game: &[HashMap<i32, i32>],
     settings: &[TieBreakerSetting],
 ) -> Vec<TeamStat> {
     use std::collections::HashMap;
@@ -655,7 +815,8 @@ fn aggregate_team_stats(
     let mut agg: HashMap<String, TeamStatAgg> = HashMap::new();
     let mut game_ranks: Vec<GameRanks> = Vec::with_capacity(per_game.len());
 
-    for results in per_game {
+    for (game_idx, results) in per_game.iter().enumerate() {
+        let memory_verse = memory_verse_per_game.get(game_idx);
         // Round size and the round's total team score (for the modified "10% of total" clause).
         let num_teams = results.len();
         let game_total: i32 = results.iter().map(|r| r.score).sum();
@@ -675,8 +836,10 @@ fn aggregate_team_stats(
             let (olympic, mod_olympic) = olympic_awards(num_teams, result.rank, result.score, game_total);
             let entry = agg.entry(result.name.clone()).or_insert(TeamStatAgg {
                 games: 0, wins: 0, losses: 0, olympic_points: 0, mod_olympic_points: 0, total_points: 0,
+                memory_verse_correct: 0,
             });
             entry.games += 1;
+            entry.memory_verse_correct += memory_verse.and_then(|m| m.get(&result.team)).copied().unwrap_or(0);
             entry.total_points += result.score;
             // One win per team this team finished ahead of, one loss per team that finished ahead.
             for other in results {
@@ -706,6 +869,7 @@ fn aggregate_team_stats(
             mod_olympic_points: a.mod_olympic_points,
             total_points: a.total_points,
             avg_points: if a.games > 0 { a.total_points as f64 / a.games as f64 } else { 0.0 },
+            memory_verse_correct: a.memory_verse_correct,
             rank_rule_above: None,
             rank_rule_below: None,
         })
@@ -790,6 +954,7 @@ fn compare_by_rule(
     match rule {
         // More wins first; on equal wins, fewer losses first.
         TieBreakerRule::TeamWinLoss => b.wins.cmp(&a.wins).then(a.losses.cmp(&b.losses)),
+        TieBreakerRule::MemoryVerseCorrect => b.memory_verse_correct.cmp(&a.memory_verse_correct),
         TieBreakerRule::HeadToHead => {
             let (a_wins, b_wins) = head_to_head(&a.name, &b.name, game_ranks);
             b_wins.cmp(&a_wins)
@@ -828,6 +993,7 @@ fn describe_rule_values(
 ) -> String {
     match rule {
         TieBreakerRule::TeamWinLoss => format!("{}-{}", stat.wins, stat.losses),
+        TieBreakerRule::MemoryVerseCorrect => stat.memory_verse_correct.to_string(),
         TieBreakerRule::HeadToHead => {
             let (mine, theirs) = head_to_head(&stat.name, opponent, game_ranks);
             format!("{}-{}", mine, theirs)
@@ -1063,7 +1229,7 @@ mod aggregation_tests {
         let settings = parse_tiebreaker_rules("");
 
         let two_team = vec![vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)]];
-        let stats = aggregate_team_stats(&two_team, &settings);
+        let stats = aggregate_team_stats(&two_team, &[], &settings);
         let red = stats.iter().find(|s| s.name == "Red").unwrap();
         let blue = stats.iter().find(|s| s.name == "Blue").unwrap();
         assert_eq![(red.wins, red.losses), (1, 0)];
@@ -1074,7 +1240,7 @@ mod aggregation_tests {
             team(1, "Blue", 80, 2),
             team(2, "Green", 60, 3),
         ]];
-        let stats = aggregate_team_stats(&three_team, &settings);
+        let stats = aggregate_team_stats(&three_team, &[], &settings);
         for (name, expected) in [("Red", (2, 0)), ("Blue", (1, 1)), ("Green", (0, 2))] {
             let row = stats.iter().find(|s| s.name == name).unwrap();
             assert_eq![(row.wins, row.losses), expected, "{name}"];
@@ -1090,7 +1256,7 @@ mod aggregation_tests {
             vec![team(0, "Red", 60, 2), team(1, "Blue", 90, 1)],
         ];
 
-        let stats = aggregate_team_stats(&per_game, &settings);
+        let stats = aggregate_team_stats(&per_game, &[], &settings);
         assert_eq![stats.len(), 2];
         assert_eq![stats.iter().map(|s| s.place).collect::<Vec<_>>(), vec![1, 2]];
 
@@ -1111,7 +1277,7 @@ mod aggregation_tests {
             team(1, "   ", 0, 2),
         ]];
 
-        let stats = aggregate_team_stats(&per_game, &settings);
+        let stats = aggregate_team_stats(&per_game, &[], &settings);
         assert_eq![stats.len(), 1];
         assert_eq![stats[0].name, "Red"];
         assert_eq![(stats[0].wins, stats[0].losses), (0, 0),
@@ -1219,6 +1385,7 @@ mod aggregation_tests {
         let settings = parse_tiebreaker_rules("");
         let rows = aggregate_team_stats(
             &vec![vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)]],
+            &[],
             &settings,
         );
 
@@ -1289,6 +1456,7 @@ mod aggregation_tests {
         let settings = parse_tiebreaker_rules("");
         let team_rows = aggregate_team_stats(
             &vec![vec![team(0, "Red", 100, 1), team(1, "Blue", 80, 2)]],
+            &[],
             &settings,
         );
         let individual_rows = aggregate_individual_stats(&vec![vec![
@@ -1341,11 +1509,11 @@ mod aggregation_tests {
     #[test]
     fn empty_and_single_row_inputs_are_safe() {
         let settings = parse_tiebreaker_rules("");
-        assert![aggregate_team_stats(&[], &settings).is_empty()];
+        assert![aggregate_team_stats(&[], &[], &settings).is_empty()];
         assert![aggregate_individual_stats(&[]).is_empty()];
 
         let one = vec![vec![team(0, "Red", 100, 1)]];
-        let stats = aggregate_team_stats(&one, &settings);
+        let stats = aggregate_team_stats(&one, &[], &settings);
         assert_eq![stats.len(), 1];
         assert![stats[0].rank_rule_above.is_none()];
         assert![stats[0].rank_rule_below.is_none()];
@@ -1367,6 +1535,7 @@ mod tiebreaker_tests {
             mod_olympic_points: mod_oly,
             total_points: total,
             avg_points: if games > 0 { total as f64 / games as f64 } else { 0.0 },
+            memory_verse_correct: 0,
             rank_rule_above: None,
             rank_rule_below: None,
         }
@@ -1376,13 +1545,51 @@ mod tiebreaker_tests {
     fn default_order_is_the_documented_sequence() {
         let settings = parse_tiebreaker_rules("");
         let keys: Vec<&str> = settings.iter().map(|s| s.rule.key()).collect();
-        assert_eq!(keys, vec!["team_wl", "head_to_head", "total_points", "avg_points", "olympic", "mod_olympic"]);
-        assert!(settings.iter().all(|s| s.enabled));
+        assert_eq!(keys, vec!["team_wl", "memory_verse", "head_to_head", "total_points", "avg_points", "olympic", "mod_olympic"]);
+        assert!(!settings[1].enabled, "Memory Verse starts unchecked");
+        assert!(settings.iter().filter(|s| s.rule != TieBreakerRule::MemoryVerseCorrect).all(|s| s.enabled));
+    }
+
+    #[test]
+    fn memory_verse_is_added_unchecked_below_team_wl_for_groups_saved_before_it_existed() {
+        let stored = "total_points,-team_wl,head_to_head,avg_points,olympic,mod_olympic";
+        let settings = parse_tiebreaker_rules(stored);
+        let keys: Vec<&str> = settings.iter().map(|s| s.rule.key()).collect();
+        assert_eq!(keys, vec!["total_points", "team_wl", "memory_verse", "head_to_head", "avg_points", "olympic", "mod_olympic"]);
+        assert!(!settings[2].enabled);
+    }
+
+    #[test]
+    fn memory_verse_counts_decide_and_explain_the_order() {
+        let mut red = stat("Red", 2, 2, 100, 4, 10, 10);
+        let mut blue = stat("Blue", 2, 2, 100, 4, 10, 10);
+        red.memory_verse_correct = 1;
+        blue.memory_verse_correct = 3;
+        let settings = parse_tiebreaker_rules("team_wl,memory_verse");
+        let (idx, rule, ordering) = decide_order(&red, &blue, &settings, &[]).unwrap();
+        assert_eq!(rule, TieBreakerRule::MemoryVerseCorrect);
+        assert_eq!(idx + 1, 2);
+        assert_eq!(ordering, std::cmp::Ordering::Greater, "Blue got more M questions right");
+        assert_eq!(describe_rule_values(&blue, rule, &[], "Red"), "3");
+    }
+
+    #[test]
+    fn memory_verse_counts_add_up_across_games_by_team_index() {
+        let per_game = vec![
+            vec![TeamGameResult { team: 0, name: "Red".into(), score: 100, rank: 1 }, TeamGameResult { team: 1, name: "Blue".into(), score: 80, rank: 2 }],
+            vec![TeamGameResult { team: 0, name: "Blue".into(), score: 100, rank: 1 }, TeamGameResult { team: 1, name: "Red".into(), score: 80, rank: 2 }],
+        ];
+        let memory = vec![HashMap::from([(0, 1), (1, 2)]), HashMap::from([(0, 1)])];
+        let stats = aggregate_team_stats(&per_game, &memory, &parse_tiebreaker_rules(""));
+        let red = stats.iter().find(|s| s.name == "Red").unwrap();
+        let blue = stats.iter().find(|s| s.name == "Blue").unwrap();
+        assert_eq!(red.memory_verse_correct, 1);
+        assert_eq!(blue.memory_verse_correct, 3);
     }
 
     #[test]
     fn disabled_criteria_keep_their_slot_through_a_round_trip() {
-        let stored = "total_points,-team_wl,head_to_head,avg_points,olympic,mod_olympic";
+        let stored = "total_points,-team_wl,-memory_verse,head_to_head,avg_points,olympic,mod_olympic";
         let settings = parse_tiebreaker_rules(stored);
         assert_eq!(settings[0].rule, TieBreakerRule::TotalPoints);
         assert_eq!(settings[1].rule, TieBreakerRule::TeamWinLoss);
@@ -1391,12 +1598,11 @@ mod tiebreaker_tests {
     }
 
     #[test]
-    fn a_criterion_absent_from_a_stored_value_is_appended_enabled() {
+    fn a_criterion_absent_from_a_stored_value_is_appended_with_its_default() {
         let settings = parse_tiebreaker_rules("total_points,team_wl");
-        assert_eq!(settings.len(), DEFAULT_TIEBREAKER_ORDER.len());
-        assert_eq!(settings[0].rule, TieBreakerRule::TotalPoints);
-        assert_eq!(settings[1].rule, TieBreakerRule::TeamWinLoss);
-        assert!(settings[2..].iter().all(|s| s.enabled));
+        let keys: Vec<&str> = settings.iter().map(|s| s.rule.key()).collect();
+        assert_eq!(keys, vec!["total_points", "team_wl", "memory_verse", "head_to_head", "avg_points", "olympic", "mod_olympic"]);
+        assert!(settings.iter().all(|s| s.enabled == s.rule.enabled_by_default()));
     }
 
     #[test]
@@ -1424,7 +1630,8 @@ mod tiebreaker_tests {
         let settings = parse_tiebreaker_rules("-team_wl,total_points");
         let (idx, rule, ordering) = decide_order(&red, &blue, &settings, &[]).unwrap();
         assert_eq!(rule, TieBreakerRule::TotalPoints);
-        assert_eq!(idx + 1, 2, "Total Points is rule number 2 in this sequence");
+        // Memory Verse (unchecked) is slotted in below Team W-L, so Total Points is rule 3.
+        assert_eq!(idx + 1, 3, "Total Points is rule number 3 in this sequence");
         assert_eq!(ordering, std::cmp::Ordering::Greater);
     }
 

@@ -2,6 +2,7 @@ use actix_web::{delete, Error, get, HttpMessage, HttpResponse, HttpRequest, post
 use serde_json::json;
 use crate::{auth::{is_rbac_and_abac_authorized, policies::{round::RoundPolicyResource, PolicyContext, UserContext}}, models::{self, common::PaginationParams, permission::{AppAction, AppResource}, round::{NewRound, Round, RoundChangeset}}, services::common::{EntityResponse, PagedResponse, process_response}};
 use crate::database::Database;
+use crate::cache::Cache;
 use diesel::QueryResult;
 use diesel::Connection as _;
 use uuid::Uuid;
@@ -154,6 +155,9 @@ async fn create(
 
     item.last_modified_user = user_ctx.user_id;
     let result: QueryResult<Round> = models::round::create(&mut conn, &item);
+    if result.is_ok() {
+        question_types_changed(&req, &mut conn, item.did).await;
+    }
 
     let response: EntityResponse<Round> = process_response(result, "post");
 
@@ -227,6 +231,9 @@ async fn update(
     tracing::debug!("{} Round model update {:?} {:?}", line!(), round_id, item);
 
     let result = models::round::update(&mut conn, round_id, &item, user_ctx.user_id);
+    if result.is_ok() && item.question_types.as_ref().is_some_and(|t| *t != round.question_types) {
+        self::question_types_changed(&req, &mut conn, round.did).await;
+    }
 
     let response = process_response(result, "put");
 
@@ -235,6 +242,21 @@ async fn update(
         200 => Ok(HttpResponse::Ok().json(response)),
         _ => Ok(HttpResponse::InternalServerError().json(response))
     }
+}
+
+/// A division's round question types changed (or a round was added or removed, which changes
+/// whether they are complete), so standings that count Memory Verse questions
+/// (and whether that criterion is available) are out of date: clear every affected stats group's
+/// cached standings and mark the division's live standings for a recalculation. The cache is
+/// optional so apps that don't register one (e.g. tests) skip that part.
+pub(crate) async fn question_types_changed(req: &HttpRequest, conn: &mut crate::database::Connection, did: Uuid) {
+    if let Some(cache) = req.app_data::<Data<Cache>>() {
+        if let Ok(sg_ids) = models::statsgroup::read_statsgroup_ids_depending_on_division(conn, did) {
+            let keys: Vec<String> = sg_ids.into_iter().flat_map(models::statsgroup::aggregate_cache_keys).collect();
+            cache.invalidate(&keys).await;
+        }
+    }
+    crate::live::division_changed(req, did);
 }
 
 #[delete("/{id}")]
@@ -296,7 +318,10 @@ async fn destroy(
     });
 
     match result {
-        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Ok(_) => {
+            question_types_changed(&req, &mut conn, round.did).await;
+            Ok(HttpResponse::Ok().finish())
+        }
         Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }
 }

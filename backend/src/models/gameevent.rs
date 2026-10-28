@@ -1198,6 +1198,26 @@ pub fn team_results_from_calculated(calculated: &CalculatedGame) -> Vec<TeamGame
         .collect()
 }
 
+/// The question numbers each team answered correctly on a tossup, keyed by team index within the
+/// game. Correct bonuses don't count. Each question appears at most once per team, in ascending
+/// order.
+pub fn correct_tossups_by_team(calculated: &CalculatedGame) -> HashMap<i32, Vec<i32>> {
+    calculated
+        .teams
+        .iter()
+        .map(|(team_idx, team)| {
+            let mut questions: Vec<i32> = team
+                .quizzers
+                .values()
+                .flat_map(|q| q.correct_tossups.iter().copied())
+                .collect();
+            questions.sort_unstable();
+            questions.dedup();
+            (*team_idx, questions)
+        })
+        .collect()
+}
+
 /// Runs the score calculator over a single game's events and returns each team's final score
 /// and placement rank. Returns Err (with the calculator's messages) if the event stream is
 /// invalid / cannot be scored.
@@ -3293,6 +3313,17 @@ mod tests {
         assert_eq![check_lily.fouls_received, Vec::<i32>::new()];
         assert_eq![check_lily.correct_bonuses, vec![5]];
         assert_eq![check_lily.errors_on_bonuses, vec![13]];
+
+        // Only tossups count toward a team's correct questions; this team's bonuses don't.
+        let left_quizzers: Vec<_> = check_left_team.quizzers.values().cloned().collect();
+        let mut tossups: Vec<i32> = left_quizzers.iter().flat_map(|q| q.correct_tossups.clone()).collect();
+        tossups.sort_unstable();
+        tossups.dedup();
+        let bonuses: Vec<i32> = left_quizzers.iter().flat_map(|q| q.correct_bonuses.clone()).collect();
+        assert!(!bonuses.is_empty(), "the left team has correct bonuses to exclude");
+        let by_team = correct_tossups_by_team(&calculated_game_events.to_calculated());
+        assert_eq![by_team[&0], tossups];
+        assert!(bonuses.iter().all(|b| !by_team[&0].contains(b)), "no bonus-only question is counted");
         // 0 Audrey
         let check_audrey = check_center_team.quizzers[&(0)].clone();
         assert_eq![check_audrey.correct_tossups, vec![1, 6, 10, 18]];

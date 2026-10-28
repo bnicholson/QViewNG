@@ -19,6 +19,9 @@ import { Link } from "react-router-dom";
 import ImportGameEventsButton from "./ImportGameEventsButton";
 import RankRuleDialog from "./RankRuleDialog";
 import TieBreakerRulesDialog from "./TieBreakerRulesDialog";
+import SetQuestionTypesButton from "./SetQuestionTypesButton";
+import ListAltIcon from "@mui/icons-material/ListAlt";
+import Tooltip from "@mui/material/Tooltip";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -415,11 +418,13 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
  * `canImport` gates the game-event import, which rewrites games' recorded events and so needs
  * `game:update` — the same permission the import endpoints check.
  */
-export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBreakers = false }: {
+export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBreakers = false, canSetQuestionTypes = false }: {
   tid: string;
   canImport?: boolean;
   /** Whether the "Tie-breaking Rules" button is offered (needs `statsgroup:update`). */
   canEditTieBreakers?: boolean;
+  /** Whether the "Set Question Types" button is offered (needs `round:upload_question_types`). */
+  canSetQuestionTypes?: boolean;
 }) {
   const { accessToken } = useAuth();
   const [statsGroups, setStatsGroups] = useState<StatsGroupTS[]>([]);
@@ -452,6 +457,8 @@ export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBre
       cancelled = true;
     };
   }, [tid, accessToken]);
+
+  const selectedDivisionId = statsGroups.find((sg) => sg.sgid === selectedGroup)?.division_id ?? null;
 
   const handleGroupChange = (e: SelectChangeEvent) => setSelectedGroup(e.target.value);
   const handleDataChange = (e: SelectChangeEvent) => setDataView(e.target.value as DataView);
@@ -524,6 +531,26 @@ export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBre
             <Button variant="outlined" onClick={() => setTieBreakerDialogOpen(true)}>
               Tie-breaking Rules
             </Button>
+          )}
+
+          {/* Question types feed the Memory Verse tie-breaker. They're set per division, so a
+              custom group (whose games can span divisions) points to the divisions instead. */}
+          {dataView === "team" && canSetQuestionTypes && selectedGroup && (
+            selectedDivisionId ? (
+              <SetQuestionTypesButton
+                did={selectedDivisionId}
+                buttonProps={{ variant: "outlined", size: "medium" }}
+                onSaved={() => setRulesRefreshKey((k) => k + 1)}
+              />
+            ) : (
+              <Tooltip title="Question types are set per division. Select a division's stats group, or set them on each division's Rounds page.">
+                <span>
+                  <Button variant="outlined" startIcon={<ListAltIcon />} disabled>
+                    Set Question Types
+                  </Button>
+                </span>
+              </Tooltip>
+            )
           )}
 
           <ExportTableButton

@@ -13,6 +13,7 @@ export interface StatsGroupTS {
 /** The criteria a stats group can apply when two teams are otherwise level. */
 export type TieBreakerRule =
   | "team_wl"
+  | "memory_verse"
   | "head_to_head"
   | "total_points"
   | "avg_points"
@@ -23,11 +24,17 @@ export type TieBreakerRule =
 export interface TieBreakerSettingTS {
   rule: TieBreakerRule;
   enabled: boolean;
+  /**
+   * False when the stats group lacks the data the criterion needs (Memory Verse: question types for
+   * every round). It then comes back unchecked and can't be checked. Set by the server on read.
+   */
+  available?: boolean;
 }
 
 /** How the criteria read in the UI. Mirrors `TieBreakerRule::label` on the backend. */
 export const TIE_BREAKER_LABELS: Record<TieBreakerRule, string> = {
   team_wl: "Team W-L Record",
+  memory_verse: "Memory Verse (M) Correct",
   head_to_head: "Head-to-Head W-L",
   total_points: "Total Points",
   avg_points: "Total Avg Pts",
@@ -54,6 +61,8 @@ export interface TeamStatTS {
   mod_olympic_points: number;
   total_points: number;
   avg_points: number;
+  /** Correct tossups (bonuses excluded) on M (Memory Verse: R, Q and V) questions; 0 when that criterion is unavailable. */
+  memory_verse_correct: number;
   rank_rule_above: RankRuleExplanationTS | null;
   rank_rule_below: RankRuleExplanationTS | null;
 }

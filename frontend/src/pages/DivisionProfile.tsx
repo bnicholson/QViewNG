@@ -12,7 +12,7 @@ import { TournamentAPI, type TournamentTS } from '../features/TournamentAPI'
 import { useTournamentAccess } from '../hooks/useTournamentAccess'
 import TeamsTable from '../components/TeamsTable'
 import RoundsTable from '../components/RoundsTable'
-import ImportQuestionTypesButton from '../components/ImportQuestionTypesButton'
+import SetQuestionTypesButton from '../components/SetQuestionTypesButton'
 import PoolBracketsTable from '../components/PoolBracketsTable'
 import PoolBracketGroupsTable from '../components/PoolBracketGroupsTable'
 import GamesTable from '../components/GamesTable'
@@ -127,7 +127,7 @@ export const DivisionProfile = (props: { childRoute?: string }) => {
             <>
               {canCreate(PERMISSION.ROUND_UPLOAD_QUESTION_TYPES) && (
                 <Box sx={{ mb: 1 }}>
-                  <ImportQuestionTypesButton did={did} />
+                  <SetQuestionTypesButton did={did} />
                 </Box>
               )}
               <RoundsTable tid={tournament.tid} did={did}

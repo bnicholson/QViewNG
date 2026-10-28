@@ -312,7 +312,11 @@ async fn create(
     });
 
     match tx_result {
-        Ok(counts) => Ok(HttpResponse::Created().json(counts)),
+        Ok(counts) => {
+            // The new rounds have no question types yet, so the division's become incomplete.
+            crate::services::round::question_types_changed(&req, &mut conn, did).await;
+            Ok(HttpResponse::Created().json(counts))
+        }
         Err(e) => {
             tracing::error!("Create-schedule transaction failed and was rolled back: {:?}", e);
             Ok(HttpResponse::UnprocessableEntity().json(json!({

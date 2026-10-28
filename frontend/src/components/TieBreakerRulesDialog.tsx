@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
@@ -16,9 +17,15 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import {
   StatsGroupAPI,
   TIE_BREAKER_LABELS,
+  type TieBreakerRule,
   type TieBreakerSettingTS,
 } from '../features/StatsGroupAPI'
 import { useAuth } from '../hooks/useAuth'
+
+/** Why a criterion can't be used yet, for the ones that depend on data a stats group may lack. */
+const UNAVAILABLE_REASON: Partial<Record<TieBreakerRule, string>> = {
+  memory_verse: 'Needs question types for every question of every round. Add them with Set Question Types, or in each Round\'s editor.',
+}
 
 interface Props {
   statsGroupId: string
@@ -68,8 +75,9 @@ export default function TieBreakerRulesDialog({ statsGroupId, isOpen, onCancel, 
     })
   }
 
+  // A criterion the stats group lacks the data for stays unchecked.
   const toggle = (index: number) =>
-    setRules((prev) => prev.map((r, i) => (i === index ? { ...r, enabled: !r.enabled } : r)))
+    setRules((prev) => prev.map((r, i) => (i === index && r.available !== false ? { ...r, enabled: !r.enabled } : r)))
 
   const save = async () => {
     setSaving(true)
@@ -105,7 +113,9 @@ export default function TieBreakerRulesDialog({ statsGroupId, isOpen, onCancel, 
         {loading && <Typography variant="body2">Loading…</Typography>}
 
         <Stack spacing={1}>
-          {rules.map((setting, index) => (
+          {rules.map((setting, index) => {
+            const unavailable = setting.available === false
+            return (
             <Paper
               key={setting.rule}
               variant="outlined"
@@ -132,20 +142,30 @@ export default function TieBreakerRulesDialog({ statsGroupId, isOpen, onCancel, 
                 bgcolor: setting.enabled ? 'background.paper' : 'action.hover',
               }}
             >
-              <Checkbox
-                checked={setting.enabled}
-                onChange={() => toggle(index)}
-                inputProps={{ 'aria-label': `Use ${TIE_BREAKER_LABELS[setting.rule]}` }}
-              />
+              <Tooltip title={unavailable ? UNAVAILABLE_REASON[setting.rule] ?? '' : ''}>
+                <span>
+                  <Checkbox
+                    checked={setting.enabled}
+                    disabled={unavailable}
+                    onChange={() => toggle(index)}
+                    inputProps={{ 'aria-label': `Use ${TIE_BREAKER_LABELS[setting.rule]}` }}
+                  />
+                </span>
+              </Tooltip>
               <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
               <Typography
                 sx={{
                   flexGrow: 1,
                   color: setting.enabled ? 'text.primary' : 'text.disabled',
-                  textDecoration: setting.enabled ? 'none' : 'line-through',
+                  textDecoration: setting.enabled || unavailable ? 'none' : 'line-through',
                 }}
               >
                 {index + 1}. {TIE_BREAKER_LABELS[setting.rule]}
+                {unavailable && (
+                  <Typography component="span" variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+                    {UNAVAILABLE_REASON[setting.rule]}
+                  </Typography>
+                )}
               </Typography>
               {/* Keyboard/click alternative to dragging. */}
               <IconButton
@@ -165,7 +185,8 @@ export default function TieBreakerRulesDialog({ statsGroupId, isOpen, onCancel, 
                 <KeyboardArrowDownIcon fontSize="small" />
               </IconButton>
             </Paper>
-          ))}
+            )
+          })}
         </Stack>
       </DialogContent>
       <DialogActions>

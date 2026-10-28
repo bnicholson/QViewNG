@@ -352,6 +352,7 @@ async fn individual_stats_works() {
 struct TieBreakerSettingBody {
     rule: String,
     enabled: bool,
+    available: bool,
 }
 
 /// GET /api/statsgroups/{id}/tiebreaker-rules starts at the documented default order.
@@ -380,9 +381,10 @@ async fn tiebreaker_rules_default_to_the_documented_order() {
     let keys: Vec<&str> = rules.iter().map(|r| r.rule.as_str()).collect();
     assert_eq!(
         keys,
-        vec!["team_wl", "head_to_head", "total_points", "avg_points", "olympic", "mod_olympic"]
+        vec!["team_wl", "memory_verse", "head_to_head", "total_points", "avg_points", "olympic", "mod_olympic"]
     );
-    assert!(rules.iter().all(|r| r.enabled), "every criterion starts selected");
+    assert!(!rules[1].enabled, "Memory Verse starts unselected");
+    assert!(rules.iter().filter(|r| r.rule != "memory_verse").all(|r| r.enabled), "every other criterion starts selected");
 }
 
 /// PUT replaces the order, and an unchecked criterion keeps its slot across a round trip.
@@ -427,13 +429,105 @@ async fn tiebreaker_rules_can_be_reordered_and_disabled() {
     ).await;
     let rules: Vec<TieBreakerSettingBody> = test::read_body_json(resp).await;
     let keys: Vec<&str> = rules.iter().map(|r| r.rule.as_str()).collect();
+    // Memory Verse wasn't sent, so it comes back unchecked right below Team W-L.
     assert_eq!(
         keys,
-        vec!["total_points", "team_wl", "head_to_head", "avg_points", "olympic", "mod_olympic"]
+        vec!["total_points", "team_wl", "memory_verse", "head_to_head", "avg_points", "olympic", "mod_olympic"]
     );
     assert!(!rules[1].enabled, "Team W-L stays in position 2, unchecked");
-    assert!(!rules[4].enabled, "Olympic Pts stays in position 5, unchecked");
-    assert!(rules[0].enabled && rules[2].enabled && rules[3].enabled && rules[5].enabled);
+    assert!(!rules[2].enabled, "Memory Verse is added unchecked");
+    assert!(!rules[5].enabled, "Olympic Pts stays in position 6, unchecked");
+    assert!(rules[0].enabled && rules[3].enabled && rules[4].enabled && rules[6].enabled);
+}
+
+/// The Memory Verse criterion needs question types for every round of the division. Without them
+/// it is reported unavailable and stays unchecked even when a save asks for it; once they're in,
+/// it counts correct answers on R/Q/V questions and can decide the standings.
+#[actix_web::test]
+async fn memory_verse_rule_needs_question_types_and_counts_r_q_and_v_questions() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("Failed to get connection.");
+
+    // Red answers questions 1-4, Blue questions 5-6; Red wins 80-40.
+    let statsgroup = fixtures::statsgroups::arrange_team_stats_works_integration_test(&mut conn);
+    let division_id = statsgroup.division_id.unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .app_data(web::Data::new(Cache::disabled()))
+            .configure(configure_routes)
+    ).await;
+
+    let rules_uri = format!("/api/statsgroups/{}/tiebreaker-rules", statsgroup.sgid);
+    let stats_uri = format!("/api/statsgroups/{}/teamstats", statsgroup.sgid);
+    let memory_first = json!({ "rules": [
+        { "rule": "memory_verse", "enabled": true },
+        { "rule": "team_wl",      "enabled": true },
+    ]});
+    let save = |payload: &serde_json::Value| test::TestRequest::put()
+        .uri(&rules_uri)
+        .insert_header(system_admin_auth_header())
+        .set_json(payload)
+        .to_request();
+    let get = |uri: &str| test::TestRequest::get().uri(uri).insert_header(system_admin_auth_header()).to_request();
+
+    // ── No question types: unavailable, and a save can't turn it on ───────────
+
+    let resp = test::call_service(&app, save(&memory_first)).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let rules: Vec<TieBreakerSettingBody> = test::read_body_json(resp).await;
+    assert_eq!(rules[0].rule, "memory_verse");
+    assert!(!rules[0].available);
+    assert!(!rules[0].enabled, "saved unchecked while the data is missing");
+
+    let rows: serde_json::Value = test::read_body_json(test::call_service(&app, get(&stats_uri)).await).await;
+    assert_eq!(rows[0]["name"], "Red Team", "Team W-L decides");
+    assert_eq!(rows[0]["memory_verse_correct"], 0);
+
+    // ── Question types for every round: Q5 is R and Q6 is V ───────────────────
+
+    let round_ids: Vec<uuid::Uuid> = models::round::read_question_types_of_division(&mut conn, division_id)
+        .unwrap().rounds.iter().map(|r| r.roundid).collect();
+    let mut types: Vec<char> = "G".repeat(20).chars().collect();
+    types[4] = 'R';
+    types[5] = 'V';
+    let types: String = types.into_iter().collect();
+    for roundid in round_ids {
+        let modifier = models::round::read(&mut conn, roundid).unwrap().last_modified_user;
+        models::round::update(&mut conn, roundid, &models::round::RoundChangeset {
+            name: None,
+            scheduled_start_time: None,
+            question_types: Some(types.clone()),
+            using_standard_question_types: Some(false),
+        }, modifier).unwrap();
+    }
+
+    let resp = test::call_service(&app, save(&memory_first)).await;
+    let rules: Vec<TieBreakerSettingBody> = test::read_body_json(resp).await;
+    assert!(rules[0].available);
+    assert!(rules[0].enabled);
+
+    // Blue got both M questions right, so with Memory Verse first Blue leads.
+    let rows: serde_json::Value = test::read_body_json(test::call_service(&app, get(&stats_uri)).await).await;
+    assert_eq!(rows[0]["name"], "Blue Team");
+    assert_eq!(rows[0]["memory_verse_correct"], 2);
+    assert_eq!(rows[1]["memory_verse_correct"], 0);
+    assert_eq!(rows[0]["rank_rule_below"]["rule"], "memory_verse");
+    assert_eq!(rows[0]["rank_rule_below"]["detail"], "2 vs 0");
+
+    // ── A round without types makes it unavailable again ──────────────────────
+
+    let new_round = models::round::RoundBuilder::new_default(division_id)
+        .set_name("Added Later")
+        .build_and_insert(&mut conn)
+        .unwrap();
+    assert!(new_round.question_types.is_empty());
+    let rules: Vec<TieBreakerSettingBody> = test::read_body_json(test::call_service(&app, get(&rules_uri)).await).await;
+    assert!(!rules[0].available);
+    assert!(!rules[0].enabled);
+    let rows: serde_json::Value = test::read_body_json(test::call_service(&app, get(&stats_uri)).await).await;
+    assert_eq!(rows[0]["name"], "Red Team", "skipped while unavailable, so Team W-L decides");
 }
 
 /// Saving the rules changes a stats group, so it needs `statsgroup:update`.
