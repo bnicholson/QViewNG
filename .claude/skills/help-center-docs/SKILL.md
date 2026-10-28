@@ -58,6 +58,7 @@ Write like you're sitting next to a friend and want them to really *get it*, wit
 - Give them the *why* in a sentence when it helps them avoid a mistake, but don't lecture.
 - Use concrete examples ("say round 5 is complete but round 4 isn't…") rather than abstract rules.
 - Keep it short. If a sentence doesn't help them succeed, cut it.
+- Describe the app as it is, as if it has always worked this way. Articles are reference knowledge, not release notes: no "now", "new", "no longer", "has been added", "used to", or "as of this version". That kind of wording belongs only in upgrade documents.
 
 ### Organize around workflows, by user
 Organize articles around **what a specific kind of user is trying to get done**, not around screens or features. For each workflow:
