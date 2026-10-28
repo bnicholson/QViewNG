@@ -631,6 +631,59 @@ fn tally_outs_and_fouls(
     }
 }
 
+// ─── Error zones ──────────────────────────────────────────────────────────────
+
+/// From this question on (overtime included), every erroneous tossup is in the late-game zone.
+const ERROR_ZONE_START_QUESTION: i32 = 16;
+/// From this erroneous tossup of a team's game on, each one before the late-game zone is in
+/// the team-error zone.
+const ERROR_ZONE_START_TEAM_ERROR: usize = 5;
+
+/// A team's or quizzer's erroneous tossups in the two error zones across the counted games.
+/// The zones don't overlap: an error on question 16 or later is only in the late-game zone.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Default, PartialEq, ToSchema)]
+pub struct ErrorZoneStat {
+    pub late_game: i32,             // erroneous tossups on question 16 or later, overtime included
+    pub team_error: i32,            // the team's 5th and later erroneous tossups of a game, on questions 1-15
+}
+
+impl ErrorZoneStat {
+    fn merge(&mut self, other: &ErrorZoneStat) {
+        self.late_game += other.late_game;
+        self.team_error += other.team_error;
+    }
+}
+
+/// One game's error-zone counts for each of a team's quizzers, keyed by quizzer name. The
+/// team-error zone counts the team's errors in question order across its quizzers, so each
+/// error lands on the quizzer who made it.
+fn team_error_zones<'a>(quizzers: impl IntoIterator<Item = &'a CalculatedQuizzer>) -> HashMap<&'a str, ErrorZoneStat> {
+    let mut errors: Vec<(i32, &str)> = quizzers
+        .into_iter()
+        .flat_map(|q| q.errors_on_tossups.iter().map(move |&question| (question, q.name.as_str())))
+        .collect();
+    errors.sort_unstable();
+    let mut zones: HashMap<&str, ErrorZoneStat> = HashMap::new();
+    for (i, (question, name)) in errors.into_iter().enumerate() {
+        let quizzer = zones.entry(name).or_default();
+        if question >= ERROR_ZONE_START_QUESTION {
+            quizzer.late_game += 1;
+        } else if i + 1 >= ERROR_ZONE_START_TEAM_ERROR {
+            quizzer.team_error += 1;
+        }
+    }
+    zones
+}
+
+/// Adds one game's error-zone counts to each quizzer's tally, keyed by (team name, quizzer name).
+fn tally_error_zones(calculated: &CalculatedGame, quizzers: &mut HashMap<(String, String), ErrorZoneStat>) {
+    for team in calculated.teams.values() {
+        for (name, zones) in team_error_zones(team.quizzers.values()) {
+            quizzers.entry((team.name.clone(), name.to_string())).or_default().merge(&zones);
+        }
+    }
+}
+
 // ─── A division's own stats group ─────────────────────────────────────────────
 
 /// The stats group that mirrors a division: every game of the division, kept in step
@@ -828,6 +881,8 @@ pub struct TeamStat {
     /// Quiz outs, error outs, foul outs and quizzer fouls summed over the team's quizzers, plus
     /// the team's own team and coach fouls.
     pub outs_and_fouls: OutsAndFoulsStat,
+    /// Erroneous tossups in the error zones, summed over the team's quizzers.
+    pub error_zones: ErrorZoneStat,
     /// Which criterion placed this team below the one above it. None on the first row.
     pub rank_rule_above: Option<RankRuleExplanation>,
     /// Which criterion placed this team above the one below it. None on the last row.
@@ -934,6 +989,7 @@ pub async fn read_team_stats_of_statsgroup(
     let mut tallies: HashMap<(String, String), QuestionTypeTally> = HashMap::new();
     let mut quizzer_outs: HashMap<(String, String), OutsAndFoulsStat> = HashMap::new();
     let mut team_outs: HashMap<String, OutsAndFoulsStat> = HashMap::new();
+    let mut quizzer_zones: HashMap<(String, String), ErrorZoneStat> = HashMap::new();
 
     // One cache lookup (or one replay) per game. Games whose event stream can't be scored
     // come back as None and are skipped.
@@ -956,6 +1012,7 @@ pub async fn read_team_stats_of_statsgroup(
                     tally_question_types(&calculated, types, &mut tallies);
                 }
                 tally_outs_and_fouls(&calculated, &mut quizzer_outs, &mut team_outs);
+                tally_error_zones(&calculated, &mut quizzer_zones);
             }
         }
     }
@@ -968,12 +1025,19 @@ pub async fn read_team_stats_of_statsgroup(
     for ((team_name, _), outs) in &quizzer_outs {
         team_outs.entry(team_name.clone()).or_default().merge(outs);
     }
+    let mut team_zones: HashMap<String, ErrorZoneStat> = HashMap::new();
+    for ((team_name, _), zones) in &quizzer_zones {
+        team_zones.entry(team_name.clone()).or_default().merge(zones);
+    }
     for stat in stats.iter_mut() {
         if let Some(tally) = by_team.get(&stat.name) {
             stat.question_types = tally.to_stats();
         }
         if let Some(outs) = team_outs.get(&stat.name) {
             stat.outs_and_fouls = *outs;
+        }
+        if let Some(zones) = team_zones.get(&stat.name) {
+            stat.error_zones = *zones;
         }
     }
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
@@ -1070,6 +1134,7 @@ fn aggregate_team_stats(
             memory_verse_correct: a.memory_verse_correct,
             question_types: empty_question_type_stats(),
             outs_and_fouls: OutsAndFoulsStat::default(),
+            error_zones: ErrorZoneStat::default(),
             rank_rule_above: None,
             rank_rule_below: None,
         })
@@ -1208,7 +1273,6 @@ fn describe_rule_values(
 // ─── Individual (quizzer) standings for a statsgroup ──────────────────────────
 
 /// Aggregated individual-stats row for one quizzer within a statsgroup.
-/// The UI's Errs 16+/5+ column is intentionally left out of this computation for now.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct IndividualStat {
     pub place: i32,             // 1-based rank within the statsgroup (by score)
@@ -1226,6 +1290,8 @@ pub struct IndividualStat {
     pub question_types: Vec<QuestionTypeStat>,
     /// Quiz outs, error outs, foul outs and fouls; the team and coach fouls are always 0.
     pub outs_and_fouls: OutsAndFoulsStat,
+    /// Erroneous tossups in the error zones.
+    pub error_zones: ErrorZoneStat,
 }
 
 struct IndividualStatAgg {
@@ -1258,6 +1324,7 @@ pub async fn read_individual_stats_of_statsgroup(
     let mut quizzer_outs: HashMap<(String, String), OutsAndFoulsStat> = HashMap::new();
     // Team and coach fouls belong to no quizzer, so the individual rows leave them out.
     let mut team_outs: HashMap<String, OutsAndFoulsStat> = HashMap::new();
+    let mut quizzer_zones: HashMap<(String, String), ErrorZoneStat> = HashMap::new();
 
     // Note this shares the cache with the team-stats endpoint: whichever of the two is
     // requested first warms every game, and the second is served without touching the
@@ -1275,6 +1342,7 @@ pub async fn read_individual_stats_of_statsgroup(
                     tally_question_types(&calculated, types, &mut tallies);
                 }
                 tally_outs_and_fouls(&calculated, &mut quizzer_outs, &mut team_outs);
+                tally_error_zones(&calculated, &mut quizzer_zones);
             }
         }
     }
@@ -1287,6 +1355,9 @@ pub async fn read_individual_stats_of_statsgroup(
         }
         if let Some(outs) = quizzer_outs.get(&key) {
             stat.outs_and_fouls = *outs;
+        }
+        if let Some(zones) = quizzer_zones.get(&key) {
+            stat.error_zones = *zones;
         }
     }
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
@@ -1336,6 +1407,7 @@ fn aggregate_individual_stats(per_game: &[Vec<QuizzerGameResult>]) -> Vec<Indivi
             bonus_attempts: a.bonus_attempts,
             question_types: empty_question_type_stats(),
             outs_and_fouls: OutsAndFoulsStat::default(),
+            error_zones: ErrorZoneStat::default(),
         })
         .collect();
 
@@ -1761,6 +1833,7 @@ mod tiebreaker_tests {
             memory_verse_correct: 0,
             question_types: empty_question_type_stats(),
             outs_and_fouls: OutsAndFoulsStat::default(),
+            error_zones: ErrorZoneStat::default(),
             rank_rule_above: None,
             rank_rule_below: None,
         }
@@ -1981,6 +2054,38 @@ mod outs_and_fouls_tests {
     fn error_outs() {
         let out = quizzer_outs_and_fouls(&quizzer(&[1, 2, 3], &[], -1, 3), 3);
         assert_eq![(out.error_outs, out.quiz_outs_with_errors), (1, 0)];
+    }
+
+    fn named(name: &str, errors: &[i32]) -> CalculatedQuizzer {
+        CalculatedQuizzer { name: name.to_string(), ..quizzer(errors, &[], -1, -1) }
+    }
+
+    /// Errors on question 16 and later, overtime included, are in the late-game zone.
+    #[test]
+    fn late_game_zone_starts_at_question_16() {
+        let ann = named("Ann", &[3, 15, 16, 20, 22]);
+        let zones = team_error_zones([&ann]);
+        assert_eq![zones["Ann"], ErrorZoneStat { late_game: 3, team_error: 0 }];
+    }
+
+    /// The team's 5th error and every one after it count, each on the quizzer who made it,
+    /// in question order across the team.
+    #[test]
+    fn team_error_zone_starts_at_the_teams_fifth_error() {
+        let ann = named("Ann", &[1, 4, 9]);
+        let bob = named("Bob", &[2, 6, 11]);
+        let zones = team_error_zones([&ann, &bob]);
+        // Order: 1 Ann, 2 Bob, 4 Ann, 6 Bob, 9 Ann (5th), 11 Bob (6th).
+        assert_eq![zones["Ann"], ErrorZoneStat { late_game: 0, team_error: 1 }];
+        assert_eq![zones["Bob"], ErrorZoneStat { late_game: 0, team_error: 1 }];
+    }
+
+    /// An error on question 16 or later is only in the late-game zone, even past the 5th.
+    #[test]
+    fn error_zones_do_not_overlap() {
+        let ann = named("Ann", &[1, 2, 3, 4, 10, 17]);
+        let zones = team_error_zones([&ann]);
+        assert_eq![zones["Ann"], ErrorZoneStat { late_game: 1, team_error: 1 }];
     }
 
     /// Merging adds every count, which is how a team's row sums its quizzers' rows.

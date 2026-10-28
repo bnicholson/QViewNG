@@ -71,6 +71,12 @@ export interface OutsAndFoulsStatTS {
   coach_fouls: number;              // always 0 for a quizzer
 }
 
+/** Erroneous tossups in the two error zones, which don't overlap. Mirrors `ErrorZoneStat` on the backend. */
+export interface ErrorZoneStatTS {
+  late_game: number;  // on question 16 or later, overtime included
+  team_error: number; // the team's 5th and later errors of a game, on questions 1-15
+}
+
 export interface TeamStatTS {
   place: number;
   name: string;
@@ -87,6 +93,8 @@ export interface TeamStatTS {
   question_types: QuestionTypeStatTS[];
   /** Outs and quizzer fouls summed over the team's quizzers, plus the team's own team and coach fouls. */
   outs_and_fouls: OutsAndFoulsStatTS;
+  /** Error-zone counts summed over the team's quizzers. */
+  error_zones: ErrorZoneStatTS;
   rank_rule_above: RankRuleExplanationTS | null;
   rank_rule_below: RankRuleExplanationTS | null;
 }
@@ -104,6 +112,7 @@ export interface IndividualStatTS {
   bonus_attempts: number;
   question_types: QuestionTypeStatTS[];
   outs_and_fouls: OutsAndFoulsStatTS;
+  error_zones: ErrorZoneStatTS;
 }
 
 // These endpoints are restricted server-side to super users, the tournament owner, and its

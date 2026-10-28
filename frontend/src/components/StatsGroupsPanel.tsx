@@ -12,7 +12,7 @@ import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { GameAPI } from "../features/GameAPI";
 import { RoomAPI } from "../features/RoomAPI";
 import { RoundAPI } from "../features/RoundAPI";
-import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
+import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS, type ErrorZoneStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
@@ -53,6 +53,20 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
   { value: "team", label: "Team Stats" },
   { value: "individual", label: "Individual Stats" },
 ];
+
+// ─── Error zones (Team and Individual stats) ──────────────────────────────────
+
+const ERROR_ZONES: { header: string; exportLabel: string; value: (z: ErrorZoneStatTS) => number }[] = [
+  { header: "Err\nZone\n5-15", exportLabel: "Err Zone 5-15", value: (z) => z.team_error },
+  { header: "Err\nZone\n16-20+", exportLabel: "Err Zone 16-20+", value: (z) => z.late_game },
+];
+
+function errorZoneColumns<T>(getZones: (row: T) => ErrorZoneStatTS): ColumnDef<T>[] {
+  return ERROR_ZONES.map((z) => ({ header: z.header, align: "center", render: (row: T) => z.value(getZones(row)) }));
+}
+
+const errorZoneExportColumns = ERROR_ZONES.map((z) => z.exportLabel);
+const errorZoneExportValues = (zones: ErrorZoneStatTS) => ERROR_ZONES.map((z) => z.value(zones));
 
 // ─── Content sections ─────────────────────────────────────────────────────────
 
@@ -284,16 +298,17 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
       filename: "team-stats",
       columns: [
         "Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg Pts",
-        ...outsAndFoulsExportColumns("team"), ...questionTypeExportColumns, "Rank Rules",
+        ...outsAndFoulsExportColumns("team"), ...errorZoneExportColumns, ...questionTypeExportColumns, "Rank Rules",
       ],
       rows: rows.map((r) => [
         r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points,
         r.total_points, r.avg_points.toFixed(1), ...outsAndFoulsExportValues(r.outs_and_fouls, "team"),
-        ...questionTypeExportValues(r.question_types), rankRuleSummary(r),
+        ...errorZoneExportValues(r.error_zones), ...questionTypeExportValues(r.question_types), rankRuleSummary(r),
       ]),
     });
   }, [rows, onExportReady]);
 
+  const outs = outsAndFoulsColumns<TeamStatTS>((r) => r.outs_and_fouls, "team");
   const columns: ColumnDef<TeamStatTS>[] = [
     { header: "Place", render: (r) => r.place },
     { header: "Name", render: (r) => <span style={{ whiteSpace: "nowrap" }}>{r.name}</span> },
@@ -304,7 +319,11 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
     { header: "Mod.\nOlympic\nPoints", render: (r) => r.mod_olympic_points },
     { header: "Total\nPoints", render: (r) => r.total_points },
     { header: "Total\nAvg.\nPoints", render: (r) => r.avg_points.toFixed(1) },
-    ...outsAndFoulsColumns<TeamStatTS>((r) => r.outs_and_fouls, "team"),
+    outs.quizOuts,
+    outs.errorOuts,
+    ...errorZoneColumns<TeamStatTS>((r) => r.error_zones),
+    outs.fouls,
+    outs.foulOuts,
     ...questionTypeColumns<TeamStatTS>((r) => r.question_types),
     {
       header: "Rank\nRules",
@@ -398,16 +417,17 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
       filename: "individual-stats",
       columns: [
         "Place", "Individual", "Team Name", "# Games", "Score", "Avg", "Correct", "Errors", "Bonus Pts", "Bonus Attempts",
-        "Errs 16+/5+", ...outsAndFoulsExportColumns("individual"), ...questionTypeExportColumns,
+        ...outsAndFoulsExportColumns("individual"), ...errorZoneExportColumns, ...questionTypeExportColumns,
       ],
       rows: rows.map((r) => [
         r.place, r.individual, r.team_name, r.games, r.score, r.avg.toFixed(1), r.correct, r.errors, r.bonus_pts, r.bonus_attempts,
-        "", ...outsAndFoulsExportValues(r.outs_and_fouls, "individual"), ...questionTypeExportValues(r.question_types),
+        ...outsAndFoulsExportValues(r.outs_and_fouls, "individual"), ...errorZoneExportValues(r.error_zones),
+        ...questionTypeExportValues(r.question_types),
       ]),
     });
   }, [rows, onExportReady]);
 
-  const blank = () => "";
+  const outs = outsAndFoulsColumns<IndividualStatTS>((r) => r.outs_and_fouls, "individual");
   const columns: ColumnDef<IndividualStatTS>[] = [
     { header: "Place", render: (r) => r.place },
     { header: "Individual", render: (r) => <span style={{ whiteSpace: "nowrap" }}>{r.individual}</span> },
@@ -416,12 +436,14 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
     { header: "Score", render: (r) => r.score },
     { header: "Avg", render: (r) => r.avg.toFixed(1) },
     { header: "Correct", render: (r) => r.correct },
+    outs.quizOuts,
     { header: "Errors", render: (r) => r.errors },
-    { header: "Bonus Pts", render: (r) => r.bonus_pts },
-    { header: "Bonus Attempts", render: (r) => r.bonus_attempts },
-    // Intentionally left blank for now.
-    { header: "Errs 16+/5+", render: blank },
-    ...outsAndFoulsColumns<IndividualStatTS>((r) => r.outs_and_fouls, "individual"),
+    outs.errorOuts,
+    ...errorZoneColumns<IndividualStatTS>((r) => r.error_zones),
+    { header: "Bonus\nPts", render: (r) => r.bonus_pts },
+    { header: "Bonus\nAttempts", render: (r) => r.bonus_attempts },
+    outs.fouls,
+    outs.foulOuts,
     ...questionTypeColumns<IndividualStatTS>((r) => r.question_types),
   ];
 
