@@ -25,7 +25,7 @@ export default function App() {
       <GlobalNavBar />
       <Toolbar />
       <div className="App">
-        <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
+        <Container maxWidth="xl" sx={{ flexGrow: 1, px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
           <QViewRoutes />
         </Container>
         <FooterGlobal />

@@ -12,8 +12,21 @@ code {
   monospace;
 }
 
+/* Stretch the app to at least the viewport height so the global footer never floats above
+   the bottom of the viewport on short pages: #root holds the nav-bar spacer, .App and the
+   mobile bottom-nav spacer; .App takes the remaining height and its page container grows. */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .App {
   text-align: center;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .App-logo {
