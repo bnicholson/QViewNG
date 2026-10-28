@@ -1,0 +1,158 @@
+<p>This article is for Tournament owners and admins. It shows you how to tell QView what type each question in a
+Round is (General, According-to, Quote, and so on). When you’re done, every Round in your Division has its 20
+question types saved.</p>
+
+<p><strong>Why bother?</strong> Question types are what let QView:</p>
+<ul>
+  <li>break each Team’s and Quizzer’s stats down by question type (see
+  <a href="doc:computing-stats">Computing Stats</a>), and</li>
+  <li>use the <strong>Memory Verse (M) Correct</strong> tie-breaking rule.</li>
+</ul>
+
+<p><strong>Before you start:</strong></p>
+<ul>
+  <li>You need to be able to edit the Tournament’s schedule. Tournament managers and admins can.</li>
+  <li>The Division needs its Rounds already (see <a href="doc:rounds-and-games">Scheduling Rounds and Games</a>).</li>
+  <li>To fill them in from a file, have the question set file (<code>.rtf</code> or <code>.csv</code>) that came
+  with your questions.</li>
+</ul>
+
+<h2>What are the question types?</h2>
+<p>Each question gets one of these codes:</p>
+<ul>
+  <li><strong>G</strong>: General</li>
+  <li><strong>A</strong>: According-to</li>
+  <li><strong>Q</strong>: Quote</li>
+  <li><strong>R</strong>: Reference</li>
+  <li><strong>V</strong>: Verse</li>
+  <li><strong>X</strong>: Context</li>
+  <li><strong>S</strong>: Situation</li>
+  <li><strong>I</strong>: In what Book and Chapter</li>
+</ul>
+<p>A standard 20-question set has 11 G, 4 A, one each of Q, R, V and X, and one S <em>or</em> one I (never both).</p>
+<p class="doc-note"><strong>M (Memory Verse)</strong> isn’t a type you pick. QView counts every R, Q and V question as
+a Memory Verse question for you, so a standard set has 3.</p>
+
+<h2>Which way should you use?</h2>
+<ul>
+  <li><strong>All Rounds at once</strong> with <strong>Set Question Types</strong>. Best when you’re setting up a
+  whole Division, especially from a file.</li>
+  <li><strong>One Round at a time</strong> with <strong>Edit Round</strong>. Handy for fixing a single Round.</li>
+</ul>
+
+<h2>Setting every Round at once</h2>
+<p>The <strong>Set Question Types</strong> button is in three places. They all open the same dialog:</p>
+<ul>
+  <li><strong>Schedule</strong> &gt; <strong>Create / Edit</strong>, next to <strong>Edit Start Times</strong>.</li>
+  <li>The Division’s <strong>Rounds</strong> page.</li>
+  <li><strong>Server Stats</strong>, with <strong>Data</strong> set to <strong>Team Stats</strong>, next to
+  <strong>Tie-breaking Rules</strong>.</li>
+</ul>
+<!-- SCREENSHOT TODO: Schedule > Create / Edit for a Division. Red box around the "Set Question Types" button beside "Edit Start Times". -->
+<figure>
+  <img src="setting-question-types-1.webp" alt="The Set Question Types button in the schedule editor." loading="lazy" />
+  <figcaption>The Set Question Types button in the schedule editor.</figcaption>
+</figure>
+
+<ol>
+  <li>Click <strong>Set Question Types</strong>. Every Round of the Division is listed, in schedule order, showing
+  what it has saved.</li>
+  <li>For each Round, pick each question’s type from its dropdown. Or click <strong>Import from file</strong> to fill
+  them in (see below).</li>
+  <li>Check the colored count chips above each Round (see <strong>What do the colored chips mean?</strong> below).</li>
+  <li>Click <strong>Save Question Types</strong>.</li>
+</ol>
+<!-- SCREENSHOT TODO: The Set Question Types dialog, showing two Rounds with their 20 dropdowns filled in. Red box around the "Import from file" button; red box around one Round's row of count chips; red box around "Save Question Types". -->
+<figure>
+  <img src="setting-question-types-2.webp" alt="The Set Question Types dialog." loading="lazy" />
+  <figcaption>The Set Question Types dialog.</figcaption>
+</figure>
+<p class="doc-note">Every Round is saved together. If any Round has a problem, nothing is saved, and the problem is
+shown in red above that Round. Fix it and click <strong>Save Question Types</strong> again.</p>
+
+<h3>Filling them in from a question set file</h3>
+<ol>
+  <li>In the <strong>Set Question Types</strong> dialog, click <strong>Import from file</strong>.</li>
+  <li>Choose your question set file (<code>.rtf</code> or <code>.csv</code>).</li>
+  <li>Each Round picks up a set from the file, in order: the first set goes to the first Round, the second set to the
+  second Round, and so on.</li>
+  <li>Check each Round. To use a different set for a Round, choose it from the dropdown next to the Round’s name. Choose
+  <strong>No set — keep current question types</strong> to leave that Round as it was.</li>
+  <li>Click <strong>Save Question Types</strong>.</li>
+</ol>
+<!-- SCREENSHOT TODO: The Set Question Types dialog right after importing a file. Red box around the blue "Filled in from …" message; red box around a Round's set dropdown (e.g. "Set #1 …") next to its name. -->
+<figure>
+  <img src="setting-question-types-3.webp" alt="Rounds filled in from a question set file." loading="lazy" />
+  <figcaption>Rounds filled in from a question set file.</figcaption>
+</figure>
+<p>Nothing is saved when you import. You can still change any question by hand before you save.</p>
+<p class="doc-note">Say the file has 12 sets but the Division has 10 Rounds. A yellow message tells you the last 2 sets
+won’t be used unless you pick them for a Round. If the file has fewer sets than you have Rounds, the extra Rounds keep
+what they have.</p>
+
+<h2>Setting one Round</h2>
+<ol>
+  <li>Go to <strong>Schedule</strong> &gt; <strong>Create / Edit</strong> and pick the Division.</li>
+  <li>On the Round, click <strong>Edit Round</strong>.</li>
+  <li>Tick <strong>Question Types</strong>.</li>
+  <li>Pick a type for each of the 20 questions.</li>
+  <li>Click <strong>Save</strong>, then confirm.</li>
+</ol>
+<!-- SCREENSHOT TODO: The Edit Round dialog scrolled to its Question Types section, with all 20 dropdowns filled in. Red box around the "Question Types" checkbox; red box around the "Use standard question type counts" checkbox; red box around the row of count chips. -->
+<figure>
+  <img src="setting-question-types-4.webp" alt="The Question Types section of the Edit Round dialog." loading="lazy" />
+  <figcaption>The Question Types section of the Edit Round dialog.</figcaption>
+</figure>
+<p class="doc-warning">If a Round has question types and you untick <strong>Question Types</strong>, saving removes
+them. QView asks you to confirm first.</p>
+
+<h2>What do the colored chips mean?</h2>
+<p>Above the questions, a chip for each type shows how many you’ve picked against a standard set, for example
+<strong>G: 11/11</strong>. <strong>S/I</strong> counts S and I together, and <strong>M</strong> shows the Memory Verse
+count worked out from R, Q and V.</p>
+<ul>
+  <li><strong>Green</strong>: exactly the standard count.</li>
+  <li><strong>Orange</strong>: fewer than standard.</li>
+  <li><strong>Red</strong>: more than standard.</li>
+</ul>
+<p>Hover over a chip to see the type’s full name.</p>
+
+<h3>What if your question set isn’t standard?</h3>
+<p>Untick <strong>Use standard question type counts</strong> for that Round. QView then saves any mix (only G
+questions, say), and the chips just show counts. Every question still needs a type.</p>
+
+<h2>How do you know it worked?</h2>
+<p>Open <strong>Set Question Types</strong> again: every Round shows its saved types. When every Round in the Division
+has them, you can tick the <strong>Memory Verse (M) Correct</strong> rule in <strong>Tie-breaking
+Rules</strong>.</p>
+
+<h2>When it doesn’t work</h2>
+<ul>
+  <li><strong>“Every question needs a question type (missing: …)”</strong> A Round has types for only some questions.
+  Pick the missing ones, or untick <strong>Question Types</strong> for that Round to save it without any.</li>
+  <li><strong>“Expected 11 G (General) question(s), found 10.”</strong> (or another type) The Round doesn’t match a
+  standard set. Fix the questions, or untick <strong>Use standard question type counts</strong> if the set really is
+  different.</li>
+  <li><strong>“A standard question set can't contain both S (Situation) and I (In what Book and Chapter)
+  questions.”</strong> Change one of them, or untick <strong>Use standard question type counts</strong>.</li>
+  <li><strong>“Only .rtf and .csv question set files can be imported.”</strong> Choose the <code>.rtf</code> or
+  <code>.csv</code> file that came with your question sets.</li>
+  <li><strong>“No questions were found in the file.”</strong> or <strong>“The CSV has no "Type" column.”</strong>
+  The file isn’t a question set export, or it was changed in a spreadsheet. Get a fresh copy of the file.</li>
+  <li><strong>A set is marked “(unreadable)”.</strong> Something in that set couldn’t be read (a missing question, or
+  a code that isn’t a question type). Its Round keeps what it has, and a yellow message says what was wrong. Set that
+  Round by hand.</li>
+  <li><strong>“This division has no rounds yet. Add rounds first.”</strong> Create the Division’s Rounds first (see
+  <a href="doc:rounds-and-games">Scheduling Rounds and Games</a>).</li>
+  <li><strong>The button is greyed out on Server Stats.</strong> You’ve picked a Stats Group that isn’t a Division’s.
+  Question types belong to a Division’s Rounds, so pick that Division’s Stats Group, or use the button in the
+  schedule editor.</li>
+  <li><strong>You don’t see the button at all.</strong> Your account can’t edit this Tournament’s schedule. Ask the
+  Tournament’s owner.</li>
+</ul>
+
+<h2>See also</h2>
+<ul>
+  <li><a href="doc:rounds-and-games">Post-Registration Prep: Rounds and Games</a></li>
+  <li><a href="doc:computing-stats">Computing Stats: Stats Groups, Sneakernet Importing and Exporting Results</a></li>
+</ul>

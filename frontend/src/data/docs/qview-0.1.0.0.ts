@@ -39,6 +39,7 @@ export const qview0100: DocVersion = {
         { title: 'Creating a Tournament and Its Rooms', slug: 'creating-a-tournament' },
         { title: 'Divisions and Registration', slug: 'divisions-and-registration' },
         { title: 'Scheduling Rounds and Games', slug: 'rounds-and-games' },
+        { title: 'Setting Question Types for Rounds', slug: 'setting-question-types' },
       ],
     },
     {
@@ -441,6 +442,10 @@ ${shot('registering-for-a-tournament-21', 'A successful volunteer registration, 
     {
       slug: 'rounds-and-games',
       title: 'Post-Registration Prep: Rounds and Games',
+    },
+    {
+      slug: 'setting-question-types',
+      title: 'Setting Question Types for Rounds',
     },
 
     // ── Tournament Day ──────────────────────────────────────────────────────────

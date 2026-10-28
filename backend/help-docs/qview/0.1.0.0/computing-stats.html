@@ -52,13 +52,15 @@ They don’t add Games to or remove Games from the Stats Group, and they aren’
 <ol>
   <li>On <strong>Server Stats</strong>, set <strong>Data</strong> to <strong>Team Stats</strong>.</li>
 </ol>
+<!-- SCREENSHOT TODO (retake): Team Stats on Server Stats, wide enough to show every column from Place through Rank Rules, including Quiz Outs, Error Outs, Foul Outs, Fouls and the G A M R Q V X I S question-type columns. Red box around the Quiz Outs to Fouls columns; red box around the question-type columns. -->
 <figure>
   <img src="computing-stats-2.webp" alt="Team Stats on Server Stats." loading="lazy" />
   <figcaption>Team Stats on Server Stats.</figcaption>
 </figure>
 <p>You’ll see each Team’s <strong>Place</strong>, <strong># Games</strong>, <strong>Wins</strong>,
 <strong>Losses</strong>, <strong>Olympic Points</strong>, <strong>Mod. Olympic Points</strong>, <strong>Total
-Points</strong> and <strong>Total Avg Pts</strong>.</p>
+Points</strong> and <strong>Total Avg. Points</strong>, followed by the outs, fouls and question-type columns (see
+<strong>Question types, outs and fouls</strong> below).</p>
 <p>A few things worth knowing:</p>
 <ul>
   <li><strong>Wins and losses are counted per opponent.</strong> Say three Teams quiz together: the 1st-place Team
@@ -82,13 +84,24 @@ the Team above the Team below it (and below the Team above it), with both Teams�
   <li>Drag a rule (or use its up/down arrows) to move it. Untick a rule to leave it out.</li>
   <li>Click <strong>Save</strong>.</li>
 </ol>
+<!-- SCREENSHOT TODO (retake): The Tie-breaking Rules dialog with all seven rules. Red box around the greyed-out "Memory Verse (M) Correct" rule and the grey note under it explaining why it can't be used. -->
 <figure>
   <img src="computing-stats-3.webp" alt="The Tie-breaking Rules dialog." loading="lazy" />
   <figcaption>The Tie-breaking Rules dialog.</figcaption>
 </figure>
-<p>The default order is <strong>Team W-L Record</strong>, <strong>Head-to-Head W-L</strong>, <strong>Total
-Points</strong>, <strong>Total Avg Pts</strong>, <strong>Olympic Pts</strong>, <strong>Mod Olympic Pts</strong>.
-Head-to-Head only looks at the Games those Teams played against each other.</p>
+<p>The default order is <strong>Team W-L Record</strong>, <strong>Memory Verse (M) Correct</strong>,
+<strong>Head-to-Head W-L</strong>, <strong>Total Points</strong>, <strong>Total Avg Pts</strong>, <strong>Olympic
+Pts</strong>, <strong>Mod Olympic Pts</strong>. Head-to-Head only looks at the Games those Teams played against each
+other.</p>
+<h3>Using the Memory Verse (M) Correct rule</h3>
+<p>This rule puts the Team with more correct toss-ups on Memory Verse questions (every R, Q and V question) ahead.
+Bonuses don’t count. It starts unticked, so it only affects standings if you tick it.</p>
+<p>It needs to know which questions are Memory Verse questions, so it stays greyed out until every Round of every
+Division in the Stats Group has question types. The grey note under it says so. To fill them in, click
+<strong>Set Question Types</strong> next to <strong>Tie-breaking Rules</strong> (see
+<a href="doc:setting-question-types">Setting Question Types for Rounds</a>).</p>
+<p class="doc-note"><strong>Set Question Types</strong> is greyed out when you’ve picked a Stats Group that isn’t a
+Division’s, because question types belong to a Division’s Rounds. Pick each Division’s own Stats Group instead.</p>
 <p>When you save, Team Stats re-sorts straight away, and so does LIVE Stats for everyone watching.</p>
 <p class="doc-note">If you untick every rule, level Teams are simply listed in alphabetical order. Places are never
 shared between Teams: if two Teams are still level after every rule, alphabetical order decides.</p>
@@ -97,6 +110,7 @@ shared between Teams: if two Teams are still level after every rule, alphabetica
 <ol>
   <li>On <strong>Server Stats</strong>, set <strong>Data</strong> to <strong>Individual Stats</strong>.</li>
 </ol>
+<!-- SCREENSHOT TODO (retake): Individual Stats on Server Stats, showing every column from Place through the S question-type column, including Quiz Outs, Error Outs, Foul Outs and Fouls after Errs 16+/5+. -->
 <figure>
   <img src="computing-stats-4.webp" alt="Individual Stats on Server Stats." loading="lazy" />
   <figcaption>Individual Stats on Server Stats.</figcaption>
@@ -110,11 +124,54 @@ shared between Teams: if two Teams are still level after every rule, alphabetica
   <li>Quizzers are ranked by highest Score, then fewest Errors. Quizzers with the same Score and Errors share a place,
   and the next place is skipped (1, 1, 3).</li>
 </ul>
-<p class="doc-note">The question-type columns (<strong>Generals</strong>, <strong>Memory</strong>,
-<strong>According</strong>, <strong>Context</strong>, <strong>Special</strong>) and <strong>Errs 16+/5+</strong> are
-blank for now.</p>
+<p class="doc-note"><strong>Errs 16+/5+</strong> is always blank.</p>
 <p class="doc-note">Teams and Quizzers are matched by name. If a name was typed differently in a Room, it shows up as a
 separate row, so fix the name in QView and resend or re-import that Game.</p>
+
+<h2>Question types, outs and fouls</h2>
+<p>Team Stats and Individual Stats both have these columns. For a Team, every count adds up its Quizzers.</p>
+
+<h3>Quiz Outs, Error Outs, Foul Outs and Fouls</h3>
+<ul>
+  <li><strong>Quiz Outs</strong>: how many times they quizzed out. Hover over the number to see how many were with
+  no errors and how many were with errors. Only a quiz out with no toss-up errors in that Game earns the quiz-out
+  points.</li>
+  <li><strong>Error Outs</strong>: how many times they errored out.</li>
+  <li><strong>Foul Outs</strong>: how many times a Quizzer reached the Game’s foul limit (normally 3).</li>
+  <li><strong>Fouls</strong>: every foul. For a Team, this also counts team and coach fouls. Hover over the number to
+  see Quizzer, Team and Coach fouls separately.</li>
+</ul>
+
+<h3>The question-type columns</h3>
+<p>There’s a column for each question type: <strong>G</strong>, <strong>A</strong>, <strong>M</strong>,
+<strong>R</strong>, <strong>Q</strong>, <strong>V</strong>, <strong>X</strong>, <strong>I</strong> and
+<strong>S</strong>. Each shows correct toss-ups out of toss-ups answered. Say a Team shows <strong>7/9</strong> under
+<strong>G</strong>: its Quizzers answered 9 General toss-ups and got 7 right. Hover over the number to see the bonus
+counts too, or over a column heading for the type’s full name. A dash means none were answered.</p>
+<ul>
+  <li><strong>M</strong> (Memory Verse) counts the R, Q and V questions again, together.</li>
+  <li>Only questions with a type count. Overtime questions, and every question in a Round without question types,
+  are left out. If every column shows a dash, the Rounds don’t have question types yet (see
+  <a href="doc:setting-question-types">Setting Question Types for Rounds</a>).</li>
+</ul>
+
+<h3>Seeing the full breakdown</h3>
+<p>Click a Team’s or Quizzer’s row. It opens to show two tables:</p>
+<ul>
+  <li><strong>Question Types</strong>: Attempted, Correct, Bonuses Attempted and Bonuses Correct for each type. The
+  <strong>Total</strong> column leaves out M, because M repeats R, Q and V.</li>
+  <li><strong>Outs &amp; Fouls</strong>: Quiz Outs split into <strong>No Errors</strong> and <strong>With
+  Errors</strong>, Error Outs, Foul Outs and Fouls. For a Team, Fouls is split into <strong>Quizzer</strong>,
+  <strong>Team</strong> and <strong>Coach</strong>. Each split has a <strong>Total</strong>.</li>
+</ul>
+<!-- SCREENSHOT TODO: Team Stats with one Team's row clicked open, showing the Question Types table and the Outs & Fouls table side by side below it. Red box around the row's ▸/▾ arrow; red box around each of the two tables. -->
+<figure>
+  <img src="computing-stats-5.webp" alt="A Team’s row opened to show its full breakdown." loading="lazy" />
+  <figcaption>A Team’s row opened to show its full breakdown.</figcaption>
+</figure>
+<p>Click the row again to close it. On a phone, the two tables sit one under the other.</p>
+<p class="doc-note">Clicking the <strong>(i)</strong> in <strong>Rank Rules</strong> opens its dialog without opening
+the row.</p>
 
 <h2>Showing live standings with LIVE Stats</h2>
 <ol>
@@ -122,7 +179,7 @@ separate row, so fix the name in QView and resend or re-import that Game.</p>
   <li>Click the <strong>Team Stats</strong> tab and pick the <strong>Division</strong>.</li>
 </ol>
 <figure>
-  <img src="computing-stats-5.webp" alt="Team standings on LIVE Stats." loading="lazy" />
+  <img src="computing-stats-6.webp" alt="Team standings on LIVE Stats." loading="lazy" />
   <figcaption>Team standings on LIVE Stats.</figcaption>
 </figure>
 <p>The table updates by itself as Games finish. The indicator in the corner tells you how it’s staying up to date:
@@ -151,7 +208,7 @@ marked <strong>DONE</strong> in QuizMachine are exported.</p>
   <li>When you see <strong>Imported game events for N game(s).</strong>, click <strong>Close</strong>.</li>
 </ol>
 <figure>
-  <img src="computing-stats-6.webp" alt="The Import Game Events preview." loading="lazy" />
+  <img src="computing-stats-7.webp" alt="The Import Game Events preview." loading="lazy" />
   <figcaption>The Import Game Events preview.</figcaption>
 </figure>
 <p>The preview has four lists:</p>
@@ -188,12 +245,21 @@ together, and any Game with a problem is skipped rather than stopping the import
   <strong>PDF (.pdf)</strong>.</li>
 </ol>
 <figure>
-  <img src="computing-stats-7.webp" alt="The Export menu on Server Stats." loading="lazy" />
+  <img src="computing-stats-8.webp" alt="The Export menu on Server Stats." loading="lazy" />
   <figcaption>The Export menu on Server Stats.</figcaption>
 </figure>
 <p>The file downloads straight away, named after the view (<code>team-stats</code>, <code>individual-stats</code>
 or <code>game-selection</code>). It contains the whole table, not just the rows on screen. In Team Stats exports,
 the Rank Rules column is written out in words. PDFs of Team and Individual stats print in landscape.</p>
+<p>Team and Individual exports also include the full breakdown from each row, one number per column:</p>
+<ul>
+  <li><strong>Outs and fouls</strong>: <strong>QO No Errors</strong>, <strong>QO With Errors</strong>, <strong>QO
+  Total</strong>, <strong>Error Outs</strong> and <strong>Foul Outs</strong>, then <strong>Fouls</strong> for a
+  Quizzer, or <strong>Quizzer Fouls</strong>, <strong>Team Fouls</strong>, <strong>Coach Fouls</strong> and
+  <strong>Fouls Total</strong> for a Team.</li>
+  <li><strong>Question types</strong>: four columns for each type, such as <strong>G Attempted</strong>, <strong>G
+  Correct</strong>, <strong>G Bonuses Attempted</strong> and <strong>G Bonuses Correct</strong>.</li>
+</ul>
 <p class="doc-note">The <strong>Export</strong> button is greyed out when the table is empty. Pick a Division that has
 finished Games.</p>
 
