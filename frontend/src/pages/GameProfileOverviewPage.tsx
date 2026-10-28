@@ -178,10 +178,37 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
 
   const teamLabel = (id: string | null) => id ? (teamMap.get(id) ?? id) : '—'
   const userDisplay = (id: string | null) => id ? (userMap.get(id) ?? id) : '—'
+  // A game has no name, so it's titled by its teams once their names have loaded.
+  const teamNames = [game.leftteamid, game.centerteamid, game.rightteamid]
+    .filter((id): id is string => !!id)
+    .map(id => teamMap.get(id))
+  const gameTitle = teamNames.every(Boolean) ? teamNames.join(' vs ') : 'Game'
 
   return (
     <Stack spacing={3}>
       <Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
+            {gameTitle}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            {editing ? (
+              <>
+                <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+                <Button variant="outlined" size="small" onClick={cancelEdit} disabled={saving}>
+                  Cancel
+                </Button>
+              </>
+            ) : canEdit && (
+              <Button variant="contained" size="small" onClick={startEdit}>
+                Edit
+              </Button>
+            )}
+          </Box>
+        </Box>
+
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
           Game: General Info
         </Typography>
@@ -325,23 +352,6 @@ export const GameProfileOverviewPage = ({ game, tournament, onUpdated, canEdit =
           </Grid>
 
         </Grid>
-
-        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-          {editing ? (
-            <>
-              <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-              <Button variant="outlined" size="small" onClick={cancelEdit} disabled={saving}>
-                Cancel
-              </Button>
-            </>
-          ) : canEdit && (
-            <Button variant="outlined" size="small" onClick={startEdit}>
-              Edit
-            </Button>
-          )}
-        </Box>
       </Box>
     </Stack>
   )

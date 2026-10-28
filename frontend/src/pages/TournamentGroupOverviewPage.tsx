@@ -51,12 +51,16 @@ export const TournamentGroupOverviewPage = ({ group, canEdit, onUpdated }: Props
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, flex: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
           {group.name}
         </Typography>
         {canEdit && !editing && (
-          <Button variant="contained" size="small" onClick={openEdit}>Edit</Button>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <Button variant="contained" size="small" onClick={openEdit}>
+              Edit
+            </Button>
+          </Box>
         )}
       </Box>
 

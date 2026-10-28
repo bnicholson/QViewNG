@@ -64,6 +64,28 @@ export const PoolBracketProfileOverviewPage = ({ bracket, division, entityLabel,
   return (
     <Stack spacing={3}>
       <Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
+            {bracket.name}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            {editing ? (
+              <>
+                <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+                <Button variant="outlined" size="small" onClick={cancelEdit} disabled={saving}>
+                  Cancel
+                </Button>
+              </>
+            ) : canEdit && (
+              <Button variant="contained" size="small" onClick={startEdit}>
+                Edit
+              </Button>
+            )}
+          </Box>
+        </Box>
+
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
           {entityLabel}: General Info
         </Typography>
@@ -113,23 +135,6 @@ export const PoolBracketProfileOverviewPage = ({ bracket, division, entityLabel,
             <Typography variant="body1" color="text.secondary">{formatDate(bracket.last_modified_date)}</Typography>
           </Grid>
         </Grid>
-
-        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-          {editing ? (
-            <>
-              <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-              <Button variant="outlined" size="small" onClick={cancelEdit} disabled={saving}>
-                Cancel
-              </Button>
-            </>
-          ) : canEdit && (
-            <Button variant="outlined" size="small" onClick={startEdit}>
-              Edit
-            </Button>
-          )}
-        </Box>
       </Box>
     </Stack>
   )

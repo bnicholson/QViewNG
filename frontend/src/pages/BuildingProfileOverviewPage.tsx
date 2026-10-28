@@ -30,6 +30,19 @@ export const BuildingProfileOverviewPage = ({ building, tid, onUpdated, showAudi
   return (
     <Stack spacing={3}>
       <Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
+            {building.name}
+          </Typography>
+          {canEdit && (
+            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <Button variant="contained" size="small" onClick={() => setEditorOpen(true)}>
+                Edit
+              </Button>
+            </Box>
+          )}
+        </Box>
+
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
           Building: General Info
         </Typography>
@@ -59,12 +72,6 @@ export const BuildingProfileOverviewPage = ({ building, tid, onUpdated, showAudi
             </>
           )}
         </Grid>
-
-        {canEdit && (
-          <Box sx={{ mt: 2 }}>
-            <Button variant="outlined" size="small" onClick={() => setEditorOpen(true)}>Edit</Button>
-          </Box>
-        )}
       </Box>
 
       <BuildingEditorDialog

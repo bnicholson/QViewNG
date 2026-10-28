@@ -84,6 +84,19 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
   return (
     <Stack spacing={3}>
       <Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
+            {room.name}
+          </Typography>
+          {showSensitiveColumns && (
+            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <Button variant="contained" size="small" onClick={() => setEditorOpen(true)}>
+                Edit
+              </Button>
+            </Box>
+          )}
+        </Box>
+
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
           Room: General Info
         </Typography>
@@ -151,12 +164,6 @@ export const RoomProfileOverviewPage = ({ room, tournament, onUpdated, showSensi
           {official(room.contentjudge_id, cjName, 'Content Judge')}
         </Box>
       </Box>
-
-      {showSensitiveColumns && (
-        <Box>
-          <Button variant="outlined" size="small" onClick={() => setEditorOpen(true)}>Edit</Button>
-        </Box>
-      )}
 
       <RoomEditorDialog
         tid={tournament.tid.toString()}
