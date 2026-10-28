@@ -22,10 +22,30 @@ Before writing or changing any article, compare what the codebase can actually d
 - Walk the relevant pages, routes, and components (`frontend/src/pages`, `frontend/src/components`) and the permissions/roles that control who sees what.
 - Note features, workflows, or roles with no article, articles describing things that no longer exist or work differently, and placeholder/lorem/stub articles.
 
+### Where does new content go?
+For each gap, decide whether it belongs in an existing article or needs a new one. Default to an existing article; only create a new one when one of the "new article" conditions applies.
+
+**Put it in an existing article when:**
+- The reader needs it to finish that article's workflow, e.g. a new required field or an extra step.
+- It's a small variation of that workflow (a different option, an edge case, a "what if it doesn't work"). It can be a short section or a `doc-note`.
+- It's something the reader would expect to find there, so leaving it out would leave a hole.
+
+**Create a new article when:**
+- It's a workflow of its own, with its own goal and "you're done when…", even if it starts from the same screen.
+- It's for a different kind of user (role) than the existing article's reader.
+- Adding it would distract from the existing workflow: the reader would have to skip past it to finish what they came to do.
+- Several articles would need it. Write it once and link to it from each with `doc:` links, instead of repeating it.
+- It would make the existing article too long to take in at once. In that case, split the article into focused pieces.
+
+**When it's a close call**, keep the main path in the workflow article: one or two sentences and a link. Put the detail in its own article.
+
+**When you create a new article**, it needs both a node in `nav` and an entry in `articles`. If it goes in a members-only (`requiresLogin`) folder, it also needs its HTML file in `backend/help-docs/` (see [Members-only articles](#members-only-articles-live-in-the-backend)). Add the `doc:` links to it from the articles it was split from or that point to it.
+
 Then **stop and give the user a short numbered overview** of the gaps. For each one, include:
 - What it is, in one line.
 - Who needs it (which kind of user/role).
 - Whether it's a new article, an update, or a removal, and where it would go in the nav.
+- A one-line reason for where it goes, e.g. "new article: separate goal from Creating a Tournament", so the user can approve or deny the placement as well as the item.
 
 Let the user approve or deny each item. Only write the approved ones.
 
@@ -96,7 +116,7 @@ QView is the web app in this repo, so try to capture real screenshots first.
 Cover everything the user needs to succeed on their own, with no need to ask anyone. Include edge cases, gotchas, and "what if it doesn't work" for every workflow, but keep each one as short as possible:
 - Use `<p class="doc-note">` for helpful tips and things that are easy to miss.
 - Use `<p class="doc-warning">` for anything that can lose data or break something.
-- Split a long topic into several focused articles rather than one wall of text.
+- Split a long topic into several focused articles rather than one wall of text (see [Where does new content go?](#where-does-new-content-go)).
 - Link instead of repeating. End with a `<h2>See also</h2>` list of related articles.
 
 ## Markup conventions
