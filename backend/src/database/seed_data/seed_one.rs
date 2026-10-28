@@ -2141,7 +2141,11 @@ fn place_teams_in_pool(db: &mut database::Connection, pool_bracket_id: Uuid, cre
 ///     TN (team name), one QN per real quizzer (seated in order), an SC (captain) and an SS
 ///     (co-captain);
 ///   - a run of toss-up questions, each of which is either a TC (toss-up correct), a TE (toss-up
-///     error) followed by the other team's bonus attempt (BC/BE), or an NJ (no jump).
+///     error) followed by the other team's bonus attempt (BC/BE), or an NJ (no jump);
+///   - a QO (quiz out) right after a quizzer's 4th TC, and an EO (error out) right after their 3rd
+///     TE (before the bonus). A quizzer who is out isn't picked again;
+///   - now and then a foul at the start of a question: an F- on a quizzer, or an FC on a team
+///     (quizzer 6) or coach (quizzer 5). A quizzer's 3rd F- fouls them out; there is no FO event.
 ///
 /// Quizzer names come from the actual Users associated with each team (quizzer_one_id..six_id).
 /// Each successive event is stamped one minute after the previous. The generated data is
@@ -2171,6 +2175,19 @@ fn seed_game_events(
         (rng >> 33) % n.max(1)
     };
 
+    // Each quizzer's correct, error and foul counts so far, by [team][seat], to know who is out.
+    let mut tally: [Vec<QuizzerTally>; 2] = [
+        vec![QuizzerTally::default(); left_quizzers.len()],
+        vec![QuizzerTally::default(); right_quizzers.len()],
+    ];
+    // About one game in five has a foul-prone quizzer, who usually fouls out.
+    let foul_prone: Option<(usize, usize)> = if next(5) == 0 {
+        let team = next(2) as usize;
+        Some((team, next(tally[team].len() as u64) as usize))
+    } else {
+        None
+    };
+
     let teams: [(i32, &str, &Vec<String>); 2] = [
         (0, left_team.name.as_str(), &left_quizzers),
         (1, right_team.name.as_str(), &right_quizzers),
@@ -2198,28 +2215,67 @@ fn seed_game_events(
         // Question 1 continues after the init block above; later questions start at eventnum 0.
         let mut qev = if q == 1 { ev } else { 0 };
 
-        let answering_team = next(2) as i32;
-        let answering_quizzers = if answering_team == 0 { &left_quizzers } else { &right_quizzers };
-        let seat = next(answering_quizzers.len() as u64) as i32;
-        let quizzer_name = answering_quizzers[seat as usize].clone();
+        // Now and then a foul comes before the toss-up, on the same question.
+        let mut fouled: Option<(usize, usize)> = None;
+        if let Some((team, seat)) = foul_prone {
+            if !tally[team][seat].is_out() && next(5) == 0 {
+                fouled = Some((team, seat));
+            }
+        }
+        if fouled.is_none() && next(15) == 0 {
+            let team = next(2) as usize;
+            if next(3) == 0 {
+                // A team foul (quizzer 6) or a coach foul (quizzer 5).
+                let who = if next(2) == 0 { 5 } else { 6 };
+                insert_game_event(db, gid, q, qev, "", team as i32, who, GameEventCode::FC, ts); qev += 1; ts = ts + Duration::minutes(1);
+            } else {
+                fouled = pick_active(&tally[team], &mut next).map(|seat| (team, seat));
+            }
+        }
+        if let Some((team, seat)) = fouled {
+            let name = teams[team].2[seat].clone();
+            insert_game_event(db, gid, q, qev, &name, team as i32, seat as i32, GameEventCode::Fminus, ts); qev += 1; ts = ts + Duration::minutes(1);
+            tally[team][seat].fouls += 1;
+        }
 
-        // Every question is answered — a seeded game is a complete round, so no question is left
-        // on a no-jump. Either the toss-up is taken, or it is missed and the other team attempts
-        // the bonus; both outcomes resolve the question.
+        // A team with nobody left in can't jump; with nobody left on either team, no one jumps.
+        let mut answering_team = next(2) as usize;
+        if pick_active(&tally[answering_team], &mut |_| 0).is_none() {
+            answering_team = 1 - answering_team;
+        }
+        let Some(seat) = pick_active(&tally[answering_team], &mut next) else {
+            insert_game_event(db, gid, q, qev, "", 0, 0, GameEventCode::NJ, ts); ts = ts + Duration::minutes(1);
+            continue;
+        };
+        let quizzer_name = teams[answering_team].2[seat].clone();
+        let other_team = 1 - answering_team;
+
+        // Unless everyone is out, every question is answered — a seeded game is a complete round,
+        // so no question is left on a no-jump. Either the toss-up is taken, or it is missed and the
+        // other team attempts the bonus; both outcomes resolve the question. A miss needs someone
+        // on the other team left in to take the bonus.
+        let other_can_bonus = pick_active(&tally[other_team], &mut |_| 0).is_some();
+        let (team_num, seat_num) = (answering_team as i32, seat as i32);
         match next(10) {
-            0..=6 => {
-                // Toss-up answered correctly.
-                insert_game_event(db, gid, q, qev, &quizzer_name, answering_team, seat, GameEventCode::TC, ts); qev += 1; ts = ts + Duration::minutes(1);
+            n if n <= 6 || !other_can_bonus => {
+                // Toss-up answered correctly; the 4th quizzes them out.
+                insert_game_event(db, gid, q, qev, &quizzer_name, team_num, seat_num, GameEventCode::TC, ts); qev += 1; ts = ts + Duration::minutes(1);
+                tally[answering_team][seat].correct += 1;
+                if tally[answering_team][seat].correct == QUIZ_OUT {
+                    insert_game_event(db, gid, q, qev, &quizzer_name, team_num, seat_num, GameEventCode::QO, ts); qev += 1; ts = ts + Duration::minutes(1);
+                }
             }
             _ => {
-                // Toss-up error, then the other team attempts the bonus.
-                insert_game_event(db, gid, q, qev, &quizzer_name, answering_team, seat, GameEventCode::TE, ts); qev += 1; ts = ts + Duration::minutes(1);
-                let other_team = 1 - answering_team;
-                let other_quizzers = if other_team == 0 { &left_quizzers } else { &right_quizzers };
-                let other_seat = next(other_quizzers.len() as u64) as i32;
-                let other_name = other_quizzers[other_seat as usize].clone();
+                // Toss-up error (the 3rd errors them out), then the other team attempts the bonus.
+                insert_game_event(db, gid, q, qev, &quizzer_name, team_num, seat_num, GameEventCode::TE, ts); qev += 1; ts = ts + Duration::minutes(1);
+                tally[answering_team][seat].errors += 1;
+                if tally[answering_team][seat].errors == ERROR_OUT {
+                    insert_game_event(db, gid, q, qev, &quizzer_name, team_num, seat_num, GameEventCode::EO, ts); qev += 1; ts = ts + Duration::minutes(1);
+                }
+                let other_seat = pick_active(&tally[other_team], &mut next).unwrap();
+                let other_name = teams[other_team].2[other_seat].clone();
                 let bonus = if next(2) == 0 { GameEventCode::BC } else { GameEventCode::BE };
-                insert_game_event(db, gid, q, qev, &other_name, other_team, other_seat, bonus, ts); qev += 1; ts = ts + Duration::minutes(1);
+                insert_game_event(db, gid, q, qev, &other_name, other_team as i32, other_seat as i32, bonus, ts); qev += 1; ts = ts + Duration::minutes(1);
             }
         }
         let _ = qev;
@@ -2242,18 +2298,65 @@ fn seed_game_events(
             _ => break,
         };
 
-        // Pick the overtime winner deterministically from among the tied teams.
+        // Pick the overtime winner deterministically from among the tied teams. The toss-up goes
+        // to a quizzer still in who is short of quizzing out: a quiz out's points would change the
+        // score that overtime keeps level.
         let winner = tied_teams[next(tied_teams.len() as u64) as usize];
-        let winning_quizzers = if winner == 0 { &left_quizzers } else { &right_quizzers };
-        let seat = next(winning_quizzers.len() as u64) as i32;
-        let quizzer_name = winning_quizzers[seat as usize].clone();
+        let winning_tally = &tally[winner as usize];
+        let short_of_out: Vec<usize> = (0..winning_tally.len())
+            .filter(|&i| !winning_tally[i].is_out() && winning_tally[i].correct < QUIZ_OUT - 1)
+            .collect();
+        // Failing that, anyone still in (whose 4th quizzes them out); failing that, anyone.
+        let seat = if !short_of_out.is_empty() {
+            short_of_out[next(short_of_out.len() as u64) as usize]
+        } else {
+            pick_active(winning_tally, &mut next).unwrap_or_else(|| next(winning_tally.len() as u64) as usize)
+        };
+        let quizzer_name = teams[winner as usize].2[seat].clone();
 
         insert_game_event(
-            db, gid, overtime_question, 0, &quizzer_name, winner, seat, GameEventCode::TC, ts,
+            db, gid, overtime_question, 0, &quizzer_name, winner, seat as i32, GameEventCode::TC, ts,
         );
         ts = ts + Duration::minutes(1);
+        tally[winner as usize][seat].correct += 1;
+        if tally[winner as usize][seat].correct == QUIZ_OUT {
+            insert_game_event(
+                db, gid, overtime_question, 1, &quizzer_name, winner, seat as i32, GameEventCode::QO, ts,
+            );
+            ts = ts + Duration::minutes(1);
+        }
         overtime_question += 1;
     }
+}
+
+/// Correct toss-ups that quiz a quizzer out, errors that error them out, and fouls that foul them
+/// out: the calculator's defaults, which the seeded games don't override.
+const QUIZ_OUT: u32 = 4;
+const ERROR_OUT: u32 = 3;
+const FOUL_OUT: u32 = 3;
+
+/// One quizzer's counts so far in a seeded game.
+#[derive(Clone, Copy, Default)]
+struct QuizzerTally {
+    correct: u32,
+    errors: u32,
+    fouls: u32,
+}
+
+impl QuizzerTally {
+    /// Quizzed, errored or fouled out, so they can't jump or take a bonus.
+    fn is_out(&self) -> bool {
+        self.correct >= QUIZ_OUT || self.errors >= ERROR_OUT || self.fouls >= FOUL_OUT
+    }
+}
+
+/// A random seat whose quizzer is still in, or None when everyone on the team is out.
+fn pick_active(team: &[QuizzerTally], next: &mut impl FnMut(u64) -> u64) -> Option<usize> {
+    let active: Vec<usize> = (0..team.len()).filter(|&i| !team[i].is_out()).collect();
+    if active.is_empty() {
+        return None;
+    }
+    Some(active[next(active.len() as u64) as usize])
 }
 
 /// How many overtime questions the seed will play before giving up on separating the teams. A

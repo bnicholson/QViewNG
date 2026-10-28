@@ -201,6 +201,79 @@ fn experienced_division_runs_three_pools_of_double_round_robins() {
     println!("\nverified {} games, all 20 questions answered in each", checked);
 }
 
+/// Seeded games record quiz outs, error outs and fouls the way QuizMachine does: a QO right after
+/// a quizzer's 4th TC and an EO right after their 3rd TE, nobody acts once they are out, and some
+/// games build up to a foul out (3 F-s). Every game still scores.
+///
+/// Ignored by default alongside the other full-seed checks: a full seed takes several minutes.
+#[test]
+#[ignore = "seeds a full tournament; takes several minutes"]
+fn seeded_games_record_outs_and_fouls() {
+    let db = test_db();
+    let mut conn = db.get_connection().expect("connect");
+
+    insert_system_default_data(&mut conn);
+    insert_seed_data_one(&mut conn, true, true);
+
+    let pg = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
+    let game_ids: Vec<Uuid> = {
+        use backend::schema::games::dsl::*;
+        games.filter(del_fl.eq(false)).select(gid).load(&mut conn).unwrap()
+    };
+
+    let (mut quiz_outs, mut error_outs, mut foul_outs, mut quizzer_fouls, mut team_fouls) = (0, 0, 0, 0, 0);
+    for id in &game_ids {
+        let mut events = models::gameevent::read_all_gameevents_of_game(&mut conn, *id, &pg).unwrap();
+        events.sort_by_key(|e| (e.question, e.eventnum));
+        assert!(
+            models::gameevent::calculate_team_results_for_game(*id, events.clone()).is_ok(),
+            "game {} can't be scored", id
+        );
+
+        // (team, seat) -> (correct, errors, fouls)
+        let mut counts: std::collections::HashMap<(i32, i32), (u32, u32, u32)> = Default::default();
+        for (i, e) in events.iter().enumerate() {
+            let key = (e.team, e.quizzer);
+            let c = counts.entry(key).or_default();
+            let out = c.0 >= 4 || c.1 >= 3 || c.2 >= 3;
+            match e.event.as_str() {
+                "TC" | "TE" | "BC" | "BE" | "F-" => {
+                    assert!(!out, "game {}: quizzer {:?} has a {} on question {} after being out", id, key, e.event, e.question)
+                }
+                _ => {}
+            }
+            let next_is = |code: &str| events.get(i + 1).is_some_and(|n| n.event == code && (n.team, n.quizzer) == key);
+            match e.event.as_str() {
+                "TC" => {
+                    c.0 += 1;
+                    assert_eq!(c.0 == 4, next_is("QO"), "game {}: QO must follow exactly the 4th TC of {:?}", id, key);
+                }
+                "TE" => {
+                    c.1 += 1;
+                    assert_eq!(c.1 == 3, next_is("EO"), "game {}: EO must follow exactly the 3rd TE of {:?}", id, key);
+                }
+                "F-" => {
+                    c.2 += 1;
+                    quizzer_fouls += 1;
+                    if c.2 == 3 { foul_outs += 1; }
+                }
+                "QO" => quiz_outs += 1,
+                "EO" => error_outs += 1,
+                "FC" => team_fouls += 1,
+                _ => {}
+            }
+        }
+    }
+
+    println!(
+        "\nquiz outs: {}, error outs: {}, foul outs: {}, quizzer fouls: {}, team/coach fouls: {}",
+        quiz_outs, error_outs, foul_outs, quizzer_fouls, team_fouls
+    );
+    assert!(quiz_outs > 0 && error_outs > 0, "no quiz outs or no error outs were seeded");
+    assert!(foul_outs > 0, "no quizzer fouled out");
+    assert!(team_fouls > 0, "no team or coach fouls were seeded");
+}
+
 /// Every user the seed creates holds the `member` role, whatever other roles they get.
 #[test]
 fn every_seeded_user_is_a_member() {
