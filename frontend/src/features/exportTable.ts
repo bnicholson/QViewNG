@@ -3,10 +3,22 @@
 //   npm install xlsx jspdf jspdf-autotable
 // (CSV export works without them.)
 
+import dayjs from "dayjs";
+
 export interface ExportPayload {
   filename: string; // base name, without extension
   columns: string[];
   rows: (string | number)[][];
+}
+
+/**
+ * A download's base name: the tournament, what was exported and when, e.g.
+ * "Tournament-One-Demo_team-stats_2026-10-28_14-05-33". Characters that aren't safe in file
+ * names become dashes; the tournament part is left out when there's no name.
+ */
+export function exportFilename(tournamentName: string | undefined, view: string, at: Date = new Date()): string {
+  const tournament = (tournamentName ?? "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return [tournament, view, dayjs(at).format("YYYY-MM-DD_HH-mm-ss")].filter(Boolean).join("_");
 }
 
 function triggerDownload(blob: Blob, filename: string) {

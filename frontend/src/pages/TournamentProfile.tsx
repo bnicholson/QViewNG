@@ -238,7 +238,7 @@ export const TournamentProfile = (props: { childRoute?: string }) => {
           {props.childRoute === 'gear'              && canViewAdmins === true && <TournamentGearPage tid={String(tournament?.tid)} />}
           {props.childRoute === 'admins'            && canViewAdmins === true && <AdminsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.TOURNAMENTADMIN_CREATE)} showDeleteButton={canCreate(PERMISSION.TOURNAMENTADMIN_DELETE)}/>}
           {props.childRoute === 'tournament-groups'  && <TournamentGroupsTable tid={String(tournament?.tid)} showCreateButton={canCreate(PERMISSION.TOURNAMENTGROUP_CREATE)} showDeleteButton={canCreate(PERMISSION.TOURNAMENTGROUP_DELETE)} canEdit={isOwnerOrSystemAdmin} showAuditColumns={canViewAuditColumns} />}
-          {props.childRoute === 'stats-groups'      && (isOwnerOrSystemAdmin || canViewAdmins) && <StatsGroupsPanel tid={String(tournament?.tid)} canImport={canCreate(PERMISSION.GAME_UPDATE)} canEditTieBreakers={canCreate(PERMISSION.STATSGROUP_UPDATE)} canSetQuestionTypes={canCreate(PERMISSION.ROUND_UPLOAD_QUESTION_TYPES)} />}
+          {props.childRoute === 'stats-groups'      && (isOwnerOrSystemAdmin || canViewAdmins) && <StatsGroupsPanel tid={String(tournament?.tid)} tournamentName={tournament?.tname} canImport={canCreate(PERMISSION.GAME_UPDATE)} canEditTieBreakers={canCreate(PERMISSION.STATSGROUP_UPDATE)} canSetQuestionTypes={canCreate(PERMISSION.ROUND_UPLOAD_QUESTION_TYPES)} />}
           {props.childRoute === 'room-monitor'      && (isOwnerOrSystemAdmin || canViewAdmins) && <RoomMonitorTable tid={String(tournament?.tid)} canClear={canCreate(PERMISSION.GAME_UPDATE)}/>}
         </Box>
 

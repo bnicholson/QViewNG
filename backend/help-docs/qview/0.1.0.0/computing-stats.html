@@ -248,8 +248,12 @@ together, and any Game with a problem is skipped rather than stopping the import
   <img src="computing-stats-8.webp" alt="The Export menu on Server Stats." loading="lazy" />
   <figcaption>The Export menu on Server Stats.</figcaption>
 </figure>
-<p>The file downloads straight away, named after the view (<code>team-stats</code>, <code>individual-stats</code>
-or <code>game-selection</code>). It contains the whole table, not just the rows on screen. In Team Stats exports,
+<p>The file downloads straight away. Its name tells you the Tournament, the view (<code>team-stats</code>,
+<code>individual-stats</code> or <code>game-selection</code>) and the date and time you exported it, for example
+<code>Tournament-One-Demo_team-stats_2026-10-28_14-05-33.csv</code>. Every export gets its own name, so exporting
+again during the Tournament never overwrites an earlier file. Spaces and symbols in the Tournament name become
+dashes.</p>
+<p>The file contains the whole table, not just the rows on screen. In Team Stats exports,
 the Rank Rules column is written out in words. PDFs of Team and Individual stats print in landscape.</p>
 <p>Team and Individual exports also include the full breakdown from each row, one number per column:</p>
 <ul>

@@ -26,7 +26,7 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExportTableButton from "./ExportTableButton";
-import type { ExportPayload } from "../features/exportTable";
+import { exportFilename, type ExportPayload } from "../features/exportTable";
 import QuestionTypeGrid from "./QuestionTypeGrid";
 import { questionTypeColumns, questionTypeExportColumns, questionTypeExportValues } from "../utils/questionTypeStats";
 import OutsAndFoulsGrid from "./OutsAndFoulsGrid";
@@ -457,8 +457,10 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
  * `canImport` gates the game-event import, which rewrites games' recorded events and so needs
  * `game:update` — the same permission the import endpoints check.
  */
-export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBreakers = false, canSetQuestionTypes = false }: {
+export default function StatsGroupsPanel({ tid, tournamentName, canImport = false, canEditTieBreakers = false, canSetQuestionTypes = false }: {
   tid: string;
+  /** Leads the export file names. */
+  tournamentName?: string;
   canImport?: boolean;
   /** Whether the "Tie-breaking Rules" button is offered (needs `statsgroup:update`). */
   canEditTieBreakers?: boolean;
@@ -593,7 +595,8 @@ export default function StatsGroupsPanel({ tid, canImport = false, canEditTieBre
           )}
 
           <ExportTableButton
-            getPayload={() => exportPayload}
+            // Named at click time, so the file carries the moment it was exported.
+            getPayload={() => exportPayload && { ...exportPayload, filename: exportFilename(tournamentName, exportPayload.filename) }}
             disabled={!exportPayload || exportPayload.rows.length === 0}
           />
         </Stack>
