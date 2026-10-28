@@ -27,6 +27,8 @@ import IconButton from "@mui/material/IconButton";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExportTableButton from "./ExportTableButton";
 import type { ExportPayload } from "../features/exportTable";
+import QuestionTypeGrid from "./QuestionTypeGrid";
+import { questionTypeColumns, questionTypeExportColumns, questionTypeExportValues } from "../utils/questionTypeStats";
 
 // One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
@@ -261,10 +263,13 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
   useEffect(() => {
     onExportReady({
       filename: "team-stats",
-      columns: ["Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg Pts", "Rank Rules"],
+      columns: [
+        "Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg Pts",
+        ...questionTypeExportColumns, "Rank Rules",
+      ],
       rows: rows.map((r) => [
         r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points,
-        r.total_points, r.avg_points.toFixed(1), rankRuleSummary(r),
+        r.total_points, r.avg_points.toFixed(1), ...questionTypeExportValues(r.question_types), rankRuleSummary(r),
       ]),
     });
   }, [rows, onExportReady]);
@@ -275,18 +280,22 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
     { header: "# Games", render: (r) => r.games },
     { header: "Wins", render: (r) => r.wins },
     { header: "Losses", render: (r) => r.losses },
-    { header: "Olympic Points", render: (r) => r.olympic_points },
-    { header: "Mod. Olympic Points", render: (r) => r.mod_olympic_points },
-    { header: "Total Points", render: (r) => r.total_points },
-    { header: "Total Avg Pts", render: (r) => r.avg_points.toFixed(1) },
+    { header: "Olympic\nPoints", render: (r) => r.olympic_points },
+    { header: "Mod.\nOlympic\nPoints", render: (r) => r.mod_olympic_points },
+    { header: "Total\nPoints", render: (r) => r.total_points },
+    { header: "Total\nAvg.\nPoints", render: (r) => r.avg_points.toFixed(1) },
+    ...questionTypeColumns<TeamStatTS>((r) => r.question_types),
     {
-      header: "Rank Rules",
+      header: "Rank\nRules",
       render: (r) => (
         <IconButton
           size="small"
           aria-label={`Why ${r.name} is ranked here`}
           title={`Why ${r.name} is ranked here`}
-          onClick={() => setRankRuleTeam(r)}
+          onClick={(e) => {
+            e.stopPropagation(); // don't also expand/collapse the row
+            setRankRuleTeam(r);
+          }}
         >
           <InfoOutlinedIcon fontSize="small" />
         </IconButton>
@@ -306,6 +315,7 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
       rows={rows}
       totalCount={rows.length}
       getId={(r) => r.name}
+      renderExpanded={(r) => <QuestionTypeGrid stats={r.question_types} />}
       onDelete={async () => {}}
       page={0}
       pageSize={rows.length || 1}
@@ -362,11 +372,11 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
       filename: "individual-stats",
       columns: [
         "Place", "Individual", "Team Name", "# Games", "Score", "Avg", "Correct", "Errors", "Bonus Pts", "Bonus Attempts",
-        "Errs 16+/5+", "Generals", "Memory", "According", "Context", "Special",
+        "Errs 16+/5+", ...questionTypeExportColumns,
       ],
       rows: rows.map((r) => [
         r.place, r.individual, r.team_name, r.games, r.score, r.avg.toFixed(1), r.correct, r.errors, r.bonus_pts, r.bonus_attempts,
-        "", "", "", "", "", "",
+        "", ...questionTypeExportValues(r.question_types),
       ]),
     });
   }, [rows, onExportReady]);
@@ -383,13 +393,9 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
     { header: "Errors", render: (r) => r.errors },
     { header: "Bonus Pts", render: (r) => r.bonus_pts },
     { header: "Bonus Attempts", render: (r) => r.bonus_attempts },
-    // Remaining detail columns are intentionally left blank for now.
+    // Intentionally left blank for now.
     { header: "Errs 16+/5+", render: blank },
-    { header: "Generals", render: blank },
-    { header: "Memory", render: blank },
-    { header: "According", render: blank },
-    { header: "Context", render: blank },
-    { header: "Special", render: blank },
+    ...questionTypeColumns<IndividualStatTS>((r) => r.question_types),
   ];
 
   return (
@@ -403,6 +409,7 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
       rows={rows}
       totalCount={rows.length}
       getId={(r) => `${r.team_name}-${r.individual}`}
+      renderExpanded={(r) => <QuestionTypeGrid stats={r.question_types} />}
       onDelete={async () => {}}
       page={0}
       pageSize={rows.length || 1}

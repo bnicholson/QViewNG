@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 // ─── Entity link ─────────────────────────────────────────────────────────────
@@ -234,8 +234,10 @@ function Pagination({ page, pageSize, totalCount, onPageChange, onPageSizeChange
 // ─── DataTable ────────────────────────────────────────────────────────────────
 
 export interface ColumnDef<T> {
-  /** Header label shown in the <thead> */
+  /** Header label shown in the <thead>. A "\n" starts a new line. */
   header: string;
+  /** Tooltip on the header, e.g. the full name behind an abbreviated header. */
+  headerTitle?: string;
   /** Renders the cell content for a given row */
   render: (row: T) => ReactNode;
   /** Horizontal alignment of this column's cells. Omit to keep the default (left). */
@@ -290,6 +292,11 @@ export interface DataTableProps<T> {
   hideHeader?: boolean;
   /** Overrides the column-header row's background and text colour. Omit to keep the default. */
   headerStyle?: { background?: string; color?: string };
+  /**
+   * Makes rows expandable: clicking a row opens this content in a full-width panel directly below
+   * it, and clicking again closes it. Omit for plain rows.
+   */
+  renderExpanded?: (row: T) => ReactNode;
 }
 
 export function DataTableTemplate<T>({
@@ -315,10 +322,19 @@ export function DataTableTemplate<T>({
   headerActions,
   hideHeader = false,
   headerStyle,
+  renderExpanded,
 }: DataTableProps<T>) {
   const safeRows: T[] = rows ?? [];
   const btnLabel = createLabel ?? `Create ${entityLabel}`;
-  const colSpan = columns.length + (showDeleteButton ? 1 : 0);
+  const colSpan = columns.length + (showDeleteButton ? 1 : 0) + (renderExpanded ? 1 : 0);
+  const [expanded, setExpanded] = useState<Set<string | number>>(new Set());
+  const toggleExpanded = (id: string | number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const cellPadY = dense ? 3 : 8;
 
   return (
@@ -405,10 +421,12 @@ export function DataTableTemplate<T>({
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
             <tr style={{ background: headerStyle?.background ?? "#f9fafb", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1 }}>
+              {renderExpanded && <th style={{ width: 28, padding: 0 }} />}
               {/* Keyed by position, not label: a table may repeat a header (e.g. "Score" per team). */}
               {columns.map((col, colIdx) => (
                 <th
                   key={colIdx}
+                  title={col.headerTitle}
                   style={{
                     padding: `${cellPadY}px 14px`,
                     textAlign: "center",
@@ -417,7 +435,7 @@ export function DataTableTemplate<T>({
                     color: headerStyle?.color ?? "#6b7280",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
-                    whiteSpace: "nowrap",
+                    whiteSpace: "pre",
                   }}
                 >
                   {col.header}
@@ -442,17 +460,27 @@ export function DataTableTemplate<T>({
                 const baseBg = i % 2 === 0 ? "#fff" : "#fafafa";
                 const rowBg = custom?.background ?? baseBg;
                 const cellColor = custom?.color ?? "#374151";
+                const id = getId(row);
+                const isExpanded = renderExpanded !== undefined && expanded.has(id);
                 return (
+                <Fragment key={id}>
                 <tr
-                  key={getId(row)}
                   style={{
                     background: rowBg,
                     borderBottom: "1px solid #f3f4f6",
                     transition: "background .1s",
+                    cursor: renderExpanded ? "pointer" : undefined,
                   }}
+                  onClick={renderExpanded ? () => toggleExpanded(id) : undefined}
+                  aria-expanded={renderExpanded ? isExpanded : undefined}
                   onMouseEnter={(e) => (e.currentTarget.style.background = custom?.background ?? "#f0f7ff")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = rowBg)}
                 >
+                  {renderExpanded && (
+                    <td style={{ padding: `${cellPadY}px 0 ${cellPadY}px 10px`, color: "#9ca3af", fontSize: 11, width: 28 }}>
+                      {isExpanded ? "▾" : "▸"}
+                    </td>
+                  )}
                   {columns.map((col, colIdx) => (
                     <td key={colIdx} style={{ padding: `${cellPadY}px 14px`, color: cellColor, textAlign: col.align }}>
                       {col.render(row)}
@@ -464,6 +492,14 @@ export function DataTableTemplate<T>({
                     </td>
                   )}
                 </tr>
+                {isExpanded && (
+                  <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
+                    <td colSpan={colSpan} style={{ padding: "6px 14px 6px 38px" }}>
+                      {renderExpanded(row)}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
                 );
               })
             )}

@@ -51,6 +51,15 @@ export interface RankRuleExplanationTS {
   detail: string;        // the values that decided it, e.g. "6-2 vs 4-4"
 }
 
+/** One question type's counts for a team or quizzer. Mirrors `QuestionTypeStat` on the backend. */
+export interface QuestionTypeStatTS {
+  code: string;            // G, A, V, Q, R, M, I, S or X; M (Memory Verse) re-counts R, Q and V
+  attempted: number;       // tossups answered (correct + erroneous)
+  correct: number;
+  bonus_attempted: number; // bonuses answered (correct + erroneous)
+  bonus_correct: number;
+}
+
 export interface TeamStatTS {
   place: number;
   name: string;
@@ -63,6 +72,8 @@ export interface TeamStatTS {
   avg_points: number;
   /** Correct tossups (bonuses excluded) on M (Memory Verse: R, Q and V) questions; 0 when that criterion is unavailable. */
   memory_verse_correct: number;
+  /** Counts per question type, summed over the team's quizzers. */
+  question_types: QuestionTypeStatTS[];
   rank_rule_above: RankRuleExplanationTS | null;
   rank_rule_below: RankRuleExplanationTS | null;
 }
@@ -78,6 +89,7 @@ export interface IndividualStatTS {
   errors: number;
   bonus_pts: number;
   bonus_attempts: number;
+  question_types: QuestionTypeStatTS[];
 }
 
 // These endpoints are restricted server-side to super users, the tournament owner, and its

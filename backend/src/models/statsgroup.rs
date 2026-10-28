@@ -1,7 +1,7 @@
 
 use crate::cache::Cache;
 use crate::database;
-use crate::models::gameevent::{CalculatedGame, QuizzerGameResult, TeamGameResult};
+use crate::models::gameevent::{CalculatedGame, CalculatedQuizzer, QuizzerGameResult, TeamGameResult};
 use std::collections::HashMap;
 use crate::models::common::PaginationParams;
 use crate::models::game_statsgroup::GameStatsGroup;
@@ -451,6 +451,119 @@ fn memory_verse_correct_by_team(calculated: &CalculatedGame, question_types: &st
         .collect()
 }
 
+// ─── Per-question-type breakdown ──────────────────────────────────────────────
+
+/// The question types a stats row breaks its counts down by, in display order. M (Memory Verse)
+/// isn't stored on rounds; it is R, Q and V together, so those questions count toward it as well.
+pub const STATS_QUESTION_TYPES: [char; 9] = ['G', 'A', 'M', 'R', 'Q', 'V', 'X', 'I', 'S'];
+
+/// One question type's counts for a team or quizzer across the counted games.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, ToSchema)]
+pub struct QuestionTypeStat {
+    pub code: String,           // one of STATS_QUESTION_TYPES
+    pub attempted: i32,         // tossups answered (correct + erroneous)
+    pub correct: i32,           // correct tossups
+    pub bonus_attempted: i32,   // bonuses answered (correct + erroneous)
+    pub bonus_correct: i32,     // correct bonuses
+}
+
+/// Running counts, indexed like [`STATS_QUESTION_TYPES`]: [attempted, correct, bonus_attempted, bonus_correct].
+#[derive(Default, Clone, Copy)]
+struct QuestionTypeTally([[i32; 4]; 9]);
+
+impl QuestionTypeTally {
+    /// Counts one question of round type `code` (a stored code, never M) in slot `slot`.
+    fn add(&mut self, code: char, slot: usize, correct: bool) {
+        let mut bump = |c: char| {
+            if let Some(idx) = STATS_QUESTION_TYPES.iter().position(|t| *t == c) {
+                self.0[idx][slot] += 1;
+                if correct {
+                    self.0[idx][slot + 1] += 1;
+                }
+            }
+        };
+        bump(code);
+        if matches!(code, 'R' | 'Q' | 'V') {
+            bump('M');
+        }
+    }
+
+    fn merge(&mut self, other: &QuestionTypeTally) {
+        for (mine, theirs) in self.0.iter_mut().zip(other.0.iter()) {
+            for (m, t) in mine.iter_mut().zip(theirs.iter()) {
+                *m += t;
+            }
+        }
+    }
+
+    fn to_stats(self) -> Vec<QuestionTypeStat> {
+        STATS_QUESTION_TYPES
+            .iter()
+            .zip(self.0.iter())
+            .map(|(code, [attempted, correct, bonus_attempted, bonus_correct])| QuestionTypeStat {
+                code: code.to_string(),
+                attempted: *attempted,
+                correct: *correct,
+                bonus_attempted: *bonus_attempted,
+                bonus_correct: *bonus_correct,
+            })
+            .collect()
+    }
+}
+
+/// Adds one game's tossups and bonuses to each quizzer's tally, keyed by (team name, quizzer
+/// name) as the individual standings are. `question_types` is the game's round's stored types;
+/// overtime questions, and every question of a round without types, have no type and don't count.
+fn tally_question_types(
+    calculated: &CalculatedGame,
+    question_types: &str,
+    tallies: &mut HashMap<(String, String), QuestionTypeTally>,
+) {
+    let types: Vec<char> = question_types.chars().collect();
+    for team in calculated.teams.values() {
+        for quizzer in team.quizzers.values() {
+            let tally = tallies.entry((team.name.clone(), quizzer.name.clone())).or_default();
+            tally_quizzer(quizzer, &types, tally);
+        }
+    }
+}
+
+/// Adds one quizzer's tossups and bonuses from one game to `tally`. `types[i]` is question i+1's type.
+fn tally_quizzer(quizzer: &CalculatedQuizzer, types: &[char], tally: &mut QuestionTypeTally) {
+    let type_of = |q: i32| if q >= 1 { types.get((q - 1) as usize).copied() } else { None };
+    let groups: [(&Vec<i32>, usize, bool); 4] = [
+        (&quizzer.correct_tossups, 0, true),
+        (&quizzer.errors_on_tossups, 0, false),
+        (&quizzer.correct_bonuses, 2, true),
+        (&quizzer.errors_on_bonuses, 2, false),
+    ];
+    for (questions, slot, correct) in groups {
+        for code in questions.iter().filter_map(|q| type_of(*q)) {
+            tally.add(code, slot, correct);
+        }
+    }
+}
+
+/// Every question type with zero counts, for rows built before the tallies are applied.
+fn empty_question_type_stats() -> Vec<QuestionTypeStat> {
+    QuestionTypeTally::default().to_stats()
+}
+
+/// Each round's stored question types, for the rounds of `games`.
+fn read_question_types_by_round(
+    db: &mut database::Connection,
+    games: &[crate::models::game::Game],
+) -> QueryResult<HashMap<Uuid, String>> {
+    use crate::schema::rounds::dsl as r;
+    let round_ids: Vec<Uuid> = games.iter().map(|g| g.roundid).collect();
+    Ok(r::rounds
+        .filter(r::roundid.eq_any(&round_ids))
+        .select((r::roundid, r::question_types))
+        .load::<(Uuid, String)>(db)?
+        .into_iter()
+        .collect())
+}
+
 // ─── A division's own stats group ─────────────────────────────────────────────
 
 /// The stats group that mirrors a division: every game of the division, kept in step
@@ -642,6 +755,9 @@ pub struct TeamStat {
     /// Correct tossups on M (Memory Verse) questions across the counted games. Always 0 when the
     /// Memory Verse criterion isn't available to the stats group.
     pub memory_verse_correct: i32,
+    /// Tossup and bonus counts per question type, in [`STATS_QUESTION_TYPES`] order. Summed over
+    /// the team's quizzers; questions without a type don't count.
+    pub question_types: Vec<QuestionTypeStat>,
     /// Which criterion placed this team below the one above it. None on the first row.
     pub rank_rule_above: Option<RankRuleExplanation>,
     /// Which criterion placed this team above the one below it. None on the last row.
@@ -743,19 +859,9 @@ pub async fn read_team_stats_of_statsgroup(
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
 
-    // Each game's round's question types, for the Memory Verse counts.
-    let question_types_by_round: HashMap<Uuid, String> = if memory_verse_available {
-        use crate::schema::rounds::dsl as r;
-        let round_ids: Vec<Uuid> = games.iter().map(|g| g.roundid).collect();
-        r::rounds
-            .filter(r::roundid.eq_any(&round_ids))
-            .select((r::roundid, r::question_types))
-            .load::<(Uuid, String)>(db)?
-            .into_iter()
-            .collect()
-    } else {
-        HashMap::new()
-    };
+    // Each game's round's question types, for the Memory Verse counts and the per-type breakdown.
+    let question_types_by_round = read_question_types_by_round(db, &games)?;
+    let mut tallies: HashMap<(String, String), QuestionTypeTally> = HashMap::new();
 
     // One cache lookup (or one replay) per game. Games whose event stream can't be scored
     // come back as None and are skipped.
@@ -769,15 +875,28 @@ pub async fn read_team_stats_of_statsgroup(
             // it now, and standings would then jump around and reverse during a round.
             if calculated.is_finished() {
                 per_game.push(crate::models::gameevent::team_results_from_calculated(&calculated));
-                memory_verse_per_game.push(match question_types_by_round.get(&game.roundid) {
-                    Some(types) => memory_verse_correct_by_team(&calculated, types),
-                    None => HashMap::new(),
+                let types = question_types_by_round.get(&game.roundid);
+                memory_verse_per_game.push(match types {
+                    Some(types) if memory_verse_available => memory_verse_correct_by_team(&calculated, types),
+                    _ => HashMap::new(),
                 });
+                if let Some(types) = types {
+                    tally_question_types(&calculated, types, &mut tallies);
+                }
             }
         }
     }
 
-    let stats = aggregate_team_stats(&per_game, &memory_verse_per_game, &settings);
+    let mut stats = aggregate_team_stats(&per_game, &memory_verse_per_game, &settings);
+    let mut by_team: HashMap<String, QuestionTypeTally> = HashMap::new();
+    for ((team_name, _), tally) in &tallies {
+        by_team.entry(team_name.clone()).or_default().merge(tally);
+    }
+    for stat in stats.iter_mut() {
+        if let Some(tally) = by_team.get(&stat.name) {
+            stat.question_types = tally.to_stats();
+        }
+    }
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
     Ok(stats)
 }
@@ -870,6 +989,7 @@ fn aggregate_team_stats(
             total_points: a.total_points,
             avg_points: if a.games > 0 { a.total_points as f64 / a.games as f64 } else { 0.0 },
             memory_verse_correct: a.memory_verse_correct,
+            question_types: empty_question_type_stats(),
             rank_rule_above: None,
             rank_rule_below: None,
         })
@@ -1008,9 +1128,7 @@ fn describe_rule_values(
 // ─── Individual (quizzer) standings for a statsgroup ──────────────────────────
 
 /// Aggregated individual-stats row for one quizzer within a statsgroup.
-/// Only the first ten fields are populated; the remaining detail columns shown
-/// in the UI (Errs 16+/5+, Generals, Memory, According, Context, Special) are
-/// intentionally left out of this computation for now.
+/// The UI's Errs 16+/5+ column is intentionally left out of this computation for now.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct IndividualStat {
     pub place: i32,             // 1-based rank within the statsgroup (by score)
@@ -1023,6 +1141,9 @@ pub struct IndividualStat {
     pub errors: i32,            // erroneous tossups
     pub bonus_pts: i32,         // points from correct bonuses
     pub bonus_attempts: i32,    // correct + erroneous bonus attempts
+    /// Tossup and bonus counts per question type, in [`STATS_QUESTION_TYPES`] order. Questions
+    /// without a type don't count.
+    pub question_types: Vec<QuestionTypeStat>,
 }
 
 struct IndividualStatAgg {
@@ -1050,6 +1171,8 @@ pub async fn read_individual_stats_of_statsgroup(
 
     let pagination = PaginationParams { page: 0, page_size: PaginationParams::MAX_PAGE_SIZE as i64 };
     let games = crate::models::game::read_all_games_of_statsgroup(db, sg_id, &pagination)?;
+    let question_types_by_round = read_question_types_by_round(db, &games)?;
+    let mut tallies: HashMap<(String, String), QuestionTypeTally> = HashMap::new();
 
     // Note this shares the cache with the team-stats endpoint: whichever of the two is
     // requested first warms every game, and the second is served without touching the
@@ -1063,11 +1186,19 @@ pub async fn read_individual_stats_of_statsgroup(
             // it now, and standings would then jump around and reverse during a round.
             if calculated.is_finished() {
                 per_game.push(crate::models::gameevent::quizzer_results_from_calculated(&calculated));
+                if let Some(types) = question_types_by_round.get(&game.roundid) {
+                    tally_question_types(&calculated, types, &mut tallies);
+                }
             }
         }
     }
 
-    let stats = aggregate_individual_stats(&per_game);
+    let mut stats = aggregate_individual_stats(&per_game);
+    for stat in stats.iter_mut() {
+        if let Some(tally) = tallies.get(&(stat.team_name.clone(), stat.individual.clone())) {
+            stat.question_types = tally.to_stats();
+        }
+    }
     cache.set_json(&aggregate_key, &stats, AGGREGATE_TTL).await;
     Ok(stats)
 }
@@ -1113,6 +1244,7 @@ fn aggregate_individual_stats(per_game: &[Vec<QuizzerGameResult>]) -> Vec<Indivi
             errors: a.errors,
             bonus_pts: a.bonus_pts,
             bonus_attempts: a.bonus_attempts,
+            question_types: empty_question_type_stats(),
         })
         .collect();
 
@@ -1536,6 +1668,7 @@ mod tiebreaker_tests {
             total_points: total,
             avg_points: if games > 0 { total as f64 / games as f64 } else { 0.0 },
             memory_verse_correct: 0,
+            question_types: empty_question_type_stats(),
             rank_rule_above: None,
             rank_rule_below: None,
         }
@@ -1659,5 +1792,57 @@ mod tiebreaker_tests {
         let a = stat("A", 2, 2, 100, 4, 10, 10);
         let b = stat("B", 2, 2, 100, 4, 10, 10);
         assert!(decide_order(&a, &b, &parse_tiebreaker_rules(""), &[]).is_none());
+    }
+}
+
+#[cfg(test)]
+mod question_type_tests {
+    use super::*;
+
+    fn quizzer(correct: &[i32], errors: &[i32], bonus_correct: &[i32], bonus_errors: &[i32]) -> CalculatedQuizzer {
+        CalculatedQuizzer {
+            name: "Ann".to_string(),
+            correct_tossups: correct.to_vec(),
+            errors_on_tossups: errors.to_vec(),
+            correct_bonuses: bonus_correct.to_vec(),
+            errors_on_bonuses: bonus_errors.to_vec(),
+            fouls_received: vec![],
+            question_quizzed_out_on: -1,
+            question_errored_out_on: -1,
+            question_fouled_out_on: -1,
+        }
+    }
+
+    fn counts(stats: &[QuestionTypeStat], code: &str) -> (i32, i32, i32, i32) {
+        let s = stats.iter().find(|s| s.code == code).unwrap();
+        (s.attempted, s.correct, s.bonus_attempted, s.bonus_correct)
+    }
+
+    /// Tossups and bonuses land on their question's type; R, Q and V also count toward M; and
+    /// overtime questions (past 20) have no type and are left out.
+    #[test]
+    fn counts_land_on_each_questions_type() {
+        // Q1-11 G, Q12-15 A, then Q R V X S, and Q21+ is overtime.
+        let types: Vec<char> = "GGGGGGGGGGGAAAAQRVXS".chars().collect();
+        let mut tally = QuestionTypeTally::default();
+        tally_quizzer(&quizzer(&[1, 2, 16, 21], &[12, 18], &[3, 17], &[13]), &types, &mut tally);
+        let stats = tally.to_stats();
+
+        assert_eq![stats.iter().map(|s| s.code.as_str()).collect::<String>(), "GAMRQVXIS"];
+        assert_eq![counts(&stats, "G"), (2, 2, 1, 1)];
+        assert_eq![counts(&stats, "A"), (1, 0, 1, 0)];
+        assert_eq![counts(&stats, "Q"), (1, 1, 0, 0)];
+        assert_eq![counts(&stats, "R"), (0, 0, 1, 1)];
+        assert_eq![counts(&stats, "V"), (1, 0, 0, 0)];
+        assert_eq![counts(&stats, "M"), (2, 1, 1, 1)];
+        assert_eq![counts(&stats, "X"), (0, 0, 0, 0)];
+    }
+
+    /// A round without question types contributes nothing.
+    #[test]
+    fn untyped_round_counts_nothing() {
+        let mut tally = QuestionTypeTally::default();
+        tally_quizzer(&quizzer(&[1, 2], &[3], &[4], &[]), &[], &mut tally);
+        assert_eq![tally.to_stats(), empty_question_type_stats()];
     }
 }
