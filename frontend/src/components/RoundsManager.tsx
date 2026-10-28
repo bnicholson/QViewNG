@@ -608,6 +608,7 @@ export default function RoundsManager({ tid, did, canEdit, roundDurationMinutes,
         isOpen={roundDialog.open}
         onCancel={() => setRoundDialog({ open: false, round: null })}
         onSave={() => { setRoundDialog({ open: false, round: null }); loadRounds() }}
+        onQuestionTypesSaved={loadRounds}
       />
 
       <GameEditorDialog

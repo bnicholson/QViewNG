@@ -26,9 +26,8 @@ import { ConfirmDialog, confirmDialogDefaultState } from './ConfirmDialog'
 import { DivisionAPI, type DivisionTS } from '../features/DivisionAPI'
 import { RoundAPI, type NewRoundPayload, type RoundTS } from '../features/RoundAPI'
 import { useAuth } from '../hooks/useAuth'
-import Divider from '@mui/material/Divider'
-import { QuestionTypesEditor, type QuestionTypesValue } from './QuestionTypesEditor'
-import { emptySlots, toSlots, toStored, validateSlots } from '../utils/questionTypes'
+import { PERMISSION } from '../auth/permissions'
+import SetQuestionTypesButton from './SetQuestionTypesButton'
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -41,14 +40,12 @@ interface RoundFormState {
   did: string;
   name: string;
   scheduled_start_time: Dayjs | null;
-  questionTypes: QuestionTypesValue;
 }
 
 const emptyState: RoundFormState = {
   did: "",
   name: "",
   scheduled_start_time: null,
-  questionTypes: { enabled: false, usingStandard: true, slots: emptySlots() },
 };
 
 interface Props {
@@ -60,12 +57,15 @@ interface Props {
   round?: RoundTS | null;
   onCancel: VoidFunction;
   onSave: (round: RoundTS) => void;
+  /** Called after question types are saved from "Set Question Types", so the parent can reload its rounds. */
+  onQuestionTypesSaved?: VoidFunction;
 }
 
 export const RoundEditorDialog = (props: Props) => {
-  const { tid, isOpen, lockedDivisionId, round, onCancel, onSave } = props;
+  const { tid, isOpen, lockedDivisionId, round, onCancel, onSave, onQuestionTypesSaved } = props;
   const isEdit = !!round;
-  const { accessToken } = useAuth();
+  const { accessToken, session } = useAuth();
+  const canSetQuestionTypes = session?.can(PERMISSION.ROUND_UPLOAD_QUESTION_TYPES) ?? false;
   const [form, setForm] = useState<RoundFormState>(emptyState);
   const [divisions, setDivisions] = useState<DivisionTS[]>([]);
   const [alertOpened, setAlertOpened] = useState(false);
@@ -78,12 +78,6 @@ export const RoundEditorDialog = (props: Props) => {
         did: round.did,
         name: round.name,
         scheduled_start_time: round.scheduled_start_time ? dayjs(round.scheduled_start_time) : null,
-        // The section is on exactly when the round has question types saved.
-        questionTypes: {
-          enabled: !!round.question_types,
-          usingStandard: round.using_standard_question_types ?? true,
-          slots: toSlots(round.question_types),
-        },
       });
     } else {
       setForm(lockedDivisionId
@@ -135,33 +129,19 @@ export const RoundEditorDialog = (props: Props) => {
       setAlertOpened(true);
       return;
     }
-    const { enabled, usingStandard, slots } = form.questionTypes;
-    if (enabled) {
-      const typeErrors = validateSlots(slots, usingStandard);
-      if (typeErrors.length > 0) {
-        setErrorMsg("Question types: " + typeErrors.join(" "));
-        setAlertOpened(true);
-        return;
-      }
-    }
-    const question_types = toStored(enabled, slots);
-
+    // Question types are left out: they're saved separately, through "Set Question Types".
     let result: RoundTS;
     try {
       if (round) {
         result = await RoundAPI.update(round.roundid, {
           name: form.name.trim(),
           scheduled_start_time: form.scheduled_start_time.toISOString(),
-          question_types,
-          using_standard_question_types: usingStandard,
         }, accessToken);
       } else {
         const payload: NewRoundPayload = {
           did: form.did,
           name: form.name.trim(),
           scheduled_start_time: form.scheduled_start_time.toISOString(),
-          question_types,
-          using_standard_question_types: usingStandard,
         };
         result = await RoundAPI.create(payload, accessToken);
       }
@@ -175,14 +155,9 @@ export const RoundEditorDialog = (props: Props) => {
     resetState();
   };
 
-  // Turning the section off on a round that has question types removes them on save.
-  const removesQuestionTypes = !!round?.question_types && !form.questionTypes.enabled;
-
   const openSaveDialog = () => setConfirmDialog({
     isOpen: true,
-    message: removesQuestionTypes
-      ? "Question Types is turned off, so this round's saved question types will be removed. Cancel if you want to make more changes."
-      : "Cancel if you want to make more changes.",
+    message: "Cancel if you want to make more changes.",
     onCancel: () => setConfirmDialog(confirmDialogDefaultState),
     onConfirm: () => { setConfirmDialog(confirmDialogDefaultState); handleSave(); },
     title: isEdit ? "Save changes to this round?" : "Save new round?",
@@ -203,6 +178,16 @@ export const RoundEditorDialog = (props: Props) => {
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
             {isEdit ? "Edit Round" : "Create Round"}
           </Typography>
+          {/* This round's question types are viewed and edited here, beside the division's other rounds,
+              so it waits until a division is chosen. */}
+          {canSetQuestionTypes && form.did && (
+            <SetQuestionTypesButton
+              did={form.did}
+              buttonProps={{ color: 'inherit', size: 'medium', sx: { mr: 1 } }}
+              currentRoundId={round?.roundid}
+              onSaved={onQuestionTypesSaved}
+            />
+          )}
           <SaveButton onClick={openSaveDialog} />
         </Toolbar>
       </AppBar>
@@ -272,13 +257,6 @@ export const RoundEditorDialog = (props: Props) => {
                 </LocalizationProvider>
               </Grid>
             </Grid>
-          </ListItem>
-          <Divider sx={{ my: 1 }} />
-          <ListItem sx={{ display: 'block' }}>
-            <QuestionTypesEditor
-              value={form.questionTypes}
-              onChange={(questionTypes) => setForm(s => ({ ...s, questionTypes }))}
-            />
           </ListItem>
         </List>
       </Box>

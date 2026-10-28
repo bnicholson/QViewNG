@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button, { type ButtonProps } from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -44,14 +45,16 @@ function applySet(fallback: QuestionTypesValue, set: ParsedQuestionSetTS | undef
  * Sets the question types of every round in a division. The dialog opens on each round's current
  * question types for entering by hand; "Import from file" fills them in from a question set file
  * (.rtf or .csv), matching its sets to the rounds in schedule order (Set #1 → the first round, …).
- * Either way the user reviews them in the same editor the Round dialog uses, then saves every
- * round at once.
+ * Either way the user reviews each round's types, then saves every round at once. This is also how
+ * the Round dialog edits its round's question types, through the same button in its header.
  */
-export default function SetQuestionTypesButton({ did, onSaved, buttonProps }: {
+export default function SetQuestionTypesButton({ did, onSaved, buttonProps, currentRoundId }: {
   did: string
   onSaved?: () => void
   /** Styling for the button, to match the buttons beside it. */
   buttonProps?: ButtonProps
+  /** The round being edited when opened from the Round dialog, marked among the others. */
+  currentRoundId?: string
 }) {
   const { accessToken } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -219,6 +222,7 @@ export default function SetQuestionTypesButton({ did, onSaved, buttonProps }: {
                 {i > 0 && <Divider sx={{ mb: 2 }} />}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
                   <Typography sx={{ fontWeight: 700 }}>Round {r.round.name}</Typography>
+                  {r.round.roundid === currentRoundId && <Chip label="This round" size="small" color="primary" />}
                   {/* Choosing which of the file's sets a round uses only makes sense once one is imported. */}
                   {sets.length > 0 && (
                     <Select

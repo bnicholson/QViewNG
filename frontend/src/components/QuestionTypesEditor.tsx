@@ -29,7 +29,7 @@ function countColor(found: number, expected: number): 'success' | 'warning' | 'e
 
 /**
  * A round's question types: an On/Off switch for the section, the standard-counts switch, a live
- * count of each type, and one dropdown per question. Used by the Round editor and the import review.
+ * count of each type, and one dropdown per question. Used for each round in the Set Question Types dialog.
  */
 export function QuestionTypesEditor({ value, onChange, label = 'Question Types' }: {
   value: QuestionTypesValue
