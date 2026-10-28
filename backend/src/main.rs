@@ -42,20 +42,10 @@ async fn main() -> std::io::Result<()> {
         log::warn!("Built with the test-only `fast-test-hash` feature: passwords are hashed at bcrypt's minimum cost. Do not use this build for real data.");
     }
 
-    // Grab the HOST:PORT the web server should run on.
-    let host = match std::env::var("HOST") {
-        Ok(h) => h,
-        Err(_) => "127.0.0.1".to_string()
-    };
-    let port = match std::env::var("APP_PORT") {
-        Ok(p) => p.to_string(),
-        Err(_) => "3000".to_string()
-    };
-    let host_and_port = format!("{host}:{port}");
-
-    let db = Database::new("DATABASE_URL");
-    
+    // DB maintenance runs on its own and exits before anything server-related starts. It needs
+    // only one connection, so it uses a single-connection pool rather than the server's ten.
     if false {
+        let db = Database::new_single_threaded("DATABASE_URL");
         let mut conn = db.get_connection().expect("Failed to get connection.");
         println!("");
         if true {
@@ -78,6 +68,19 @@ async fn main() -> std::io::Result<()> {
 
         return Ok(());
     }
+
+    // Grab the HOST:PORT the web server should run on.
+    let host = match std::env::var("HOST") {
+        Ok(h) => h,
+        Err(_) => "127.0.0.1".to_string()
+    };
+    let port = match std::env::var("APP_PORT") {
+        Ok(p) => p.to_string(),
+        Err(_) => "3000".to_string()
+    };
+    let host_and_port = format!("{host}:{port}");
+
+    let db = Database::new("DATABASE_URL");
 
     // Valkey cache. Built once and shared by every worker; `Cache` is cheap to clone and
     // multiplexes over a single auto-reconnecting connection. If VALKEY_URL is unset or the
