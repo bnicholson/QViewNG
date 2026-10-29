@@ -33,22 +33,20 @@ question types saved.</p>
 <p class="doc-note"><strong>M (Memory Verse)</strong> isn’t a type you pick. QView counts every R, Q and V question as
 a Memory Verse question for you, so a standard set has 3.</p>
 
-<h2>Which way should you use?</h2>
-<ul>
-  <li><strong>All Rounds at once</strong> with <strong>Set Question Types</strong>. Best when you’re setting up a
-  whole Division, especially from a file.</li>
-  <li><strong>One Round at a time</strong> with <strong>Edit Round</strong>. Handy for fixing a single Round.</li>
-</ul>
-
-<h2>Setting every Round at once</h2>
-<p>The <strong>Set Question Types</strong> button is in three places. They all open the same dialog:</p>
+<h2>Where do you set them?</h2>
+<p>Question types are always set in the <strong>Set Question Types</strong> dialog. It lists every Round of the
+Division, so you can set the whole Division at once or fix just one Round. The button is in four places, and they all
+open the same dialog:</p>
 <ul>
   <li><strong>Schedule</strong> &gt; <strong>Create / Edit</strong>, next to <strong>Edit Start Times</strong>.</li>
   <li>The Division’s <strong>Rounds</strong> page.</li>
   <li><strong>Server Stats</strong>, with <strong>Data</strong> set to <strong>Team Stats</strong>, next to
   <strong>Tie-breaking Rules</strong>.</li>
+  <li>The top bar of the <strong>Edit Round</strong> dialog, next to <strong>Save</strong> (see <strong>Setting one
+  Round</strong> below).</li>
 </ul>
-<!-- SCREENSHOT TODO: Schedule > Create / Edit for a Division. Red box around the "Set Question Types" button beside "Edit Start Times". -->
+
+<h2>Setting every Round at once</h2>
 <figure>
   <img src="setting-question-types-1.webp" alt="The Set Question Types button in the schedule editor." loading="lazy" />
   <figcaption>The Set Question Types button in the schedule editor.</figcaption>
@@ -62,7 +60,6 @@ a Memory Verse question for you, so a standard set has 3.</p>
   <li>Check the colored count chips above each Round (see <strong>What do the colored chips mean?</strong> below).</li>
   <li>Click <strong>Save Question Types</strong>.</li>
 </ol>
-<!-- SCREENSHOT TODO: The Set Question Types dialog, showing two Rounds with their 20 dropdowns filled in. Red box around the "Import from file" button; red box around one Round's row of count chips; red box around "Save Question Types". -->
 <figure>
   <img src="setting-question-types-2.webp" alt="The Set Question Types dialog." loading="lazy" />
   <figcaption>The Set Question Types dialog.</figcaption>
@@ -80,7 +77,6 @@ shown in red above that Round. Fix it and click <strong>Save Question Types</str
   <strong>No set — keep current question types</strong> to leave that Round as it was.</li>
   <li>Click <strong>Save Question Types</strong>.</li>
 </ol>
-<!-- SCREENSHOT TODO: The Set Question Types dialog right after importing a file. Red box around the blue "Filled in from …" message; red box around a Round's set dropdown (e.g. "Set #1 …") next to its name. -->
 <figure>
   <img src="setting-question-types-3.webp" alt="Rounds filled in from a question set file." loading="lazy" />
   <figcaption>Rounds filled in from a question set file.</figcaption>
@@ -91,20 +87,31 @@ won’t be used unless you pick them for a Round. If the file has fewer sets tha
 what they have.</p>
 
 <h2>Setting one Round</h2>
+<p>When you’re already looking at a Round, open the dialog from that Round, and QView marks it for you.</p>
 <ol>
-  <li>Go to <strong>Schedule</strong> &gt; <strong>Create / Edit</strong> and pick the Division.</li>
-  <li>On the Round, click <strong>Edit Round</strong>.</li>
-  <li>Tick <strong>Question Types</strong>.</li>
-  <li>Pick a type for each of the 20 questions.</li>
-  <li>Click <strong>Save</strong>, then confirm.</li>
+  <li>Open the Round’s <strong>Edit Round</strong> dialog. You can get there in two ways:
+    <ul>
+      <li><strong>Schedule</strong> &gt; <strong>Create / Edit</strong>: pick the Division, then click <strong>Edit
+      Round</strong> on the Round.</li>
+      <li>The Round’s own page: click <strong>Edit</strong> under its name.</li>
+    </ul>
+  </li>
+  <li>In the top bar, click <strong>Set Question Types</strong>.</li>
+  <li>Find the Round marked <strong>This round</strong>. Make sure <strong>Question Types</strong> is ticked, then pick
+  a type for each of the 20 questions.</li>
+  <li>Click <strong>Save Question Types</strong>.</li>
 </ol>
-<!-- SCREENSHOT TODO: The Edit Round dialog scrolled to its Question Types section, with all 20 dropdowns filled in. Red box around the "Question Types" checkbox; red box around the "Use standard question type counts" checkbox; red box around the row of count chips. -->
 <figure>
-  <img src="setting-question-types-4.webp" alt="The Question Types section of the Edit Round dialog." loading="lazy" />
-  <figcaption>The Question Types section of the Edit Round dialog.</figcaption>
+  <img src="setting-question-types-4.webp" alt="Setting one Round’s question types from its Edit Round dialog." loading="lazy" />
+  <figcaption>Setting one Round’s question types from its Edit Round dialog.</figcaption>
 </figure>
-<p class="doc-warning">If a Round has question types and you untick <strong>Question Types</strong>, saving removes
-them. QView asks you to confirm first.</p>
+<p>The other Rounds are listed too, but they keep what they have unless you change them.</p>
+<p class="doc-note">Question types are saved on their own, when you click <strong>Save Question Types</strong>. The
+<strong>Edit Round</strong> dialog’s <strong>Save</strong> button doesn’t save them, so you can close <strong>Edit
+Round</strong> afterwards without saving it. A Round you’re still creating isn’t in the list yet: save it first, then
+set its types.</p>
+<p class="doc-warning">If a Round has question types and you untick its <strong>Question Types</strong>, clicking
+<strong>Save Question Types</strong> removes them. QView doesn’t ask first.</p>
 
 <h2>What do the colored chips mean?</h2>
 <p>Above the questions, a chip for each type shows how many you’ve picked against a standard set, for example
@@ -144,6 +151,10 @@ Rules</strong>.</p>
   Round by hand.</li>
   <li><strong>“This division has no rounds yet. Add rounds first.”</strong> Create the Division’s Rounds first (see
   <a href="doc:rounds-and-games">Scheduling Rounds and Games</a>).</li>
+  <li><strong>The Round you’re creating isn’t in the list.</strong> It hasn’t been saved yet. Save it first, then open
+  its <strong>Edit Round</strong> dialog and click <strong>Set Question Types</strong> again.</li>
+  <li><strong>There’s no Set Question Types button in Create Round.</strong> Pick the Round’s Division first. The
+  button shows up once it has one.</li>
   <li><strong>The button is greyed out on Server Stats.</strong> You’ve picked a Stats Group that isn’t a Division’s.
   Question types belong to a Division’s Rounds, so pick that Division’s Stats Group, or use the button in the
   schedule editor.</li>

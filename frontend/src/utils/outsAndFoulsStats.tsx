@@ -1,13 +1,13 @@
-// Quiz outs, error outs, foul outs and fouls on the Team and Individual stats tables: a total
-// column per item in the row (the breakdown is components/OutsAndFoulsGrid.tsx), and the flat
-// columns of the export.
+// Quiz outs, error outs, error zones, fouls and foul outs on the Team and Individual stats
+// tables: a total column per item in the row (the breakdown is components/OutsAndFoulsGrid.tsx),
+// and the flat columns of the export.
 import type { ColumnDef } from "../components/DataTableTemplate";
 import type { OutsAndFoulsStatTS } from "../features/StatsGroupAPI";
 
 /** Team rows add team and coach fouls to the quizzer fouls; quizzer rows have only quizzer fouls. */
 export type OutsScope = "team" | "individual";
 
-export type OutsKey = "quizOuts" | "errorOuts" | "foulOuts" | "fouls";
+export type OutsKey = "quizOuts" | "errorOuts" | "errorZoneTeam" | "errorZoneLate" | "fouls" | "foulOuts";
 
 export interface OutsGroup {
   key: OutsKey;
@@ -34,7 +34,8 @@ export function outsGroups(scope: OutsScope): OutsGroup[] {
       ],
     },
     { key: "errorOuts", header: "Error\nOuts", total: (s) => s.error_outs, exportLabel: "Error Outs" },
-    { key: "foulOuts", header: "Foul\nOuts", total: (s) => s.foul_outs, exportLabel: "Foul Outs" },
+    { key: "errorZoneTeam", header: "Err\nZone\n5-15", total: (s) => s.error_zone_team, exportLabel: "Err Zone 5-15" },
+    { key: "errorZoneLate", header: "Err\nZone\n16-20+", total: (s) => s.error_zone_late, exportLabel: "Err Zone 16-20+" },
     scope === "team"
       ? {
           key: "fouls",
@@ -48,6 +49,7 @@ export function outsGroups(scope: OutsScope): OutsGroup[] {
           ],
         }
       : { key: "fouls", header: "Fouls", total: (s) => s.quizzer_fouls, exportLabel: "Fouls" },
+    { key: "foulOuts", header: "Foul\nOuts", total: (s) => s.foul_outs, exportLabel: "Foul Outs" },
   ];
 }
 
@@ -68,7 +70,13 @@ export function outsAndFoulsColumns<T>(getStats: (row: T) => OutsAndFoulsStatTS,
   return columns;
 }
 
-/** The flat export columns (each breakdown, then its total) and one row's values for them. */
+/** An item's total as its table column shows it, for the export's copy of the table: its header on one line, and its value. */
+export function outsTotalExport(scope: OutsScope, key: OutsKey): { label: string; value: (s: OutsAndFoulsStatTS) => number } {
+  const g = outsGroups(scope).find((g) => g.key === key)!;
+  return { label: g.header.replace(/\n/g, " "), value: g.total };
+}
+
+/** The flat export columns of the breakdown (each item's parts, then its total) and one row's values for them. */
 export function outsAndFoulsExportColumns(scope: OutsScope): string[] {
   return outsGroups(scope).flatMap((g) => [...(g.parts ?? []).map((p) => p.exportLabel), g.exportLabel]);
 }

@@ -26,6 +26,11 @@ export function statFor(stats: QuestionTypeStatTS[], code: string): QuestionType
   return stats.find((s) => s.code === code) ?? { code, attempted: 0, correct: 0, bonus_attempted: 0, bonus_correct: 0 };
 }
 
+/** A count summed over every type but M, which repeats the R, Q and V questions. */
+export function questionTypeTotal(stats: QuestionTypeStatTS[], key: (typeof COUNTS)[number]["key"]): number {
+  return STATS_TYPE_CODES.filter((code) => code !== "M").reduce((sum, code) => sum + statFor(stats, code)[key], 0);
+}
+
 /** One narrow "correct/attempted" column per type; the bonus counts are in the cell's tooltip. */
 export function questionTypeColumns<T>(getStats: (row: T) => QuestionTypeStatTS[]): ColumnDef<T>[] {
   return STATS_TYPE_CODES.map((code) => ({
@@ -47,14 +52,18 @@ export function questionTypeColumns<T>(getStats: (row: T) => QuestionTypeStatTS[
   }));
 }
 
-/** The flat export columns ("G Attempted", "G Correct", …) and one row's values for them. */
-export const questionTypeExportColumns: string[] = STATS_TYPE_CODES.flatMap((code) =>
-  COUNTS.map((c) => `${code} ${c.label}`),
-);
+/** The flat export columns ("G Attempted", "G Correct", …, then "Total Attempted", …) and one row's values for them. */
+export const questionTypeExportColumns: string[] = [
+  ...STATS_TYPE_CODES.flatMap((code) => COUNTS.map((c) => `${code} ${c.label}`)),
+  ...COUNTS.map((c) => `Total ${c.label}`),
+];
 
 export function questionTypeExportValues(stats: QuestionTypeStatTS[]): number[] {
-  return STATS_TYPE_CODES.flatMap((code) => {
-    const s = statFor(stats, code);
-    return COUNTS.map((c) => s[c.key]);
-  });
+  return [
+    ...STATS_TYPE_CODES.flatMap((code) => {
+      const s = statFor(stats, code);
+      return COUNTS.map((c) => s[c.key]);
+    }),
+    ...COUNTS.map((c) => questionTypeTotal(stats, c.key)),
+  ];
 }

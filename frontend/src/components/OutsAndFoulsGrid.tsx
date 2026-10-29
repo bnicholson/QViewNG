@@ -1,14 +1,16 @@
-// The outs-and-fouls half of a Team or Individual stats row's expanded panel: each item's
+// The outs, error zones and fouls half of a Team or Individual stats row's expanded panel: each item's
 // breakdown under its heading, then its total.
 import Tooltip from "@mui/material/Tooltip";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import type { OutsAndFoulsStatTS } from "../features/StatsGroupAPI";
 import { outsGroups, type OutsScope } from "../utils/outsAndFoulsStats";
 
+const QUIZ_OUT_NOTE = "A quiz out with no errors (no erroneous tossups in that game) earns the quiz-out award.";
+const ERROR_ZONE_NOTE =
+  "Err Zone 5-15 counts the team's 5th and later tossup errors of a game on questions 1-15; Err Zone 16-20+ counts tossup errors from question 16 on, overtime included. No error is in both.";
 const NOTES: Record<OutsScope, string> = {
-  team:
-    "A quiz out with no errors (no erroneous tossups in that game) earns the quiz-out award. Outs and quizzer fouls are summed over the team's quizzers; Fouls also counts team and coach fouls.",
-  individual: "A quiz out with no errors (no erroneous tossups in that game) earns the quiz-out award.",
+  team: `${QUIZ_OUT_NOTE} ${ERROR_ZONE_NOTE} Every count is summed over the team's quizzers; Fouls also counts team and coach fouls.`,
+  individual: `${QUIZ_OUT_NOTE} ${ERROR_ZONE_NOTE}`,
 };
 
 /** One row of counts under grouped headers: an item with a breakdown spans its parts and a Total. */

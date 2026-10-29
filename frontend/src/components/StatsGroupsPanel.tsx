@@ -12,7 +12,7 @@ import { DataTableTemplate, type ColumnDef } from "./DataTableTemplate";
 import { GameAPI } from "../features/GameAPI";
 import { RoomAPI } from "../features/RoomAPI";
 import { RoundAPI } from "../features/RoundAPI";
-import { StatsGroupAPI, type StatsGroupTS, type TeamStatTS, type IndividualStatTS, type ErrorZoneStatTS } from "../features/StatsGroupAPI";
+import { StatsGroupAPI, type OutsAndFoulsStatTS, type StatsGroupTS, type TeamStatTS, type IndividualStatTS } from "../features/StatsGroupAPI";
 import { DivisionAPI } from "../features/DivisionAPI";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
@@ -30,7 +30,7 @@ import { exportFilename, type ExportPayload } from "../features/exportTable";
 import QuestionTypeGrid from "./QuestionTypeGrid";
 import { questionTypeColumns, questionTypeExportColumns, questionTypeExportValues } from "../utils/questionTypeStats";
 import OutsAndFoulsGrid from "./OutsAndFoulsGrid";
-import { outsAndFoulsColumns, outsAndFoulsExportColumns, outsAndFoulsExportValues } from "../utils/outsAndFoulsStats";
+import { outsAndFoulsColumns, outsAndFoulsExportColumns, outsAndFoulsExportValues, outsTotalExport, type OutsKey, type OutsScope } from "../utils/outsAndFoulsStats";
 
 // One row per Game of the tournament (mirrors the Room Monitor columns).
 interface GameSelectionRow {
@@ -54,19 +54,15 @@ const DATA_OPTIONS: { value: DataView; label: string }[] = [
   { value: "individual", label: "Individual Stats" },
 ];
 
-// ─── Error zones (Team and Individual stats) ──────────────────────────────────
+// The Team and Individual exports copy the table's columns in order, putting the full
+// question-type breakdown where the table's type columns are, then add the outs and fouls
+// breakdown at the end.
+const TEAM_OUTS: OutsKey[] = ["quizOuts", "errorOuts", "errorZoneTeam", "errorZoneLate", "fouls", "foulOuts"];
 
-const ERROR_ZONES: { header: string; exportLabel: string; value: (z: ErrorZoneStatTS) => number }[] = [
-  { header: "Err\nZone\n5-15", exportLabel: "Err Zone 5-15", value: (z) => z.team_error },
-  { header: "Err\nZone\n16-20+", exportLabel: "Err Zone 16-20+", value: (z) => z.late_game },
-];
-
-function errorZoneColumns<T>(getZones: (row: T) => ErrorZoneStatTS): ColumnDef<T>[] {
-  return ERROR_ZONES.map((z) => ({ header: z.header, align: "center", render: (row: T) => z.value(getZones(row)) }));
+function outsExport(scope: OutsScope, keys: OutsKey[]) {
+  const items = keys.map((key) => outsTotalExport(scope, key));
+  return { labels: items.map((i) => i.label), values: (s: OutsAndFoulsStatTS) => items.map((i) => i.value(s)) };
 }
-
-const errorZoneExportColumns = ERROR_ZONES.map((z) => z.exportLabel);
-const errorZoneExportValues = (zones: ErrorZoneStatTS) => ERROR_ZONES.map((z) => z.value(zones));
 
 // ─── Content sections ─────────────────────────────────────────────────────────
 
@@ -294,16 +290,17 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
   }, [statsGroupId, accessToken, rulesRefreshKey]);
 
   useEffect(() => {
+    const outs = outsExport("team", TEAM_OUTS);
     onExportReady({
       filename: "team-stats",
       columns: [
-        "Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg Pts",
-        ...outsAndFoulsExportColumns("team"), ...errorZoneExportColumns, ...questionTypeExportColumns, "Rank Rules",
+        "Place", "Name", "# Games", "Wins", "Losses", "Olympic Points", "Mod. Olympic Points", "Total Points", "Total Avg. Points",
+        ...outs.labels, ...questionTypeExportColumns, "Rank Rules", ...outsAndFoulsExportColumns("team"),
       ],
       rows: rows.map((r) => [
         r.place, r.name, r.games, r.wins, r.losses, r.olympic_points, r.mod_olympic_points,
-        r.total_points, r.avg_points.toFixed(1), ...outsAndFoulsExportValues(r.outs_and_fouls, "team"),
-        ...errorZoneExportValues(r.error_zones), ...questionTypeExportValues(r.question_types), rankRuleSummary(r),
+        r.total_points, r.avg_points.toFixed(1), ...outs.values(r.outs_and_fouls),
+        ...questionTypeExportValues(r.question_types), rankRuleSummary(r), ...outsAndFoulsExportValues(r.outs_and_fouls, "team"),
       ]),
     });
   }, [rows, onExportReady]);
@@ -319,11 +316,7 @@ function TeamStatsSection({ statsGroupId, onExportReady, rulesRefreshKey }: {
     { header: "Mod.\nOlympic\nPoints", render: (r) => r.mod_olympic_points },
     { header: "Total\nPoints", render: (r) => r.total_points },
     { header: "Total\nAvg.\nPoints", render: (r) => r.avg_points.toFixed(1) },
-    outs.quizOuts,
-    outs.errorOuts,
-    ...errorZoneColumns<TeamStatTS>((r) => r.error_zones),
-    outs.fouls,
-    outs.foulOuts,
+    ...TEAM_OUTS.map((key) => outs[key]),
     ...questionTypeColumns<TeamStatTS>((r) => r.question_types),
     {
       header: "Rank\nRules",
@@ -413,16 +406,20 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
   }, [statsGroupId, accessToken]);
 
   useEffect(() => {
+    const quizOuts = outsExport("individual", ["quizOuts"]);
+    const errorOuts = outsExport("individual", ["errorOuts", "errorZoneTeam", "errorZoneLate"]);
+    const fouls = outsExport("individual", ["fouls", "foulOuts"]);
     onExportReady({
       filename: "individual-stats",
       columns: [
-        "Place", "Individual", "Team Name", "# Games", "Score", "Avg", "Correct", "Errors", "Bonus Pts", "Bonus Attempts",
-        ...outsAndFoulsExportColumns("individual"), ...errorZoneExportColumns, ...questionTypeExportColumns,
+        "Place", "Individual", "Team Name", "# Games", "Score", "Avg", "Correct", ...quizOuts.labels, "Errors",
+        ...errorOuts.labels, "Bonus Pts", "Bonus Attempts", ...fouls.labels, ...questionTypeExportColumns,
+        ...outsAndFoulsExportColumns("individual"),
       ],
       rows: rows.map((r) => [
-        r.place, r.individual, r.team_name, r.games, r.score, r.avg.toFixed(1), r.correct, r.errors, r.bonus_pts, r.bonus_attempts,
-        ...outsAndFoulsExportValues(r.outs_and_fouls, "individual"), ...errorZoneExportValues(r.error_zones),
-        ...questionTypeExportValues(r.question_types),
+        r.place, r.individual, r.team_name, r.games, r.score, r.avg.toFixed(1), r.correct, ...quizOuts.values(r.outs_and_fouls),
+        r.errors, ...errorOuts.values(r.outs_and_fouls), r.bonus_pts, r.bonus_attempts, ...fouls.values(r.outs_and_fouls),
+        ...questionTypeExportValues(r.question_types), ...outsAndFoulsExportValues(r.outs_and_fouls, "individual"),
       ]),
     });
   }, [rows, onExportReady]);
@@ -439,7 +436,8 @@ function IndividualStatsSection({ statsGroupId, onExportReady }: { statsGroupId:
     outs.quizOuts,
     { header: "Errors", render: (r) => r.errors },
     outs.errorOuts,
-    ...errorZoneColumns<IndividualStatTS>((r) => r.error_zones),
+    outs.errorZoneTeam,
+    outs.errorZoneLate,
     { header: "Bonus\nPts", render: (r) => r.bonus_pts },
     { header: "Bonus\nAttempts", render: (r) => r.bonus_attempts },
     outs.fouls,

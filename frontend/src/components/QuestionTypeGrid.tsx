@@ -2,16 +2,13 @@
 import Tooltip from "@mui/material/Tooltip";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import type { QuestionTypeStatTS } from "../features/StatsGroupAPI";
-import { COUNTS, STATS_TYPE_CODES, TYPE_NAMES, statFor } from "../utils/questionTypeStats";
+import { COUNTS, STATS_TYPE_CODES, TYPE_NAMES, questionTypeTotal, statFor } from "../utils/questionTypeStats";
 
 const NOTE =
   "M (Memory Verse) re-counts the R, Q and V questions, so Total leaves it out. Questions without a question type (overtime, or rounds with none set) aren't counted.";
 
 /** The expanded panel: counts down the side, types across the top, plus a Total column. */
 export default function QuestionTypeGrid({ stats }: { stats: QuestionTypeStatTS[] }) {
-  // M repeats the R, Q and V questions, so the total leaves it out.
-  const total = (key: (typeof COUNTS)[number]["key"]) =>
-    STATS_TYPE_CODES.filter((code) => code !== "M").reduce((sum, code) => sum + statFor(stats, code)[key], 0);
   const cell = { padding: "3px 10px", textAlign: "center" as const, fontVariantNumeric: "tabular-nums" };
   const head = { ...cell, fontSize: 12, fontWeight: 600, color: "#6b7280" };
   const sep = { borderLeft: "1px solid #e5e7eb" };
@@ -43,7 +40,7 @@ export default function QuestionTypeGrid({ stats }: { stats: QuestionTypeStatTS[
                 {statFor(stats, code)[c.key]}
               </td>
             ))}
-            <td style={{ ...cell, ...sep, fontWeight: 600 }}>{total(c.key)}</td>
+            <td style={{ ...cell, ...sep, fontWeight: 600 }}>{questionTypeTotal(stats, c.key)}</td>
           </tr>
         ))}
       </tbody>
