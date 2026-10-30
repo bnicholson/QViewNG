@@ -38,13 +38,13 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
 3) Clone the project in the working directory you desire.
    ```
    git clone https://github.com/bnicholson/qviewng.git
-   cd qview
+   cd qviewng
    ```
 
-4) Run `getrustdev` (*this script loads all the required linux (debian) programs needed to develop
+4) Run `getrustdev.sh` (*this script loads all the required linux (debian) programs needed to develop
    such as Rust, PostgreSQL, etc.):
 	```
-   ./getrustdev
+   ./getrustdev.sh
    ```
 
 5) Now install the JavaScript libraries needed by the UI frontend:
@@ -70,19 +70,19 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
    ```
 
    Note:  There is an example script under setup-db-valkey.sh that does this plus other work.
-   The script is intended to replace steps #8, #9, #10 however the script has flaws so at this time is
+   The script is intended to replace steps #6, #8, #9 however the script has flaws so at this time is
    preferred to stick with the manual steps above until those are sorted out.
 
-8) Copy and paste the '.env.example', '.env.release.example' and '.env.test,example' files in the same directory they are found in (the root dir), remove the '.example' portions from the file names, and manually populate it with the necessary values. Eaxh example file has comments descriing what each ENV VAR is used for and supposed to be (or at least it should if it has been maintained well).
+7) Copy and paste the '.env.example', '.env.dev.example' and '.env.test.example' files in the same directory they are found in (the root dir), remove the '.example' portions from the file names, and manually populate it with the necessary values. Eaxh example file has comments descriing what each ENV VAR is used for and supposed to be (or at least it should if it has been maintained well).
 
-9) Run the DB migrations on the datbase you just created to establish in the DB the schema and perhaps some data:
+8) Run the DB migrations on the datbase you just created to establish in the DB the schema and perhaps some data:
    ```
    cd {root}/backend
    diesel migration run
    ```
    (Docker deployments don't need this step: `docker compose up` runs a one-shot `migrate` service that applies any pending migrations before the app starts.)
 
-10) Remove the superuser permissions from the user you created earlier:
+9) Remove the superuser permissions from the user you created earlier:
    ```
    sudo bash
    su - postgres
@@ -93,7 +93,7 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
    exit
    ```
 
-- Now you are ready to run QView's frontend and backend together with one command. (Note: The Vite server usually listend on http://localhost:5173):
+- Now you are ready to run QView's frontend and backend together with one command. (Note: The Vite server usually listens on http://localhost:5173):
   ```
   cd {root}/frontend/
   npm run dev
@@ -105,6 +105,10 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
   The cache is purely an optimization -- see backend/src/cache.rs. To develop with it off, set
   QVIEW_SKIP_VALKEY=1. To start or stop it on its own: `npm run valkey:start` / `npm run
   valkey:stop`.
+
+  The Vite dev server runs with `--host`, so it listens on all network interfaces, not just
+  localhost. Other devices on your network (e.g. a phone or tablet for testing) can reach it at
+  http://{your-machine-ip}:5173.
 
 - If you want to build the backend without the frontend:
   ```
@@ -129,9 +133,9 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
   cargo test --lib
   ```
   
-- To run integration tests, use file {root}/backend/run-tests.sh. It loads the .env.test config file and provides a quick way to switch between one file and all integration tests, reducing the amount of CLI typing needed to run integration tests. Just run:
+- To run integration tests, use file {root}/backend/run-tests.sh. It loads the .env.test config file, starts a throwaway test Postgres container (see compose.test.yaml), and runs the tests with cargo-nextest. Docker must be running, and nextest must be installed once with `cargo install --locked cargo-nextest`. The script's comments show how to run one file or one test instead of all of them. Just run:
   ```
-  ./backend/run-test.sh
+  ./backend/run-tests.sh
   ```
 
 # How It Works
