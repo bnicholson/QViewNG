@@ -1,7 +1,8 @@
 
 use actix_web::{App, HttpServer};
 use actix_web::middleware::{Compress, Logger, NormalizePath};
-use backend::database::Database;
+use backend::database::{Database, MIGRATIONS};
+use diesel_migrations::MigrationHarness;
 use backend::cache::Cache;
 use backend::live::{self, LiveHub};
 use backend::database::clean_db::clean_database;
@@ -40,6 +41,19 @@ async fn main() -> std::io::Result<()> {
     // and release builds never enable it; say so loudly if it ever slips through.
     if cfg!(feature = "fast-test-hash") {
         log::warn!("Built with the test-only `fast-test-hash` feature: passwords are hashed at bcrypt's minimum cost. Do not use this build for real data.");
+    }
+
+    // `backend migrate` applies any pending migrations and exits. compose.yaml runs it as a one-shot
+    // service before the server starts, so a deploy brings the schema in step with the binary.
+    if std::env::args().nth(1).as_deref() == Some("migrate") {
+        let db = Database::new_single_threaded("DATABASE_URL");
+        let mut conn = db.get_connection().expect("Failed to get connection.");
+        let applied = conn.run_pending_migrations(MIGRATIONS).expect("Failed to run migrations.");
+        log::info!("Applied {} pending migration(s).", applied.len());
+        for version in &applied {
+            log::info!("  applied {version}");
+        }
+        return Ok(());
     }
 
     // DB maintenance runs on its own and exits before anything server-related starts. It needs

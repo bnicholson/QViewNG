@@ -80,6 +80,7 @@ Thise guide is aimed at Ubuntu 24.04 OS. You should be able to do these same thi
    cd {root}/backend
    diesel migration run
    ```
+   (Docker deployments don't need this step: `docker compose up` runs a one-shot `migrate` service that applies any pending migrations before the app starts.)
 
 10) Remove the superuser permissions from the user you created earlier:
    ```

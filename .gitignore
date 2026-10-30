@@ -16,7 +16,6 @@ build-log*.txt
 /backend/target
 /backend/target/debug
 /qviewng-db
-/postgres-init/*.backup
 /.claude/*
 !/.claude/skills/
 

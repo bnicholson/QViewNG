@@ -9,7 +9,6 @@ services:
       - POSTGRES_DB
     volumes:
       - "qviewng-db:/var/lib/postgresql"
-      - ./postgres-init:/docker-entrypoint-initdb.d:ro  # Init scripts directory (read-only)
     restart: unless-stopped
     networks:
       - qviewng-net
@@ -47,6 +46,21 @@ services:
       retries: 5
       start_period: 10s
 
+  # One-shot: applies any pending migrations (embedded in the backend binary) and exits. It uses the
+  # app image itself, so the schema always matches the code being deployed, and qviewng waits for it
+  # to succeed -- a failed migration keeps the app from starting against a half-migrated schema.
+  # Shows as "Exited (0)" in `docker compose ps` once done; `docker compose logs migrate` lists
+  # what it applied.
+  migrate:
+    image: "${DOCKER_APP_IMAGE}"
+    command: ["/usr/local/bin/backend", "migrate"]
+    restart: "no"
+    networks:
+      - qviewng-net
+    depends_on:
+      pgdb:
+        condition: service_healthy
+
   qviewng:
     image: "${DOCKER_APP_IMAGE}"
     build: .
@@ -73,6 +87,8 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "${APP_PORT:-80}:80"
 
