@@ -18,13 +18,13 @@ Tech stack overview:
 - Rust provides the backend APIs and microservices.
 - The frontend is designed using the React JavaScript framework.
 - The UI is designed using the Material UI framework and components.
-- The backend database is Postgresql.
-- Redis/Valkey is planned to be used as a cache and as a inter QView server store.
+- The backend database is PostgreSQL.
+- Redis/Valkey is planned to be used as a cache and as an inter-QView server store.
 
 Note: You may see "QViewNG" in places around the codebase. It stands for "QView Next Generation" and it is the codename used 
 for the pre-alpha version of QView. Eventually all instances of it will be replaced by "QView" or "qview".
 
-At this time, contributions are being accepted only in the form of developer code contribubtions. If interested please context 
+At this time, contributions are being accepted only in the form of developer code contributions. If interested, please contact 
 Collyn Brenner at collynbrenner@gmail.com.
 
 <br/>
@@ -32,7 +32,7 @@ Collyn Brenner at collynbrenner@gmail.com.
 ## Dev Environment Setup
 
 QView was originally developed using Ubuntu 24.04 and then using Omarchy/Arch. You should be able to accomplish the steps below 
-on MacOS, Windows OS and/or WSL2, however this guide will stick to setup on a linux machine.
+on macOS, Windows OS and/or WSL2; however, this guide will stick to setup on a Linux machine.
 
 1) Install your desired non-headless OS on a bare metal device or on a VM.
 
@@ -47,7 +47,7 @@ on MacOS, Windows OS and/or WSL2, however this guide will stick to setup on a li
    cd qviewng
    ```
 
-4) Run `getrustdev.sh` (*this script loads all the required linux programs needed to develop
+4) Run `getrustdev.sh` (*this script loads all the required Linux programs needed to develop
    such as Rust, PostgreSQL, etc.):
 	```
    ./getrustdev.sh
@@ -75,11 +75,11 @@ on MacOS, Windows OS and/or WSL2, however this guide will stick to setup on a li
    exit
    ```
 
-   Note:  There is an example script under setup-db-valkey.sh that does this plus other work.
-   The script is intended to replace steps #6, #8, #9 however the script has flaws so at this time is
-   preferred to stick with the manual steps above until those are sorted out. If adventurous, feel free to try using it!
+   Note: There is an example script under setup-db-valkey.sh that does this plus other work.
+   The script is intended to replace steps #6, #8, and #9; however, the script has flaws, so at this time it is
+   preferred to stick with the manual steps above until those are sorted out. If you're adventurous, feel free to try using it!
 
-7) Copy and paste the '.env.example', '.env.dev.example' and '.env.test.example' files in the same directory they are found in (the root dir), remove the '.example' portions from the file names, and manually populate it with the necessary values. Eaxh example file has comments descriing what each ENV VAR is used for and supposed to be (or at least it should if it has been maintained well).
+7) Copy and paste the '.env.example', '.env.dev.example' and '.env.test.example' files in the same directory they are found in (the root dir), remove the '.example' portions from the file names, and manually populate them with the necessary values. Each example file has comments describing what each ENV VAR is used for and supposed to be (or at least it should if it has been maintained well).
 
 8) Run the DB migrations on the database you just created to establish in the DB the schema and perhaps some data:
    ```
@@ -134,12 +134,12 @@ on MacOS, Windows OS and/or WSL2, however this guide will stick to setup on a li
   
 ### Tests
 
-- To run unit tests use the usual command:
+- To run unit tests, use the usual command:
   ```
   cargo test --lib
   ```
   
-- To run integration tests, use file {root}/backend/run-tests.sh. It loads the .env.test config file, starts a throwaway test Postgres container (see compose.test.yaml), and runs the tests with cargo-nextest. Docker must be running, and nextest must be installed once with `cargo install --locked cargo-nextest`. The script's comments show how to run one file or one test instead of all of them. Just run:
+- To run integration tests, use the file {root}/backend/run-tests.sh. It loads the .env.test config file, starts a throwaway test PostgreSQL container (see compose.test.yaml), and runs the tests with cargo-nextest. Docker must be running, and nextest must be installed once with `cargo install --locked cargo-nextest`. The script's comments show how to run one file or one test instead of all of them. Just run:
   ```
   ./backend/run-tests.sh
   ```
