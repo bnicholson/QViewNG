@@ -41,9 +41,18 @@ Match what's there:
 - Short notes in plain sentences right after the command they apply to (e.g. "Docker deployments don't need this step: …").
 - Keep it brief. Link to a file or script instead of repeating what it does in detail.
 
+## Final check: spelling and grammar
+As the last step, after everything else is done, proofread the text you added or changed, plus the rest of any section you touched. Correct every spelling and grammar mistake before handing the work back.
+- **Spelling:** fix typos and misspellings (e.g. "Thise" → "This", "datbase" → "database"), doubled words ("the the"), and verb/noun mix-ups like "setup" (noun) vs. "set up" (verb).
+- **Grammar:** fix subject/verb agreement, wrong word forms ("a inter" → "an inter"), wrong words ("context" → "contact", "listend" → "listens"), missing words, and run-on sentences. Keep the author's wording and tone; fix mistakes, don't rewrite.
+- **Names:** write QView, QViewNG, QuizMachine, QMServer, PostgreSQL, Valkey, Docker, Rust, React and Material UI exactly like that in prose.
+- **Leave code alone:** don't "correct" anything inside code blocks or backticks, or file names, commands, env variable names or URLs, unless it's actually wrong (e.g. a script name that doesn't match the real file). Then fix it as a content fix under rule 1, not as a spelling fix.
+- List what you corrected in your report to the user.
+
 ## Reporting
 
 After every update, tell the user:
 - Each part of the README **added**, **updated** (what changed), or **removed**, by section and step number.
 - Any other out-of-date or wrong content you fixed along the way, and anything you weren't sure about, so they can check it.
+- The spelling and grammar corrections you made.
 - A reminder that the changes are unstaged and waiting for their review.
